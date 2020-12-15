@@ -10,9 +10,9 @@ from .logger import logger
 
 def init(token, app_name, service_name, **kwargs):
     """
-    inits the acalla client
+    inits the authorizon client
     """
-    logger.info(f"acalla.init", backend_url=POLICY_SERVICE_URL, opa_url=OPA_SERVICE_URL)
+    logger.info(f"authorizon.init", backend_url=POLICY_SERVICE_URL, opa_url=OPA_SERVICE_URL)
     authorization_client.initialize(
         token=token, app_name=app_name, service_name=service_name, **kwargs
     )
@@ -37,17 +37,17 @@ def resource(
 
     usage:
 
-    acalla.resource(
+    authorizon.resource(
         name="Todo",
         description="todo item",
-        type=acalla.types.REST,
+        type=authorizon.types.REST,
         path="/lists/{list_id}/todos/{todo_id}",
         actions=[
-            acalla.action(
+            authorizon.action(
                 name="add",
                 title="Add",
                 path="/lists/{list_id}/todos/",
-                verb="post", # acalla.types.http.POST
+                verb="post", # authorizon.types.http.POST
             ),
             ...
         ]
@@ -55,12 +55,12 @@ def resource(
 
     you can later add actions on that resource:
 
-    todo = acalla.resource( ... )
+    todo = authorizon.resource( ... )
     todo.action(
         name="add",
         title="Add",
         path="/lists/{list_id}/todos/",
-        verb="post", # acalla.types.http.POST
+        verb="post", # authorizon.types.http.POST
     )
     """
     attributes = attributes or {}
@@ -87,11 +87,11 @@ def action(
     declare an action on a resource.
 
     usage:
-    acalla.resource(
+    authorizon.resource(
         ...,
         actions = [
-            acalla.action(...),
-            acalla.action(...),
+            authorizon.action(...),
+            authorizon.action(...),
         ]
     )
     """

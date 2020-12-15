@@ -196,7 +196,7 @@ class AuthorizationClient:
 
     def _throw_if_not_initialized(self):
         if not self._initialized:
-            raise RuntimeError("You must call acalla.init() first!")
+            raise RuntimeError("You must call authorizon.init() first!")
 
 
 authorization_client = AuthorizationClient()

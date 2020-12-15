@@ -39,9 +39,9 @@ class EnforcerFactory:
         sets the default user for the current authz context.
 
         usage:
-        acalla.set_user(id="83db95ce954f41078d4e04dda95e8e40")
-        acalla.set_user(id="83db95ce954f41078d4e04dda95e8e40", data={ ... })
-        acalla.set_user(from_jwt=jwt_payload) # (called *after* you verified the jwt, payload is a dict with claims)
+        authorizon.set_user(id="83db95ce954f41078d4e04dda95e8e40")
+        authorizon.set_user(id="83db95ce954f41078d4e04dda95e8e40", data={ ... })
+        authorizon.set_user(from_jwt=jwt_payload) # (called *after* you verified the jwt, payload is a dict with claims)
         """
         user_context = {}
 
@@ -66,7 +66,7 @@ class EnforcerFactory:
         sets the org for the current context.
         useful when syncing created objects (to associate them with an authz org).
 
-        usage: acalla.set_org(id="<MY_CUSTOMER_ID>")
+        usage: authorizon.set_org(id="<MY_CUSTOMER_ID>")
         """
         self.set_context({"__org_id": id})
 
@@ -90,15 +90,15 @@ class EnforcerFactory:
         """
         usage:
 
-        acalla.is_allowed(user, 'get', '/tasks/23')
-        acalla.is_allowed(user, 'get', '/tasks')
+        authorizon.is_allowed(user, 'get', '/tasks/23')
+        authorizon.is_allowed(user, 'get', '/tasks')
 
 
-        acalla.is_allowed(user, 'post', '/lists/3/todos/37', context={org_id=2})
+        authorizon.is_allowed(user, 'post', '/lists/3/todos/37', context={org_id=2})
 
 
-        acalla.is_allowed(user, 'view', task)
-        acalla.is_allowed('view', task)
+        authorizon.is_allowed(user, 'view', task)
+        authorizon.is_allowed('view', task)
 
         TODO: create comprehesive input
         TODO: currently assuming resource is a dict
@@ -114,7 +114,7 @@ class EnforcerFactory:
             raise ValueError("Unsupported resource type: {}".format(type(resource)))
 
         resource_type = resource_dict["type"]
-        print(f"acalla.is_allowed({user}, {resource_type}:{action})")
+        print(f"authorizon.is_allowed({user}, {resource_type}:{action})")
 
         resource_dict['context'] = self._transform_context(resource_dict['context'])
         opa_input = {

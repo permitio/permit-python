@@ -21,7 +21,7 @@ class Resource:
         }
 
     def __repr__(self):
-        return "acalla.Resource(name={}, path={}, instance={})".format(
+        return "authorizon.Resource(name={}, path={}, instance={})".format(
             self._name, self._path, self._instance_path
         )
 
