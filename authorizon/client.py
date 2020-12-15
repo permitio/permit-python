@@ -53,21 +53,9 @@ class AuthorizationClient:
         self._throw_if_not_initialized()
         return self._token
 
-    def fetch_policy(self):
-        """
-        get rego
-        """
+    def update_policy_data(self):
         self._throw_if_not_initialized()
-        response = self._requests.get(f"{SIDECAR_URL}/sdk/policy")
-        return response.text
-
-    def fetch_policy_data(self):
-        """
-        get opa data.json
-        """
-        self._throw_if_not_initialized()
-        response = self._requests.get(f"{SIDECAR_URL}/sdk/policy-config")
-        return response.json()
+        self._requests.post(f"{SIDECAR_URL}/update_policy_data")
 
     def add_resource(self, resource: ResourceDefinition) -> ResourceStub:
         self._registry.add_resource(resource)
@@ -193,10 +181,6 @@ class AuthorizationClient:
             data=json.dumps(data),
         )
         return response.json()
-
-    def update_policy_data(self):
-        self._throw_if_not_initialized()
-        self._requests.post(f"{SIDECAR_URL}/update_policy_data")
 
     def _throw_if_not_initialized(self):
         if not self._initialized:
