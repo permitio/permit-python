@@ -2,26 +2,19 @@ from typing import Optional, List, Callable, Dict, Any
 
 from .client import authorization_client, ResourceStub
 from .resource_registry import ResourceDefinition, ActionDefinition
-from .updater import policy_updater, update_policy, update_policy_data
-from .enforcer import enforcer_factory
+from .enforcer import enforcer
 from .markers import resource_id, resource_type, org_id
-from .constants import POLICY_SERVICE_URL, OPA_SERVICE_URL
+from .constants import SIDECAR_URL
 from .logger import logger
 
 def init(token, app_name, service_name, **kwargs):
     """
     inits the authorizon client
     """
-    logger.info(f"authorizon.init", backend_url=POLICY_SERVICE_URL, opa_url=OPA_SERVICE_URL)
+    logger.info(f"authorizon.init", sidecar_url=SIDECAR_URL)
     authorization_client.initialize(
         token=token, app_name=app_name, service_name=service_name, **kwargs
     )
-
-    # initial fetch of policy
-    update_policy()
-    update_policy_data()
-
-    policy_updater.start()
 
 def resource(
     name: str,
@@ -47,7 +40,7 @@ def resource(
                 name="add",
                 title="Add",
                 path="/lists/{list_id}/todos/",
-                verb="post", # authorizon.types.http.POST
+                verb="post",
             ),
             ...
         ]
@@ -60,7 +53,7 @@ def resource(
         name="add",
         title="Add",
         path="/lists/{list_id}/todos/",
-        verb="post", # authorizon.types.http.POST
+        verb="post",
     )
     """
     attributes = attributes or {}
@@ -111,10 +104,7 @@ delete_org = authorization_client.delete_org
 add_user_to_org = authorization_client.add_user_to_org
 get_orgs_for_user = authorization_client.get_orgs_for_user
 assign_role = authorization_client.assign_role
+update_policy_data = authorization_client.update_policy_data
 
-set_user = enforcer_factory.set_user
-set_org = enforcer_factory.set_org
-set_context = enforcer_factory.set_context
-is_allowed = enforcer_factory.is_allowed
-transform_resource_context = enforcer_factory.add_transform
-update_policy_data = update_policy_data
+is_allowed = enforcer.is_allowed
+transform_resource_context = enforcer.add_transform

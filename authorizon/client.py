@@ -3,7 +3,7 @@ import json
 
 from typing import Optional, Dict, Any
 
-from .constants import POLICY_SERVICE_URL
+from .constants import SIDECAR_URL
 from .resource_registry import resource_registry, ResourceDefinition, ActionDefinition
 from .logger import logger
 
@@ -58,7 +58,7 @@ class AuthorizationClient:
         get rego
         """
         self._throw_if_not_initialized()
-        response = self._requests.get(f"{POLICY_SERVICE_URL}/policy")
+        response = self._requests.get(f"{SIDECAR_URL}/sdk/policy")
         return response.text
 
     def fetch_policy_data(self):
@@ -66,7 +66,7 @@ class AuthorizationClient:
         get opa data.json
         """
         self._throw_if_not_initialized()
-        response = self._requests.get(f"{POLICY_SERVICE_URL}/policy-config")
+        response = self._requests.get(f"{SIDECAR_URL}/sdk/policy-config")
         return response.json()
 
     def add_resource(self, resource: ResourceDefinition) -> ResourceStub:
@@ -83,7 +83,7 @@ class AuthorizationClient:
         if self._initialized and not self._registry.is_synced(resource):
             logger.info("syncing resource", resource=repr(resource))
             response = self._requests.put(
-                f"{POLICY_SERVICE_URL}/resource",
+                f"{SIDECAR_URL}/sdk/resource",
                 data=json.dumps(resource.dict()),
             )
             self._registry.mark_as_synced(
@@ -97,7 +97,7 @@ class AuthorizationClient:
         if self._initialized and not self._registry.is_synced(action):
             logger.info("syncing action", action=repr(action))
             response = self._requests.put(
-                f"{POLICY_SERVICE_URL}/resource/{resource_id}/action",
+                f"{SIDECAR_URL}/sdk/resource/{resource_id}/action",
                 data=json.dumps(action.dict())
             )
             self._registry.mark_as_synced(
@@ -119,7 +119,7 @@ class AuthorizationClient:
             "data": user_data
         }
         response = self._requests.put(
-            f"{POLICY_SERVICE_URL}/user",
+            f"{SIDECAR_URL}/sdk/user",
             data=json.dumps(data),
         )
         return response.json()
@@ -136,7 +136,7 @@ class AuthorizationClient:
             "name": org_name,
         }
         response = self._requests.post(
-            f"{POLICY_SERVICE_URL}/organization",
+            f"{SIDECAR_URL}/sdk/organization",
             data=json.dumps(data),
         )
         return response.json()
@@ -147,7 +147,7 @@ class AuthorizationClient:
     ):
         self._throw_if_not_initialized()
         self._requests.delete(
-            f"{POLICY_SERVICE_URL}/organization/{org_id}",
+            f"{SIDECAR_URL}/sdk/organization/{org_id}",
         )
 
     def add_user_to_org(
@@ -161,7 +161,7 @@ class AuthorizationClient:
             "org_id": org_id,
         }
         response = self._requests.post(
-            f"{POLICY_SERVICE_URL}/add_user_to_org",
+            f"{SIDECAR_URL}/sdk/add_user_to_org",
             data=json.dumps(data),
         )
         return response.json()
@@ -172,7 +172,7 @@ class AuthorizationClient:
     ):
         self._throw_if_not_initialized()
         response = self._requests.get(
-            f"{POLICY_SERVICE_URL}/get_orgs_for_user/{user_id}",
+            f"{SIDECAR_URL}/sdk/get_orgs_for_user/{user_id}",
         )
         return response.json()
 
@@ -189,10 +189,14 @@ class AuthorizationClient:
             "org_id": org_id,
         }
         response = self._requests.post(
-            f"{POLICY_SERVICE_URL}/assign_role",
+            f"{SIDECAR_URL}/sdk/assign_role",
             data=json.dumps(data),
         )
         return response.json()
+
+    def update_policy_data(self):
+        self._throw_if_not_initialized()
+        self._requests.post(f"{SIDECAR_URL}/update_policy_data")
 
     def _throw_if_not_initialized(self):
         if not self._initialized:
