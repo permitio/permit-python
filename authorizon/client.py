@@ -53,6 +53,10 @@ class AuthorizationClient:
         self._throw_if_not_initialized()
         return self._token
 
+    def update_policy(self):
+        self._throw_if_not_initialized()
+        self._requests.post(f"{SIDECAR_URL}/update_policy")
+
     def update_policy_data(self):
         self._throw_if_not_initialized()
         self._requests.post(f"{SIDECAR_URL}/update_policy_data")
