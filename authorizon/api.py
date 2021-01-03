@@ -108,3 +108,4 @@ update_policy_data = authorization_client.update_policy_data
 
 is_allowed = enforcer.is_allowed
 transform_resource_context = enforcer.add_transform
+provide_context = enforcer.add_context
