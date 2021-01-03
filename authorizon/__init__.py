@@ -13,6 +13,7 @@ from .api import (
     resource_type,
     org_id,
     transform_resource_context,
+    provide_context,
     update_policy_data,
 )
 
@@ -34,5 +35,6 @@ __all__ = [
     'resource_type',
     'org_id',
     'transform_resource_context',
+    'provide_context',
     'update_policy_data',
 ]
