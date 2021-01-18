@@ -1,6 +1,9 @@
 from typing import Optional
 from .resource_registry import resource_registry, ResourceDefinition
 
+class ResourceNotFound(Exception):
+    pass
+
 class Resource:
     """
     temp resource object
@@ -28,4 +31,6 @@ class Resource:
     @classmethod
     def from_path(self, path: str):
         name, resource_def, context = resource_registry.get_resource_by_path(path)
+        if name is None:
+            raise ResourceNotFound()
         return Resource(name, path, resource_def, context)
