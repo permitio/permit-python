@@ -5,7 +5,8 @@ import copy
 from typing import Optional, Dict, Any, Callable, Union
 
 from .constants import SIDECAR_URL
-from .resource import Resource
+from .resource import Resource, ResourceNotFound
+from .logger import logger
 
 def set_if_not_none(d: dict, k: str, v):
     if v is not None:
@@ -43,7 +44,11 @@ class Enforcer:
     def _translate_resource(self, resource: ResourceType) -> Dict[str, Any]:
         resource_dict = {}
         if isinstance(resource, str):
-            resource_dict = Resource.from_path(resource).dict()
+            try:
+                resource_dict = Resource.from_path(resource).dict()
+            except ResourceNotFound:
+                logger.warn("resource not found", resource_path=resource)
+                return {}
         elif isinstance(resource, Resource):
             resource_dict = resource.dict()
         elif isinstance(resource, dict):
@@ -72,6 +77,8 @@ class Enforcer:
         TODO: currently assuming resource is a dict
         """
         resource = self._translate_resource(resource)
+        if not resource:
+            return False
         query_context = self._combine_context(context)
         input = {
             "user": user,

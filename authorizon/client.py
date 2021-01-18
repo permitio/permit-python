@@ -116,6 +116,15 @@ class AuthorizationClient:
         )
         return response.json()
 
+    def delete_user(
+        self,
+        user_id: str
+    ):
+        self._throw_if_not_initialized()
+        self._requests.delete(
+            f"{SIDECAR_URL}/sdk/user/{user_id}",
+        )
+
     def sync_org(
         self,
         org_id: str,
@@ -158,6 +167,22 @@ class AuthorizationClient:
         )
         return response.json()
 
+    def remove_user_from_org(
+        self,
+        user_id: str,
+        org_id: str
+    ):
+        self._throw_if_not_initialized()
+        data = {
+            "user_id": user_id,
+            "org_id": org_id,
+        }
+        response = self._requests.post(
+            f"{SIDECAR_URL}/sdk/remove_user_from_org",
+            data=json.dumps(data),
+        )
+        return response.json()
+
     def get_orgs_for_user(
         self,
         user_id: str
@@ -182,6 +207,24 @@ class AuthorizationClient:
         }
         response = self._requests.post(
             f"{SIDECAR_URL}/sdk/assign_role",
+            data=json.dumps(data),
+        )
+        return response.json()
+
+    def unassign_role(
+        self,
+        role: str,
+        user_id: str,
+        org_id: str
+    ):
+        self._throw_if_not_initialized()
+        data = {
+            "role": role,
+            "user_id": user_id,
+            "org_id": org_id,
+        }
+        response = self._requests.post(
+            f"{SIDECAR_URL}/sdk/unassign_role",
             data=json.dumps(data),
         )
         return response.json()
