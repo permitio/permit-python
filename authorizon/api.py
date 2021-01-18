@@ -99,11 +99,14 @@ def action(
     )
 
 sync_user = authorization_client.sync_user
+delete_user = authorization_client.delete_user
 sync_org = authorization_client.sync_org
 delete_org = authorization_client.delete_org
 add_user_to_org = authorization_client.add_user_to_org
+remove_user_from_org = authorization_client.remove_user_from_org
 get_orgs_for_user = authorization_client.get_orgs_for_user
 assign_role = authorization_client.assign_role
+unassign_role = authorization_client.unassign_role
 update_policy_data = authorization_client.update_policy_data
 
 is_allowed = enforcer.is_allowed
