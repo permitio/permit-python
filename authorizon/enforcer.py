@@ -88,6 +88,6 @@ class Enforcer:
         }
         response = requests.post(f"{SIDECAR_URL}/allowed", data=json.dumps(input))
         response_data = response.json()
-        return response_data.get("result", False)
+        return response_data.get("allow", response_data.get("result", False))
 
 enforcer = Enforcer()
