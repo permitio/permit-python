@@ -72,9 +72,6 @@ class Enforcer:
 
         authorizon.is_allowed(user, 'view', task)
         authorizon.is_allowed('view', task)
-
-        TODO: create comprehesive input
-        TODO: currently assuming resource is a dict
         """
         resource = self._translate_resource(resource)
         if not resource:
