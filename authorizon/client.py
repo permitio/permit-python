@@ -74,12 +74,15 @@ class AuthorizationClient:
     def _maybe_sync_resource(self, resource: ResourceDefinition):
         if self._initialized and not self._registry.is_synced(resource):
             logger.info("syncing resource", resource=repr(resource))
-            response = self._requests.put(
-                f"{SIDECAR_URL}/sdk/resource",
-                data=json.dumps(resource.dict()),
-            )
-            self._registry.mark_as_synced(
-                resource, remote_id=response.json().get('id'))
+            try:
+                response = self._requests.put(
+                    f"{SIDECAR_URL}/sdk/resource",
+                    data=json.dumps(resource.dict()),
+                )
+                self._registry.mark_as_synced(
+                    resource, remote_id=response.json().get('id'))
+            except requests.RequestException as e:
+                logger.error("connection error", err=e)
 
     def _maybe_sync_action(self, action: ActionDefinition):
         resource_id = action.resource_id
@@ -88,12 +91,15 @@ class AuthorizationClient:
 
         if self._initialized and not self._registry.is_synced(action):
             logger.info("syncing action", action=repr(action))
-            response = self._requests.put(
-                f"{SIDECAR_URL}/sdk/resource/{resource_id}/action",
-                data=json.dumps(action.dict())
-            )
-            self._registry.mark_as_synced(
-                action, remote_id=response.json().get('id'))
+            try:
+                response = self._requests.put(
+                    f"{SIDECAR_URL}/sdk/resource/{resource_id}/action",
+                    data=json.dumps(action.dict())
+                )
+                self._registry.mark_as_synced(
+                    action, remote_id=response.json().get('id'))
+            except requests.RequestException as e:
+                logger.error("connection error", err=e)
 
     def _sync_resources(self):
         # will also sync actions

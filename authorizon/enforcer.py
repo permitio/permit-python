@@ -83,8 +83,12 @@ class Enforcer:
             "resource": resource,
             "context": query_context,
         }
-        response = requests.post(f"{SIDECAR_URL}/allowed", data=json.dumps(input))
-        response_data = response.json()
-        return response_data.get("allow", response_data.get("result", False))
+        try:
+            response = requests.post(f"{SIDECAR_URL}/allowed", data=json.dumps(input))
+            response_data = response.json()
+            return response_data.get("allow", response_data.get("result", False))
+        except requests.RequestException as e:
+            logger.error("could not connect", err=e)
+            return False
 
 enforcer = Enforcer()
