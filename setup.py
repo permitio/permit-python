@@ -8,9 +8,12 @@ def get_requirements(env=""):
 
 setup(
     name='authorizon',
-    version='0.1.0',
+    version='0.0.1',
     packages=find_packages(),
+    author='Or Weis, Asaf Cohen',
+    author_email="or@authorizon.com",
     python_requires='>=3.8',
+    description='authorizon python sdk',
     install_requires=get_requirements(),
     # dev_requires=get_requirements("dev"),
 )
