@@ -8,7 +8,7 @@ def get_requirements(env=""):
 
 setup(
     name='authorizon',
-    version='0.0.3',
+    version='0.0.4',
     packages=find_packages(),
     author='Or Weis, Asaf Cohen',
     author_email="or@authorizon.com",
