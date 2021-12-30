@@ -1,12 +1,11 @@
-import requests
 import json
-import copy
+import aiohttp
+from loguru import logger
+from typing import Union
 
-from typing import Optional, Dict, Any, Callable, Union
-
-from .constants import SIDECAR_URL
-from .resource import Resource, ResourceNotFound
-from .logger import logger
+from ..config import PermitConfig
+from ..utils.context import Context, ContextStore
+from .interfaces import UserInput, ResourceInput
 
 
 def set_if_not_none(d: dict, k: str, v):
@@ -14,83 +13,135 @@ def set_if_not_none(d: dict, k: str, v):
         d[k] = v
 
 
-Context = Dict[str, Any]
-ContextTransform = Callable[[Context], Context]
-ResourceType = Union[str, Resource, Dict[str, Any]]
+RESOURCE_DELIMITER = ":"
+
+User = Union[UserInput, str]
+Action = str
+Resource = Union[ResourceInput, str]
 
 
 class Enforcer:
-    POLICY_NAME = "rbac"
+    def __init__(self, config: PermitConfig):
+        self._config = config
+        self._logger = logger.bind(name="permit.enforcer")
+        self._context_store = ContextStore()
+        self._headers = {}
+        self._base_url = self._config.pdp
 
-    def __init__(self):
-        self._transforms = []
-        self._context = {}
+    @property
+    def context_store(self):
+        """
+        we let context store be accessed from the outside so that the
+        using app can setup a flexible contextual behavior for authorization queries
+        """
+        return self._context_store
 
-    def add_transform(self, transform: ContextTransform):
-        self._transforms.append(transform)
-
-    def add_context(self, context: Context):
-        self._context.update(context)
-
-    def _combine_context(self, query_context: Context) -> Context:
-        combined_context = {}
-        combined_context.update(self._context)
-        combined_context.update(query_context)
-        return combined_context
-
-    def _transform_context(self, initial_context: Context) -> Context:
-        context = copy.deepcopy(initial_context)
-        for transform in self._transforms:
-            context = transform(context)
-        return context
-
-    def _translate_resource(self, resource: ResourceType) -> Dict[str, Any]:
-        resource_dict = {}
-        if isinstance(resource, str):
-            try:
-                resource_dict = Resource.from_path(resource).dict()
-            except ResourceNotFound:
-                logger.warn("resource not found", resource_path=resource)
-                return {}
-        elif isinstance(resource, Resource):
-            resource_dict = resource.dict()
-        elif isinstance(resource, dict):
-            resource_dict = resource
-        else:
-            raise ValueError("Unsupported resource type: {}".format(type(resource)))
-
-        resource_dict["context"] = self._transform_context(resource_dict["context"])
-        return resource_dict
-
-    def is_allowed(
-        self, user: str, action: str, resource: ResourceType, context: Context = {}
+    async def check(
+        self,
+        user: User,
+        action: Action,
+        resource: Resource,
+        context: Context = {},
     ) -> bool:
         """
         usage:
 
-        permit.is_allowed(user, 'get', '/tasks/23')
-        permit.is_allowed(user, 'get', '/tasks')
+        user is a unique string identifying the user on the application end.
+        usually it is the `sub` claim (subject claim) present inside a JWT token.
 
+        it can also be dictionary of type UserInput, in case you want to pass
+        more context about the user (user attributes, etc).
 
-        permit.is_allowed(user, 'post', '/lists/3/todos/37', context={org_id=2})
+        # can the user close any issue?
+        await permit.check(user, 'close', 'issue')
 
+        # can the user close any issue who's id is 1234?
+        await permit.check(user, 'close', 'issue:1234')
 
-        permit.is_allowed(user, 'view', task)
-        permit.is_allowed('view', task)
+        # can the user close (any) issues belonging to the 't1' tenant?
+        # (in a multi tenant application)
+        await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
-        resource = self._translate_resource(resource)
-        if not resource:
-            return False
-        query_context = self._combine_context(context)
-        input = {
-            "user": user,
-            "action": action,
-            "resource": resource,
-            "context": query_context,
-        }
-        response = requests.post(f"{SIDECAR_URL}/allowed", data=json.dumps(input))
-        response_data = response.json()
-        return response_data.get("allow", response_data.get("result", False))
+        normalized_user: str = user if isinstance(user, str) else user.key
+        normalized_resource: ResourceInput = self._normalize_resource(
+            (
+                self._resource_from_string(resource)
+                if isinstance(resource, str)
+                else resource
+            )
+        )
+        query_context = self._context_store.get_derived_context(context)
+        input = dict(
+            user=normalized_user,
+            action=action,
+            resource=normalized_resource,
+            context=query_context,
+        )
+
+        async with aiohttp.ClientSession(headers=self._headers) as session:
+            try:
+                async with session.post(
+                    f"{self._base_url}/allowed",
+                    data=json.dumps(input),
+                ) as response:
+                    content: dict = await response.json()
+                    decision: bool = bool(content.get("allow", False))
+                    if self._config.debug_mode:
+                        self._logger.info(
+                            "permit.check({}, {}, {}) = {}".format(
+                                normalized_user,
+                                action,
+                                self._resource_repr(normalized_resource),
+                                repr(decision),
+                            )
+                        )
+                    return decision
+            except aiohttp.ClientError as err:
+                self._logger.error(
+                    "error in permit.check({}, {}, {}):\n{}".format(
+                        normalized_user,
+                        action,
+                        self._resource_repr(normalized_resource),
+                        err,
+                    )
+                )
+                return False
+
+    def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
+        normalized_resource: ResourceInput = resource.copy()
+        if normalized_resource.context is None:
+            normalized_resource.context = {}
+
+        # if tenant is empty, we migth auto-set the default tenant according to config
+        if (
+            normalized_resource.tenant is None
+            and self._config.multi_tenancy.use_default_tenant_if_empty
+        ):
+            normalized_resource.tenant = self._config.multi_tenancy.default_tenant
+
+        # copy tenant from resource.tenant to resource.context.tenant (until we change RBAC policy)
+        if (
+            normalized_resource.context.get("tenant", None) is None
+            and normalized_resource.tenant is not None
+        ):
+            normalized_resource.context["tenant"] = normalized_resource.tenant
+        return normalized_resource
+
+    @staticmethod
+    def _resource_repr(resource: ResourceInput) -> str:
+        resource_repr: str = resource.type
+        if resource.id is not None:
+            resource_repr += ":" + resource.id
+        if resource.tenant:
+            resource_repr += f", tenant: {resource.tenant}"
+        return resource_repr
+
+    @staticmethod
+    def _resource_from_string(resource: str) -> ResourceInput:
+        parts = resource.split(RESOURCE_DELIMITER)
+        if parts.length < 1 or parts.length > 2:
+            raise ValueError(f"permit.check() got invalid resource string: {resource}")
+        return ResourceInput(type=parts[0], id=(parts[1] if parts.length > 1 else None))
 
 
 enforcer = Enforcer()
