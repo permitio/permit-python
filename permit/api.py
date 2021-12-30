@@ -7,14 +7,16 @@ from .markers import resource_id, resource_type, org_id
 from .constants import SIDECAR_URL
 from .logger import logger
 
+
 def init(token, app_name, service_name, **kwargs):
     """
-    inits the authorizon client
+    inits the Permit.io client
     """
-    logger.info(f"authorizon.init", sidecar_url=SIDECAR_URL)
+    logger.info(f"permit.init", sidecar_url=SIDECAR_URL)
     authorization_client.initialize(
         token=token, app_name=app_name, service_name=service_name, **kwargs
     )
+
 
 def resource(
     name: str,
@@ -23,20 +25,20 @@ def resource(
     description: str = None,
     actions: List[ActionDefinition] = [],
     attributes: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ) -> ResourceStub:
     """
     declare a resource type.
 
     usage:
 
-    authorizon.resource(
+    permit.resource(
         name="Todo",
         description="todo item",
-        type=authorizon.types.REST,
+        type=permit.types.REST,
         path="/lists/{list_id}/todos/{todo_id}",
         actions=[
-            authorizon.action(
+            permit.action(
                 name="add",
                 title="Add",
                 path="/lists/{list_id}/todos/",
@@ -48,7 +50,7 @@ def resource(
 
     you can later add actions on that resource:
 
-    todo = authorizon.resource( ... )
+    todo = permit.resource( ... )
     todo.action(
         name="add",
         title="Add",
@@ -64,27 +66,28 @@ def resource(
         path=path,
         description=description,
         actions=actions,
-        attributes=attributes
+        attributes=attributes,
     )
     return authorization_client.add_resource(resource)
 
+
 def action(
-        name: str,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        path: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> ActionDefinition:
+    name: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    path: Optional[str] = None,
+    attributes: Optional[Dict[str, Any]] = None,
+    **kwargs,
+) -> ActionDefinition:
     """
     declare an action on a resource.
 
     usage:
-    authorizon.resource(
+    permit.resource(
         ...,
         actions = [
-            authorizon.action(...),
-            authorizon.action(...),
+            permit.action(...),
+            permit.action(...),
         ]
     )
     """
@@ -95,8 +98,9 @@ def action(
         title=title,
         description=description,
         path=path,
-        attributes=attributes
+        attributes=attributes,
     )
+
 
 sync_user = authorization_client.sync_user
 delete_user = authorization_client.delete_user

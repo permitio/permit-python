@@ -7,6 +7,7 @@ from .constants import SIDECAR_URL
 from .resource_registry import resource_registry, ResourceDefinition, ActionDefinition
 from .logger import logger
 
+
 class ResourceStub:
     def __init__(self, resource_name: str):
         self._resource_name = resource_name
@@ -18,7 +19,7 @@ class ResourceStub:
         description: Optional[str] = None,
         path: Optional[str] = None,
         attributes: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ):
         attributes = attributes or {}
         attributes.update(kwargs)
@@ -27,7 +28,7 @@ class ResourceStub:
             title=title,
             description=description,
             path=path,
-            attributes=attributes
+            attributes=attributes,
         )
         authorization_client.add_action_to_resource(self._resource_name, action)
 
@@ -78,8 +79,7 @@ class AuthorizationClient:
                 f"{SIDECAR_URL}/sdk/resource",
                 data=json.dumps(resource.dict()),
             )
-            self._registry.mark_as_synced(
-                resource, remote_id=response.json().get('id'))
+            self._registry.mark_as_synced(resource, remote_id=response.json().get("id"))
 
     def _maybe_sync_action(self, action: ActionDefinition):
         resource_id = action.resource_id
@@ -90,47 +90,31 @@ class AuthorizationClient:
             logger.info("syncing action", action=repr(action))
             response = self._requests.put(
                 f"{SIDECAR_URL}/sdk/resource/{resource_id}/action",
-                data=json.dumps(action.dict())
+                data=json.dumps(action.dict()),
             )
-            self._registry.mark_as_synced(
-                action, remote_id=response.json().get('id'))
+            self._registry.mark_as_synced(action, remote_id=response.json().get("id"))
 
     def _sync_resources(self):
         # will also sync actions
         for resource in self._registry.resources:
             self._maybe_sync_resource(resource)
 
-    def sync_user(
-        self,
-        user_id: str,
-        user_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def sync_user(self, user_id: str, user_data: Dict[str, Any]) -> Dict[str, Any]:
         self._throw_if_not_initialized()
-        data = {
-            "id": user_id,
-            "data": user_data
-        }
+        data = {"id": user_id, "data": user_data}
         response = self._requests.put(
             f"{SIDECAR_URL}/sdk/user",
             data=json.dumps(data),
         )
         return response.json()
 
-    def delete_user(
-        self,
-        user_id: str
-    ):
+    def delete_user(self, user_id: str):
         self._throw_if_not_initialized()
         self._requests.delete(
             f"{SIDECAR_URL}/sdk/user/{user_id}",
         )
 
-    def sync_org(
-        self,
-        org_id: str,
-        org_name: str,
-        org_metadata: Dict[str, Any]={}
-    ):
+    def sync_org(self, org_id: str, org_name: str, org_metadata: Dict[str, Any] = {}):
         self._throw_if_not_initialized()
         data = {
             "external_id": org_id,
@@ -142,20 +126,13 @@ class AuthorizationClient:
         )
         return response.json()
 
-    def delete_org(
-        self,
-        org_id: str
-    ):
+    def delete_org(self, org_id: str):
         self._throw_if_not_initialized()
         self._requests.delete(
             f"{SIDECAR_URL}/sdk/organization/{org_id}",
         )
 
-    def add_user_to_org(
-        self,
-        user_id: str,
-        org_id: str
-    ):
+    def add_user_to_org(self, user_id: str, org_id: str):
         self._throw_if_not_initialized()
         data = {
             "user_id": user_id,
@@ -167,11 +144,7 @@ class AuthorizationClient:
         )
         return response.json()
 
-    def remove_user_from_org(
-        self,
-        user_id: str,
-        org_id: str
-    ):
+    def remove_user_from_org(self, user_id: str, org_id: str):
         self._throw_if_not_initialized()
         data = {
             "user_id": user_id,
@@ -183,22 +156,14 @@ class AuthorizationClient:
         )
         return response.json()
 
-    def get_orgs_for_user(
-        self,
-        user_id: str
-    ):
+    def get_orgs_for_user(self, user_id: str):
         self._throw_if_not_initialized()
         response = self._requests.get(
             f"{SIDECAR_URL}/sdk/get_orgs_for_user/{user_id}",
         )
         return response.json()
 
-    def assign_role(
-        self,
-        role: str,
-        user_id: str,
-        org_id: str
-    ):
+    def assign_role(self, role: str, user_id: str, org_id: str):
         self._throw_if_not_initialized()
         data = {
             "role": role,
@@ -211,12 +176,7 @@ class AuthorizationClient:
         )
         return response.json()
 
-    def unassign_role(
-        self,
-        role: str,
-        user_id: str,
-        org_id: str
-    ):
+    def unassign_role(self, role: str, user_id: str, org_id: str):
         self._throw_if_not_initialized()
         data = {
             "role": role,
@@ -231,7 +191,7 @@ class AuthorizationClient:
 
     def _throw_if_not_initialized(self):
         if not self._initialized:
-            raise RuntimeError("You must call authorizon.init() first!")
+            raise RuntimeError("You must call permit.init() first!")
 
 
 authorization_client = AuthorizationClient()
