@@ -1,197 +1,339 @@
-import requests
 import json
+import aiohttp
 
-from typing import Optional, Dict, Any
+from loguru import logger
 
-from .constants import SIDECAR_URL
-from .resource_registry import resource_registry, ResourceDefinition, ActionDefinition
-from .logger import logger
+from typing import (
+    Optional,
+    Dict,
+    Any,
+    Generic,
+    TypeVar,
+    Callable,
+    Awaitable,
+)
 
+from pydantic import BaseModel
 
-class ResourceStub:
-    def __init__(self, resource_name: str):
-        self._resource_name = resource_name
-
-    def action(
-        self,
-        name: str,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        path: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-        **kwargs,
-    ):
-        attributes = attributes or {}
-        attributes.update(kwargs)
-        action = ActionDefinition(
-            name=name,
-            title=title,
-            description=description,
-            path=path,
-            attributes=attributes,
-        )
-        authorization_client.add_action_to_resource(self._resource_name, action)
+from permit.enforcement.interfaces import UserInput
+from permit.config import PermitConfig
 
 
-class AuthorizationClient:
-    def __init__(self):
-        self._initialized = False
-        self._registry = resource_registry
+T = TypeVar("T")
 
-    def initialize(self, token, app_name, service_name, **kwargs):
-        self._token = token
-        self._client_context = {"app_name": app_name, "service_name": service_name}
-        self._client_context.update(kwargs)
-        self._initialized = True
-        self._requests = requests.session()
-        self._requests.headers.update(
-            {"Authorization": "Bearer {}".format(self._token)}
-        )
-        self._sync_resources()
 
-    @property
-    def token(self):
-        self._throw_if_not_initialized()
-        return self._token
+class Tenant(BaseModel):
+    key: str
+    name: str
+    description: Optional[str]
 
-    def update_policy(self):
-        self._throw_if_not_initialized()
-        self._requests.post(f"{SIDECAR_URL}/update_policy")
 
-    def update_policy_data(self):
-        self._throw_if_not_initialized()
-        self._requests.post(f"{SIDECAR_URL}/update_policy_data")
+AsyncCallback = Callable[[], Awaitable[Dict]]
 
-    def add_resource(self, resource: ResourceDefinition) -> ResourceStub:
-        self._registry.add_resource(resource)
-        self._maybe_sync_resource(resource)
-        return ResourceStub(resource.name)
 
-    def add_action_to_resource(self, resource_name: str, action: ActionDefinition):
-        action = self._registry.add_action_to_resource(resource_name, action)
-        if action is not None:
-            self._maybe_sync_action(action)
+class Operation(Generic[T]):
+    def __init__(self, callback: AsyncCallback):
+        self._callback = callback
 
-    def _maybe_sync_resource(self, resource: ResourceDefinition):
-        if self._initialized and not self._registry.is_synced(resource):
-            logger.info("syncing resource", resource=repr(resource))
-            response = self._requests.put(
-                f"{SIDECAR_URL}/sdk/resource",
-                data=json.dumps(resource.dict()),
-            )
-            self._registry.mark_as_synced(resource, remote_id=response.json().get("id"))
+    async def run(self) -> T:
+        return await self._callback()
 
-    def _maybe_sync_action(self, action: ActionDefinition):
-        resource_id = action.resource_id
-        if resource_id is None:
-            return
 
-        if self._initialized and not self._registry.is_synced(action):
-            logger.info("syncing action", action=repr(action))
-            response = self._requests.put(
-                f"{SIDECAR_URL}/sdk/resource/{resource_id}/action",
-                data=json.dumps(action.dict()),
-            )
-            self._registry.mark_as_synced(action, remote_id=response.json().get("id"))
+class ReadOperation(Operation[Dict]):
+    pass
 
-    def _sync_resources(self):
-        # will also sync actions
-        for resource in self._registry.resources:
-            self._maybe_sync_resource(resource)
 
-    def sync_user(self, user_id: str, user_data: Dict[str, Any]) -> Dict[str, Any]:
-        self._throw_if_not_initialized()
-        data = {"id": user_id, "data": user_data}
-        response = self._requests.put(
-            f"{SIDECAR_URL}/sdk/user",
-            data=json.dumps(data),
-        )
-        return response.json()
+class WriteOperation(Operation[Dict]):
+    pass
 
-    def delete_user(self, user_id: str):
-        self._throw_if_not_initialized()
-        self._requests.delete(
-            f"{SIDECAR_URL}/sdk/user/{user_id}",
-        )
 
-    def sync_org(self, org_id: str, org_name: str, org_metadata: Dict[str, Any] = {}):
-        self._throw_if_not_initialized()
-        data = {
-            "external_id": org_id,
-            "name": org_name,
+class ReadApis:
+    async def get_user(self, user_key: str) -> ReadOperation:
+        raise NotImplementedError("abstract class")
+
+    async def get_role(self, role_key: str) -> ReadOperation:
+        raise NotImplementedError("abstract class")
+
+    async def get_tenant(self, tenant_key: str) -> ReadOperation:
+        raise NotImplementedError("abstract class")
+
+    async def get_assigned_roles(
+        self, user_key: str, tenant_key: Optional[str]
+    ) -> ReadOperation:
+        raise NotImplementedError("abstract class")
+
+
+class WriteApis:
+    async def sync_user(self, user: UserInput) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+    async def delete_user(self, user_key: str) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+    async def create_tenant(self, tenant: Tenant) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+    async def update_tenant(self, tenant: Tenant) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+    async def delete_tenant(self, tenant_key: str) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+    async def assign_role(
+        self, user_key: str, role_key: str, tenant_key: str
+    ) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+    async def unassign_role(
+        self, user_key: str, role_key: str, tenant_key: str
+    ) -> WriteOperation:
+        raise NotImplementedError("abstract class")
+
+
+class PermitApi(ReadApis, WriteApis):
+    pass
+
+
+class MutationsClient(PermitApi):
+    def __init__(self, config: PermitConfig):
+        self._config = config
+        self._logger = logger.bind(name="permit.mutations.client")
+        self._headers = {
+            "Authorization": f"Bearer {self._config.token}",
+            "Content-Type": "application/json",
         }
-        response = self._requests.post(
-            f"{SIDECAR_URL}/sdk/organization",
-            data=json.dumps(data),
-        )
-        return response.json()
+        self._base_url = self._config.pdp
 
-    def delete_org(self, org_id: str):
-        self._throw_if_not_initialized()
-        self._requests.delete(
-            f"{SIDECAR_URL}/sdk/organization/{org_id}",
-        )
+    # read api ----------------------------------------------------------------
+    async def get_user(self, user_key: str) -> ReadOperation:
+        async def _get_user() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.get_user({user_key})")
 
-    def add_user_to_org(self, user_id: str, org_id: str):
-        self._throw_if_not_initialized()
-        data = {
-            "user_id": user_id,
-            "org_id": org_id,
-        }
-        response = self._requests.post(
-            f"{SIDECAR_URL}/sdk/add_user_to_org",
-            data=json.dumps(data),
-        )
-        return response.json()
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.get(
+                        f"{self._base_url}/cloud/users/{user_key}",
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to get user with key: {user_key}, got error: {err}"
+                    )
+                    raise
 
-    def remove_user_from_org(self, user_id: str, org_id: str):
-        self._throw_if_not_initialized()
-        data = {
-            "user_id": user_id,
-            "org_id": org_id,
-        }
-        response = self._requests.post(
-            f"{SIDECAR_URL}/sdk/remove_user_from_org",
-            data=json.dumps(data),
-        )
-        return response.json()
+        return ReadOperation(_get_user)
 
-    def get_orgs_for_user(self, user_id: str):
-        self._throw_if_not_initialized()
-        response = self._requests.get(
-            f"{SIDECAR_URL}/sdk/get_orgs_for_user/{user_id}",
-        )
-        return response.json()
+    async def get_role(self, role_key: str) -> ReadOperation:
+        async def _get_role() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.get_role({role_key})")
 
-    def assign_role(self, role: str, user_id: str, org_id: str):
-        self._throw_if_not_initialized()
-        data = {
-            "role": role,
-            "user_id": user_id,
-            "org_id": org_id,
-        }
-        response = self._requests.post(
-            f"{SIDECAR_URL}/sdk/assign_role",
-            data=json.dumps(data),
-        )
-        return response.json()
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.get(
+                        f"{self._base_url}/cloud/roles/{role_key}",
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to get role with id: {role_key}, got error: {err}"
+                    )
+                    raise
 
-    def unassign_role(self, role: str, user_id: str, org_id: str):
-        self._throw_if_not_initialized()
-        data = {
-            "role": role,
-            "user_id": user_id,
-            "org_id": org_id,
-        }
-        response = self._requests.post(
-            f"{SIDECAR_URL}/sdk/unassign_role",
-            data=json.dumps(data),
-        )
-        return response.json()
+        return ReadOperation(_get_role)
 
-    def _throw_if_not_initialized(self):
-        if not self._initialized:
-            raise RuntimeError("You must call permit.init() first!")
+    async def get_tenant(self, tenant_key: str) -> ReadOperation:
+        async def _get_tenant() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.get_tenant({tenant_key})")
 
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.get(
+                        f"{self._base_url}/cloud/tenants/{tenant_key}",
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to get tenant with id: {tenant_key}, got error: {err}"
+                    )
+                    raise
 
-authorization_client = AuthorizationClient()
+        return ReadOperation(_get_tenant)
+
+    async def get_assigned_roles(
+        self, user_key: str, tenant_key: Optional[str]
+    ) -> ReadOperation:
+        async def _get_assigned_roles() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(
+                    f"permit.api.get_assigned_roles(user={user_key}, tenant={tenant_key})"
+                )
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                url = f"{self._base_url}/cloud/role_assignments?user={user_key}"
+                if tenant_key is not None:
+                    url += f"&tenant={tenant_key}"
+                try:
+                    async with session.get(url) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"could not get user roles for user {user_key}, got error: {err}"
+                    )
+                    raise
+
+        return ReadOperation(_get_assigned_roles)
+
+    # write api ---------------------------------------------------------------
+    async def sync_user(self, user: UserInput) -> WriteOperation:
+        async def _sync_user() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.sync_user({repr(user.dict())})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.put(
+                        f"{self._base_url}/cloud/users",
+                        data=json.dumps(user.dict(exclude_none=True)),
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to sync user with key: {user.key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_sync_user)
+
+    async def delete_user(self, user_key: str) -> WriteOperation:
+        async def _delete_user() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.delete_user({user_key})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.delete(
+                        f"{self._base_url}/cloud/users/{user_key}",
+                    ) as response:
+                        return dict(status=response.status)
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to delete user with key: {user_key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_delete_user)
+
+    async def create_tenant(self, tenant: Tenant) -> WriteOperation:
+        async def _create_tenant() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.create_tenant({repr(tenant.dict())})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                data = dict(externalId=tenant.key, name=tenant.name)
+                if tenant.description is not None:
+                    data["description"] = tenant.description
+
+                try:
+                    async with session.put(
+                        f"{self._base_url}/cloud/tenants",
+                        data=json.dumps(data),
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to create tenant with key: {tenant.key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_create_tenant)
+
+    async def update_tenant(self, tenant: Tenant) -> WriteOperation:
+        async def _update_tenant() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.update_tenant({repr(tenant.dict())})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                data = dict(name=tenant.name)
+                if tenant.description is not None:
+                    data["description"] = tenant.description
+
+                try:
+                    async with session.patch(
+                        f"{self._base_url}/cloud/tenants/{tenant.key}",
+                        data=json.dumps(data),
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to update tenant with key: {tenant.key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_update_tenant)
+
+    async def delete_tenant(self, tenant_key: str) -> WriteOperation:
+        async def _delete_tenant() -> dict:
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.delete_tenant({tenant_key})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.delete(
+                        f"{self._base_url}/cloud/tenants/{tenant_key}",
+                    ) as response:
+                        return dict(status=response.status)
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"tried to delete tenant with key: {tenant_key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_delete_tenant)
+
+    async def assign_role(
+        self, user_key: str, role_key: str, tenant_key: str
+    ) -> WriteOperation:
+        async def _assign_role() -> dict:
+            data = dict(role=role_key, user=user_key, scope=tenant_key)
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.assign_role({repr(data)})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.post(
+                        f"{self._base_url}/cloud/role_assignments",
+                        data=json.dumps(data),
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"could not assign role {role_key} to {user_key} in tenant {tenant_key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_assign_role)
+
+    async def unassign_role(
+        self, user_key: str, role_key: str, tenant_key: str
+    ) -> WriteOperation:
+        async def _unassign_role() -> dict:
+            data = dict(role=role_key, user=user_key, scope=tenant_key)
+            if self._config.debug_mode:
+                self._logger.info(f"permit.api.unassign_role({repr(data)})")
+
+            async with aiohttp.ClientSession(headers=self._headers) as session:
+                try:
+                    async with session.delete(
+                        f"{self._base_url}/cloud/role_assignments?role={role_key}&user={user_key}&scope={tenant_key}",
+                    ) as response:
+                        return await response.json()
+                except aiohttp.ClientError as err:
+                    self._logger.error(
+                        f"could not unassign role {role_key} of {user_key} in tenant {tenant_key}, got error: {err}"
+                    )
+                    raise
+
+        return WriteOperation(_unassign_role)

@@ -1,10 +1,10 @@
-from typing import NamedTuple
 from typing import Optional, Dict, List, Any
+from pydantic import BaseModel
 
 from .registry import ActionDefinition
 
 
-class ResourceConfig(NamedTuple):
+class ResourceConfig(BaseModel):
     name: str
     type: str
     path: str
@@ -13,7 +13,7 @@ class ResourceConfig(NamedTuple):
     attributes: Optional[Dict[str, Any]]
 
 
-class ActionConfig(NamedTuple):
+class ActionConfig(BaseModel):
     name: str
     title: Optional[str]
     description: Optional[str]
@@ -22,19 +22,19 @@ class ActionConfig(NamedTuple):
 
 
 # new api ---------------------------------------------------------------------
-class ActionProperties(NamedTuple):
+class ActionProperties(BaseModel):
     title: Optional[str]
     description: Optional[str]
     path: Optional[str]
     attributes: Optional[Dict[str, Any]]
 
 
-class ResourceType(NamedTuple):
+class ResourceType(BaseModel):
     type: str
     description: Optional[str]
     attributes: Optional[Dict[str, Any]]
     actions: Dict[str, ActionProperties]
 
 
-class ResourceTypes(NamedTuple):
+class ResourceTypes(BaseModel):
     resources: List[ResourceType]

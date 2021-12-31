@@ -1,15 +1,15 @@
-from typing import NamedTuple
 from typing import Optional, Dict, List
+from pydantic import BaseModel
 
 
 JWT = str
 
 
-class UserKey(NamedTuple):
+class UserKey(BaseModel):
     key: str
 
 
-class AssignedRole(NamedTuple):
+class AssignedRole(BaseModel):
     role: str  # role key
     tenant: str  # tenant key
 
@@ -22,7 +22,7 @@ class UserInput(UserKey):
     attributes: Optional[Dict]
 
 
-class ResourceInput(NamedTuple):
+class ResourceInput(BaseModel):
     type: str  # namespace/type of resources/objects
     id: Optional[str]  # id of individual object
     tenant: Optional[str]  # tenant the resource belongs to
@@ -30,5 +30,5 @@ class ResourceInput(NamedTuple):
     context: Optional[Dict]  # extra context
 
 
-class OpaResult(NamedTuple):
+class OpaResult(BaseModel):
     allow: bool

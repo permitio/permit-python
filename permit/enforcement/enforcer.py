@@ -15,9 +15,9 @@ def set_if_not_none(d: dict, k: str, v):
 
 RESOURCE_DELIMITER = ":"
 
-User = Union[UserInput, str]
+User = Union[dict, str]
 Action = str
-Resource = Union[ResourceInput, str]
+Resource = Union[dict, str]
 
 
 class Enforcer:
@@ -62,19 +62,19 @@ class Enforcer:
         # (in a multi tenant application)
         await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
-        normalized_user: str = user if isinstance(user, str) else user.key
+        normalized_user: str = user if isinstance(user, str) else UserInput(**user).key
         normalized_resource: ResourceInput = self._normalize_resource(
             (
                 self._resource_from_string(resource)
                 if isinstance(resource, str)
-                else resource
+                else ResourceInput(**resource)
             )
         )
         query_context = self._context_store.get_derived_context(context)
         input = dict(
             user=normalized_user,
             action=action,
-            resource=normalized_resource,
+            resource=normalized_resource.dict(),
             context=query_context,
         )
 
