@@ -1,3 +1,4 @@
+import asyncio
 import json
 import aiohttp
 
@@ -5,6 +6,7 @@ from loguru import logger
 
 from typing import (
     Optional,
+    List,
     Dict,
     Any,
     Generic,
@@ -48,43 +50,43 @@ class WriteOperation(Operation[Dict]):
 
 
 class ReadApis:
-    async def get_user(self, user_key: str) -> ReadOperation:
+    def get_user(self, user_key: str) -> ReadOperation:
         raise NotImplementedError("abstract class")
 
-    async def get_role(self, role_key: str) -> ReadOperation:
+    def get_role(self, role_key: str) -> ReadOperation:
         raise NotImplementedError("abstract class")
 
-    async def get_tenant(self, tenant_key: str) -> ReadOperation:
+    def get_tenant(self, tenant_key: str) -> ReadOperation:
         raise NotImplementedError("abstract class")
 
-    async def get_assigned_roles(
+    def get_assigned_roles(
         self, user_key: str, tenant_key: Optional[str]
     ) -> ReadOperation:
         raise NotImplementedError("abstract class")
 
 
 class WriteApis:
-    async def sync_user(self, user: UserInput) -> WriteOperation:
+    def sync_user(self, user: UserInput) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    async def delete_user(self, user_key: str) -> WriteOperation:
+    def delete_user(self, user_key: str) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    async def create_tenant(self, tenant: Tenant) -> WriteOperation:
+    def create_tenant(self, tenant: Tenant) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    async def update_tenant(self, tenant: Tenant) -> WriteOperation:
+    def update_tenant(self, tenant: Tenant) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    async def delete_tenant(self, tenant_key: str) -> WriteOperation:
+    def delete_tenant(self, tenant_key: str) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    async def assign_role(
+    def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    async def unassign_role(
+    def unassign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> WriteOperation:
         raise NotImplementedError("abstract class")
@@ -105,7 +107,7 @@ class MutationsClient(PermitApi):
         self._base_url = self._config.pdp
 
     # read api ----------------------------------------------------------------
-    async def get_user(self, user_key: str) -> ReadOperation:
+    def get_user(self, user_key: str) -> ReadOperation:
         async def _get_user() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.get_user({user_key})")
@@ -124,7 +126,7 @@ class MutationsClient(PermitApi):
 
         return ReadOperation(_get_user)
 
-    async def get_role(self, role_key: str) -> ReadOperation:
+    def get_role(self, role_key: str) -> ReadOperation:
         async def _get_role() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.get_role({role_key})")
@@ -143,7 +145,7 @@ class MutationsClient(PermitApi):
 
         return ReadOperation(_get_role)
 
-    async def get_tenant(self, tenant_key: str) -> ReadOperation:
+    def get_tenant(self, tenant_key: str) -> ReadOperation:
         async def _get_tenant() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.get_tenant({tenant_key})")
@@ -162,7 +164,7 @@ class MutationsClient(PermitApi):
 
         return ReadOperation(_get_tenant)
 
-    async def get_assigned_roles(
+    def get_assigned_roles(
         self, user_key: str, tenant_key: Optional[str]
     ) -> ReadOperation:
         async def _get_assigned_roles() -> dict:
@@ -187,7 +189,7 @@ class MutationsClient(PermitApi):
         return ReadOperation(_get_assigned_roles)
 
     # write api ---------------------------------------------------------------
-    async def sync_user(self, user: UserInput) -> WriteOperation:
+    def sync_user(self, user: UserInput) -> WriteOperation:
         async def _sync_user() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.sync_user({repr(user.dict())})")
@@ -207,7 +209,7 @@ class MutationsClient(PermitApi):
 
         return WriteOperation(_sync_user)
 
-    async def delete_user(self, user_key: str) -> WriteOperation:
+    def delete_user(self, user_key: str) -> WriteOperation:
         async def _delete_user() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.delete_user({user_key})")
@@ -226,7 +228,7 @@ class MutationsClient(PermitApi):
 
         return WriteOperation(_delete_user)
 
-    async def create_tenant(self, tenant: Tenant) -> WriteOperation:
+    def create_tenant(self, tenant: Tenant) -> WriteOperation:
         async def _create_tenant() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.create_tenant({repr(tenant.dict())})")
@@ -250,7 +252,7 @@ class MutationsClient(PermitApi):
 
         return WriteOperation(_create_tenant)
 
-    async def update_tenant(self, tenant: Tenant) -> WriteOperation:
+    def update_tenant(self, tenant: Tenant) -> WriteOperation:
         async def _update_tenant() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.update_tenant({repr(tenant.dict())})")
@@ -274,7 +276,7 @@ class MutationsClient(PermitApi):
 
         return WriteOperation(_update_tenant)
 
-    async def delete_tenant(self, tenant_key: str) -> WriteOperation:
+    def delete_tenant(self, tenant_key: str) -> WriteOperation:
         async def _delete_tenant() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.delete_tenant({tenant_key})")
@@ -293,7 +295,7 @@ class MutationsClient(PermitApi):
 
         return WriteOperation(_delete_tenant)
 
-    async def assign_role(
+    def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> WriteOperation:
         async def _assign_role() -> dict:
@@ -316,7 +318,7 @@ class MutationsClient(PermitApi):
 
         return WriteOperation(_assign_role)
 
-    async def unassign_role(
+    def unassign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> WriteOperation:
         async def _unassign_role() -> dict:
@@ -337,3 +339,34 @@ class MutationsClient(PermitApi):
                     raise
 
         return WriteOperation(_unassign_role)
+
+    # cloud api proxy ---------------------------------------------------------
+    async def read(*operations: ReadOperation) -> List[Dict]:
+        # reads do not need to be resolved in order, can be in parallel
+        return asyncio.gather(*(op.run() for op in operations))
+
+    async def write(*operations: WriteOperation) -> List[Dict]:
+        # writes must be in order
+        results = []
+        for op in operations:
+            result = await op.run()
+            results.append(result)
+        return results
+
+    @property
+    def api(self):
+        return dict(
+            # read methods
+            get_user=self.get_user,
+            get_role=self.get_role,
+            get_tenant=self.get_tenant,
+            get_assigned_roles=self.get_assigned_roles,
+            # write methods
+            sync_user=self.sync_user,
+            delete_user=self.delete_user,
+            create_tenant=self.create_tenant,
+            update_tenant=self.update_tenant,
+            delete_tenant=self.delete_tenant,
+            assign_role=self.assign_role,
+            unassign_role=self.unassign_role,
+        )
