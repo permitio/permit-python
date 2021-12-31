@@ -25,7 +25,9 @@ class Enforcer:
         self._config = config
         self._logger = logger.bind(name="permit.enforcer")
         self._context_store = ContextStore()
-        self._headers = {}
+        self._headers = {
+            "Content-Type": "application/json",
+        }
         self._base_url = self._config.pdp
 
     @property
@@ -84,6 +86,19 @@ class Enforcer:
                     f"{self._base_url}/allowed",
                     data=json.dumps(input),
                 ) as response:
+                    if response.status != 200:
+                        error_json: dict = await response.json()
+                        self._logger.error(
+                            "error in permit.check({}, {}, {}):\n{}\n{}".format(
+                                normalized_user,
+                                action,
+                                self._resource_repr(normalized_resource),
+                                f"status code: {response.status}",
+                                repr(error_json),
+                            )
+                        )
+                        return False
+
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
                     if self._config.debug_mode:
@@ -139,6 +154,6 @@ class Enforcer:
     @staticmethod
     def _resource_from_string(resource: str) -> ResourceInput:
         parts = resource.split(RESOURCE_DELIMITER)
-        if parts.length < 1 or parts.length > 2:
+        if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
-        return ResourceInput(type=parts[0], id=(parts[1] if parts.length > 1 else None))
+        return ResourceInput(type=parts[0], id=(parts[1] if len(parts) > 1 else None))
