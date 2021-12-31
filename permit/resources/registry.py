@@ -1,6 +1,6 @@
 import re
 
-from typing import Optional, List, Callable, Dict, Any, Union, Tuple
+from typing import Optional, List, Dict, Any, Union, Tuple
 
 FASTAPI_PATH_VARIABLE = re.compile(r"\{(\w+)\}")
 PLACEHOLDER = r"(\w+)"
@@ -180,11 +180,15 @@ class ResourceRegistry:
 
         path_pattern, context_vars = extract_pattern_and_context(path)
         self._path_regexes.append(
-            dict(pattern=path_pattern, context=context_vars, resource_name=resource_name)
+            dict(
+                pattern=path_pattern, context=context_vars, resource_name=resource_name
+            )
         )
         self._processed_paths.add(path)
 
-    def get_resource_by_path(self, path: str) -> Tuple[Optional[str], Optional[ResourceDefinition]]:
+    def get_resource_by_path(
+        self, path: str
+    ) -> Tuple[Optional[str], Optional[ResourceDefinition]]:
         for potential in self._path_regexes:
             pattern = potential["pattern"]
             resource_name = potential["resource_name"]
@@ -199,5 +203,3 @@ class ResourceRegistry:
                     context = {}
                 return resource_name, resource_def, context
         return None, None, {}
-
-resource_registry = ResourceRegistry()

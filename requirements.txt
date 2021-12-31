@@ -1,3 +1,4 @@
-requests==2.24.0
-structlog
 pydantic
+aiohttp
+loguru
+typing-extensions
