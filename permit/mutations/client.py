@@ -98,7 +98,7 @@ class PermitApi(ReadApis, WriteApis):
     pass
 
 
-class MutationsClient(PermitApi):
+class PermitApiClient(PermitApi):
     def __init__(self, config: PermitConfig):
         self._config = config
         self._logger = logger.bind(name="permit.mutations.client")

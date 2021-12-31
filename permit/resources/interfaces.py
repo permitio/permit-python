@@ -12,6 +12,9 @@ class ResourceConfig(BaseModel):
     actions: Optional[ActionDefinition]
     attributes: Optional[Dict[str, Any]]
 
+    class Config:
+        arbitrary_types_allowed = True
+
 
 class ActionConfig(BaseModel):
     name: str

@@ -5,7 +5,7 @@ from loguru import logger
 from permit.config import ConfigFactory, PermitConfig
 from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
-from permit.mutations.client import MutationsClient, ReadOperation, WriteOperation
+from permit.mutations.client import PermitApiClient, ReadOperation, WriteOperation
 from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
 from permit.resources.registry import ActionDefinition, ResourceRegistry
 from permit.resources.reporter import ResourceReporter, ResourceStub
@@ -21,7 +21,7 @@ class Permit:
         **options,
     ):
         self._config: PermitConfig = ConfigFactory.build(
-            token=token, pdp=pdp, debug_mode=debug_mode, **options
+            dict(token=token, pdp=pdp, debug_mode=debug_mode, **options),
         )
         self._logger = logger.bind(name="permit.io")
         self._resource_registry = ResourceRegistry()
@@ -30,7 +30,7 @@ class Permit:
         )
         self._enforcer = Enforcer(self._config)
         # TODO: self._cache = LocalCacheClient(self._config, logger)
-        self._mutations_client = MutationsClient(self._config)
+        self._mutations_client = PermitApiClient(self._config)
 
         if self._config.debug_mode:
             self._logger.info(
