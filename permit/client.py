@@ -3,6 +3,7 @@ from typing import Dict, List
 from loguru import logger
 
 from permit.config import ConfigFactory, PermitConfig
+from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
 from permit.mutations.client import MutationsClient, ReadOperation, WriteOperation
 from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
@@ -15,7 +16,7 @@ class Permit:
     def __init__(
         self,
         token: str,
-        pdp: str = "http://localhost:7000",
+        pdp: str = DEFAULT_PDP_URL,
         debug_mode: bool = False,
         **options,
     ):

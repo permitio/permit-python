@@ -1,6 +1,8 @@
 from typing import List
 from pydantic import BaseModel, Field
 
+from permit.constants import DEFAULT_PDP_URL
+
 
 class LoggerConfig(BaseModel):
     level: str = Field("info", description="logging level")
@@ -25,7 +27,9 @@ class AutoMappingConfig(BaseModel):
 
 
 class MultiTenancyConfig(BaseModel):
-    default_tenant: str = Field("default", description="the tenant key of the default tenant")
+    default_tenant: str = Field(
+        "default", description="the tenant key of the default tenant"
+    )
     use_default_tenant_if_empty: bool = Field(
         True,
         description="if resource tenant was not specified, should we assume the default tenant?",
@@ -33,8 +37,10 @@ class MultiTenancyConfig(BaseModel):
 
 
 class PermitConfig(BaseModel):
-    token: str = Field("", description="Your PDP token, used to authenticate to the PDP")
-    pdp: str = Field("http://localhost:7000", description="Your PDP url")
+    token: str = Field(
+        "", description="Your PDP token, used to authenticate to the PDP"
+    )
+    pdp: str = Field(DEFAULT_PDP_URL, description="Your PDP url")
     debug_mode: bool = Field(False, description="in debug mode we log more stuff")
     log: LoggerConfig = Field(LoggerConfig())
     auto_mapping: AutoMappingConfig = Field(AutoMappingConfig())

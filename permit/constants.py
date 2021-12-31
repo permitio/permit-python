@@ -1,3 +1,1 @@
-import os
-
-SIDECAR_URL = os.environ.get("SIDECAR_URL", "http://localhost:7000")
+DEFAULT_PDP_URL = "http://localhost:7000"
