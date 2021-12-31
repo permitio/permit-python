@@ -142,6 +142,3 @@ class Enforcer:
         if parts.length < 1 or parts.length > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
         return ResourceInput(type=parts[0], id=(parts[1] if parts.length > 1 else None))
-
-
-enforcer = Enforcer()

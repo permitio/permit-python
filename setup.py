@@ -10,9 +10,9 @@ def get_requirements(env=""):
 
 setup(
     name="permit",
-    version="0.0.4",
+    version="0.0.2",
     packages=find_packages(),
-    author="Or Weis, Asaf Cohen",
+    author="Asaf Cohen",
     author_email="asaf@permit.io",
     python_requires=">=3.8",
     description="Permit.io python sdk",
