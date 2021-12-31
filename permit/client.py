@@ -1,118 +1,72 @@
-from typing import Optional, List, Callable, Dict, Any
+import json
+from typing import Dict, List
+from loguru import logger
 
-from .client import authorization_client, ResourceStub
-from .resource_registry import ResourceDefinition, ActionDefinition
-from .enforcer import enforcer
-from .markers import resource_id, resource_type, org_id
-from .constants import SIDECAR_URL
-from .logger import logger
-
-
-def init(token, app_name, service_name, **kwargs):
-    """
-    inits the Permit.io client
-    """
-    logger.info(f"permit.init", sidecar_url=SIDECAR_URL)
-    authorization_client.initialize(
-        token=token, app_name=app_name, service_name=service_name, **kwargs
-    )
+from permit.config import ConfigFactory, PermitConfig
+from permit.enforcement.enforcer import Action, Enforcer, Resource, User
+from permit.mutations.client import MutationsClient, ReadOperation, WriteOperation
+from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
+from permit.resources.registry import ActionDefinition, ResourceRegistry
+from permit.resources.reporter import ResourceReporter, ResourceStub
+from permit.utils.context import Context
 
 
-def resource(
-    name: str,
-    type: str,
-    path: str,
-    description: str = None,
-    actions: List[ActionDefinition] = [],
-    attributes: Optional[Dict[str, Any]] = None,
-    **kwargs,
-) -> ResourceStub:
-    """
-    declare a resource type.
+class Permit:
+    def __init__(
+        self,
+        token: str,
+        pdp: str = "http://localhost:7000",
+        debug_mode: bool = False,
+        **options,
+    ):
+        self._config: PermitConfig = ConfigFactory.build(
+            token=token, pdp=pdp, debug_mode=debug_mode, **options
+        )
+        self._logger = logger.bind(name="permit.io")
+        self._resource_registry = ResourceRegistry()
+        self._resource_reporter = ResourceReporter(
+            self._config, self._resource_registry
+        )
+        self._enforcer = Enforcer(self._config)
+        # TODO: self._cache = LocalCacheClient(self._config, logger)
+        self._mutations_client = MutationsClient(self._config)
 
-    usage:
+        if self._config.debug_mode:
+            self._logger.info(
+                f"Permit.io SDK initialized with config:\n${json.dumps(self._config.dict())}",
+            )
 
-    permit.resource(
-        name="Todo",
-        description="todo item",
-        type=permit.types.REST,
-        path="/lists/{list_id}/todos/{todo_id}",
-        actions=[
-            permit.action(
-                name="add",
-                title="Add",
-                path="/lists/{list_id}/todos/",
-                verb="post",
-            ),
-            ...
-        ]
-    )
+    @property
+    def config(self):
+        return self._config.copy()
 
-    you can later add actions on that resource:
+    # enforcer
+    async def check(
+        self,
+        user: User,
+        action: Action,
+        resource: Resource,
+        context: Context = {},
+    ) -> bool:
+        return await self._enforcer.check(user, action, resource, context)
 
-    todo = permit.resource( ... )
-    todo.action(
-        name="add",
-        title="Add",
-        path="/lists/{list_id}/todos/",
-        verb="post",
-    )
-    """
-    attributes = attributes or {}
-    attributes.update(kwargs)
-    resource = ResourceDefinition(
-        name=name,
-        type=type,
-        path=path,
-        description=description,
-        actions=actions,
-        attributes=attributes,
-    )
-    return authorization_client.add_resource(resource)
+    # resource reporter
+    async def resource(self, config: ResourceConfig) -> ResourceStub:
+        return await self._resource_reporter.resource(config)
 
+    def action(self, config: ActionConfig) -> ActionDefinition:
+        return self._resource_reporter.action(config)
 
-def action(
-    name: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    path: Optional[str] = None,
-    attributes: Optional[Dict[str, Any]] = None,
-    **kwargs,
-) -> ActionDefinition:
-    """
-    declare an action on a resource.
+    async def sync_resources(self, config: ResourceTypes) -> List[ResourceStub]:
+        return await self._resource_reporter.sync_resources(config)
 
-    usage:
-    permit.resource(
-        ...,
-        actions = [
-            permit.action(...),
-            permit.action(...),
-        ]
-    )
-    """
-    attributes = attributes or {}
-    attributes.update(kwargs)
-    return ActionDefinition(
-        name=name,
-        title=title,
-        description=description,
-        path=path,
-        attributes=attributes,
-    )
+    # mutations
+    @property
+    def api(self):
+        return self._mutations_client.api
 
+    async def read(self, *operations: ReadOperation) -> List[Dict]:
+        return await self._mutations_client.read(*operations)
 
-sync_user = authorization_client.sync_user
-delete_user = authorization_client.delete_user
-sync_org = authorization_client.sync_org
-delete_org = authorization_client.delete_org
-add_user_to_org = authorization_client.add_user_to_org
-remove_user_from_org = authorization_client.remove_user_from_org
-get_orgs_for_user = authorization_client.get_orgs_for_user
-assign_role = authorization_client.assign_role
-unassign_role = authorization_client.unassign_role
-update_policy_data = authorization_client.update_policy_data
-
-is_allowed = enforcer.is_allowed
-transform_resource_context = enforcer.add_transform
-provide_context = enforcer.add_context
+    async def write(self, *operations: WriteOperation) -> List[Dict]:
+        return await self._mutations_client.write(*operations)

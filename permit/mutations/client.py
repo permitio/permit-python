@@ -15,6 +15,8 @@ from typing import (
     Awaitable,
 )
 
+from collections import namedtuple
+
 from pydantic import BaseModel
 
 from permit.enforcement.interfaces import UserInput
@@ -341,11 +343,11 @@ class MutationsClient(PermitApi):
         return WriteOperation(_unassign_role)
 
     # cloud api proxy ---------------------------------------------------------
-    async def read(*operations: ReadOperation) -> List[Dict]:
+    async def read(self, *operations: ReadOperation) -> List[Dict]:
         # reads do not need to be resolved in order, can be in parallel
         return asyncio.gather(*(op.run() for op in operations))
 
-    async def write(*operations: WriteOperation) -> List[Dict]:
+    async def write(self, *operations: WriteOperation) -> List[Dict]:
         # writes must be in order
         results = []
         for op in operations:
@@ -354,19 +356,5 @@ class MutationsClient(PermitApi):
         return results
 
     @property
-    def api(self):
-        return dict(
-            # read methods
-            get_user=self.get_user,
-            get_role=self.get_role,
-            get_tenant=self.get_tenant,
-            get_assigned_roles=self.get_assigned_roles,
-            # write methods
-            sync_user=self.sync_user,
-            delete_user=self.delete_user,
-            create_tenant=self.create_tenant,
-            update_tenant=self.update_tenant,
-            delete_tenant=self.delete_tenant,
-            assign_role=self.assign_role,
-            unassign_role=self.unassign_role,
-        )
+    def api(self) -> PermitApi:
+        return self
