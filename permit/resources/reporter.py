@@ -6,9 +6,12 @@ from typing import List
 from pydantic import BaseModel
 
 from permit.config import PermitConfig
-
-from .interfaces import ActionConfig, ResourceConfig, ResourceTypes
-from .registry import ActionDefinition, ResourceDefinition, ResourceRegistry
+from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
+from permit.resources.registry import (
+    ActionDefinition,
+    ResourceDefinition,
+    ResourceRegistry,
+)
 
 
 class SyncObjectResponse(BaseModel):

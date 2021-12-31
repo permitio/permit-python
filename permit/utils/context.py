@@ -1,5 +1,5 @@
 from typing import Dict, Callable, Any, List
-from .dicts import deep_merge
+from permit.utils.dicts import deep_merge
 
 Context = Dict[str, Any]
 ContextTransform = Callable[[Context], Context]

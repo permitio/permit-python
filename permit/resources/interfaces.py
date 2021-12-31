@@ -1,7 +1,7 @@
 from typing import Optional, Dict, List, Any
 from pydantic import BaseModel
 
-from .registry import ActionDefinition
+from permit.resources.registry import ActionDefinition
 
 
 class ResourceConfig(BaseModel):
