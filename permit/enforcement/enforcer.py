@@ -101,7 +101,7 @@ class Enforcer:
                                 repr(error_json),
                             )
                         )
-                        raise PermitConnectionError("Permit SDK cannot connect to the PDP, please check your SDK token and make sure the PDP sidecar is configured correctly")
+                        raise PermitConnectionError(f"Permit SDK got status: {response.status}, please check your SDK init and make sure the PDP sidecar is configured correctly")
 
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
