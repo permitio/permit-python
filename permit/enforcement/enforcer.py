@@ -13,6 +13,9 @@ def set_if_not_none(d: dict, k: str, v):
     if v is not None:
         d[k] = v
 
+class PermitConnectionError(Exception):
+    """Permit connection exception"""
+
 
 RESOURCE_DELIMITER = ":"
 
@@ -98,7 +101,7 @@ class Enforcer:
                                 repr(error_json),
                             )
                         )
-                        return False
+                        raise PermitConnectionError("Permit SDK cannot connect to the PDP, please check your SDK token and make sure the PDP sidecar is configured correctly")
 
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
@@ -121,7 +124,8 @@ class Enforcer:
                         err,
                     )
                 )
-                return False
+                raise PermitConnectionError(f"Permit SDK cannot connect to the PDP, please check your configuration and make sure the PDP is running at {self._base_url} and accepting requests")
+
 
     def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
         normalized_resource: ResourceInput = resource.copy()
