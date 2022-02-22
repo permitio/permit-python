@@ -1,7 +1,7 @@
 import pytest
 from permit import Permit
 import asyncio
-from permit.enforcement.enforcer import Action, Resource, User, Context, PermitConnectionError
+from permit.enforcement.enforcer import Action, Resource, User, Context, PermitException
 
 
 PERMIT_TOKEN=""
@@ -16,5 +16,5 @@ async def test_permit_check_raises_exception_when_no_connection():
     # init permit
     permit_client = Permit(PERMIT_TOKEN, PERMIT_PDP_URL, PERMIT_DEBUG_MODE)
     # check
-    with pytest.raises(PermitConnectionError):
+    with pytest.raises(PermitException):
         await permit_client.check("testUserID", "action", "resource")
