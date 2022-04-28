@@ -1,27 +1,14 @@
 import asyncio
 import json
-import aiohttp
-
-from loguru import logger
-
-from typing import (
-    Optional,
-    List,
-    Dict,
-    Any,
-    Generic,
-    TypeVar,
-    Callable,
-    Awaitable,
-)
-
 from collections import namedtuple
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, TypeVar
 
+import aiohttp
+from loguru import logger
 from pydantic import BaseModel
 
-from permit.enforcement.interfaces import UserInput
 from permit.config import PermitConfig
-
+from permit.enforcement.interfaces import UserInput
 
 T = TypeVar("T")
 

@@ -1,4 +1,5 @@
 from typing import List
+
 from pydantic import BaseModel, Field
 
 from permit.constants import DEFAULT_PDP_URL

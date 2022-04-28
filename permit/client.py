@@ -1,5 +1,6 @@
 import json
 from typing import Dict, List
+
 from loguru import logger
 
 from permit.config import ConfigFactory, PermitConfig

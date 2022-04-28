@@ -1,4 +1,5 @@
-from typing import Optional, Dict, List, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
 
 from permit.resources.registry import ActionDefinition

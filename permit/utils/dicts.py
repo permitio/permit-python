@@ -1,5 +1,5 @@
-from typing import Dict
 from copy import deepcopy
+from typing import Dict
 
 
 def deep_merge(base: Dict, overrides: Dict):
