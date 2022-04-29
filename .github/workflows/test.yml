@@ -1,0 +1,26 @@
+name: Test
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    name: pytest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - name: Install dependencies
+        run: >-
+          pip install
+          -r requirements.txt
+          -r requirements-dev.txt
+          -e .
+      - name: Run pytest
+        run: pytest
