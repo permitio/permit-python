@@ -1,4 +1,3 @@
-import asyncio
 import json
 from typing import Dict, List
 
@@ -53,64 +52,15 @@ class Permit:
     ) -> bool:
         return await self._enforcer.check(user, action, resource, context)
 
-    def check_sync(
-        self,
-        user: User,
-        action: Action,
-        resource: Resource,
-        context: Context = {},
-    ) -> bool:
-        """
-        Synchronous version of `self.check()`
-        """
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # there is no running event loop, so it's safe to use `asyncio.run`
-            return asyncio.run(
-                self.check(user=user, action=action, resource=resource, context=context)
-            )
-        else:
-            # there *is* a running event loop, so use `loop.run_until_complete`
-            return loop.run_until_complete(
-                self.check(user=user, action=action, resource=resource, context=context)
-            )
-
     # resource reporter
     async def resource(self, config: ResourceConfig) -> ResourceStub:
         return await self._resource_reporter.resource(config)
-
-    def resource_sync(self, config: ResourceConfig) -> ResourceStub:
-        """
-        Synchronous version of `self.resource()`
-        """
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # there is no running event loop, so it's safe to use `asyncio.run`
-            return asyncio.run(self.resource(config=config))
-        else:
-            # there *is* a running event loop, so use `loop.run_until_complete`
-            return loop.run_until_complete(self.resource(config=config))
 
     def action(self, config: ActionConfig) -> ActionDefinition:
         return self._resource_reporter.action(config)
 
     async def sync_resources(self, config: ResourceTypes) -> List[ResourceStub]:
         return await self._resource_reporter.sync_resources(config)
-
-    def sync_resources_sync(self, config: ResourceTypes) -> List[ResourceStub]:
-        """
-        Synchronous version of `self.sync_resources()`
-        """
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # there is no running event loop, so it's safe to use `asyncio.run`
-            return asyncio.run(self.sync_resources(config=config))
-        else:
-            # there *is* a running event loop, so use `loop.run_until_complete`
-            return loop.run_until_complete(self.sync_resources(config=config))
 
     # mutations
     @property
