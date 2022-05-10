@@ -22,5 +22,13 @@ jobs:
           -r requirements.txt
           -r requirements-dev.txt
           -e .
+
       - name: Run pytest
-        run: pytest
+        run: coverage run -m pytest
+
+      - name: Upload coverage to Codecov
+        if: ${{ always() }}
+        uses: codecov/codecov-action@v2
+        with:
+          token: "27df8597-0a9e-453d-8104-7333a64628d7"
+          fail_ci_if_error: false
