@@ -1,8 +1,8 @@
 import json
+from typing import List
+
 import aiohttp
 from loguru import logger
-
-from typing import List
 from pydantic import BaseModel
 
 from permit.config import PermitConfig

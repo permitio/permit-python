@@ -1,4 +1,5 @@
-from typing import Dict, Callable, Any, List
+from typing import Any, Callable, Dict, List
+
 from permit.utils.dicts import deep_merge
 
 Context = Dict[str, Any]

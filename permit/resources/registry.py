@@ -1,6 +1,5 @@
 import re
-
-from typing import Optional, List, Dict, Any, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 FASTAPI_PATH_VARIABLE = re.compile(r"\{(\w+)\}")
 PLACEHOLDER = r"(\w+)"
