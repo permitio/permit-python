@@ -3,6 +3,7 @@ from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
 from permit import Permit
+from permit.mutations.client import PermitApiClient
 
 
 def test_client_no_args():
@@ -17,6 +18,10 @@ def test_client_config(client: Permit):
     assert client.config.log.label == "Permit.io"
     assert client.config.auto_mapping.enable is False
     assert client.config.multi_tenancy.default_tenant == "default"
+
+
+def test_mutations_client(sync_client: Permit):
+    assert isinstance(sync_client._mutations_client, PermitApiClient)
 
 
 async def test_client_check_empty(
