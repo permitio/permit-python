@@ -14,7 +14,7 @@ setup(
     packages=find_packages(),
     author="Asaf Cohen",
     author_email="asaf@permit.io",
-    python_requires=">=3.8",
+    python_requires=">=3.7",
     description="Permit.io python sdk",
     install_requires=get_requirements(),
     classifiers=[
