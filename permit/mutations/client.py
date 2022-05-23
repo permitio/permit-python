@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections import namedtuple
-from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, TypeVar
+from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 import aiohttp
 from loguru import logger
@@ -55,16 +55,16 @@ class ReadApis:
 
 
 class WriteApis:
-    def sync_user(self, user: UserInput) -> WriteOperation:
+    def sync_user(self, user: Union[UserInput, dict]) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
     def delete_user(self, user_key: str) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    def create_tenant(self, tenant: Tenant) -> WriteOperation:
+    def create_tenant(self, tenant: Union[Tenant, dict]) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
-    def update_tenant(self, tenant: Tenant) -> WriteOperation:
+    def update_tenant(self, tenant: Union[Tenant, dict]) -> WriteOperation:
         raise NotImplementedError("abstract class")
 
     def delete_tenant(self, tenant_key: str) -> WriteOperation:
@@ -178,7 +178,12 @@ class PermitApiClient(PermitApi):
         return ReadOperation(_get_assigned_roles)
 
     # write api ---------------------------------------------------------------
-    def sync_user(self, user: UserInput) -> WriteOperation:
+    def sync_user(self, user: Union[UserInput, dict]) -> WriteOperation:
+        if isinstance(user, dict):
+            user = UserInput(**user)
+        elif not isinstance(user, UserInput):
+            raise ValueError("sync_user() expects a dict or a `UserInput` object")
+
         async def _sync_user() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.sync_user({repr(user.dict())})")
@@ -217,7 +222,12 @@ class PermitApiClient(PermitApi):
 
         return WriteOperation(_delete_user)
 
-    def create_tenant(self, tenant: Tenant) -> WriteOperation:
+    def create_tenant(self, tenant: Union[Tenant, dict]) -> WriteOperation:
+        if isinstance(tenant, dict):
+            tenant = Tenant(**tenant)
+        elif not isinstance(tenant, Tenant):
+            raise ValueError("create_tenant() expects a dict or a `Tenant` object")
+
         async def _create_tenant() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.create_tenant({repr(tenant.dict())})")
@@ -241,7 +251,12 @@ class PermitApiClient(PermitApi):
 
         return WriteOperation(_create_tenant)
 
-    def update_tenant(self, tenant: Tenant) -> WriteOperation:
+    def update_tenant(self, tenant: Union[Tenant, dict]) -> WriteOperation:
+        if isinstance(tenant, dict):
+            tenant = Tenant(**tenant)
+        elif not isinstance(tenant, Tenant):
+            raise ValueError("update_tenant() expects a dict or a `Tenant` object")
+
         async def _update_tenant() -> dict:
             if self._config.debug_mode:
                 self._logger.info(f"permit.api.update_tenant({repr(tenant.dict())})")

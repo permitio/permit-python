@@ -1,15 +1,14 @@
-import asyncio
 from distutils.log import debug
-from typing import List
+from typing import Dict, List
 
 from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Resource, User
+from permit.mutations.client import ReadOperation, WriteOperation
 from permit.resources.interfaces import ResourceConfig, ResourceTypes
 from permit.resources.reporter import ResourceStub
 from permit.utils.context import Context
 
 from .client import Permit as AsyncPermit
-from .mutations.sync import PermitApiClient
 from .utils.sync import run_sync
 
 
@@ -22,8 +21,6 @@ class Permit(AsyncPermit):
         **options,
     ):
         super().__init__(token=token, pdp=pdp, debug_mode=debug_mode, **options)
-        # use sync mutations client instead of async version
-        self._mutations_client = PermitApiClient(self._config)
 
     def check(
         self,
@@ -41,3 +38,9 @@ class Permit(AsyncPermit):
 
     def sync_resources(self, config: ResourceTypes) -> List[ResourceStub]:
         return run_sync(super().sync_resources(config=config))
+
+    def read(self, *operations: ReadOperation) -> List[Dict]:
+        return run_sync(super().read(*operations))
+
+    def write(self, *operations: WriteOperation) -> List[Dict]:
+        return run_sync(super().write(*operations))

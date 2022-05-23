@@ -6,6 +6,7 @@ from loguru import logger
 
 from permit.config import PermitConfig
 from permit.enforcement.interfaces import ResourceInput, UserInput
+from permit.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 
 
@@ -98,7 +99,10 @@ class Enforcer:
                                 repr(error_json),
                             )
                         )
-                        return False
+                        raise PermitConnectionError(
+                            f"Permit SDK got unexpected status code: {response.status}, please check your Permit SDK class init and PDP container are configured correctly. \n\
+                            Read more about setting up the PDP at https://docs.permit.io/reference/SDKs/Python/quickstart_python"
+                        )
 
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
@@ -121,7 +125,11 @@ class Enforcer:
                         err,
                     )
                 )
-                return False
+                raise PermitConnectionError(
+                    f"Permit SDK got error: {err}, \n \
+                    and cannot connect to the PDP container, please check your configuration and make sure it's running at {self._base_url} and accepting requests. \n \
+                    Read more about setting up the PDP at https://docs.permit.io/reference/SDKs/Python/quickstart_python"
+                )
 
     def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
         normalized_resource: ResourceInput = resource.copy()
