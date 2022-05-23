@@ -1,8 +1,9 @@
+import aiohttp
 import pytest
 from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
-from permit.exceptions import PermitException
+from permit.exceptions import PermitConnectionError, PermitException
 from permit.sync import Permit
 
 
@@ -100,4 +101,18 @@ def test_sync_client_check_error(
         sync_client.check(
             user="fake-user", action="fake-action", resource="fake-resource"
         )
-        assert "Permit SDK got unexpected status code: 500" in str(exc.value)
+    assert "Permit SDK got unexpected status code: 500" in str(exc.value)
+
+
+def test_client_check_no_connection_when_pdp_is_down(
+    sync_client: Permit, mock_aioresponse: aioresponses, mocker: MockerFixture
+):
+    mock_aioresponse.post(
+        "http://localhost:7000/allowed",
+        exception=aiohttp.ClientError("Cannot connect to host"),
+    )
+    with pytest.raises(PermitConnectionError) as exc:
+        sync_client.check(
+            user="fake-user", action="fake-action", resource="fake-resource"
+        )
+    assert "cannot connect to the PDP container" in str(exc.value)

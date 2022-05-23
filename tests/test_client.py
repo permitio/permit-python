@@ -1,9 +1,10 @@
+import aiohttp
 import pytest
 from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
 from permit import Permit
-from permit.exceptions import PermitException
+from permit.exceptions import PermitConnectionError, PermitException
 from permit.mutations.client import PermitApiClient
 
 
@@ -105,4 +106,18 @@ async def test_client_check_error(
         await client.check(
             user="fake-user", action="fake-action", resource="fake-resource"
         )
-        assert "Permit SDK got unexpected status code: 500" in str(exc.value)
+    assert "Permit SDK got unexpected status code: 500" in str(exc.value)
+
+
+async def test_client_check_no_connection_when_pdp_is_down(
+    client: Permit, mock_aioresponse: aioresponses, mocker: MockerFixture
+):
+    mock_aioresponse.post(
+        "http://localhost:7000/allowed",
+        exception=aiohttp.ClientError("Cannot connect to host"),
+    )
+    with pytest.raises(PermitConnectionError) as exc:
+        await client.check(
+            user="fake-user", action="fake-action", resource="fake-resource"
+        )
+    assert "cannot connect to the PDP container" in str(exc.value)
