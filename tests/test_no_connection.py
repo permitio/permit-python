@@ -1,14 +1,16 @@
-import pytest
-from permit import Permit
 import asyncio
-from permit.enforcement.enforcer import Action, Resource, User, Context, PermitException
+
+import pytest
+
+from permit import Permit
+from permit.enforcement.enforcer import Action, Context, Resource, User
+from permit.exceptions import PermitException
+
+PERMIT_TOKEN = ""
+PERMIT_PDP_URL = ""
+PERMIT_DEBUG_MODE = True
 
 
-PERMIT_TOKEN=""
-PERMIT_PDP_URL=""
-PERMIT_DEBUG_MODE=True
-
-@pytest.mark.asyncio
 async def test_permit_check_raises_exception_when_no_connection():
     """
     Check permit enforcer and exceptions

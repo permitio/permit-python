@@ -6,20 +6,13 @@ from loguru import logger
 
 from permit.config import PermitConfig
 from permit.enforcement.interfaces import ResourceInput, UserInput
+from permit.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 
 
 def set_if_not_none(d: dict, k: str, v):
     if v is not None:
         d[k] = v
-
-
-class PermitException(Exception):
-    """Permit base exception"""
-
-
-class PermitConnectionError(PermitException):
-    """Permit connection exception"""
 
 
 RESOURCE_DELIMITER = ":"
