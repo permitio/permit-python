@@ -13,6 +13,15 @@ def set_if_not_none(d: dict, k: str, v):
     if v is not None:
         d[k] = v
 
+class PermitException(Exception):
+    """Permit base exception"""
+
+class PermitConnectionError(PermitException):
+    """Permit connection exception"""
+
+class PermitPDPResponseError(PermitException):
+    """Permit PDP response exception"""
+
 
 RESOURCE_DELIMITER = ":"
 
@@ -98,7 +107,8 @@ class Enforcer:
                                 repr(error_json),
                             )
                         )
-                        return False
+                        raise PermitPDPResponseError(f"Permit SDK got status: {response.status}, please check your SDK init and make sure the PDP sidecar is configured correctly. \n\
+                            Read more about setting up the PDP at https://docs.permit.io/reference/SDKs/python/")
 
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
@@ -121,7 +131,11 @@ class Enforcer:
                         err,
                     )
                 )
-                return False
+                raise PermitConnectionError(f"Permit SDK got error: {err}, \n \
+                    and cannot connect to the PDP, please check your configuration and make sure the PDP is running at {self._base_url} and accepting requests. \n \
+                    Read more about setting up the PDP at https://docs.permit.io/reference/SDKs/dotnet/ ")
+
+
 
     def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
         normalized_resource: ResourceInput = resource.copy()
