@@ -3,7 +3,7 @@ from pydantic import EmailStr
 
 from permit.api.client import PermitApiClient
 from permit.exceptions import PermitException
-from permit.openapi.models import RoleCreate, TenantCreate, UserCreate, TenantUpdate
+from permit.openapi.models import RoleCreate, TenantCreate, UserCreate, TenantUpdate, ResourceCreate
 
 
 @pytest.mark.parametrize("email", ["name1@domain.com", "name2@domain.com", "name3@domain.com"])
@@ -176,3 +176,12 @@ async def test_client_delete_tenant(api_client: PermitApiClient, tenant_key: str
     assert res is None
     with pytest.raises(PermitException):
         await api_client.get_tenant(tenant_key)
+
+
+@pytest.mark.parametrize("resource_key", ["res1", "res2", "res3"])
+async def test_create_resource(api_client: PermitApiClient, resource_key: str):
+    create_resource = ResourceCreate(key=resource_key,
+                                     name=resource_key)
+    resource = await api_client.create_resource(create_resource)
+    assert resource.key == create_resource.key
+    assert resource.name == create_resource.name

@@ -13,13 +13,14 @@ from permit.enforcement.interfaces import UserInput
 from permit.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
+from permit.openapi.api.resources import get_resource, create_resource, update_resource, delete_resource
 from permit.openapi.api.role_assignments import assign_role, list_role_assignments, unassign_role
-from permit.openapi.api.roles import create_role, delete_role, get_role
-from permit.openapi.api.tenants import create_tenant, delete_tenant, get_tenant, update_tenant
+from permit.openapi.api.roles import create_role, delete_role, get_role, update_role
+from permit.openapi.api.tenants import create_tenant, delete_tenant, get_tenant, update_tenant, list_tenants
 from permit.openapi.api.users import create_user, delete_user, get_user, update_user
 from permit.openapi.models import RoleAssignmentCreate, RoleAssignmentRead, RoleAssignmentRemove, RoleCreate, RoleRead, \
     TenantCreate, TenantRead, \
-    TenantUpdate, UserCreate, UserRead, UserUpdate
+    TenantUpdate, UserCreate, UserRead, UserUpdate, ResourceRead, ResourceCreate, RoleUpdate, ResourceUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 T = TypeVar("T")
@@ -53,21 +54,33 @@ class WriteOperation(Operation[Dict]):
 class ReadApis(ABC):
     @abstractmethod
     async def get_user(self, user_key: str) -> UserRead:
-        raise NotImplementedError("abstract class")
+        pass
 
     @abstractmethod
     async def get_role(self, role_key: str) -> RoleRead:
-        raise NotImplementedError("abstract class")
+        pass
+
+    @abstractmethod
+    async def list_tenants(
+        self,
+        page: int = 1,
+        per_page: int = 100,
+    ) -> List[Tenant]:
+        pass
 
     @abstractmethod
     async def get_tenant(self, tenant_key: str) -> TenantRead:
-        raise NotImplementedError("abstract class")
+        pass
 
     @abstractmethod
     async def get_assigned_roles(
         self, user_key: str, tenant_key: Optional[str]
     ) -> List[RoleAssignmentRead]:
-        raise NotImplementedError("abstract class")
+        pass
+
+    @abstractmethod
+    async def get_resource(self, resource_key: str) -> ResourceRead:
+        pass
 
 
 class WriteApis(ABC):
@@ -92,6 +105,16 @@ class WriteApis(ABC):
         raise NotImplementedError("abstract class")
 
     @abstractmethod
+    async def create_role(self, role: Union[RoleCreate, dict]) -> RoleRead:
+        pass
+
+    @abstractmethod
+    async def update_role(
+        self, role_key: str, role: Union[RoleUpdate, dict]
+    ) -> RoleRead:
+        pass
+
+    @abstractmethod
     async def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
@@ -102,6 +125,20 @@ class WriteApis(ABC):
         self, user_key: str, role_key: str, tenant_key: str
     ) -> None:
         raise NotImplementedError("abstract class")
+
+    @abstractmethod
+    async def create_resource(self, resource: Union[ResourceCreate, dict]):
+        pass
+
+    @abstractmethod
+    async def update_resource(
+        self, resource_key: str, resource: Union[ResourceUpdate, dict]
+    ):
+        pass
+
+    @abstractmethod
+    async def delete_resource(self, resource_key: str):
+        pass
 
 
 class PermitApi(ReadApis, WriteApis, ABC):
@@ -171,6 +208,17 @@ class PermitApiClient(PermitApi):
         raise_for_error_by_action(role_assignments, "role_assignments", f"user:{user_key}, tenant:{tenant_key}:")
         return role_assignments
 
+    @lazy_load_scope
+    async def get_resource(self, resource_key: str) -> ResourceRead:
+        resource = await get_resource.asyncio(
+            self.scope.project_id.hex,
+            self.scope.environment_id.hex,
+            resource_key,
+            client=self.client,
+        )
+        raise_for_error_by_action(resource, "resource", resource_key)
+        return resource
+
     # endregion
     # region write api ---------------------------------------------------------------
 
@@ -215,6 +263,18 @@ class PermitApiClient(PermitApi):
         raise_for_error_by_action(res, "user", user_key, "delete")
 
     @lazy_load_scope
+    async def list_tenants(self, page: int = 1, per_page: int = 100) -> List[Tenant]:
+        tenants = await list_tenants.asyncio(
+            self.scope.project_id.hex,
+            self.scope.environment_id.hex,
+            page=page,
+            per_page=per_page,
+            client=self.client,
+        )
+        raise_for_error_by_action(tenants, "list", "tenants")
+        return tenants
+
+    @lazy_load_scope
     async def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
         if isinstance(tenant, dict):
             json_body = TenantCreate.parse_obj(tenant)
@@ -255,6 +315,26 @@ class PermitApiClient(PermitApi):
         return role
 
     @lazy_load_scope
+    async def update_role(
+        self, role_key: str, role: Union[RoleUpdate, dict]
+    ) -> RoleRead:
+        if isinstance(role, dict):
+            json_body = TenantUpdate.parse_obj(role)
+        else:
+            json_body = role
+        updated_role = await update_role.asyncio(
+            self.scope.project_id.hex,
+            self.scope.environment_id.hex,
+            role_key,
+            json_body=json_body,
+            client=self.client,
+        )
+        raise_for_error_by_action(
+            role, "role", json.dumps(json_body.dict()), "update"
+        )
+        return updated_role
+
+    @lazy_load_scope
     async def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
@@ -281,6 +361,55 @@ class PermitApiClient(PermitApi):
         res = await delete_role.asyncio(self.scope.project_id.hex, self.scope.environment_id.hex,
                                         role_key, client=self.client)
         raise_for_error_by_action(res, "role", role_key, "delete")
+
+    @lazy_load_scope
+    async def create_resource(
+        self, resource: Union[ResourceCreate, dict]
+    ) -> ResourceRead:
+        if isinstance(resource, dict):
+            json_body = ResourceCreate.parse_obj(resource)
+        else:
+            json_body = resource
+        created_tenant = await create_resource.asyncio(
+            self.scope.project_id.hex,
+            self.scope.environment_id.hex,
+            json_body=json_body,
+            client=self.client,
+        )
+        raise_for_error_by_action(
+            resource, "resource", json.dumps(json_body.dict()), "create"
+        )
+        return created_tenant
+
+    @lazy_load_scope
+    async def update_resource(
+        self, resource_key: str, resource: Union[ResourceUpdate, dict]
+    ) -> ResourceRead:
+        if isinstance(resource, dict):
+            json_body = ResourceUpdate.parse_obj(resource)
+        else:
+            json_body = resource
+        updated_resource = await update_resource.asyncio(
+            self.scope.project_id.hex,
+            self.scope.environment_id.hex,
+            resource_key,
+            json_body=json_body,
+            client=self.client,
+        )
+        raise_for_error_by_action(
+            resource, "resource", json.dumps(json_body.dict()), "update"
+        )
+        return updated_resource
+
+    @lazy_load_scope
+    async def delete_resource(self, resource_key: str):
+        res = await delete_resource.asyncio(
+            self.scope.project_id.hex,
+            self.scope.environment_id.hex,
+            resource_key,
+            client=self.client,
+        )
+        raise_for_error_by_action(res, "resource", resource_key, "delete")
 
     # endregion
     # region cloud api proxy ---------------------------------------------------------
