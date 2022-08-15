@@ -1,6 +1,5 @@
 import asyncio
 import json
-from collections import namedtuple
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 import aiohttp

@@ -38,6 +38,7 @@ class MultiTenancyConfig(BaseModel):
 
 
 class PermitConfig(BaseModel):
+    api_url: str = Field("https://api.permit.io", description="The url of Permit.io API")
     token: str = Field(
         "", description="Your PDP token, used to authenticate to the PDP"
     )

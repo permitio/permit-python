@@ -4,8 +4,8 @@ from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
 from permit import Permit
+from permit.api.client import PermitApiClient
 from permit.exceptions import PermitConnectionError, PermitException
-from permit.mutations.client import PermitApiClient
 
 
 def test_client_no_args():
