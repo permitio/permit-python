@@ -67,7 +67,7 @@ class Enforcer:
         # (in a multi tenant application)
         await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
-        normalized_user: str = user if isinstance(user, str) else UserInput(**user).key
+        normalized_user: UserInput = UserInput(key=user) if isinstance(user, str) else UserInput(**user)
         normalized_resource: ResourceInput = self._normalize_resource(
             (
                 self._resource_from_string(resource)
@@ -77,7 +77,7 @@ class Enforcer:
         )
         query_context = self._context_store.get_derived_context(context)
         input = dict(
-            user=normalized_user,
+            user=normalized_user.dict(),
             action=action,
             resource=normalized_resource.dict(),
             context=query_context,
