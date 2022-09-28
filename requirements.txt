@@ -2,3 +2,4 @@ pydantic[email]
 aiohttp
 loguru
 typing-extensions
+httpx

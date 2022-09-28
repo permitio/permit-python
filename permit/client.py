@@ -6,7 +6,8 @@ from loguru import logger
 from permit.config import ConfigFactory, PermitConfig
 from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
-from permit.mutations.client import PermitApiClient, ReadOperation, WriteOperation
+from permit.api.client import PermitApiClient
+from permit.mutations.client import PermitApiClient as CompatApiClient, ReadOperation, WriteOperation
 from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
 from permit.resources.registry import ActionDefinition, ResourceRegistry
 from permit.resources.reporter import ResourceReporter, ResourceStub
@@ -31,7 +32,8 @@ class Permit:
         )
         self._enforcer = Enforcer(self._config)
         # TODO: self._cache = LocalCacheClient(self._config, logger)
-        self._mutations_client = PermitApiClient(self._config)
+        self._mutations_client = CompatApiClient(self._config)
+        self._api_client = PermitApiClient(self._config)
 
         if self._config.debug_mode:
             self._logger.info(
@@ -65,7 +67,7 @@ class Permit:
     # mutations
     @property
     def api(self):
-        return self._mutations_client.api
+        return self._api_client.api
 
     async def read(self, *operations: ReadOperation) -> List[Dict]:
         return await self._mutations_client.read(*operations)
