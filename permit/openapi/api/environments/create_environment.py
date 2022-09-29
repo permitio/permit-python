@@ -36,7 +36,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[EnvironmentRead, HTTPValidationError]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[EnvironmentRead, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = EnvironmentRead.parse_obj(response.json())
 
@@ -48,7 +50,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[EnvironmentRe
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[EnvironmentRead, HTTPValidationError]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[EnvironmentRead, HTTPValidationError]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

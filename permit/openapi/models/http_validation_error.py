@@ -6,4 +6,4 @@ from permit.openapi.models.validation_error import ValidationError
 
 
 class HTTPValidationError(BaseModel):
-    detail: Optional[List[ValidationError]] = Field(None, title='Detail')
+    detail: Optional[List[ValidationError]] = Field(None, title="Detail")

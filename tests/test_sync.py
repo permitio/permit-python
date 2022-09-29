@@ -59,7 +59,7 @@ def test_debug_sync_client_check_allow(
     message = spy.call_args.args[4]
     assert (
         message
-        == "permit.check(fake-user, fake-action, fake-resource, tenant: default) = True"
+        == "permit.check(key='fake-user' firstName=None lastName=None email=None roles=None attributes=None, fake-action, fake-resource, tenant: default) = True"
     )
 
 
@@ -89,7 +89,7 @@ def test_debug_sync_client_check_deny(
     message = spy.call_args.args[4]
     assert (
         message
-        == "permit.check(fake-user, fake-action, fake-resource, tenant: default) = False"
+        == "permit.check(key='fake-user' firstName=None lastName=None email=None roles=None attributes=None, fake-action, fake-resource, tenant: default) = False"
     )
 
 

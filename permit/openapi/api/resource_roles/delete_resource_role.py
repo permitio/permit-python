@@ -17,7 +17,11 @@ def _get_kwargs(
     permit_session: Union[Unset, str] = UNSET,
 ) -> Dict[str, Any]:
     url = "{}/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}".format(
-        client.base_url, proj_id=proj_id, env_id=env_id, resource_id=resource_id, role_id=role_id
+        client.base_url,
+        proj_id=proj_id,
+        env_id=env_id,
+        resource_id=resource_id,
+        role_id=role_id,
     )
 
     headers: Dict[str, str] = client.get_headers()
@@ -35,7 +39,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[Any, HTTPValidationError]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[Any, HTTPValidationError]]:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -46,7 +52,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[Any, HTTPVali
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[Any, HTTPValidationError]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[Any, HTTPValidationError]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

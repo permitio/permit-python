@@ -9,10 +9,10 @@
 # import sys
 # sys.setrecursionlimit(n)
 
-from permit.openapi.models.api_key_read import APIKeyRead
 from permit.openapi.models.action_block_editable import ActionBlockEditable
 from permit.openapi.models.action_block_read import ActionBlockRead
 from permit.openapi.models.add_role_permissions import AddRolePermissions
+from permit.openapi.models.api_key_read import APIKeyRead
 from permit.openapi.models.attribute_block import AttributeBlock
 from permit.openapi.models.attribute_type import AttributeType
 from permit.openapi.models.environment_create import EnvironmentCreate
@@ -23,8 +23,8 @@ from permit.openapi.models.http_validation_error import HTTPValidationError
 from permit.openapi.models.organization_create import OrganizationCreate
 from permit.openapi.models.organization_read import OrganizationRead
 from permit.openapi.models.organization_update import OrganizationUpdate
-from permit.openapi.models.pdp_info_read import PDPInfoRead
 from permit.openapi.models.paginated_result_user_read import PaginatedResultUserRead
+from permit.openapi.models.pdp_info_read import PDPInfoRead
 from permit.openapi.models.project_create import ProjectCreate
 from permit.openapi.models.project_read import ProjectRead
 from permit.openapi.models.project_update import ProjectUpdate

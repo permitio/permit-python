@@ -7,5 +7,5 @@ class APIKeyRead(BaseModel):
     class Config:
         extra = Extra.forbid
 
-    id: UUID = Field(..., title='Id')
-    secret: str = Field(..., title='Secret')
+    id: UUID = Field(..., title="Id")
+    secret: str = Field(..., title="Secret")

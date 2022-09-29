@@ -31,7 +31,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[FullData, HTTPValidationError]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[FullData, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = FullData.parse_obj(response.json())
 
@@ -43,7 +45,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[FullData, HTT
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[FullData, HTTPValidationError]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[FullData, HTTPValidationError]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

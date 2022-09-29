@@ -9,14 +9,14 @@ class OrganizationCreate(BaseModel):
 
     key: str = Field(
         ...,
-        description='A URL-friendly name of the organization (i.e: slug). You will be able to query later using this key instead of the id (UUID) of the organization.',
-        title='Key',
+        description="A URL-friendly name of the organization (i.e: slug). You will be able to query later using this key instead of the id (UUID) of the organization.",
+        title="Key",
     )
     name: str = Field(
         ...,
         description="The name of the organization, usually it's your company's name.",
-        title='Name',
+        title="Name",
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        None, description="the settings for this project", title="Settings"
     )

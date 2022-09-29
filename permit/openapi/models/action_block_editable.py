@@ -8,10 +8,10 @@ class ActionBlockEditable(BaseModel):
         extra = Extra.forbid
 
     name: Optional[str] = Field(
-        None, description='a more descriptive name for the action', title='Name'
+        None, description="a more descriptive name for the action", title="Name"
     )
     description: Optional[str] = Field(
         None,
-        description='optional description string explaining what this action represents in your system',
-        title='Description',
+        description="optional description string explaining what this action represents in your system",
+        title="Description",
     )

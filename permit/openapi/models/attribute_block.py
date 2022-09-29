@@ -11,10 +11,10 @@ class AttributeBlock(BaseModel):
 
     type: AttributeType = Field(
         ...,
-        description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
+        description="The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.",
     )
     description: Optional[str] = Field(
         None,
-        description='optional description string explaining what data this attribute will store',
-        title='Description',
+        description="optional description string explaining what data this attribute will store",
+        title="Description",
     )

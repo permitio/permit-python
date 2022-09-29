@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional, Union
 import httpx
 
 from ...client import AuthenticatedClient
-from ...models.http_validation_error import HTTPValidationError
 from ...models import PaginatedResultUserRead
+from ...models.http_validation_error import HTTPValidationError
 from ...types import UNSET, Response, Unset
 
 
@@ -18,7 +18,9 @@ def _get_kwargs(
     per_page: Union[Unset, None, int] = 30,
     permit_session: Union[Unset, str] = UNSET,
 ) -> Dict[str, Any]:
-    url = "{}/v2/facts/{proj_id}/{env_id}/users".format(client.base_url, proj_id=proj_id, env_id=env_id)
+    url = "{}/v2/facts/{proj_id}/{env_id}/users".format(
+        client.base_url, proj_id=proj_id, env_id=env_id
+    )
 
     headers: Dict[str, str] = client.get_headers()
     cookies: Dict[str, Any] = client.get_cookies()
@@ -45,7 +47,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidationError, PaginatedResultUserRead]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[HTTPValidationError, PaginatedResultUserRead]]:
     if response.status_code == 200:
         response_200 = PaginatedResultUserRead.parse_obj(response.json())
 
@@ -57,7 +61,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidatio
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[HTTPValidationError, PaginatedResultUserRead]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[HTTPValidationError, PaginatedResultUserRead]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

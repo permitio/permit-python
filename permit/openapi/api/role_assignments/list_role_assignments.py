@@ -20,7 +20,9 @@ def _get_kwargs(
     per_page: Union[Unset, None, int] = 30,
     permit_session: Union[Unset, str] = UNSET,
 ) -> Dict[str, Any]:
-    url = "{}/v2/facts/{proj_id}/{env_id}/role_assignments".format(client.base_url, proj_id=proj_id, env_id=env_id)
+    url = "{}/v2/facts/{proj_id}/{env_id}/role_assignments".format(
+        client.base_url, proj_id=proj_id, env_id=env_id
+    )
 
     headers: Dict[str, str] = client.get_headers()
     cookies: Dict[str, Any] = client.get_cookies()
@@ -51,7 +53,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidationError, List[RoleAssignmentRead]]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[HTTPValidationError, List[RoleAssignmentRead]]]:
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
@@ -68,7 +72,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidatio
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[HTTPValidationError, List[RoleAssignmentRead]]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[HTTPValidationError, List[RoleAssignmentRead]]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

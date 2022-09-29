@@ -4,8 +4,8 @@ from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
 from permit import Permit
-from permit.api.client import PermitApiClient
 from permit.exceptions import PermitConnectionError, PermitException
+from permit.mutations.client import PermitApiClient
 
 
 def test_client_no_args():
@@ -64,7 +64,7 @@ async def test_debug_client_check_allow(
     message = spy.call_args.args[4]
     assert (
         message
-        == "permit.check(fake-user, fake-action, fake-resource, tenant: default) = True"
+        == "permit.check(key='fake-user' firstName=None lastName=None email=None roles=None attributes=None, fake-action, fake-resource, tenant: default) = True"
     )
 
 
@@ -94,7 +94,7 @@ async def test_debug_client_check_deny(
     message = spy.call_args.args[4]
     assert (
         message
-        == "permit.check(fake-user, fake-action, fake-resource, tenant: default) = False"
+        == "permit.check(key='fake-user' firstName=None lastName=None email=None roles=None attributes=None, fake-action, fake-resource, tenant: default) = False"
     )
 
 

@@ -34,7 +34,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[Any, HTTPValidationError]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[Any, HTTPValidationError]]:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -45,7 +47,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[Any, HTTPVali
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[Any, HTTPValidationError]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[Any, HTTPValidationError]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

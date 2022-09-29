@@ -3,10 +3,9 @@ from typing import Any, Dict, Optional, Union
 import httpx
 
 from ...client import AuthenticatedClient
+from ...models import RoleAssignmentRead, UserRoleCreate
 from ...models.http_validation_error import HTTPValidationError
-from ...models import RoleAssignmentRead
-from ...models import UserRoleCreate
-from ...types import Response, UNSET, Unset
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -40,7 +39,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidationError, RoleAssignmentRead]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[HTTPValidationError, RoleAssignmentRead]]:
     if response.status_code == 200:
         response_200 = RoleAssignmentRead.parse_obj(response.json())
 
@@ -52,7 +53,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidatio
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[HTTPValidationError, RoleAssignmentRead]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[HTTPValidationError, RoleAssignmentRead]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

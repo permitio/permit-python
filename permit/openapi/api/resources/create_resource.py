@@ -17,7 +17,9 @@ def _get_kwargs(
     json_body: ResourceCreate,
     permit_session: Union[Unset, str] = UNSET,
 ) -> Dict[str, Any]:
-    url = "{}/v2/schema/{proj_id}/{env_id}/resources".format(client.base_url, proj_id=proj_id, env_id=env_id)
+    url = "{}/v2/schema/{proj_id}/{env_id}/resources".format(
+        client.base_url, proj_id=proj_id, env_id=env_id
+    )
 
     headers: Dict[str, str] = client.get_headers()
     cookies: Dict[str, Any] = client.get_cookies()
@@ -37,7 +39,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidationError, ResourceRead]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[HTTPValidationError, ResourceRead]]:
     if response.status_code == 200:
         response_200 = ResourceRead.parse_obj(response.json())
 
@@ -49,7 +53,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[HTTPValidatio
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[HTTPValidationError, ResourceRead]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[HTTPValidationError, ResourceRead]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

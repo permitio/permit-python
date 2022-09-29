@@ -4,4 +4,4 @@ from pydantic import BaseModel, Field
 
 
 class PDPInfoRead(BaseModel):
-    pdp_ids: List[str] = Field(..., title='Pdp Ids')
+    pdp_ids: List[str] = Field(..., title="Pdp Ids")

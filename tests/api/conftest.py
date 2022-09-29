@@ -8,8 +8,8 @@ from permit.config import ConfigFactory, PermitConfig
 def config() -> PermitConfig:
     return ConfigFactory.build(
         dict(
-            token="permit_key_UDpCznMpZqAeZzcW9gC3qhjwSHammpiuqiRJwleEWcMBcwcQHYB9vBHlBfgqxO41rXbtBiI7HBQPqxoaH3OXi5",
-            api_url="http://localhost:8000"
+            token="permit_key_PLpDpaOpR4UAEbGbAgi76nyc6Z0EnFjFFdPW0oFFDov4XfONqHiJcx1kKfA7Fptjam9F9dUal9HoJnw7MJE7Ge",
+            api_url="http://localhost:8000",
         ),
     )
 

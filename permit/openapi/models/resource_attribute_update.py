@@ -11,10 +11,10 @@ class ResourceAttributeUpdate(BaseModel):
 
     type: Optional[AttributeType] = Field(
         None,
-        description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
+        description="The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.",
     )
     description: Optional[str] = Field(
         None,
-        description='An optional longer description of what this attribute respresents in your system',
-        title='Description',
+        description="An optional longer description of what this attribute respresents in your system",
+        title="Description",
     )

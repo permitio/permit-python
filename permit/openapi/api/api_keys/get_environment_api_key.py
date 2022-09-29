@@ -15,7 +15,9 @@ def _get_kwargs(
     client: AuthenticatedClient,
     permit_session: Union[Unset, str] = UNSET,
 ) -> Dict[str, Any]:
-    url = "{}/v2/api-key/{proj_id}/{env_id}".format(client.base_url, proj_id=proj_id, env_id=env_id)
+    url = "{}/v2/api-key/{proj_id}/{env_id}".format(
+        client.base_url, proj_id=proj_id, env_id=env_id
+    )
 
     headers: Dict[str, str] = client.get_headers()
     cookies: Dict[str, Any] = client.get_cookies()
@@ -32,7 +34,9 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, response: httpx.Response) -> Optional[Union[APIKeyRead, HTTPValidationError]]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[Union[APIKeyRead, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = APIKeyRead.parse_obj(response.json())
 
@@ -44,7 +48,9 @@ def _parse_response(*, response: httpx.Response) -> Optional[Union[APIKeyRead, H
     return None
 
 
-def _build_response(*, response: httpx.Response) -> Response[Union[APIKeyRead, HTTPValidationError]]:
+def _build_response(
+    *, response: httpx.Response
+) -> Response[Union[APIKeyRead, HTTPValidationError]]:
     return Response(
         status_code=response.status_code,
         content=response.content,

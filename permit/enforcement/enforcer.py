@@ -67,7 +67,9 @@ class Enforcer:
         # (in a multi tenant application)
         await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
-        normalized_user: UserInput = UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        normalized_user: UserInput = (
+            UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        )
         normalized_resource: ResourceInput = self._normalize_resource(
             (
                 self._resource_from_string(resource)

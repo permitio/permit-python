@@ -10,16 +10,16 @@ class APIKeyScopeRead(BaseModel):
 
     organization_id: UUID = Field(
         ...,
-        description='Unique id of the organization that the api_key belongs to.',
-        title='Organization Id',
+        description="Unique id of the organization that the api_key belongs to.",
+        title="Organization Id",
     )
     project_id: Optional[UUID] = Field(
         None,
-        description='Unique id of the project that the api_key belongs to.',
-        title='Project Id',
+        description="Unique id of the project that the api_key belongs to.",
+        title="Project Id",
     )
     environment_id: Optional[UUID] = Field(
         None,
-        description='Unique id of the environment that the api_key belongs to.',
-        title='Environment Id',
+        description="Unique id of the environment that the api_key belongs to.",
+        title="Environment Id",
     )
