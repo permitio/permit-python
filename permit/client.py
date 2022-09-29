@@ -3,11 +3,12 @@ from typing import Dict, List
 
 from loguru import logger
 
+from permit.api.client import PermitApiClient
 from permit.config import ConfigFactory, PermitConfig
 from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
-from permit.api.client import PermitApiClient
-from permit.mutations.client import PermitApiClient as CompatApiClient, ReadOperation, WriteOperation
+from permit.mutations.client import PermitApiClient as CompatApiClient
+from permit.mutations.client import ReadOperation, WriteOperation
 from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
 from permit.resources.registry import ActionDefinition, ResourceRegistry
 from permit.resources.reporter import ResourceReporter, ResourceStub
