@@ -3,20 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from typing import (
-    Awaitable,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    ParamSpec,
-    TypeVar,
-    Union,
-)
+from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
 from pydantic import BaseModel
+from typing_extensions import ParamSpec
 
 from permit.config import PermitConfig
 from permit.enforcement.interfaces import UserInput
@@ -190,6 +181,21 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 
 
+def lazy_load_scope(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
+    async def wrapper(self: PermitApiClient, *args: P.args, **kwargs: P.kwargs) -> RT:
+        if self.scope is None:
+            self._logger.info("loading scope propertied from api")
+            res = await get_api_key_scope.asyncio(client=self.client)
+            raise_for_error(res, message="could not get api key scope")
+            self._logger.info("got scope response from api")
+            self.scope = res
+        else:
+            self._logger.debug("scope is already loaded, skipping scope loading")
+        return await func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class PermitApiClient(PermitApi):
     def __init__(self, config: PermitConfig):
         self._config = config
@@ -197,23 +203,6 @@ class PermitApiClient(PermitApi):
 
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
         self.scope: APIKeyScopeRead | None = None
-
-    @staticmethod
-    def lazy_load_scope(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
-        async def wrapper(
-            self: PermitApiClient, *args: P.args, **kwargs: P.kwargs
-        ) -> RT:
-            if self.scope is None:
-                self._logger.info("loading scope propertied from api")
-                res = await get_api_key_scope.asyncio(client=self.client)
-                raise_for_error(res, message="could not get api key scope")
-                self._logger.info("got scope response from api")
-                self.scope = res
-            else:
-                self._logger.debug("scope is already loaded, skipping scope loading")
-            return await func(self, *args, **kwargs)
-
-        return wrapper
 
     # region read api ----------------------------------------------------------------
 
