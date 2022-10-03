@@ -12,7 +12,7 @@ class PermitConnectionError(PermitException):
 
 
 def raise_for_error(
-    res: Union[HTTPValidationError, None,Any],
+    res: Union[HTTPValidationError, None, Any],
     message: str = "error getting response",
     allow_none: bool = False,
 ):
@@ -23,7 +23,7 @@ def raise_for_error(
 
 
 def raise_for_error_by_action(
-    res: Union[HTTPValidationError,None,Any],
+    res: Union[HTTPValidationError, None, Any],
     object_name: str,
     payload: str,
     action: str = "get",
