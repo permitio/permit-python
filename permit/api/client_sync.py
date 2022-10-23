@@ -209,3 +209,7 @@ class PermitSyncApiClient:
         async_to_sync decorator on :class:`PermitApiClient` corresponding methods
         """
         raise NotImplementedError()
+
+    @property
+    def api(self) -> PermitSyncApiClient:
+        return self

@@ -446,3 +446,7 @@ class PermitApiClient:
         return results
 
     # endregion
+
+    @property
+    def api(self) -> PermitApiClient:
+        return self
