@@ -21,7 +21,6 @@ def run_sync(callback: Awaitable[T]) -> T:
 
 
 def async_to_sync(func: Callable[P, Awaitable[T]]) -> Callable[P, T]:
-
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         return run_sync(func(*args, **kwargs))
