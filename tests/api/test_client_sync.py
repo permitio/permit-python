@@ -107,7 +107,9 @@ def test_client_create_tenant(sync_api_client: PermitSyncApiClient, tenant_key: 
 
 
 @pytest.mark.parametrize("tenant_key", ["tenant4", "tenant5", "tenant6"])
-def test_client_create_tenant_dict(sync_api_client: PermitSyncApiClient, tenant_key: str):
+def test_client_create_tenant_dict(
+    sync_api_client: PermitSyncApiClient, tenant_key: str
+):
     create_tenant = TenantCreate(key=tenant_key, name=tenant_key)
     tenant = (sync_api_client.create_tenant(create_tenant.dict())).dict()
     for key, value in create_tenant.dict().items():
@@ -123,7 +125,9 @@ def test_client_update_tenant(sync_api_client: PermitSyncApiClient, tenant_key: 
 
 
 @pytest.mark.parametrize("tenant_key", ["tenant4", "tenant5", "tenant6"])
-def test_client_update_tenant_dict(sync_api_client: PermitSyncApiClient, tenant_key: str):
+def test_client_update_tenant_dict(
+    sync_api_client: PermitSyncApiClient, tenant_key: str
+):
     update_tenant = TenantUpdate(name=f"{tenant_key} updated")
     tenant = (sync_api_client.update_tenant(tenant_key, update_tenant.dict())).dict()
     for key, value in update_tenant.dict().items():

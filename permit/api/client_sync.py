@@ -7,8 +7,20 @@ from pydantic import BaseModel
 
 from permit.api.client import PermitApiClient
 from permit.config import PermitConfig
-from permit.openapi.models import (ResourceCreate, ResourceRead, ResourceUpdate, RoleAssignmentRead, RoleCreate,
-                                   RoleRead, RoleUpdate, TenantCreate, TenantRead, TenantUpdate, UserCreate, UserRead)
+from permit.openapi.models import (
+    ResourceCreate,
+    ResourceRead,
+    ResourceUpdate,
+    RoleAssignmentRead,
+    RoleCreate,
+    RoleRead,
+    RoleUpdate,
+    TenantCreate,
+    TenantRead,
+    TenantUpdate,
+    UserCreate,
+    UserRead,
+)
 from permit.utils.sync import async_to_sync, iscoroutine_func
 
 T = TypeVar("T")
@@ -103,9 +115,7 @@ class SyncWriteApis(ABC):
         raise NotImplementedError("abstract class")
 
     @abstractmethod
-    def update_role(
-        self, role_key: str, role: Union[RoleUpdate, dict]
-    ) -> RoleRead:
+    def update_role(self, role_key: str, role: Union[RoleUpdate, dict]) -> RoleRead:
         raise NotImplementedError("abstract class")
 
     @abstractmethod
@@ -115,9 +125,7 @@ class SyncWriteApis(ABC):
         raise NotImplementedError("abstract class")
 
     @abstractmethod
-    def unassign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> None:
+    def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
         raise NotImplementedError("abstract class")
 
     @abstractmethod
@@ -125,9 +133,7 @@ class SyncWriteApis(ABC):
         raise NotImplementedError("abstract class")
 
     @abstractmethod
-    def update_resource(
-        self, resource_key: str, resource: Union[ResourceUpdate, dict]
-    ):
+    def update_resource(self, resource_key: str, resource: Union[ResourceUpdate, dict]):
         raise NotImplementedError("abstract class")
 
     @abstractmethod
@@ -188,7 +194,9 @@ class PermitSyncApiClient(PermitSyncApi):
         """
         raise NotImplementedError()
 
-    def get_assigned_roles(self, user_key: str, tenant_key: Optional[str]) -> List[RoleAssignmentRead]:
+    def get_assigned_roles(
+        self, user_key: str, tenant_key: Optional[str]
+    ) -> List[RoleAssignmentRead]:
         """
         this function is monkey-patched in the __new__ method using
         async_to_sync decorator on :class:`PermitApiClient` corresponding methods
@@ -223,7 +231,9 @@ class PermitSyncApiClient(PermitSyncApi):
         """
         raise NotImplementedError()
 
-    def update_tenant(self, tenant_key: str, tenant: Union[TenantUpdate, dict]) -> TenantRead:
+    def update_tenant(
+        self, tenant_key: str, tenant: Union[TenantUpdate, dict]
+    ) -> TenantRead:
         """
         this function is monkey-patched in the __new__ method using
         async_to_sync decorator on :class:`PermitApiClient` corresponding methods
@@ -258,7 +268,9 @@ class PermitSyncApiClient(PermitSyncApi):
         """
         raise NotImplementedError()
 
-    def assign_role(self, user_key: str, role_key: str, tenant_key: str) -> RoleAssignmentRead:
+    def assign_role(
+        self, user_key: str, role_key: str, tenant_key: str
+    ) -> RoleAssignmentRead:
         """
         this function is monkey-patched in the __new__ method using
         async_to_sync decorator on :class:`PermitApiClient` corresponding methods
