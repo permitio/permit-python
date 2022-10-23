@@ -1,5 +1,6 @@
 import asyncio
 from asyncio import iscoroutinefunction
+from functools import wraps
 from typing import Awaitable, Callable, TypeVar
 
 from typing_extensions import ParamSpec, TypeGuard
@@ -20,6 +21,8 @@ def run_sync(callback: Awaitable[T]) -> T:
 
 
 def async_to_sync(func: Callable[P, Awaitable[T]]) -> Callable[P, T]:
+
+    @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         return run_sync(func(*args, **kwargs))
 
