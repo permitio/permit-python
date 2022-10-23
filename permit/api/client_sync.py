@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel
@@ -51,101 +50,7 @@ class WriteOperation(Operation[Dict]):
     ...
 
 
-class SyncReadApis(ABC):
-    @abstractmethod
-    def get_user(self, user_key: str) -> UserRead:
-        ...
-
-    @abstractmethod
-    def get_role(self, role_key: str) -> RoleRead:
-        ...
-
-    @abstractmethod
-    def list_tenants(
-        self,
-        page: int = 1,
-        per_page: int = 100,
-    ) -> List[Tenant]:
-        ...
-
-    @abstractmethod
-    def get_tenant(self, tenant_key: str) -> TenantRead:
-        ...
-
-    @abstractmethod
-    def get_assigned_roles(
-        self, user_key: str, tenant_key: Optional[str]
-    ) -> List[RoleAssignmentRead]:
-        ...
-
-    @abstractmethod
-    def get_resource(self, resource_key: str) -> ResourceRead:
-        ...
-
-
-class SyncWriteApis(ABC):
-    @abstractmethod
-    def sync_user(self, user: Union[UserCreate, dict]) -> UserRead:
-        ...
-
-    @abstractmethod
-    async def delete_role(self, role_key: str) -> None:
-        ...
-
-    @abstractmethod
-    def delete_user(self, user_key: str) -> None:
-        ...
-
-    @abstractmethod
-    def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
-        ...
-
-    @abstractmethod
-    def update_tenant(
-        self, tenant_key: str, tenant: Union[TenantUpdate, dict]
-    ) -> TenantRead:
-        ...
-
-    @abstractmethod
-    def delete_tenant(self, tenant_key: str) -> None:
-        ...
-
-    @abstractmethod
-    def create_role(self, role: Union[RoleCreate, dict]) -> RoleRead:
-        ...
-
-    @abstractmethod
-    def update_role(self, role_key: str, role: Union[RoleUpdate, dict]) -> RoleRead:
-        ...
-
-    @abstractmethod
-    def assign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> RoleAssignmentRead:
-        ...
-
-    @abstractmethod
-    def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
-        ...
-
-    @abstractmethod
-    def create_resource(self, resource: Union[ResourceCreate, dict]):
-        ...
-
-    @abstractmethod
-    def update_resource(self, resource_key: str, resource: Union[ResourceUpdate, dict]):
-        ...
-
-    @abstractmethod
-    def delete_resource(self, resource_key: str):
-        ...
-
-
-class PermitSyncApi(SyncReadApis, SyncWriteApis, ABC):
-    ...
-
-
-class PermitSyncApiClient(PermitSyncApi):
+class PermitSyncApiClient:
     def __init__(self, config: PermitConfig):
         self.config = config
 
@@ -304,7 +209,3 @@ class PermitSyncApiClient(PermitSyncApi):
         async_to_sync decorator on :class:`PermitApiClient` corresponding methods
         """
         raise NotImplementedError()
-
-    @property
-    def api(self) -> PermitSyncApiClient:
-        return self
