@@ -23,6 +23,4 @@ def api_client(config: PermitConfig) -> PermitApiClient:
 
 @pytest.fixture
 def sync_api_client(config: PermitConfig) -> PermitSyncApiClient:
-    x = PermitSyncApiClient(config=config)
-
-    return x
+    return PermitSyncApiClient(config=config)

@@ -54,11 +54,11 @@ class WriteOperation(Operation[Dict]):
 class SyncReadApis(ABC):
     @abstractmethod
     def get_user(self, user_key: str) -> UserRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def get_role(self, role_key: str) -> RoleRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def list_tenants(
@@ -66,79 +66,79 @@ class SyncReadApis(ABC):
         page: int = 1,
         per_page: int = 100,
     ) -> List[Tenant]:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def get_tenant(self, tenant_key: str) -> TenantRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def get_assigned_roles(
         self, user_key: str, tenant_key: Optional[str]
     ) -> List[RoleAssignmentRead]:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def get_resource(self, resource_key: str) -> ResourceRead:
-        raise NotImplementedError("abstract class")
+        ...
 
 
 class SyncWriteApis(ABC):
     @abstractmethod
     def sync_user(self, user: Union[UserCreate, dict]) -> UserRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def delete_role(self, role_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def delete_user(self, user_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def update_tenant(
         self, tenant_key: str, tenant: Union[TenantUpdate, dict]
     ) -> TenantRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def delete_tenant(self, tenant_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def create_role(self, role: Union[RoleCreate, dict]) -> RoleRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def update_role(self, role_key: str, role: Union[RoleUpdate, dict]) -> RoleRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def create_resource(self, resource: Union[ResourceCreate, dict]):
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def update_resource(self, resource_key: str, resource: Union[ResourceUpdate, dict]):
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     def delete_resource(self, resource_key: str):
-        raise NotImplementedError("abstract class")
+        ...
 
 
 class PermitSyncApi(SyncReadApis, SyncWriteApis, ABC):

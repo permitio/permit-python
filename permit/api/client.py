@@ -115,29 +115,29 @@ class ReadApis(ABC):
 class WriteApis(ABC):
     @abstractmethod
     async def sync_user(self, user: Union[UserCreate, dict]) -> UserRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def delete_role(self, role_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def delete_user(self, user_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def update_tenant(
         self, tenant_key: str, tenant: Union[TenantUpdate, dict]
     ) -> TenantRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def delete_tenant(self, tenant_key: str) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def create_role(self, role: Union[RoleCreate, dict]) -> RoleRead:
@@ -153,13 +153,13 @@ class WriteApis(ABC):
     async def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def unassign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> None:
-        raise NotImplementedError("abstract class")
+        ...
 
     @abstractmethod
     async def create_resource(self, resource: Union[ResourceCreate, dict]):
@@ -205,7 +205,7 @@ class PermitApiClient(PermitApi):
         self._logger = logger.bind(name="permit.mutations.client")
 
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
-        self.scope: Union[APIKeyScopeRead, None] = None
+        self.scope: Optional[APIKeyScopeRead] = None
 
     # region read api ----------------------------------------------------------------
 
