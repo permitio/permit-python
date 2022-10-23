@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from abc import ABC, abstractmethod
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
@@ -10,7 +9,6 @@ from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
 from permit.config import PermitConfig
-from permit.enforcement.interfaces import UserInput
 from permit.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
@@ -81,102 +79,6 @@ class WriteOperation(Operation[Dict]):
     pass
 
 
-class ReadApis(ABC):
-    @abstractmethod
-    async def get_user(self, user_key: str) -> UserRead:
-        pass
-
-    @abstractmethod
-    async def get_role(self, role_key: str) -> RoleRead:
-        pass
-
-    @abstractmethod
-    async def list_tenants(
-        self,
-        page: int = 1,
-        per_page: int = 100,
-    ) -> List[Tenant]:
-        pass
-
-    @abstractmethod
-    async def get_tenant(self, tenant_key: str) -> TenantRead:
-        pass
-
-    @abstractmethod
-    async def get_assigned_roles(
-        self, user_key: str, tenant_key: Optional[str]
-    ) -> List[RoleAssignmentRead]:
-        pass
-
-    @abstractmethod
-    async def get_resource(self, resource_key: str) -> ResourceRead:
-        pass
-
-
-class WriteApis(ABC):
-    @abstractmethod
-    async def sync_user(self, user: Union[UserInput, dict]) -> UserRead:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def delete_user(self, user_key: str) -> None:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def update_tenant(
-        self, tenant_key: str, tenant: Union[TenantUpdate, dict]
-    ) -> TenantRead:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def delete_tenant(self, tenant_key: str) -> None:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def create_role(self, role: Union[RoleCreate, dict]) -> RoleRead:
-        pass
-
-    @abstractmethod
-    async def update_role(
-        self, role_key: str, role: Union[RoleUpdate, dict]
-    ) -> RoleRead:
-        pass
-
-    @abstractmethod
-    async def assign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> RoleAssignmentRead:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def unassign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> None:
-        raise NotImplementedError("abstract class")
-
-    @abstractmethod
-    async def create_resource(self, resource: Union[ResourceCreate, dict]):
-        pass
-
-    @abstractmethod
-    async def update_resource(
-        self, resource_key: str, resource: Union[ResourceUpdate, dict]
-    ):
-        pass
-
-    @abstractmethod
-    async def delete_resource(self, resource_key: str):
-        pass
-
-
-class PermitApi(ReadApis, WriteApis, ABC):
-    ...
-
-
 P = ParamSpec("P")
 RT = TypeVar("RT")
 
@@ -196,13 +98,13 @@ def lazy_load_scope(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
     return wrapper
 
 
-class PermitApiClient(PermitApi):
+class PermitApiClient:
     def __init__(self, config: PermitConfig):
         self._config = config
         self._logger = logger.bind(name="permit.mutations.client")
 
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
-        self.scope: APIKeyScopeRead | None = None
+        self.scope: Optional[APIKeyScopeRead] = None
 
     # region read api ----------------------------------------------------------------
 
@@ -546,5 +448,5 @@ class PermitApiClient(PermitApi):
     # endregion
 
     @property
-    def api(self) -> PermitApi:
+    def api(self) -> PermitApiClient:
         return self
