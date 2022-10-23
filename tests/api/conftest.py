@@ -1,6 +1,7 @@
 import pytest
 
 from permit.api.client import PermitApiClient
+from permit.api.client_sync import PermitSyncApiClient
 from permit.config import ConfigFactory, PermitConfig
 
 
@@ -8,7 +9,8 @@ from permit.config import ConfigFactory, PermitConfig
 def config() -> PermitConfig:
     return ConfigFactory.build(
         dict(
-            token="permit_key_PLpDpaOpR4UAEbGbAgi76nyc6Z0EnFjFFdPW0oFFDov4XfONqHiJcx1kKfA7Fptjam9F9dUal9HoJnw7MJE7Ge",
+            # dummy local api key for local tests
+            token="permit_key_j6vbONQJMNJkH95LaueD6EzLjbiZ8uIaXtYtLXBPy1fdRUq2rjEd5lMQXGQ0SJDFZZEbL6Ftb7OvXD0UTmlOWU",
             api_url="http://localhost:8000",
         ),
     )
@@ -17,3 +19,10 @@ def config() -> PermitConfig:
 @pytest.fixture
 def api_client(config: PermitConfig) -> PermitApiClient:
     return PermitApiClient(config=config)
+
+
+@pytest.fixture
+def sync_api_client(config: PermitConfig) -> PermitSyncApiClient:
+    x = PermitSyncApiClient(config=config)
+
+    return x

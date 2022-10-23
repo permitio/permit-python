@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
 from permit.config import PermitConfig
-from permit.enforcement.interfaces import UserInput
 from permit.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
@@ -115,7 +114,11 @@ class ReadApis(ABC):
 
 class WriteApis(ABC):
     @abstractmethod
-    async def sync_user(self, user: Union[UserInput, dict]) -> UserRead:
+    async def sync_user(self, user: Union[UserCreate, dict]) -> UserRead:
+        raise NotImplementedError("abstract class")
+
+    @abstractmethod
+    async def delete_role(self, role_key: str) -> None:
         raise NotImplementedError("abstract class")
 
     @abstractmethod
@@ -202,7 +205,7 @@ class PermitApiClient(PermitApi):
         self._logger = logger.bind(name="permit.mutations.client")
 
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
-        self.scope: APIKeyScopeRead | None = None
+        self.scope: Union[APIKeyScopeRead, None] = None
 
     # region read api ----------------------------------------------------------------
 

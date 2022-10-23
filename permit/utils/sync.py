@@ -1,11 +1,14 @@
 import asyncio
+from asyncio import iscoroutinefunction
 from typing import Awaitable, Callable, TypeVar
 
+from typing_extensions import ParamSpec, TypeGuard
+
+P = ParamSpec("P")
 T = TypeVar("T")
-AsyncFunc = Callable[..., Awaitable[T]]
 
 
-def run_sync(callback: AsyncFunc[T]) -> T:
+def run_sync(callback: Awaitable[T]) -> T:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -14,3 +17,14 @@ def run_sync(callback: AsyncFunc[T]) -> T:
     else:
         # there *is* a running event loop, so use `loop.run_until_complete`
         return loop.run_until_complete(callback)
+
+
+def async_to_sync(func: Callable[P, Awaitable[T]]) -> Callable[P, T]:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        return run_sync(func(*args, **kwargs))
+
+    return wrapper
+
+
+def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
+    return iscoroutinefunction(callable)
