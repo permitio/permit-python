@@ -1,5 +1,6 @@
 import json
 from typing import Dict, List
+from uuid import UUID
 
 from loguru import logger
 
@@ -64,6 +65,13 @@ class Permit:
 
     async def sync_resources(self, config: ResourceTypes) -> List[ResourceStub]:
         return await self._resource_reporter.sync_resources(config)
+
+    async def generate_embed_redirect_url_for_user(
+        self, tenant_id: str | UUID, user_id: str | UUID
+    ) -> str:
+        return (
+            await self.api.generate_embed_token_for_user(tenant_id, user_id)
+        ).redirect_url
 
     # mutations
     @property
