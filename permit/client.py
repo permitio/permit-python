@@ -1,12 +1,12 @@
 import json
 from typing import Dict, List
-from uuid import UUID
 
 from loguru import logger
 
 from permit.api.client import PermitApiClient
 from permit.config import ConfigFactory, PermitConfig
 from permit.constants import DEFAULT_PDP_URL
+from permit.elements import PermitElements
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
 from permit.mutations.client import PermitApiClient as CompatApiClient
 from permit.mutations.client import ReadOperation, WriteOperation
@@ -28,14 +28,18 @@ class Permit:
             dict(token=token, pdp=pdp, debug_mode=debug_mode, **options),
         )
         self._logger = logger.bind(name="permit.io")
+
         self._resource_registry = ResourceRegistry()
         self._resource_reporter = ResourceReporter(
             self._config, self._resource_registry
         )
         self._enforcer = Enforcer(self._config)
         # TODO: self._cache = LocalCacheClient(self._config, logger)
+
         self._mutations_client = CompatApiClient(self._config)
         self._api_client = PermitApiClient(self._config)
+
+        self._elements = PermitElements(self)
 
         if self._config.debug_mode:
             self._logger.info(
@@ -66,12 +70,9 @@ class Permit:
     async def sync_resources(self, config: ResourceTypes) -> List[ResourceStub]:
         return await self._resource_reporter.sync_resources(config)
 
-    async def generate_embed_redirect_url_for_user(
-        self, tenant_id: str | UUID, user_id: str | UUID
-    ) -> str:
-        return (
-            await self.api.generate_embed_token_for_user(tenant_id, user_id)
-        ).redirect_url
+    @property
+    def elements(self):
+        return self._elements
 
     # mutations
     @property

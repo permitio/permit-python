@@ -15,7 +15,7 @@ def _get_kwargs(
     client: AuthenticatedClient,
     json_body: UserLoginRequest,
 ) -> Dict[str, Any]:
-    url = "{}/v2/auth/generate_embed_token_for_user".format(client.base_url)
+    url = "{}/v2/auth/elements_login_as".format(client.base_url)
     headers: Dict[str, str] = client.get_headers()
     cookies: Dict[str, Any] = client.get_cookies()
     json_json_body = json_body.dict()

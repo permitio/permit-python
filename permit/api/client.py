@@ -13,7 +13,7 @@ from permit.config import PermitConfig
 from permit.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
-from permit.openapi.api.authentication import generate_embed_token_for_user
+from permit.openapi.api.authentication import elements_login_as
 from permit.openapi.api.resources import (
     create_resource,
     delete_resource,
@@ -434,20 +434,20 @@ class PermitApiClient:
         raise_for_error_by_action(res, "resource", resource_key, "delete")
 
     @lazy_load_scope
-    async def generate_embed_token_for_user(
-        self, tenant_id: str | UUID, user_id: str | UUID
+    async def elements_login_as(
+        self, user_id: str | UUID, tenant_id: str | UUID
     ) -> UserLoginResponse:
-        if isinstance(tenant_id, UUID):
-            tenant_id = tenant_id.hex
         if isinstance(user_id, UUID):
             user_id = user_id.hex
+        if isinstance(tenant_id, UUID):
+            tenant_id = tenant_id.hex
 
         payload = UserLoginRequest(
-            tenant_id=tenant_id,
             user_id=user_id,
+            tenant_id=tenant_id,
         )
 
-        response = await generate_embed_token_for_user.asyncio(
+        response = await elements_login_as.asyncio(
             json_body=payload,
             client=self.client,
         )
