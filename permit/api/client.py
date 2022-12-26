@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
+from uuid import UUID
 
 from loguru import logger
 from pydantic import BaseModel
@@ -12,6 +13,7 @@ from permit.config import PermitConfig
 from permit.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
+from permit.openapi.api.authentication import elements_login_as
 from permit.openapi.api.resources import (
     create_resource,
     delete_resource,
@@ -46,6 +48,8 @@ from permit.openapi.models import (
     TenantRead,
     TenantUpdate,
     UserCreate,
+    UserLoginRequest,
+    UserLoginResponse,
     UserRead,
     UserUpdate,
 )
@@ -428,6 +432,27 @@ class PermitApiClient:
             client=self.client,
         )
         raise_for_error_by_action(res, "resource", resource_key, "delete")
+
+    @lazy_load_scope
+    async def elements_login_as(
+        self, user_id: str | UUID, tenant_id: str | UUID
+    ) -> UserLoginResponse:
+        if isinstance(user_id, UUID):
+            user_id = user_id.hex
+        if isinstance(tenant_id, UUID):
+            tenant_id = tenant_id.hex
+
+        payload = UserLoginRequest(
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+
+        response = await elements_login_as.asyncio(
+            json_body=payload,
+            client=self.client,
+        )
+        raise_for_error_by_action(response, "login_request", payload.json())
+        return response
 
     # endregion
     # region cloud api proxy ---------------------------------------------------------

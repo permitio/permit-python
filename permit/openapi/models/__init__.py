@@ -55,6 +55,8 @@ from permit.openapi.models.tenant_read import TenantRead
 from permit.openapi.models.tenant_update import TenantUpdate
 from permit.openapi.models.user_create import UserCreate
 from permit.openapi.models.user_data import UserData
+from permit.openapi.models.user_login_request import UserLoginRequest
+from permit.openapi.models.user_login_response import UserLoginResponse
 from permit.openapi.models.user_read import UserRead
 from permit.openapi.models.user_role import UserRole
 from permit.openapi.models.user_role_create import UserRoleCreate

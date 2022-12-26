@@ -10,7 +10,7 @@ def get_requirements(env=""):
 
 setup(
     name="permit",
-    version="1.0.0rc1",
+    version="1.1.0rc1",
     packages=find_packages(),
     author="Asaf Cohen",
     author_email="asaf@permit.io",
