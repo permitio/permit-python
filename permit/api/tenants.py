@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 from permit import PermitConfig
-from permit.api.client import lazy_load_scope, PermitBaseApi
+from permit.api.client import PermitBaseApi, lazy_load_scope
 from permit.exceptions.exceptions import raise_for_error_by_action
-from permit.openapi.api.tenants import get_tenant, list_tenants, create_tenant, update_tenant, delete_tenant
-from permit.openapi.models import TenantRead, TenantCreate, TenantUpdate
+from permit.openapi.api.tenants import (
+    create_tenant,
+    delete_tenant,
+    get_tenant,
+    list_tenants,
+    update_tenant,
+)
+from permit.openapi.models import TenantCreate, TenantRead, TenantUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 

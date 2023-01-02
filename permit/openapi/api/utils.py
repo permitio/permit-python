@@ -1,4 +1,4 @@
-from typing import TypeVar, Optional, Union, Type
+from typing import Optional, Type, TypeVar, Union
 
 import httpx
 from pydantic import BaseModel

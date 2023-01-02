@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from typing import Final, Type, Union, Any
+from typing import Any, Final, Type, Union
 
-from permit.exceptions.base import ServiceException, ErrorCode, PermitException, ErrorType, ERROR_CODE_KEY
+from permit.exceptions.base import (
+    ERROR_CODE_KEY,
+    ErrorCode,
+    ErrorType,
+    PermitException,
+    ServiceException,
+)
 from permit.openapi.api.utils import APIErrorDict
 from permit.openapi.models import HTTPValidationError
 
@@ -36,7 +42,7 @@ class PermitConnectionError(ServiceException):
 class PermitExceptionFactory(ServiceException):
     __exceptions_mappings: Final[dict[ErrorCode, Type[PermitException]]] = {
         ErrorCode.UNEXPECTED_ERROR: PermitException,
-        ErrorCode.NOT_FOUND: PermitNotFound
+        ErrorCode.NOT_FOUND: PermitNotFound,
     }
 
     def __new__(cls, error_code: ErrorCode, *args, **kwargs) -> PermitException:

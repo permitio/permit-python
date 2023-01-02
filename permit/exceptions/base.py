@@ -1,10 +1,12 @@
 from __future__ import annotations
-# TODO: check compat
 
 from enum import Enum
 from typing import Any, Final
 
-from pydantic import BaseModel, Field, validator, AnyHttpUrl, parse_obj_as
+from pydantic import AnyHttpUrl, BaseModel, Field, parse_obj_as, validator
+
+# TODO: check compat
+
 
 ERROR_CODE_KEY = "error_code"
 CONTACT_SUPPORT_PHRASE: Final[str] = "contact our support on Slack for further guidance"
@@ -158,5 +160,3 @@ class ServiceException(PermitException):
         self.__override_default_attribute_if_provided("way_out", way_out)
         self.__override_default_attribute_if_provided("support_link", support_link)
         self.__override_default_attribute_if_provided("status_code", status_code)
-
-

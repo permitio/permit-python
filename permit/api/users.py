@@ -1,16 +1,32 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 from permit import PermitConfig
 from permit.api.client import PermitBaseApi, lazy_load_scope
 from permit.exceptions.exceptions import raise_for_error_by_action
-from permit.openapi.api.role_assignments import assign_role, unassign_role, list_role_assignments
-from permit.openapi.api.users import list_users, get_user, create_user, update_user, delete_user
-from permit.openapi.models import UserRead, UserCreate, UserUpdate, RoleAssignmentRead, RoleAssignmentCreate, \
-    RoleAssignmentRemove
+from permit.openapi.api.role_assignments import (
+    assign_role,
+    list_role_assignments,
+    unassign_role,
+)
+from permit.openapi.api.users import (
+    create_user,
+    delete_user,
+    get_user,
+    list_users,
+    update_user,
+)
+from permit.openapi.models import (
+    RoleAssignmentCreate,
+    RoleAssignmentRead,
+    RoleAssignmentRemove,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
@@ -62,15 +78,11 @@ class User(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(
-            user, "user", json.dumps(json_body.dict()), "create"
-        )
+        raise_for_error_by_action(user, "user", json.dumps(json_body.dict()), "create")
         return created_user
 
     @lazy_load_scope
-    async def update(
-        self, user_key: str, user: Union[UserUpdate, dict]
-    ) -> UserRead:
+    async def update(self, user_key: str, user: Union[UserUpdate, dict]) -> UserRead:
         if isinstance(user, dict):
             json_body = UserUpdate.parse_obj(user)
         else:
@@ -82,9 +94,7 @@ class User(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(
-            user, "user", json.dumps(json_body.dict()), "update"
-        )
+        raise_for_error_by_action(user, "user", json.dumps(json_body.dict()), "update")
         return updated_user
 
     @lazy_load_scope
@@ -159,5 +169,3 @@ class User(PermitBaseApi):
             f"user:{user_key}, tenant:{tenant_key}:",
         )
         return role_assignments
-
-

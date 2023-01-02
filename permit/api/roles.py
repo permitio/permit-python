@@ -1,16 +1,31 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 from permit import PermitConfig
 from permit.api.client import PermitBaseApi, lazy_load_scope
 from permit.exceptions.exceptions import raise_for_error_by_action
-from permit.openapi.api.roles import list_roles, get_role, create_role, update_role, delete_role, \
-    assign_permissions_to_role, remove_permissions_from_role, add_parent_role, remove_parent_role
-from permit.openapi.models import RoleRead, RoleCreate, RoleUpdate, RoleAssignmentRead, AddRolePermissions, \
-    RemoveRolePermissions
+from permit.openapi.api.roles import (
+    add_parent_role,
+    assign_permissions_to_role,
+    create_role,
+    delete_role,
+    get_role,
+    list_roles,
+    remove_parent_role,
+    remove_permissions_from_role,
+    update_role,
+)
+from permit.openapi.models import (
+    AddRolePermissions,
+    RemoveRolePermissions,
+    RoleAssignmentRead,
+    RoleCreate,
+    RoleRead,
+    RoleUpdate,
+)
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
@@ -66,9 +81,7 @@ class Role(PermitBaseApi):
         return role
 
     @lazy_load_scope
-    async def update(
-        self, role_key: str, role: Union[RoleUpdate, dict]
-    ) -> RoleRead:
+    async def update(self, role_key: str, role: Union[RoleUpdate, dict]) -> RoleRead:
         if isinstance(role, dict):
             json_body = RoleUpdate.parse_obj(role)
         else:
@@ -128,7 +141,9 @@ class Role(PermitBaseApi):
             parent_role_key,
             client=self._client,
         )
-        raise_for_error_by_action(res, "role", f"parent-role: {parent_role_key}", "update")
+        raise_for_error_by_action(
+            res, "role", f"parent-role: {parent_role_key}", "update"
+        )
 
     @lazy_load_scope
     async def remove_parent_role(self, role_key: str, parent_role_key: str):
@@ -139,5 +154,6 @@ class Role(PermitBaseApi):
             parent_role_key,
             client=self._client,
         )
-        raise_for_error_by_action(res, "role", f"parent-role: {parent_role_key}", "remove")
-
+        raise_for_error_by_action(
+            res, "role", f"parent-role: {parent_role_key}", "remove"
+        )

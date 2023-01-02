@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 from permit import PermitConfig
 from permit.api.client import PermitBaseApi, lazy_load_scope
 from permit.exceptions.exceptions import raise_for_error_by_action
-from permit.openapi.api.projects import list_projects, get_project, create_project, update_project, delete_project
-from permit.openapi.models import ProjectRead, ProjectCreate, ProjectUpdate
+from permit.openapi.api.projects import (
+    create_project,
+    delete_project,
+    get_project,
+    list_projects,
+    update_project,
+)
+from permit.openapi.models import ProjectCreate, ProjectRead, ProjectUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
@@ -54,7 +60,9 @@ class Project(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(project, "project", json.dumps(json_body.dict()), "create")
+        raise_for_error_by_action(
+            project, "project", json.dumps(json_body.dict()), "create"
+        )
         return project
 
     @lazy_load_scope
@@ -70,7 +78,9 @@ class Project(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(project, "project", json.dumps(json_body.dict()), "update")
+        raise_for_error_by_action(
+            project, "project", json.dumps(json_body.dict()), "update"
+        )
         return updated_project
 
     @lazy_load_scope
@@ -80,4 +90,3 @@ class Project(PermitBaseApi):
             client=self._client,
         )
         raise_for_error_by_action(res, "project", project_key, "delete")
-

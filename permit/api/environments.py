@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 from permit import PermitConfig
 from permit.api.client import PermitBaseApi, lazy_load_scope
 from permit.exceptions.exceptions import raise_for_error_by_action
-from permit.openapi.api.environments import list_environments, get_environment, create_environment, update_environment, delete_environment
-from permit.openapi.models import EnvironmentRead, EnvironmentCreate, EnvironmentUpdate
+from permit.openapi.api.environments import (
+    create_environment,
+    delete_environment,
+    get_environment,
+    list_environments,
+    update_environment,
+)
+from permit.openapi.models import EnvironmentCreate, EnvironmentRead, EnvironmentUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
@@ -47,7 +53,9 @@ class Environment(PermitBaseApi):
         return await self.get(environment_id.hex)
 
     @lazy_load_scope
-    async def create(self, environment: Union[EnvironmentCreate, dict]) -> EnvironmentRead:
+    async def create(
+        self, environment: Union[EnvironmentCreate, dict]
+    ) -> EnvironmentRead:
         if isinstance(environment, dict):
             json_body = EnvironmentCreate.parse_obj(environment)
         else:
@@ -57,7 +65,9 @@ class Environment(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(environment, "environment", json.dumps(json_body.dict()), "create")
+        raise_for_error_by_action(
+            environment, "environment", json.dumps(json_body.dict()), "create"
+        )
         return environment
 
     @lazy_load_scope
@@ -74,7 +84,9 @@ class Environment(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(environment, "environment", json.dumps(json_body.dict()), "update")
+        raise_for_error_by_action(
+            environment, "environment", json.dumps(json_body.dict()), "update"
+        )
         return updated_environment
 
     @lazy_load_scope
@@ -85,4 +97,3 @@ class Environment(PermitBaseApi):
             client=self._client,
         )
         raise_for_error_by_action(res, "environment", environment_key, "delete")
-

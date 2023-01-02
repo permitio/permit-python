@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 from permit import PermitConfig
 from permit.api.client import PermitBaseApi, lazy_load_scope
 from permit.exceptions.exceptions import raise_for_error_by_action
-from permit.openapi.api.resource_attributes import list_resource_attributes, get_resource_attribute, \
-    create_resource_attribute, update_resource_attribute, delete_resource_attribute
-from permit.openapi.models import ResourceAttributeRead, ResourceAttributeCreate, ResourceAttributeUpdate
+from permit.openapi.api.resource_attributes import (
+    create_resource_attribute,
+    delete_resource_attribute,
+    get_resource_attribute,
+    list_resource_attributes,
+    update_resource_attribute,
+)
+from permit.openapi.models import (
+    ResourceAttributeCreate,
+    ResourceAttributeRead,
+    ResourceAttributeUpdate,
+)
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
@@ -19,7 +28,9 @@ class ResourceAttribute(PermitBaseApi):
 
     # CRUD Methods
     @lazy_load_scope
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceAttributeRead]:
+    async def list(
+        self, resource_key: str, page: int = 1, per_page: int = 100
+    ) -> List[ResourceAttributeRead]:
         resource_attributes = await list_resource_attributes.asyncio(
             self._scope.project_id.hex,
             self._scope.environment_id.hex,
@@ -32,7 +43,9 @@ class ResourceAttribute(PermitBaseApi):
         return resource_attributes
 
     @lazy_load_scope
-    async def get(self, resource_key: str, resource_attribute_key: str) -> ResourceAttributeRead:
+    async def get(
+        self, resource_key: str, resource_attribute_key: str
+    ) -> ResourceAttributeRead:
         resource_attribute = await get_resource_attribute.asyncio(
             self._scope.project_id.hex,
             self._scope.environment_id.hex,
@@ -40,19 +53,29 @@ class ResourceAttribute(PermitBaseApi):
             resource_attribute_key,
             client=self._client,
         )
-        raise_for_error_by_action(resource_attribute, "resource_attribute", resource_attribute_key)
+        raise_for_error_by_action(
+            resource_attribute, "resource_attribute", resource_attribute_key
+        )
         return resource_attribute
 
     @lazy_load_scope
-    async def get_by_key(self, resource_key: str, resource_attribute_key: str) -> ResourceAttributeRead:
+    async def get_by_key(
+        self, resource_key: str, resource_attribute_key: str
+    ) -> ResourceAttributeRead:
         return await self.get(resource_key, resource_attribute_key)
 
     @lazy_load_scope
-    async def get_by_id(self, resource_id: UUID, resource_attribute_id: UUID) -> ResourceAttributeRead:
+    async def get_by_id(
+        self, resource_id: UUID, resource_attribute_id: UUID
+    ) -> ResourceAttributeRead:
         return await self.get(resource_id.hex, resource_attribute_id.hex)
 
     @lazy_load_scope
-    async def create(self, resource_key: str, resource_attribute: Union[ResourceAttributeCreate, dict]) -> ResourceAttributeRead:
+    async def create(
+        self,
+        resource_key: str,
+        resource_attribute: Union[ResourceAttributeCreate, dict],
+    ) -> ResourceAttributeRead:
         if isinstance(resource_attribute, dict):
             json_body = ResourceAttributeCreate.parse_obj(resource_attribute)
         else:
@@ -64,12 +87,20 @@ class ResourceAttribute(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(resource_attribute, "resource_attribute", json.dumps(json_body.dict()), "create")
+        raise_for_error_by_action(
+            resource_attribute,
+            "resource_attribute",
+            json.dumps(json_body.dict()),
+            "create",
+        )
         return resource_attribute
 
     @lazy_load_scope
     async def update(
-        self, resource_key: str, resource_attribute_key: str, resource_attribute: Union[ResourceAttributeUpdate, dict]
+        self,
+        resource_key: str,
+        resource_attribute_key: str,
+        resource_attribute: Union[ResourceAttributeUpdate, dict],
     ) -> ResourceAttributeRead:
         if isinstance(resource_attribute, dict):
             json_body = ResourceAttributeUpdate.parse_obj(resource_attribute)
@@ -83,7 +114,12 @@ class ResourceAttribute(PermitBaseApi):
             json_body=json_body,
             client=self._client,
         )
-        raise_for_error_by_action(resource_attribute, "resource_attribute", json.dumps(json_body.dict()), "update")
+        raise_for_error_by_action(
+            resource_attribute,
+            "resource_attribute",
+            json.dumps(json_body.dict()),
+            "update",
+        )
         return updated_resource_attribute
 
     @lazy_load_scope
@@ -95,5 +131,6 @@ class ResourceAttribute(PermitBaseApi):
             resource_attribute_key,
             client=self._client,
         )
-        raise_for_error_by_action(res, "resource_attribute", resource_attribute_key, "delete")
-
+        raise_for_error_by_action(
+            res, "resource_attribute", resource_attribute_key, "delete"
+        )
