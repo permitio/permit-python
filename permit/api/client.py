@@ -3,42 +3,26 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
-from uuid import UUID
 
 from loguru import logger
 from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
+from permit.api.elements import Elements
+from permit.api.environments import Environment
+from permit.api.projects import Project
+from permit.api.resource_actions import ResourceAction
+from permit.api.resource_attributes import ResourceAttribute
+from permit.api.resources import Resource
+from permit.api.roles import Role
 from permit.api.tenants import Tenant
+from permit.api.users import User
 from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
-from permit.openapi.api.authentication import elements_login_as
-from permit.openapi.api.resources import (
-    create_resource,
-    delete_resource,
-    update_resource,
-)
-from permit.openapi.api.role_assignments import (
-    assign_role,
-    list_role_assignments,
-    unassign_role,
-)
 from permit.openapi.api.users import create_user, get_user, update_user
-from permit.openapi.models import (
-    ResourceCreate,
-    ResourceRead,
-    ResourceUpdate,
-    RoleAssignmentCreate,
-    RoleAssignmentRead,
-    RoleAssignmentRemove,
-    UserCreate,
-    UserLoginRequest,
-    UserLoginResponse,
-    UserRead,
-    UserUpdate,
-)
+from permit.openapi.models import UserCreate, UserRead, UserUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 T = TypeVar("T")
@@ -104,6 +88,26 @@ class PermitApiClient:
         self.scope: Optional[APIKeyScopeRead] = None
 
         self.tenants: Tenant = Tenant(self.client, self._config, self.scope)
+        self.environments: Environment = Environment(
+            self.client, self._config, self.scope
+        )
+        self.projects: Project = Project(self.client, self._config, self.scope)
+        self.resource_actions: ResourceAction = ResourceAction(
+            self.client, self._config, self.scope
+        )
+        self.resource_attributes: ResourceAttribute = ResourceAttribute(
+            self.client, self._config, self.scope
+        )
+        self.resources: Resource = Resource(
+            self.client,
+            self._config,
+            self.scope,
+            self.resource_attributes,
+            self.resource_actions,
+        )
+        self.roles: Role = Role(self.client, self._config, self.scope)
+        self.users: User = User(self.client, self._config, self.scope)
+        self.elements: Elements = Elements(self.client, self._config, self.scope)
 
     # region write api ---------------------------------------------------------------
 
@@ -157,27 +161,6 @@ class PermitApiClient:
             created_user, "user", json.dumps(json_body.dict()), "create"
         )
         return created_user
-
-    @lazy_load_scope
-    async def elements_login_as(
-        self, user_id: str | UUID, tenant_id: str | UUID
-    ) -> UserLoginResponse:
-        if isinstance(user_id, UUID):
-            user_id = user_id.hex
-        if isinstance(tenant_id, UUID):
-            tenant_id = tenant_id.hex
-
-        payload = UserLoginRequest(
-            user_id=user_id,
-            tenant_id=tenant_id,
-        )
-
-        response = await elements_login_as.asyncio(
-            json_body=payload,
-            client=self.client,
-        )
-        raise_for_error_by_action(response, "login_request", payload.json())
-        return response
 
     # endregion
     # region cloud api proxy ---------------------------------------------------------
