@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 import httpx
 
+from ..utils import parse_response
 from ...client import AuthenticatedClient
 from ...models.environment_create import EnvironmentCreate
 from ...models.environment_read import EnvironmentRead
@@ -52,12 +53,12 @@ def _parse_response(
 
 def _build_response(
     *, response: httpx.Response
-) -> Response[Union[EnvironmentRead, HTTPValidationError]]:
+) -> Response[Union[EnvironmentRead, HTTPValidationError,]]:
     return Response(
         status_code=response.status_code,
         content=response.content,
         headers=response.headers,
-        parsed=_parse_response(response=response),
+        parsed=parse_response(response=response, model=EnvironmentRead)
     )
 
 

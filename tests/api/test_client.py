@@ -2,7 +2,7 @@ import pytest
 from pydantic import EmailStr
 
 from permit.api.client import PermitApiClient
-from permit.exceptions import PermitException
+from permit.exceptions.base import PermitException
 from permit.openapi.models import (
     ResourceCreate,
     RoleCreate,

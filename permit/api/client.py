@@ -9,15 +9,15 @@ from loguru import logger
 from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
+from permit.api.tenants import Tenant
 from permit.config import PermitConfig
-from permit.exceptions import raise_for_error, raise_for_error_by_action
+from permit.exceptions.exceptions import raise_for_error, raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
 from permit.openapi.api.authentication import elements_login_as
 from permit.openapi.api.resources import (
     create_resource,
     delete_resource,
-    get_resource,
     update_resource,
 )
 from permit.openapi.api.role_assignments import (
@@ -25,15 +25,7 @@ from permit.openapi.api.role_assignments import (
     list_role_assignments,
     unassign_role,
 )
-from permit.openapi.api.roles import create_role, delete_role, get_role, update_role
-from permit.openapi.api.tenants import (
-    create_tenant,
-    delete_tenant,
-    get_tenant,
-    list_tenants,
-    update_tenant,
-)
-from permit.openapi.api.users import create_user, delete_user, get_user, update_user
+from permit.openapi.api.users import create_user, get_user, update_user
 from permit.openapi.models import (
     ResourceCreate,
     ResourceRead,
@@ -41,12 +33,6 @@ from permit.openapi.models import (
     RoleAssignmentCreate,
     RoleAssignmentRead,
     RoleAssignmentRemove,
-    RoleCreate,
-    RoleRead,
-    RoleUpdate,
-    TenantCreate,
-    TenantRead,
-    TenantUpdate,
     UserCreate,
     UserLoginRequest,
     UserLoginResponse,
@@ -102,6 +88,13 @@ def lazy_load_scope(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
     return wrapper
 
 
+class PermitBaseApi:
+    def __init__(self, client, config: PermitConfig, scope: Optional[APIKeyScopeRead]):
+        self._config = config
+        self._scope: Optional[APIKeyScopeRead] = scope
+        self._client = client
+
+
 class PermitApiClient:
     def __init__(self, config: PermitConfig):
         self._config = config
@@ -110,77 +103,8 @@ class PermitApiClient:
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
         self.scope: Optional[APIKeyScopeRead] = None
 
-    # region read api ----------------------------------------------------------------
+        self.tenants: Tenant = Tenant(self.client, self._config, self.scope)
 
-    @lazy_load_scope
-    async def get_user(self, user_key: str) -> UserRead:
-        user = await get_user.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            user_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(user, "user", user_key)
-        return user
-
-    @lazy_load_scope
-    async def get_role(self, role_key: str) -> RoleRead:
-        role = await get_role.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            role_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(role, "role", role_key)
-        return role
-
-    @lazy_load_scope
-    async def get_tenant(self, tenant_key: str) -> TenantRead:
-        tenant = await get_tenant.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            tenant_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(tenant, "tenant", tenant_key)
-        return tenant
-
-    @lazy_load_scope
-    async def get_assigned_roles(
-        self,
-        user_key: str,
-        tenant_key: Optional[str],
-        page: int = 1,
-        per_page: int = 100,
-    ) -> List[RoleAssignmentRead]:
-        role_assignments = await list_role_assignments.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            tenant=tenant_key,
-            user=user_key,
-            page=page,
-            per_page=per_page,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            role_assignments,
-            "role_assignments",
-            f"user:{user_key}, tenant:{tenant_key}:",
-        )
-        return role_assignments
-
-    @lazy_load_scope
-    async def get_resource(self, resource_key: str) -> ResourceRead:
-        resource = await get_resource.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            resource_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(resource, "resource", resource_key)
-        return resource
-
-    # endregion
     # region write api ---------------------------------------------------------------
 
     @lazy_load_scope
@@ -233,205 +157,6 @@ class PermitApiClient:
             created_user, "user", json.dumps(json_body.dict()), "create"
         )
         return created_user
-
-    @lazy_load_scope
-    async def delete_user(self, user_key: str) -> None:
-        res = await delete_user.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            user_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(res, "user", user_key, "delete")
-
-    @lazy_load_scope
-    async def list_tenants(self, page: int = 1, per_page: int = 100) -> List[Tenant]:
-        tenants = await list_tenants.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            page=page,
-            per_page=per_page,
-            client=self.client,
-        )
-        raise_for_error_by_action(tenants, "list", "tenants")
-        return tenants
-
-    @lazy_load_scope
-    async def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
-        if isinstance(tenant, dict):
-            json_body = TenantCreate.parse_obj(tenant)
-        else:
-            json_body = tenant
-        created_tenant = await create_tenant.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            tenant, "tenant", json.dumps(json_body.dict()), "create"
-        )
-        return created_tenant
-
-    @lazy_load_scope
-    async def update_tenant(
-        self, tenant_key: str, tenant: Union[TenantUpdate, dict]
-    ) -> TenantRead:
-        if isinstance(tenant, dict):
-            json_body = TenantUpdate.parse_obj(tenant)
-        else:
-            json_body = tenant
-        updated_tenant = await update_tenant.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            tenant_key,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            tenant, "tenant", json.dumps(json_body.dict()), "update"
-        )
-        return updated_tenant
-
-    @lazy_load_scope
-    async def delete_tenant(self, tenant_key: str) -> None:
-        res = await delete_tenant.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            tenant_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(res, "tenant", tenant_key, "delete")
-
-    @lazy_load_scope
-    async def create_role(self, role: Union[RoleCreate, dict]) -> RoleRead:
-        if isinstance(role, dict):
-            json_body = RoleCreate.parse_obj(role)
-        else:
-            json_body = role
-        role = await create_role.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(role, "role", json.dumps(json_body.dict()), "create")
-        return role
-
-    @lazy_load_scope
-    async def update_role(
-        self, role_key: str, role: Union[RoleUpdate, dict]
-    ) -> RoleRead:
-        if isinstance(role, dict):
-            json_body = TenantUpdate.parse_obj(role)
-        else:
-            json_body = role
-        updated_role = await update_role.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            role_key,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(role, "role", json.dumps(json_body.dict()), "update")
-        return updated_role
-
-    @lazy_load_scope
-    async def assign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> RoleAssignmentRead:
-        json_body = RoleAssignmentCreate(
-            role=role_key, tenant=tenant_key, user=user_key
-        )
-        role_assignment = await assign_role.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            role_assignment, "role_assignment", json.dumps(json_body.dict()), "create"
-        )
-        return role_assignment
-
-    @lazy_load_scope
-    async def unassign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> None:
-        json_body = RoleAssignmentRemove(
-            role=role_key, tenant=tenant_key, user=user_key
-        )
-        unassigned_role = await unassign_role.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            unassigned_role,
-            "role_assignment",
-            f"user:{user_key}, role:{role_key}, tenant:{tenant_key}",
-            "delete",
-        )
-
-    @lazy_load_scope
-    async def delete_role(self, role_key: str):
-        res = await delete_role.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            role_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(res, "role", role_key, "delete")
-
-    @lazy_load_scope
-    async def create_resource(
-        self, resource: Union[ResourceCreate, dict]
-    ) -> ResourceRead:
-        if isinstance(resource, dict):
-            json_body = ResourceCreate.parse_obj(resource)
-        else:
-            json_body = resource
-        created_tenant = await create_resource.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            resource, "resource", json.dumps(json_body.dict()), "create"
-        )
-        return created_tenant
-
-    @lazy_load_scope
-    async def update_resource(
-        self, resource_key: str, resource: Union[ResourceUpdate, dict]
-    ) -> ResourceRead:
-        if isinstance(resource, dict):
-            json_body = ResourceUpdate.parse_obj(resource)
-        else:
-            json_body = resource
-        updated_resource = await update_resource.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            resource_key,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            resource, "resource", json.dumps(json_body.dict()), "update"
-        )
-        return updated_resource
-
-    @lazy_load_scope
-    async def delete_resource(self, resource_key: str):
-        res = await delete_resource.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            resource_key,
-            client=self.client,
-        )
-        raise_for_error_by_action(res, "resource", resource_key, "delete")
 
     @lazy_load_scope
     async def elements_login_as(

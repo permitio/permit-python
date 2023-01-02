@@ -4,7 +4,8 @@ from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
 from permit import Permit
-from permit.exceptions import PermitConnectionError, PermitException
+from permit.exceptions.base import PermitException
+from permit.exceptions.exceptions import PermitConnectionError
 from permit.mutations.client import PermitApiClient
 
 

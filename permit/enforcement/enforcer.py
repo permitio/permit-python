@@ -6,7 +6,7 @@ from loguru import logger
 
 from permit.config import PermitConfig
 from permit.enforcement.interfaces import ResourceInput, UserInput
-from permit.exceptions import PermitConnectionError
+from permit.exceptions.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 
 

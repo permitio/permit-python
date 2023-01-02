@@ -3,7 +3,8 @@ import pytest
 from aioresponses import aioresponses
 from pytest_mock import MockerFixture
 
-from permit.exceptions import PermitConnectionError, PermitException
+from permit.exceptions.base import PermitException
+from permit.exceptions.exceptions import PermitConnectionError
 from permit.sync import Permit
 
 
