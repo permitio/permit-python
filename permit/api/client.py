@@ -5,6 +5,7 @@ import json
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
+from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
 from permit.api.base import lazy_load_scope
@@ -23,6 +24,7 @@ from permit.openapi import AuthenticatedClient
 from permit.openapi.api.users import create_user, get_user, update_user
 from permit.openapi.models import UserCreate, UserRead, UserUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
+from permit.resources.interfaces import OnUserCreation
 
 T = TypeVar("T")
 
@@ -85,54 +87,40 @@ class PermitApiClient:
     # region write api ---------------------------------------------------------------
 
     @lazy_load_scope
-    async def sync_user(self, user: Union[UserCreate, dict]) -> UserRead:
+    async def sync_user(self, user: Union[UserCreate, dict], on_create: OnUserCreation) -> UserRead:
         if isinstance(user, dict):
-            key = user.pop("key", None)
+            key = user.get("key", None)
             if key is None:
                 raise KeyError("required 'key' in input dictionary")
         else:
             key = user.key
         # check if the user key already exists
         self._logger.info(f"checking if user '{key}' already exists")
-        user_to_update = await get_user.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            key,
-            client=self.client,
-        )
+        try:
+            user_to_update = await self.users.get(key)
+        except:
+            user_to_update = None
+
         if user_to_update is not None:
             self._logger.info("user exists, updating it...")
             # if the user exists update it
             if isinstance(user, dict):
-                json_body = UserUpdate.parse_obj(user)
+                user_update = UserUpdate.parse_obj(user)
             else:
-                json_body = UserUpdate.parse_obj(user.dict(exclude={"key"}))
-            updated_user = await update_user.asyncio(
-                self.scope.project_id.hex,
-                self.scope.environment_id.hex,
+                user_update = UserUpdate.parse_obj(user.dict(exclude={"key"}))
+            updated_user = await self.users.update(
                 key,
-                json_body=json_body,
-                client=self.client,
-            )
-            raise_for_error_by_action(
-                updated_user, "user", json.dumps(json_body.dict()), "update"
+                user_update
             )
             return updated_user
         # otherwise create the user
         self._logger.info("user does not exist, creating it...")
-        if isinstance(user, dict):
-            json_body = UserCreate.parse_obj({**user, "key": key})
-        else:
-            json_body = user
-        created_user = await create_user.asyncio(
-            self.scope.project_id.hex,
-            self.scope.environment_id.hex,
-            json_body=json_body,
-            client=self.client,
-        )
-        raise_for_error_by_action(
-            created_user, "user", json.dumps(json_body.dict()), "create"
-        )
+        created_user = await self.users.create(user)
+
+        # Set initial roles when new user is created
+        for initial_role in on_create.initial_roles:
+            await self.api.users.assign_role(key, initial_role.role, initial_role.tenant)
+
         return created_user
 
     # endregion

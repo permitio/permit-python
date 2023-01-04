@@ -6,7 +6,6 @@ from loguru import logger
 from permit.api.client import PermitApiClient
 from permit.config import ConfigFactory, PermitConfig
 from permit.constants import DEFAULT_PDP_URL
-from permit.elements import PermitElements
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
 from permit.mutations.client import PermitApiClient as CompatApiClient
 from permit.mutations.client import ReadOperation, WriteOperation
@@ -39,8 +38,6 @@ class Permit:
         self._mutations_client = CompatApiClient(self._config)
         self._api_client = PermitApiClient(self._config)
 
-        self._elements = PermitElements(self)
-
         if self._config.debug_mode:
             self._logger.info(
                 f"Permit.io SDK initialized with config:\n${json.dumps(self._config.dict())}",
@@ -60,6 +57,16 @@ class Permit:
     ) -> bool:
         return await self._enforcer.check(user, action, resource, context)
 
+    async def get_allowed_actions(
+        self,
+        user: User,
+        action: Action,
+        resource: Resource,
+        context: Context = {},
+    ) -> bool:
+        # TODO: Implement getAllowedActions - With given user and resource, what actions the user is permitted to do.
+        return True
+
     # resource reporter
     async def resource(self, config: ResourceConfig) -> ResourceStub:
         return await self._resource_reporter.resource(config)
@@ -70,14 +77,14 @@ class Permit:
     async def sync_resources(self, config: ResourceTypes) -> List[ResourceStub]:
         return await self._resource_reporter.sync_resources(config)
 
-    @property
-    def elements(self):
-        return self._elements
-
     # mutations
     @property
     def api(self):
         return self._api_client.api
+
+    @property
+    def elements(self):
+        return self._api_client.elements
 
     async def read(self, *operations: ReadOperation) -> List[Dict]:
         return await self._mutations_client.read(*operations)

@@ -42,3 +42,12 @@ class ResourceType(BaseModel):
 
 class ResourceTypes(BaseModel):
     resources: List[ResourceType]
+
+
+class InitialRole(BaseModel):
+    tenant: str
+    role: str
+
+
+class OnUserCreation(BaseModel):
+    initial_roles: List[InitialRole] = []
