@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 from uuid import UUID
 
-from permit import PermitConfig
-from permit.api.client import PermitBaseApi, lazy_load_scope
+if TYPE_CHECKING:
+    from loguru import Logger
+
+from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.role_assignments import (
     assign_role,
@@ -31,8 +34,14 @@ from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class User(PermitBaseApi):
-    def __init__(self, client, config: PermitConfig, scope: Optional[APIKeyScopeRead]):
-        super().__init__(client=client, config=config, scope=scope)
+    def __init__(
+        self,
+        client,
+        config: PermitConfig,
+        scope: Optional[APIKeyScopeRead],
+        logger: Logger,
+    ):
+        super().__init__(client=client, config=config, scope=scope, logger=logger)
 
     # CRUD Methods
     @lazy_load_scope

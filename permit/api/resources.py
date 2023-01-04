@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 from uuid import UUID
 
-from permit import PermitConfig
-from permit.api.client import PermitBaseApi, lazy_load_scope
+if TYPE_CHECKING:
+    from loguru import Logger
+
+from permit.api.base import PermitBaseApi, lazy_load_scope
 from permit.api.resource_actions import ResourceAction
 from permit.api.resource_attributes import ResourceAttribute
+from permit.config import PermitConfig
 from permit.exceptions.exceptions import PermitNotFound, raise_for_error_by_action
 from permit.openapi.api.resources import (
     create_resource,
@@ -34,10 +37,11 @@ class Resource(PermitBaseApi):
         client,
         config: PermitConfig,
         scope: Optional[APIKeyScopeRead],
+        logger: Logger,
         resource_attributes: ResourceAttribute,
         resource_actions: ResourceAction,
     ):
-        super().__init__(client=client, config=config, scope=scope)
+        super().__init__(client=client, config=config, scope=scope, logger=logger)
         self.resource_attributes = resource_attributes
         self.resource_actions = resource_actions
 

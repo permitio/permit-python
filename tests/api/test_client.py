@@ -3,13 +3,7 @@ from pydantic import EmailStr
 
 from permit.api.client import PermitApiClient
 from permit.exceptions.base import PermitException
-from permit.openapi.models import (
-    ResourceCreate,
-    RoleCreate,
-    TenantCreate,
-    TenantUpdate,
-    UserCreate,
-)
+from permit.openapi.models import RoleCreate, TenantCreate, TenantUpdate, UserCreate
 
 
 @pytest.mark.parametrize(
@@ -204,6 +198,7 @@ async def test_client_delete_user(api_client: PermitApiClient, email: str):
         await api_client.get_user(email)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "role_key", ["role1", "role2", "role3", "role4", "role5", "role6"]
 )
@@ -214,22 +209,15 @@ async def test_client_delete_role(api_client: PermitApiClient, role_key: str):
         await api_client.get_role(role_key)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "tenant_key", ["tenant1", "tenant2", "tenant3", "tenant4", "tenant5", "tenant6"]
 )
 async def test_client_delete_tenant(api_client: PermitApiClient, tenant_key: str):
-    res = await api_client.delete_tenant(tenant_key)
+    res = await api_client.tenants.delete(tenant_key)
     assert res is None
     with pytest.raises(PermitException):
         await api_client.get_tenant(tenant_key)
-
-
-@pytest.mark.parametrize("resource_key", ["res1", "res2", "res3"])
-async def test_create_resource(api_client: PermitApiClient, resource_key: str):
-    create_resource = ResourceCreate(key=resource_key, name=resource_key, actions={})
-    resource = await api_client.create_resource(create_resource)
-    assert resource.key == create_resource.key
-    assert resource.name == create_resource.name
 
 
 @pytest.mark.parametrize("resource_key", ["res1", "res2", "res3"])

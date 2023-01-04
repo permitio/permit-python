@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import json
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from permit import PermitConfig
-from permit.api.client import PermitBaseApi, lazy_load_scope
+if TYPE_CHECKING:
+    from loguru import Logger
+
+from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.authentication import elements_login_as
 from permit.openapi.models import UserLoginRequest, UserLoginResponse
@@ -18,8 +20,9 @@ class Elements(PermitBaseApi):
         client,
         config: PermitConfig,
         scope: Optional[APIKeyScopeRead],
+        logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope)
+        super().__init__(client=client, config=config, scope=scope, logger=logger)
 
     @lazy_load_scope
     async def login_as(

@@ -5,9 +5,9 @@ import json
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
-from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
+from permit.api.base import lazy_load_scope
 from permit.api.elements import Elements
 from permit.api.environments import Environment
 from permit.api.projects import Project
@@ -18,21 +18,13 @@ from permit.api.roles import Role
 from permit.api.tenants import Tenant
 from permit.api.users import User
 from permit.config import PermitConfig
-from permit.exceptions.exceptions import raise_for_error, raise_for_error_by_action
+from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
-from permit.openapi.api.api_keys import get_api_key_scope
 from permit.openapi.api.users import create_user, get_user, update_user
 from permit.openapi.models import UserCreate, UserRead, UserUpdate
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 T = TypeVar("T")
-
-
-class Tenant(BaseModel):
-    key: str
-    name: str
-    description: Optional[str]
-
 
 AsyncCallback = Callable[[], Awaitable[Dict]]
 
@@ -53,32 +45,6 @@ class WriteOperation(Operation[Dict]):
     pass
 
 
-P = ParamSpec("P")
-RT = TypeVar("RT")
-
-
-def lazy_load_scope(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
-    async def wrapper(self: PermitApiClient, *args: P.args, **kwargs: P.kwargs) -> RT:
-        if self.scope is None:
-            self._logger.info("loading scope propertied from api")
-            res = await get_api_key_scope.asyncio(client=self.client)
-            raise_for_error(res, message="could not get api key scope")
-            self._logger.info("got scope response from api")
-            self.scope = res
-        else:
-            self._logger.debug("scope is already loaded, skipping scope loading")
-        return await func(self, *args, **kwargs)
-
-    return wrapper
-
-
-class PermitBaseApi:
-    def __init__(self, client, config: PermitConfig, scope: Optional[APIKeyScopeRead]):
-        self._config = config
-        self._scope: Optional[APIKeyScopeRead] = scope
-        self._client = client
-
-
 class PermitApiClient:
     def __init__(self, config: PermitConfig):
         self._config = config
@@ -87,27 +53,34 @@ class PermitApiClient:
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
         self.scope: Optional[APIKeyScopeRead] = None
 
-        self.tenants: Tenant = Tenant(self.client, self._config, self.scope)
-        self.environments: Environment = Environment(
-            self.client, self._config, self.scope
+        self.tenants: Tenant = Tenant(
+            self.client, self._config, self.scope, self._logger
         )
-        self.projects: Project = Project(self.client, self._config, self.scope)
+        self.environments: Environment = Environment(
+            self.client, self._config, self.scope, self._logger
+        )
+        self.projects: Project = Project(
+            self.client, self._config, self.scope, self._logger
+        )
         self.resource_actions: ResourceAction = ResourceAction(
-            self.client, self._config, self.scope
+            self.client, self._config, self.scope, self._logger
         )
         self.resource_attributes: ResourceAttribute = ResourceAttribute(
-            self.client, self._config, self.scope
+            self.client, self._config, self.scope, self._logger
         )
         self.resources: Resource = Resource(
             self.client,
             self._config,
             self.scope,
+            self._logger,
             self.resource_attributes,
             self.resource_actions,
         )
-        self.roles: Role = Role(self.client, self._config, self.scope)
-        self.users: User = User(self.client, self._config, self.scope)
-        self.elements: Elements = Elements(self.client, self._config, self.scope)
+        self.roles: Role = Role(self.client, self._config, self.scope, self._logger)
+        self.users: User = User(self.client, self._config, self.scope, self._logger)
+        self.elements: Elements = Elements(
+            self.client, self._config, self.scope, self._logger
+        )
 
     # region write api ---------------------------------------------------------------
 

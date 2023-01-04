@@ -4,8 +4,8 @@ import json
 from typing import List, Optional, Union
 from uuid import UUID
 
-from permit import PermitConfig
-from permit.api.client import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.tenants import (
     create_tenant,
@@ -19,8 +19,14 @@ from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class Tenant(PermitBaseApi):
-    def __init__(self, client, config: PermitConfig, scope: Optional[APIKeyScopeRead]):
-        super().__init__(config=config, scope=scope, client=client)
+    def __init__(
+        self,
+        client,
+        config: PermitConfig,
+        scope: Optional[APIKeyScopeRead],
+        logger: Logger,
+    ):
+        super().__init__(config=config, scope=scope, client=client, logger=logger)
 
     # CRUD Methods
     @lazy_load_scope

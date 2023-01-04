@@ -41,7 +41,7 @@ class ErrorDetails(BaseModel):
     explanation: str = Field(..., exclude=True)
     suggestion: str = Field(..., exclude=True)
     way_out: str = Field(..., exclude=True)
-    support_link: AnyHttpUrl | None = None
+    support_link: AnyHttpUrl = None
     error_code: ErrorCode
     message: str = ""
     additional_info: Any = None
