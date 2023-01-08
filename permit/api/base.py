@@ -8,7 +8,6 @@ from permit.config import ApiKeyLevel, ContextFactory
 from permit.constants import DEFAULT_TENANT_KEY
 from permit.exceptions.exceptions import raise_for_error
 from permit.openapi.api.api_keys import get_api_key_scope
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 from permit.utils.api_key import get_api_key_level
 
 if TYPE_CHECKING:
@@ -24,11 +23,9 @@ class PermitBaseApi:
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
         logger: Logger,
     ):
         self._config = config
-        self._scope: Optional[APIKeyScopeRead] = scope
         self._client = client
         self._logger = logger
         self._api_key_level: ApiKeyLevel = ApiKeyLevel.WAIT_FOR_INIT

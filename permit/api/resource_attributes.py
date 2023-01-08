@@ -22,7 +22,6 @@ from permit.openapi.models import (
     ResourceAttributeRead,
     ResourceAttributeUpdate,
 )
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class ResourceAttribute(PermitBaseApi):
@@ -30,10 +29,10 @@ class ResourceAttribute(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
     @lazy_load_context
@@ -41,8 +40,8 @@ class ResourceAttribute(PermitBaseApi):
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> List[ResourceAttributeRead]:
         resource_attributes = await list_resource_attributes.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             page=page,
             per_page=per_page,
@@ -56,8 +55,8 @@ class ResourceAttribute(PermitBaseApi):
         self, resource_key: str, resource_attribute_key: str
     ) -> ResourceAttributeRead:
         resource_attribute = await get_resource_attribute.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             resource_attribute_key,
             client=self._client,
@@ -90,8 +89,8 @@ class ResourceAttribute(PermitBaseApi):
         else:
             json_body = resource_attribute
         resource_attribute = await create_resource_attribute.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             json_body=json_body,
             client=self._client,
@@ -116,8 +115,8 @@ class ResourceAttribute(PermitBaseApi):
         else:
             json_body = resource_attribute
         updated_resource_attribute = await update_resource_attribute.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             resource_attribute_key,
             json_body=json_body,
@@ -134,8 +133,8 @@ class ResourceAttribute(PermitBaseApi):
     @lazy_load_context
     async def delete(self, resource_key: str, resource_attribute_key: str):
         res = await delete_resource_attribute.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             resource_attribute_key,
             client=self._client,

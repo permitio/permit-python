@@ -24,7 +24,6 @@ from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.users import create_user, get_user, update_user
 from permit.openapi.models import UserCreate, UserRead, UserUpdate
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 from permit.resources.interfaces import OnUserCreation
 
 T = TypeVar("T")
@@ -53,40 +52,46 @@ class PermitApiClient:
         self._config = config
         self._logger = logger.bind(name="permit.mutations.client")
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
-        self.scope: Optional[APIKeyScopeRead] = None
         self.tenants: Tenant = Tenant(
-            self.client, self._config, self.scope, self._logger
+            self.client, self._config,  self._logger
         )
         self.environments: Environment = Environment(
-            self.client, self._config, self.scope, self._logger
+            self.client, self._config,  self._logger
         )
         self.projects: Project = Project(
-            self.client, self._config, self.scope, self._logger
+            self.client, self._config,  self._logger
         )
         self.resource_actions: ResourceAction = ResourceAction(
-            self.client, self._config, self.scope, self._logger
+            self.client, self._config,  self._logger
         )
         self.resource_attributes: ResourceAttribute = ResourceAttribute(
-            self.client, self._config, self.scope, self._logger
+            self.client, self._config,  self._logger
         )
         self.resources: Resource = Resource(
             self.client,
             self._config,
-            self.scope,
+
             self._logger,
             self.resource_attributes,
             self.resource_actions,
         )
-        self.roles: Role = Role(self.client, self._config, self.scope, self._logger)
-        self.users: User = User(self.client, self._config, self.scope, self._logger)
+        self.roles: Role = Role(self.client, self._config,  self._logger)
+        self.users: User = User(self.client, self._config,  self._logger)
         self.elements: Elements = Elements(
-            self.client, self._config, self.scope, self._logger
+            self.client, self._config,  self._logger
         )
 
     # region write api ---------------------------------------------------------------
     async def set_context(self, context: PermitContext):
-        if context.project is not None:
-            project = await self.projects.get()
+        try:
+            if context.project:
+                await self.projects.get(context.project)
+                self._config.context.project = context.project
+            if context.environment:
+                await self.environments.get(context.environment)
+                self._config.context.project = context.project
+        except:
+
 
 
     @lazy_load_context

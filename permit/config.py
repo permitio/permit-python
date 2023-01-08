@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from permit.constants import DEFAULT_PDP_URL
 from permit.exceptions.exceptions import PermitContextException
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class ApiKeyLevel(Enum):

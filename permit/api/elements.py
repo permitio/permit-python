@@ -11,7 +11,6 @@ from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.authentication import elements_login_as
 from permit.openapi.models import UserLoginRequest, UserLoginResponse
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class Elements(PermitBaseApi):
@@ -19,10 +18,10 @@ class Elements(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     @lazy_load_context
     async def login_as(

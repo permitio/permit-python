@@ -22,7 +22,6 @@ from permit.openapi.models import (
     ResourceActionRead,
     ResourceActionUpdate,
 )
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class ResourceAction(PermitBaseApi):
@@ -30,10 +29,10 @@ class ResourceAction(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
     @lazy_load_context
@@ -41,8 +40,8 @@ class ResourceAction(PermitBaseApi):
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> List[ResourceActionRead]:
         resource_actions = await list_resource_actions.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             page=page,
             per_page=per_page,
@@ -56,8 +55,8 @@ class ResourceAction(PermitBaseApi):
         self, resource_key: str, resource_action_key: str
     ) -> ResourceActionRead:
         resource_action = await get_resource_action.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             resource_action_key,
             client=self._client,
@@ -88,8 +87,8 @@ class ResourceAction(PermitBaseApi):
         else:
             json_body = resource_action
         resource_action = await create_resource_action.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             json_body=json_body,
             client=self._client,
@@ -111,8 +110,8 @@ class ResourceAction(PermitBaseApi):
         else:
             json_body = resource_action
         updated_resource_action = await update_resource_action.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             resource_action_key,
             json_body=json_body,
@@ -126,8 +125,8 @@ class ResourceAction(PermitBaseApi):
     @lazy_load_context
     async def delete(self, resource_key: str, resource_action_key: str):
         res = await delete_resource_action.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             resource_key,
             resource_action_key,
             client=self._client,

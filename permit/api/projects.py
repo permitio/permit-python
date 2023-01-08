@@ -15,7 +15,6 @@ from permit.openapi.api.projects import (
     update_project,
 )
 from permit.openapi.models import ProjectCreate, ProjectRead, ProjectUpdate
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 if TYPE_CHECKING:
     from loguru import Logger
@@ -26,10 +25,10 @@ class Project(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
     @lazy_load_context

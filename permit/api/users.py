@@ -30,7 +30,6 @@ from permit.openapi.models import (
     UserRead,
     UserUpdate,
 )
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class User(PermitBaseApi):
@@ -38,17 +37,17 @@ class User(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[UserRead]:
         users = await list_users.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             page=page,
             per_page=per_page,
             client=self._client,
@@ -59,8 +58,8 @@ class User(PermitBaseApi):
     @lazy_load_context
     async def get(self, user_key: str) -> UserRead:
         user = await get_user.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             user_key,
             client=self._client,
         )
@@ -82,8 +81,8 @@ class User(PermitBaseApi):
         else:
             json_body = user
         created_user = await create_user.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             json_body=json_body,
             client=self._client,
         )
@@ -97,8 +96,8 @@ class User(PermitBaseApi):
         else:
             json_body = user
         updated_user = await update_user.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             user_key,
             json_body=json_body,
             client=self._client,
@@ -109,8 +108,8 @@ class User(PermitBaseApi):
     @lazy_load_context
     async def delete(self, user_key: str | UserRead) -> None:
         res = await delete_user.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             user_key,
             client=self._client,
         )
@@ -125,8 +124,8 @@ class User(PermitBaseApi):
             role=role_key, tenant=tenant_key, user=user_key
         )
         role_assignment = await assign_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             json_body=json_body,
             client=self._client,
         )
@@ -143,8 +142,8 @@ class User(PermitBaseApi):
             role=role_key, tenant=tenant_key, user=user_key
         )
         unassigned_role = await unassign_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             json_body=json_body,
             client=self._client,
         )
@@ -164,8 +163,8 @@ class User(PermitBaseApi):
         per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
         role_assignments = await list_role_assignments.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             tenant=tenant_key,
             user=user_key,
             page=page,

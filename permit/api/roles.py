@@ -29,7 +29,6 @@ from permit.openapi.models import (
     RoleRead,
     RoleUpdate,
 )
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class Role(PermitBaseApi):
@@ -37,17 +36,17 @@ class Role(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         roles = await list_roles.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             page=page,
             per_page=per_page,
             client=self._client,
@@ -58,8 +57,8 @@ class Role(PermitBaseApi):
     @lazy_load_context
     async def get(self, role_key: str) -> RoleRead:
         role = await get_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             client=self._client,
         )
@@ -81,8 +80,8 @@ class Role(PermitBaseApi):
         else:
             json_body = role
         role = await create_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             json_body=json_body,
             client=self._client,
         )
@@ -96,8 +95,8 @@ class Role(PermitBaseApi):
         else:
             json_body = role
         updated_role = await update_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             json_body=json_body,
             client=self._client,
@@ -108,8 +107,8 @@ class Role(PermitBaseApi):
     @lazy_load_context
     async def delete(self, role_key: str):
         res = await delete_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             client=self._client,
         )
@@ -120,8 +119,8 @@ class Role(PermitBaseApi):
     async def assign_permissions(self, role_key: str, permissions: List[str]):
         json_body = AddRolePermissions.parse_obj(permissions)
         res = await assign_permissions_to_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             json_body=json_body,
             client=self._client,
@@ -132,8 +131,8 @@ class Role(PermitBaseApi):
     async def remove_permissions(self, role_key: str, permissions: List[str]):
         json_body = RemoveRolePermissions.parse_obj(permissions)
         res = await remove_permissions_from_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             json_body=json_body,
             client=self._client,
@@ -144,8 +143,8 @@ class Role(PermitBaseApi):
     @lazy_load_context
     async def add_parent_role(self, role_key: str, parent_role_key: str):
         res = await add_parent_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             parent_role_key,
             client=self._client,
@@ -157,8 +156,8 @@ class Role(PermitBaseApi):
     @lazy_load_context
     async def remove_parent_role(self, role_key: str, parent_role_key: str):
         res = await remove_parent_role.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             role_key,
             parent_role_key,
             client=self._client,

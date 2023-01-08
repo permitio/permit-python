@@ -18,7 +18,6 @@ from permit.openapi.api.environments import (
     update_environment,
 )
 from permit.openapi.models import EnvironmentCreate, EnvironmentRead, EnvironmentUpdate
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class Environment(PermitBaseApi):
@@ -26,16 +25,16 @@ class Environment(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(client=client, config=config, scope=scope, logger=logger)
+        super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[EnvironmentRead]:
         environments = await list_environments.asyncio(
-            self._scope.project_id.hex,
+            self._config.context.project,
             page=page,
             per_page=per_page,
             client=self._client,
@@ -46,7 +45,7 @@ class Environment(PermitBaseApi):
     @lazy_load_context
     async def get(self, environment_key: str) -> EnvironmentRead:
         environment = await get_environment.asyncio(
-            self._scope.project_id.hex,
+            self._config.context.project,
             environment_key,
             client=self._client,
         )
@@ -70,7 +69,7 @@ class Environment(PermitBaseApi):
         else:
             json_body = environment
         environment = await create_environment.asyncio(
-            self._scope.project_id.hex,
+            self._config.context.project,
             json_body=json_body,
             client=self._client,
         )
@@ -88,7 +87,7 @@ class Environment(PermitBaseApi):
         else:
             json_body = environment
         updated_environment = await update_environment.asyncio(
-            self._scope.project_id.hex,
+            self._config.context.project,
             environment_key,
             json_body=json_body,
             client=self._client,
@@ -101,7 +100,7 @@ class Environment(PermitBaseApi):
     @lazy_load_context
     async def delete(self, environment_key: str):
         res = await delete_environment.asyncio(
-            self._scope.project_id.hex,
+            self._config.context.project,
             environment_key,
             client=self._client,
         )

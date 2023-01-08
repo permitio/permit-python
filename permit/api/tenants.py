@@ -15,7 +15,6 @@ from permit.openapi.api.tenants import (
     update_tenant,
 )
 from permit.openapi.models import TenantCreate, TenantRead, TenantUpdate
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class Tenant(PermitBaseApi):
@@ -23,17 +22,17 @@ class Tenant(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-        scope: Optional[APIKeyScopeRead],
+
         logger: Logger,
     ):
-        super().__init__(config=config, scope=scope, client=client, logger=logger)
+        super().__init__(config=config, client=client, logger=logger)
 
     # CRUD Methods
     @lazy_load_context
     async def get(self, tenant_key: str) -> TenantRead:
         tenant = await get_tenant.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             tenant_key,
             client=self._client,
         )
@@ -51,8 +50,8 @@ class Tenant(PermitBaseApi):
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
         tenants = await list_tenants.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             page=page,
             per_page=per_page,
             client=self._client,
@@ -67,8 +66,8 @@ class Tenant(PermitBaseApi):
         else:
             json_body = tenant
         created_tenant = await create_tenant.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             json_body=json_body,
             client=self._client,
         )
@@ -86,8 +85,8 @@ class Tenant(PermitBaseApi):
         else:
             json_body = tenant
         updated_tenant = await update_tenant.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             tenant_key,
             json_body=json_body,
             client=self._client,
@@ -100,8 +99,8 @@ class Tenant(PermitBaseApi):
     @lazy_load_context
     async def delete(self, tenant_key: str) -> None:
         res = await delete_tenant.asyncio(
-            self._scope.project_id.hex,
-            self._scope.environment_id.hex,
+            self._config.context.project,
+            self._config.context.environment,
             tenant_key,
             client=self._client,
         )

@@ -4,7 +4,6 @@ import httpx
 
 from permit.openapi.api.utils import parse_response
 from permit.openapi.client import AuthenticatedClient
-from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 from permit.openapi.models.http_validation_error import HTTPValidationError
 from permit.openapi.types import Response
 
