@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from enum import Enum
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
 from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
-from permit.api.base import lazy_load_scope
+from permit.api.base import lazy_load_context
 from permit.api.elements import Elements
 from permit.api.environments import Environment
 from permit.api.projects import Project
@@ -18,7 +19,7 @@ from permit.api.resources import Resource
 from permit.api.roles import Role
 from permit.api.tenants import Tenant
 from permit.api.users import User
-from permit.config import PermitConfig
+from permit.config import PermitConfig, PermitContext
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.users import create_user, get_user, update_user
@@ -51,10 +52,8 @@ class PermitApiClient:
     def __init__(self, config: PermitConfig):
         self._config = config
         self._logger = logger.bind(name="permit.mutations.client")
-
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
         self.scope: Optional[APIKeyScopeRead] = None
-
         self.tenants: Tenant = Tenant(
             self.client, self._config, self.scope, self._logger
         )
@@ -85,8 +84,12 @@ class PermitApiClient:
         )
 
     # region write api ---------------------------------------------------------------
+    async def set_context(self, context: PermitContext):
+        if context.project is not None:
+            project = await self.projects.get()
 
-    @lazy_load_scope
+
+    @lazy_load_context
     async def sync_user(self, user: Union[UserCreate, dict], on_create: OnUserCreation) -> UserRead:
         if isinstance(user, dict):
             key = user.get("key", None)
@@ -140,7 +143,3 @@ class PermitApiClient:
         return results
 
     # endregion
-
-    @property
-    def api(self) -> PermitApiClient:
-        return self

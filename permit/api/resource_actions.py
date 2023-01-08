@@ -7,7 +7,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     from loguru import Logger
 
-from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_context
 from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.resource_actions import (
@@ -36,7 +36,7 @@ class ResourceAction(PermitBaseApi):
         super().__init__(client=client, config=config, scope=scope, logger=logger)
 
     # CRUD Methods
-    @lazy_load_scope
+    @lazy_load_context
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> List[ResourceActionRead]:
@@ -51,7 +51,7 @@ class ResourceAction(PermitBaseApi):
         raise_for_error_by_action(resource_actions, "list", "resource_actions")
         return resource_actions
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get(
         self, resource_key: str, resource_action_key: str
     ) -> ResourceActionRead:
@@ -67,19 +67,19 @@ class ResourceAction(PermitBaseApi):
         )
         return resource_action
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_key(
         self, resource_key: str, resource_action_key: str
     ) -> ResourceActionRead:
         return await self.get(resource_key, resource_action_key)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_id(
         self, resoure_id: UUID, resource_action_id: UUID
     ) -> ResourceActionRead:
         return await self.get(resoure_id.hex, resource_action_id.hex)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def create(
         self, resource_key: str, resource_action: Union[ResourceActionCreate, dict]
     ) -> ResourceActionRead:
@@ -99,7 +99,7 @@ class ResourceAction(PermitBaseApi):
         )
         return resource_action
 
-    @lazy_load_scope
+    @lazy_load_context
     async def update(
         self,
         resource_key: str,
@@ -123,7 +123,7 @@ class ResourceAction(PermitBaseApi):
         )
         return updated_resource_action
 
-    @lazy_load_scope
+    @lazy_load_context
     async def delete(self, resource_key: str, resource_action_key: str):
         res = await delete_resource_action.asyncio(
             self._scope.project_id.hex,

@@ -7,7 +7,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     from loguru import Logger
 
-from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_context
 from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.role_assignments import (
@@ -44,7 +44,7 @@ class User(PermitBaseApi):
         super().__init__(client=client, config=config, scope=scope, logger=logger)
 
     # CRUD Methods
-    @lazy_load_scope
+    @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[UserRead]:
         users = await list_users.asyncio(
             self._scope.project_id.hex,
@@ -56,7 +56,7 @@ class User(PermitBaseApi):
         raise_for_error_by_action(users, "list", "users")
         return users
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get(self, user_key: str) -> UserRead:
         user = await get_user.asyncio(
             self._scope.project_id.hex,
@@ -67,15 +67,15 @@ class User(PermitBaseApi):
         raise_for_error_by_action(user, "user", user_key)
         return user
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_id(self, user_id: UUID) -> UserRead:
         return await self.get(user_id.hex)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_key(self, user_key: str) -> UserRead:
         return await self.get(user_key)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def create(self, user: Union[UserCreate, dict]) -> UserRead:
         if isinstance(user, dict):
             json_body = UserCreate.parse_obj(user)
@@ -90,7 +90,7 @@ class User(PermitBaseApi):
         raise_for_error_by_action(user, "user", json.dumps(json_body.dict()), "create")
         return created_user
 
-    @lazy_load_scope
+    @lazy_load_context
     async def update(self, user_key: str, user: Union[UserUpdate, dict]) -> UserRead:
         if isinstance(user, dict):
             json_body = UserUpdate.parse_obj(user)
@@ -106,7 +106,7 @@ class User(PermitBaseApi):
         raise_for_error_by_action(user, "user", json.dumps(json_body.dict()), "update")
         return updated_user
 
-    @lazy_load_scope
+    @lazy_load_context
     async def delete(self, user_key: str | UserRead) -> None:
         res = await delete_user.asyncio(
             self._scope.project_id.hex,
@@ -117,7 +117,7 @@ class User(PermitBaseApi):
         raise_for_error_by_action(res, "user", user_key, "delete")
 
     # Role Assignment Methods
-    @lazy_load_scope
+    @lazy_load_context
     async def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
@@ -135,7 +135,7 @@ class User(PermitBaseApi):
         )
         return role_assignment
 
-    @lazy_load_scope
+    @lazy_load_context
     async def unassign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> None:
@@ -155,7 +155,7 @@ class User(PermitBaseApi):
             "delete",
         )
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_assigned_roles(
         self,
         user_key: str,

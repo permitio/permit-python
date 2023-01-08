@@ -7,7 +7,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     from loguru import Logger
 
-from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_context
 from permit.api.resource_actions import ResourceAction
 from permit.api.resource_attributes import ResourceAttribute
 from permit.config import PermitConfig
@@ -46,7 +46,7 @@ class Resource(PermitBaseApi):
         self.resource_actions = resource_actions
 
     # CRUD Methods
-    @lazy_load_scope
+    @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[ResourceRead]:
         resources = await list_resources.asyncio(
             self._scope.project_id.hex,
@@ -58,7 +58,7 @@ class Resource(PermitBaseApi):
         raise_for_error_by_action(resources, "list", "resources")
         return resources
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get(self, resource_key: str) -> ResourceRead:
         resource = await get_resource.asyncio(
             self._scope.project_id.hex,
@@ -69,15 +69,15 @@ class Resource(PermitBaseApi):
         raise_for_error_by_action(resource, "resource", resource_key)
         return resource
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_id(self, resource_id: UUID) -> ResourceRead:
         return await self.get(resource_id.hex)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_key(self, resource_key: str) -> ResourceRead:
         return await self.get(resource_key)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def create(self, resource: Union[ResourceCreate, dict]) -> ResourceRead:
         if isinstance(resource, dict):
             json_body = ResourceCreate.parse_obj(resource)
@@ -94,7 +94,7 @@ class Resource(PermitBaseApi):
         )
         return created_resource
 
-    @lazy_load_scope
+    @lazy_load_context
     async def update(
         self, resource_key: str, resource: Union[ResourceUpdate, dict]
     ) -> ResourceRead:
@@ -114,7 +114,7 @@ class Resource(PermitBaseApi):
         )
         return updated_resource
 
-    @lazy_load_scope
+    @lazy_load_context
     async def delete(self, resource_key: str | ResourceRead) -> None:
         res = await delete_resource.asyncio(
             self._scope.project_id.hex,

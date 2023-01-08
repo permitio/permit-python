@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 import httpx
 
+from permit.openapi.api.utils import parse_response
 from permit.openapi.client import AuthenticatedClient
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 from permit.openapi.models.http_validation_error import HTTPValidationError
@@ -47,7 +48,7 @@ def _build_response(
         status_code=response.status_code,
         content=response.content,
         headers=response.headers,
-        parsed=_parse_response(response=response),
+        parsed=parse_response(response=response, model=APIKeyScopeRead),
     )
 
 

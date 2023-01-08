@@ -4,7 +4,7 @@ import json
 from typing import TYPE_CHECKING, List, Optional, Union
 from uuid import UUID
 
-from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_context
 from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.projects import (
@@ -32,7 +32,7 @@ class Project(PermitBaseApi):
         super().__init__(client=client, config=config, scope=scope, logger=logger)
 
     # CRUD Methods
-    @lazy_load_scope
+    @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[ProjectRead]:
         projects = await list_projects.asyncio(
             page=page,
@@ -42,7 +42,7 @@ class Project(PermitBaseApi):
         raise_for_error_by_action(projects, "list", "projects")
         return projects
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get(self, project_key: str) -> ProjectRead:
         project = await get_project.asyncio(
             project_key,
@@ -51,15 +51,15 @@ class Project(PermitBaseApi):
         raise_for_error_by_action(project, "project", project_key)
         return project
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_key(self, project_key: str) -> ProjectRead:
         return await self.get(project_key)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_id(self, project_id: UUID) -> ProjectRead:
         return await self.get(project_id.hex)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def create(self, project: Union[ProjectCreate, dict]) -> ProjectRead:
         if isinstance(project, dict):
             json_body = ProjectCreate.parse_obj(project)
@@ -74,7 +74,7 @@ class Project(PermitBaseApi):
         )
         return project
 
-    @lazy_load_scope
+    @lazy_load_context
     async def update(
         self, project_key: str, project: Union[ProjectUpdate, dict]
     ) -> ProjectRead:
@@ -92,7 +92,7 @@ class Project(PermitBaseApi):
         )
         return updated_project
 
-    @lazy_load_scope
+    @lazy_load_context
     async def delete(self, project_key: str):
         res = await delete_project.asyncio(
             project_key,

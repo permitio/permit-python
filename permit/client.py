@@ -1,15 +1,16 @@
 import json
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from loguru import logger
 
 from permit.api.client import PermitApiClient
-from permit.config import ConfigFactory, PermitConfig
+from permit.config import ConfigFactory, PermitConfig, ContextFactory, PermitContext
 from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
 from permit.mutations.client import PermitApiClient as CompatApiClient
 from permit.mutations.client import ReadOperation, WriteOperation
-from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
+from permit.openapi.models import UserCreate, UserRead
+from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes, OnUserCreation
 from permit.resources.registry import ActionDefinition, ResourceRegistry
 from permit.resources.reporter import ResourceReporter, ResourceStub
 from permit.utils.context import Context
@@ -20,24 +21,23 @@ class Permit:
         self,
         token: str,
         pdp: str = DEFAULT_PDP_URL,
+        context: PermitContext = None,
         debug_mode: bool = False,
         **options,
     ):
         self._config: PermitConfig = ConfigFactory.build(
-            dict(token=token, pdp=pdp, debug_mode=debug_mode, **options),
+            dict(token=token, pdp=pdp, debug_mode=debug_mode, context=context, **options),
         )
         self._logger = logger.bind(name="permit.io")
-
         self._resource_registry = ResourceRegistry()
-        self._resource_reporter = ResourceReporter(
+        self._resourece_reporter = ResourceReporter(
             self._config, self._resource_registry
         )
         self._enforcer = Enforcer(self._config)
         # TODO: self._cache = LocalCacheClient(self._config, logger)
 
         self._mutations_client = CompatApiClient(self._config)
-        self._api_client = PermitApiClient(self._config)
-
+        self._api_client = PermitApiClient(self._config, self._context)
         if self._config.debug_mode:
             self._logger.info(
                 f"Permit.io SDK initialized with config:\n${json.dumps(self._config.dict())}",
@@ -80,7 +80,11 @@ class Permit:
     # mutations
     @property
     def api(self):
-        return self._api_client.api
+        return self._api_client
+
+    @property
+    async def sync_user(self):
+        return self._api_client.sync_user
 
     @property
     def elements(self):

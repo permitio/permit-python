@@ -35,6 +35,28 @@ class PermitNotFound(ServiceException):
         )
 
 
+class PermitContextException(ServiceException):
+    title = "Your context"
+    error_code: ErrorCode = ErrorCode.NOT_FOUND
+    type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
+    reassurance = "The requested data could not be found"
+    explanation = "we could not find '{object_type}' object with the key '{object_name}'"  # TODO: ADD filters to explaination -"with the given filters{filters}"
+    suggestion: str = "Please try again with different filters"
+    way_out: str = (
+        "If you are sure there is an object with the given filters, "
+        "contact our support on Slack for further guidance"
+    )
+
+    def __init__(self, object_type: str, object_name: str, **kwargs):
+        super().__init__(
+            explanation=self.explanation.format(
+                object_type=object_type,
+                object_name=object_name,
+            ),
+            **kwargs,
+        )
+
+
 class PermitConnectionError(ServiceException):
     """Permit connection exception"""
 

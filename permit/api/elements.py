@@ -6,7 +6,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     from loguru import Logger
 
-from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_context
 from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.authentication import elements_login_as
@@ -24,7 +24,7 @@ class Elements(PermitBaseApi):
     ):
         super().__init__(client=client, config=config, scope=scope, logger=logger)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def login_as(
         self, user_id: str | UUID, tenant_id: str | UUID
     ) -> UserLoginResponse:

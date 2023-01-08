@@ -4,7 +4,7 @@ import json
 from typing import List, Optional, Union
 from uuid import UUID
 
-from permit.api.base import PermitBaseApi, lazy_load_scope
+from permit.api.base import PermitBaseApi, lazy_load_context
 from permit.config import PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.tenants import (
@@ -29,7 +29,7 @@ class Tenant(PermitBaseApi):
         super().__init__(config=config, scope=scope, client=client, logger=logger)
 
     # CRUD Methods
-    @lazy_load_scope
+    @lazy_load_context
     async def get(self, tenant_key: str) -> TenantRead:
         tenant = await get_tenant.asyncio(
             self._scope.project_id.hex,
@@ -40,15 +40,15 @@ class Tenant(PermitBaseApi):
         raise_for_error_by_action(tenant, "tenant", tenant_key)
         return tenant
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_key(self, tenant_key: str) -> TenantRead:
         return await self.get(tenant_key)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def get_by_id(self, tenant_id: UUID) -> TenantRead:
         return await self.get(tenant_id.hex)
 
-    @lazy_load_scope
+    @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
         tenants = await list_tenants.asyncio(
             self._scope.project_id.hex,
@@ -60,7 +60,7 @@ class Tenant(PermitBaseApi):
         raise_for_error_by_action(tenants, "list", "tenants")
         return tenants
 
-    @lazy_load_scope
+    @lazy_load_context
     async def create(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
         if isinstance(tenant, dict):
             json_body = TenantCreate.parse_obj(tenant)
@@ -77,7 +77,7 @@ class Tenant(PermitBaseApi):
         )
         return created_tenant
 
-    @lazy_load_scope
+    @lazy_load_context
     async def update(
         self, tenant_key: str, tenant: Union[TenantUpdate, dict]
     ) -> TenantRead:
@@ -97,7 +97,7 @@ class Tenant(PermitBaseApi):
         )
         return updated_tenant
 
-    @lazy_load_scope
+    @lazy_load_context
     async def delete(self, tenant_key: str) -> None:
         res = await delete_tenant.asyncio(
             self._scope.project_id.hex,
