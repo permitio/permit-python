@@ -35,7 +35,6 @@ class Resource(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-
         logger: Logger,
         resource_attributes: ResourceAttribute,
         resource_actions: ResourceAction,

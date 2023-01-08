@@ -2,12 +2,12 @@ from typing import Any, Dict, Optional, Union
 
 import httpx
 
-from ..utils import parse_response
 from ...client import AuthenticatedClient
 from ...models.http_validation_error import HTTPValidationError
 from ...models.role_read import RoleRead
 from ...models.role_update import RoleUpdate
 from ...types import UNSET, Response, Unset
+from ..utils import parse_response
 
 
 def _get_kwargs(

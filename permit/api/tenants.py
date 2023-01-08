@@ -22,7 +22,6 @@ class Tenant(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-
         logger: Logger,
     ):
         super().__init__(config=config, client=client, logger=logger)

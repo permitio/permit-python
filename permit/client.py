@@ -4,13 +4,18 @@ from typing import Dict, List, Union
 from loguru import logger
 
 from permit.api.client import PermitApiClient
-from permit.config import ConfigFactory, PermitConfig, ContextFactory, PermitContext
+from permit.config import ConfigFactory, ContextFactory, PermitConfig, PermitContext
 from permit.constants import DEFAULT_PDP_URL
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
 from permit.mutations.client import PermitApiClient as CompatApiClient
 from permit.mutations.client import ReadOperation, WriteOperation
 from permit.openapi.models import UserCreate, UserRead
-from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes, OnUserCreation
+from permit.resources.interfaces import (
+    ActionConfig,
+    OnUserCreation,
+    ResourceConfig,
+    ResourceTypes,
+)
 from permit.resources.registry import ActionDefinition, ResourceRegistry
 from permit.resources.reporter import ResourceReporter, ResourceStub
 from permit.utils.context import Context
@@ -26,7 +31,9 @@ class Permit:
         **options,
     ):
         self._config: PermitConfig = ConfigFactory.build(
-            dict(token=token, pdp=pdp, debug_mode=debug_mode, context=context, **options),
+            dict(
+                token=token, pdp=pdp, debug_mode=debug_mode, context=context, **options
+            ),
         )
         self._logger = logger.bind(name="permit.io")
         self._resource_registry = ResourceRegistry()

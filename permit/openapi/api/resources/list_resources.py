@@ -2,11 +2,11 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from ..utils import parse_response
 from ...client import AuthenticatedClient
 from ...models.http_validation_error import HTTPValidationError
 from ...models.resource_read import ResourceRead
 from ...types import UNSET, Response, Unset
+from ..utils import parse_response
 
 
 def _get_kwargs(

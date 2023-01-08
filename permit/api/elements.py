@@ -18,7 +18,6 @@ class Elements(PermitBaseApi):
         self,
         client,
         config: PermitConfig,
-
         logger: Logger,
     ):
         super().__init__(client=client, config=config, logger=logger)
