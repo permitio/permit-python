@@ -9,12 +9,14 @@ from pydantic import AnyHttpUrl, BaseModel, Field, parse_obj_as, validator
 
 
 ERROR_CODE_KEY = "error_code"
+DETAIL_KEY = "detail"
 CONTACT_SUPPORT_PHRASE: Final[str] = "contact our support on Slack for further guidance"
 
 
 class ErrorCode(str, Enum):
     UNEXPECTED_ERROR = "UNEXPECTED_ERROR"
     NOT_FOUND = "NOT_FOUND"
+    CONTEXT_ERROR = "CONTEXT_ERROR"
     DUPLICATE_ENTITY = "DUPLICATE_ENTITY"
     EMPTY_DECISION_LOGS = "EMPTY_DECISION_LOGS"
     MISSING_REQUEST_ATTRIBUTE = "MISSING_REQUEST_ATTRIBUTE"
@@ -144,19 +146,19 @@ class ServiceException(PermitException):
     def _override_default_attributes_if_provided(
         self,
         error_code: ErrorCode | None,
+        type: str | None,
         title: str | None,
         reassurance: str | None,
         explanation: str | None,
         suggestion: str | None,
         way_out: str | None,
         support_link: AnyHttpUrl | None,
-        status_code: int | None,
     ) -> None:
         self.__override_default_attribute_if_provided("error_code", error_code)
+        self.__override_default_attribute_if_provided("type", type)
         self.__override_default_attribute_if_provided("title", title)
         self.__override_default_attribute_if_provided("reassurance", reassurance)
         self.__override_default_attribute_if_provided("explanation", explanation)
         self.__override_default_attribute_if_provided("suggestion", suggestion)
         self.__override_default_attribute_if_provided("way_out", way_out)
         self.__override_default_attribute_if_provided("support_link", support_link)
-        self.__override_default_attribute_if_provided("status_code", status_code)

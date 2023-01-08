@@ -20,9 +20,12 @@ from permit.api.roles import Role
 from permit.api.tenants import Tenant
 from permit.api.users import User
 from permit.config import PermitConfig, PermitContext
-from permit.exceptions.exceptions import raise_for_error_by_action
+from permit.constants import (
+    OBJECT_ENVIRONMENT_NAME,
+    OBJECT_PROJECT_NAME,
+    OBJECT_TENANT_NAME,
+)
 from permit.openapi import AuthenticatedClient
-from permit.openapi.api.users import create_user, get_user, update_user
 from permit.openapi.models import UserCreate, UserRead, UserUpdate
 from permit.resources.interfaces import OnUserCreation
 
@@ -52,50 +55,52 @@ class PermitApiClient:
         self._config = config
         self._logger = logger.bind(name="permit.mutations.client")
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
-        self.tenants: Tenant = Tenant(
-            self.client, self._config,  self._logger
-        )
+        self.tenants: Tenant = Tenant(self.client, self._config, self._logger)
         self.environments: Environment = Environment(
-            self.client, self._config,  self._logger
+            self.client, self._config, self._logger
         )
-        self.projects: Project = Project(
-            self.client, self._config,  self._logger
-        )
+        self.projects: Project = Project(self.client, self._config, self._logger)
         self.resource_actions: ResourceAction = ResourceAction(
-            self.client, self._config,  self._logger
+            self.client, self._config, self._logger
         )
         self.resource_attributes: ResourceAttribute = ResourceAttribute(
-            self.client, self._config,  self._logger
+            self.client, self._config, self._logger
         )
         self.resources: Resource = Resource(
             self.client,
             self._config,
-
             self._logger,
             self.resource_attributes,
             self.resource_actions,
         )
-        self.roles: Role = Role(self.client, self._config,  self._logger)
-        self.users: User = User(self.client, self._config,  self._logger)
-        self.elements: Elements = Elements(
-            self.client, self._config,  self._logger
-        )
+        self.roles: Role = Role(self.client, self._config, self._logger)
+        self.users: User = User(self.client, self._config, self._logger)
+        self.elements: Elements = Elements(self.client, self._config, self._logger)
 
     # region write api ---------------------------------------------------------------
     async def set_context(self, context: PermitContext):
-        try:
-            if context.project:
-                await self.projects.get(context.project)
-                self._config.context.project = context.project
-            if context.environment:
-                await self.environments.get(context.environment)
-                self._config.context.project = context.project
-        except:
-
-
+        log_message = "Setting context - "
+        additional_log_text = "{}: {}"
+        if context.project:
+            object_type = OBJECT_PROJECT_NAME
+            await self.projects.get(context.project)
+            self._config.context.project = context.project
+            log_message += additional_log_text.format(object_type, context.project)
+        if context.environment:
+            object_type = OBJECT_ENVIRONMENT_NAME
+            await self.environments.get(context.environment)
+            self._config.context.environment = context.environment
+            log_message += additional_log_text.format(object_type, context.environment)
+        if context.tenant:
+            object_type = OBJECT_TENANT_NAME
+            await self.tenants.get(context.tenant)
+            self._config.context.tenant = context.tenant
+            log_message += additional_log_text.format(object_type, context.tenant)
 
     @lazy_load_context
-    async def sync_user(self, user: Union[UserCreate, dict], on_create: OnUserCreation) -> UserRead:
+    async def sync_user(
+        self, user: Union[UserCreate, dict], on_create: OnUserCreation
+    ) -> UserRead:
         if isinstance(user, dict):
             key = user.get("key", None)
             if key is None:
@@ -116,10 +121,7 @@ class PermitApiClient:
                 user_update = UserUpdate.parse_obj(user)
             else:
                 user_update = UserUpdate.parse_obj(user.dict(exclude={"key"}))
-            updated_user = await self.users.update(
-                key,
-                user_update
-            )
+            updated_user = await self.users.update(key, user_update)
             return updated_user
         # otherwise create the user
         self._logger.info("user does not exist, creating it...")
@@ -127,7 +129,9 @@ class PermitApiClient:
 
         # Set initial roles when new user is created
         for initial_role in on_create.initial_roles:
-            await self.api.users.assign_role(key, initial_role.role, initial_role.tenant)
+            await self.api.users.assign_role(
+                key, initial_role.role, initial_role.tenant
+            )
 
         return created_user
 

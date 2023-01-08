@@ -2,6 +2,7 @@ import pytest
 from pydantic import EmailStr
 
 from permit.api.client import PermitApiClient
+from permit.config import PermitContext
 from permit.exceptions.base import PermitException
 from permit.openapi.models import RoleCreate, TenantCreate, TenantUpdate, UserCreate
 
@@ -20,6 +21,19 @@ async def test_client_sync_user_create(api_client: PermitApiClient, email: str):
     created_user_dict = user.dict()
     for key, value in create_user.dict().items():
         assert created_user_dict.get(key) == value
+
+
+async def test_client_sync_user_create(api_client: PermitApiClient):
+    project_key = "abac"
+    environment_key = "production"
+    tenant_key = "default"
+    context = PermitContext(
+        project=project_key, environment=environment_key, tenant=tenant_key
+    )
+    # await api_client.projects.create({"key": project_key, "name": project_key})
+    # await api_client.environments.create({"key": environment_key, "name": environment_key})
+    # await api_client.tenants.create({"key": environment_key, "name": environment_key})
+    await api_client.set_context(context)
 
 
 @pytest.mark.parametrize(

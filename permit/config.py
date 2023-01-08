@@ -4,14 +4,13 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from permit.constants import DEFAULT_PDP_URL
-from permit.exceptions.exceptions import PermitContextException
 
 
 class ApiKeyLevel(Enum):
-    WAIT_FOR_INIT: None
-    ORGANIZATION_LEVEL_API_KEY: 1
-    PROJECT_LEVEL_API_KEY: 2
-    ENVIRONMENT_LEVEL_API_KEY: 3
+    WAIT_FOR_INIT = 0
+    ORGANIZATION_LEVEL_API_KEY = 1
+    PROJECT_LEVEL_API_KEY = 2
+    ENVIRONMENT_LEVEL_API_KEY = 3
 
 
 class LoggerConfig(BaseModel):
@@ -63,8 +62,9 @@ class PermitContext(BaseModel):
 
 class ContextFactory:
     @staticmethod
-    def build(project: str, environment: str, tenant: str,
-              api_key_level: ApiKeyLevel) -> PermitContext:
+    def build(
+        project: str, environment: str, tenant: str, api_key_level: ApiKeyLevel
+    ) -> PermitContext:
         # if api_key_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY and environment is None:
         #     raise PermitContextException()
         # if api_key_level == ApiKeyLevel.PROJECT_LEVEL_API_KEY and project is None:
@@ -81,7 +81,9 @@ class PermitConfig(BaseModel):
     )
     pdp: str = Field(DEFAULT_PDP_URL, description="Your PDP url")
     debug_mode: bool = Field(False, description="in debug mode we log more stuff")
-    context: PermitContext = Field(None, description="Context that the client will use to interact with Permit.io")
+    context: PermitContext = Field(
+        None, description="Context that the client will use to interact with Permit.io"
+    )
     log: LoggerConfig = Field(LoggerConfig())
     auto_mapping: AutoMappingConfig = Field(AutoMappingConfig())
     multi_tenancy: MultiTenancyConfig = Field(MultiTenancyConfig())
