@@ -1,6 +1,6 @@
 name: Release permit python SDK
 
-on:   
+on:
   release:
     # job will automatically run after a new "release" is create on github.
     types: [created]
