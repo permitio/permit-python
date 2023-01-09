@@ -1,4 +1,5 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -15,4 +16,11 @@ class UserLoginResponse(BaseModel):
     )
     redirect_url: str = Field(
         description="The full URL to which the user should be redirected in order to complete the login process"
+    )
+
+
+class UserLoginAsResponse(UserLoginResponse):
+    content: Optional[str] = Field(
+        None,
+        description="Content to return in the response body for header/bearer login",
     )
