@@ -1,10 +1,20 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+from permit.openapi.models.user_login_response import UserLoginAsResponse
+
 
 if TYPE_CHECKING:
     from permit.client import Permit
+
+
+class LoginAsErrorMessages:
+    USER_NOT_FOUND = "User not found"
+    TENANT_NOT_FOUND = "Tenant not found"
+    INVALID_PERMISSION_LEVEL = "Invalid user permission level"
+    FORBIDDEN_ACCESS = "Forbidden access"
 
 
 class PermitElements:
@@ -13,6 +23,7 @@ class PermitElements:
 
     async def login_as(
         self, user_id: str | UUID, tenant_id: str | UUID
-    ) -> Tuple[str, str]:
+    ) -> UserLoginAsResponse:
         ticket = await self._client.api.elements_login_as(user_id, tenant_id)
-        return ticket.token, ticket.redirect_url
+        ticket['content'] = {"url": ticket['redirect_url']}
+        return ticket
