@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from enum import Enum
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
-from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
 from permit.api.base import lazy_load_context
@@ -21,12 +18,21 @@ from permit.api.tenants import Tenant
 from permit.api.users import User
 from permit.config import PermitConfig, PermitContext
 from permit.constants import (
+    DEPRECATION_WARNING_LOG,
     OBJECT_ENVIRONMENT_NAME,
     OBJECT_PROJECT_NAME,
     OBJECT_TENANT_NAME,
 )
 from permit.openapi import AuthenticatedClient
-from permit.openapi.models import UserCreate, UserRead, UserUpdate
+from permit.openapi.models import (
+    ResourceRead,
+    RoleAssignmentRead,
+    RoleRead,
+    TenantRead,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from permit.resources.interfaces import OnUserCreation
 
 T = TypeVar("T")
@@ -50,10 +56,15 @@ class WriteOperation(Operation[Dict]):
     pass
 
 
+P = ParamSpec("P")
+RT = TypeVar("RT")
+
+
 class PermitApiClient:
     def __init__(self, config: PermitConfig):
         self._config = config
         self._logger = logger.bind(name="permit.mutations.client")
+
         self.client = AuthenticatedClient(base_url=config.api_url, token=config.token)
         self.tenants: Tenant = Tenant(self.client, self._config, self._logger)
         self.environments: Environment = Environment(
@@ -76,6 +87,67 @@ class PermitApiClient:
         self.roles: Role = Role(self.client, self._config, self._logger)
         self.users: User = User(self.client, self._config, self._logger)
         self.elements: Elements = Elements(self.client, self._config, self._logger)
+
+    # region read api ----------------------------------------------------------------
+
+    @lazy_load_context
+    async def get_user(self, user_key: str) -> UserRead:
+        # DEPRECATED ! Please use the API level method - instead of `permit.get_user()` use `permit.api.users.get()`.
+        self._logger.warning(
+            DEPRECATION_WARNING_LOG.format(
+                "permit.get_user()", "permit.api.users.get()"
+            )
+        )
+        return await self.users.get(user_key)
+
+    @lazy_load_context
+    async def get_role(self, role_key: str) -> RoleRead:
+        # DEPRECATED ! Please use the API level method - instead of `permit.get_role()` use `permit.api.roles.get()`.
+        self._logger.warning(
+            DEPRECATION_WARNING_LOG.format(
+                "permit.get_role()", "permit.api.roles.get()"
+            )
+        )
+        return await self.roles.get(role_key)
+
+    @lazy_load_context
+    async def get_tenant(self, tenant_key: str) -> TenantRead:
+        # DEPRECATED ! Please use the API level method - instead of `permit.get_tenant()` use
+        # `permit.api.tenants.get()`.
+        self._logger.warning(
+            DEPRECATION_WARNING_LOG.format(
+                "permit.get_tenant()", "permit.api.tenants.get()"
+            )
+        )
+        return await self.tenants.get(tenant_key)
+
+    @lazy_load_context
+    async def get_assigned_roles(
+        self,
+        user_key: str,
+        tenant_key: Optional[str],
+        page: int = 1,
+        per_page: int = 100,
+    ) -> List[RoleAssignmentRead]:
+        # DEPRECATED ! Please use the API level method - instead of `permit.get_assigned_roles()` use
+        # `permit.api.users.get_assigned_roles()`.
+        self._logger.warning(
+            DEPRECATION_WARNING_LOG.format(
+                "permit.get_assigned_roles()", "permit.api.users.get_assigned_roles()"
+            )
+        )
+        return await self.users.get_assigned_roles(user_key, tenant_key, page, per_page)
+
+    @lazy_load_context
+    async def get_resource(self, resource_key: str) -> ResourceRead:
+        # DEPRECATED ! Please use the API level method - instead of `permit.get_resource()` use
+        # `permit.api.resources.get()`.
+        self._logger.warning(
+            DEPRECATION_WARNING_LOG.format(
+                "permit.get_resource()", "permit.api.resources.get()"
+            )
+        )
+        return await self.resources.get(resource_key)
 
     # region write api ---------------------------------------------------------------
     async def set_context(self, context: PermitContext):
@@ -129,7 +201,7 @@ class PermitApiClient:
 
         # Set initial roles when new user is created
         for initial_role in on_create.initial_roles:
-            await self.api.users.assign_role(
+            await self.users.assign_role(
                 key, initial_role.role, initial_role.tenant
             )
 

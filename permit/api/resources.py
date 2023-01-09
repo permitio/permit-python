@@ -46,6 +46,16 @@ class Resource(PermitBaseApi):
     # CRUD Methods
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[ResourceRead]:
+        """
+        Lists the resources from your context's environment.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resources: List[ResourceRead] = await permit.api.resources.list()
+            ```
+        """
         resources = await list_resources.asyncio(
             self._config.context.project,
             self._config.context.environment,
@@ -58,6 +68,16 @@ class Resource(PermitBaseApi):
 
     @lazy_load_context
     async def get(self, resource_key: str) -> ResourceRead:
+        """
+        Gets a resource for a given resource key (from your context's environment).
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.get("document")
+            ```
+        """
         resource = await get_resource.asyncio(
             self._config.context.project,
             self._config.context.environment,
@@ -68,15 +88,50 @@ class Resource(PermitBaseApi):
         return resource
 
     @lazy_load_context
-    async def get_by_id(self, resource_id: UUID) -> ResourceRead:
-        return await self.get(resource_id.hex)
-
-    @lazy_load_context
     async def get_by_key(self, resource_key: str) -> ResourceRead:
+        """
+        Gets a resource for a given resource key (from your context's environment) - same as `get()` function.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.get_by_key("document")
+            ```
+        """
         return await self.get(resource_key)
 
     @lazy_load_context
+    async def get_by_id(self, resource_id: UUID) -> ResourceRead:
+        """
+        Gets a resource for a given resource id (from your context's environment).
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.get_by_id(UUID("984658dd-06bc-4e1e-840b-6a8092c1d481"))
+            ```
+        """
+        return await self.get(resource_id.hex)
+
+    @lazy_load_context
     async def create(self, resource: Union[ResourceCreate, dict]) -> ResourceRead:
+        """
+        Creates a resource under the context's environment - can be either ResourceCreate or a dictionary.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead, ResourceCreate
+            permit = Permit(...)
+            resource_create = ResourceCreate(
+                key="document",
+                name="Document",
+                description="A document resource within our application",
+                )
+            resource: ResourceRead = await permit.api.resources.create(resource_create)
+            ```
+        """
         if isinstance(resource, dict):
             json_body = ResourceCreate.parse_obj(resource)
         else:
@@ -96,6 +151,21 @@ class Resource(PermitBaseApi):
     async def update(
         self, resource_key: str, resource: Union[ResourceUpdate, dict]
     ) -> ResourceRead:
+        """
+        Updates a resource under the context's environment - by a given resource key -
+        can be either ResourceUpdate or a dictionary.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead, ResourceUpdate
+            permit = Permit(...)
+            resource_update = ResourceUpdate(
+                name="Document",
+                description="A document resource within our application",
+                )
+            resource: ResourceRead = await permit.api.resources.update("document", resource_update)
+            ```
+        """
         if isinstance(resource, dict):
             json_body = ResourceUpdate.parse_obj(resource)
         else:
@@ -114,6 +184,16 @@ class Resource(PermitBaseApi):
 
     @lazy_load_context
     async def delete(self, resource_key: str | ResourceRead) -> None:
+        """
+        Deletes a resource under the context's environment - by a given resource key.
+
+        Usage Example:
+            ```
+            from permit import Permit
+            permit = Permit(...)
+            await permit.api.resources.delete("document")
+            ```
+        """
         res = await delete_resource.asyncio(
             self._config.context.project,
             self._config.context.environment,
@@ -125,7 +205,18 @@ class Resource(PermitBaseApi):
     # Resource Attributes Methods
     async def add_resource_attribute(
         self, resource_key: str, resource_attribute_key: str
-    ):
+    ) -> ResourceRead:
+        """
+        Add a resource-attribute to a resource under the context's environment -
+        by a given resource key and a resource-attribute key.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.add_resource_attribute("document", "pages")
+            ```
+        """
         exist_resource_attributes: dict = (await self.get(resource_key)).attributes
         resource_attribute_to_add: ResourceAttributeRead = (
             await self.resource_attributes.get(resource_attribute_key)
@@ -140,7 +231,19 @@ class Resource(PermitBaseApi):
 
     async def remove_resource_attribute(
         self, resource_key: str, resource_attribute_key: str
-    ):
+    ) -> ResourceRead:
+        """
+        Removes a resource-attribute from a resource under the context's environment -
+        by a given resource key and a resource-attribute key.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.remove_resource_attribute("document", "pages")
+            ```
+        """
+
         exist_resource_attributes: dict = (await self.get(resource_key)).attributes
         attribute_to_remove = exist_resource_attributes.pop(
             resource_attribute_key, None
@@ -152,7 +255,20 @@ class Resource(PermitBaseApi):
 
     async def set_resource_attributes(
         self, resource_key: str, resource_attribute_keys: List[str]
-    ):
+    ) -> ResourceRead:
+        """
+        Set a resource-attributes list to a resource under the context's environment -
+        by a given resource key and a list of resource-attributes keys.
+        All resource-attributes that were for the resource will be overridden.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.set_resource_attributes("document", ["pages", "author"])
+            ```
+        """
+
         attribute_block_list: List[AttributeBlock] = []
         for resource_attribute_key in resource_attribute_keys:
             resource_attribute: ResourceAttributeRead = (
@@ -168,7 +284,18 @@ class Resource(PermitBaseApi):
         return await self.update(resource_key, resource_update)
 
     # Resource Actions Methods
-    async def add_resource_action(self, resource_key: str, resource_action_key: str):
+    async def add_resource_action(self, resource_key: str, resource_action_key: str) -> ResourceRead:
+        """
+        Add a resource-action to a resource under the context's environment -
+        by a given resource key and a resource-action key.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.add_resource_action("document", "read")
+            ```
+        """
         exist_resource_actions: dict = (await self.get(resource_key)).actions
         resource_action_to_add: ResourceActionRead = await self.resource_actions.get(
             resource_action_key
@@ -181,7 +308,18 @@ class Resource(PermitBaseApi):
         resource_update = ResourceUpdate(actions=exist_resource_actions)
         return await self.update(resource_key, resource_update)
 
-    async def remove_resource_action(self, resource_key: str, resource_action_key: str):
+    async def remove_resource_action(self, resource_key: str, resource_action_key: str) -> ResourceRead:
+        """
+        Removes a resource-action from a resource under the context's environment -
+        by a given resource key and a resource-action key.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.remove_resource_action("document", "read")
+            ```
+        """
         exist_resource_actions: dict = (await self.get(resource_key)).actions
         action_to_remove = exist_resource_actions.pop(resource_action_key, None)
         if action_to_remove is None:
@@ -191,7 +329,20 @@ class Resource(PermitBaseApi):
 
     async def set_resource_actions(
         self, resource_key: str, resource_action_keys: List[str]
-    ):
+    ) -> ResourceRead:
+        """
+        Set a resource-actions list to a resource under the context's environment -
+        by a given resource key and a list of resource-action keys.
+        All resource-actions that were for the resource will be overridden.
+
+        Usage Example:
+            ```
+            from permit import Permit, ResourceRead
+            permit = Permit(...)
+            resource: ResourceRead = await permit.api.resources.set_resource_action("document", ["read", "delete", "edit"])
+            ```
+        """
+
         action_block_list: List[ActionBlockEditable] = []
         for resource_action_key in resource_action_keys:
             resource_action: ResourceActionRead = await self.resource_actions.get(

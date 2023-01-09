@@ -26,6 +26,17 @@ class Elements(PermitBaseApi):
     async def login_as(
         self, user_id: str | UUID, tenant_id: str | UUID
     ) -> UserLoginResponse:
+        """
+        The login endpoint allows the frontend app to exchange a user JWT with a user session. The user session is stored on an httpOnly + secure cookie.
+
+        Usage Example:
+            ```
+            from permit import Permit, UserLoginResponse
+            permit = Permit(...)
+            element_: UserLoginResponse = await permit.api.elements.login_as("auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678", "rnd-tenant")
+            ```
+        """
+
         if isinstance(user_id, UUID):
             user_id = user_id.hex
         if isinstance(tenant_id, UUID):

@@ -64,15 +64,15 @@ class Permit:
     ) -> bool:
         return await self._enforcer.check(user, action, resource, context)
 
-    async def get_allowed_actions(
-        self,
-        user: User,
-        action: Action,
-        resource: Resource,
-        context: Context = {},
-    ) -> bool:
-        # TODO: Implement getAllowedActions - With given user and resource, what actions the user is permitted to do.
-        return True
+    # TODO: Implement getAllowedActions - With given user and resource, what actions the user is permitted to do.
+    # async def get_allowed_actions(
+    #     self,
+    #     user: User,
+    #     action: Action,
+    #     resource: Resource,
+    #     context: Context = {},
+    # ) -> bool:
+    #     return True
 
     # resource reporter
     async def resource(self, config: ResourceConfig) -> ResourceStub:

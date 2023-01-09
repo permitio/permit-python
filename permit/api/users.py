@@ -44,6 +44,16 @@ class User(PermitBaseApi):
     # CRUD Methods
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[UserRead]:
+        """
+        Lists the users from your context's environment.
+
+        Usage Example:
+            ```
+            from permit import Permit, UserRead
+            permit = Permit(...)
+            users: List[UserRead] = await permit.api.users.list()
+            ```
+        """
         users = await list_users.asyncio(
             self._config.context.project,
             self._config.context.environment,
@@ -56,6 +66,16 @@ class User(PermitBaseApi):
 
     @lazy_load_context
     async def get(self, user_key: str) -> UserRead:
+        """
+        Gets a user for a given user key (from your context's environment).
+
+        Usage Example:
+            ```
+            from permit import Permit, UserRead
+            permit = Permit(...)
+            user: UserRead = await permit.api.users.get("joe")
+            ```
+        """
         user = await get_user.asyncio(
             self._config.context.project,
             self._config.context.environment,
@@ -65,16 +85,53 @@ class User(PermitBaseApi):
         raise_for_error_by_action(user, "user", user_key)
         return user
 
-    @lazy_load_context
-    async def get_by_id(self, user_id: UUID) -> UserRead:
-        return await self.get(user_id.hex)
 
     @lazy_load_context
     async def get_by_key(self, user_key: str) -> UserRead:
+        """
+        Gets a user for a given user key (from your context's environment) - same as `get()` function.
+
+        Usage Example:
+            ```
+            from permit import Permit, UserRead
+            permit = Permit(...)
+            user: UserRead = await permit.api.users.get_by_key("joe")
+            ```
+        """
         return await self.get(user_key)
 
     @lazy_load_context
+    async def get_by_id(self, user_id: UUID) -> UserRead:
+        """
+        Gets a user for a given user id (from your context's environment).
+
+        Usage Example:
+            ```
+            from permit import Permit, UserRead
+            permit = Permit(...)
+            user: UserRead = await permit.api.users.get_by_id(UUID("6d785f2a-0b0d-4469-b994-b2f3bdb3a948"))
+            ```
+        """
+        return await self.get(user_id.hex)
+
+    @lazy_load_context
     async def create(self, user: Union[UserCreate, dict]) -> UserRead:
+        """
+        Creates a user under the context's environment - can be either UserCreate or a dictionary.
+
+        Usage Example:
+            ```
+            from permit import Permit, UserRead, UserCreate
+            permit = Permit(...)
+            user_create = UserCreate(
+                key="auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678",
+                email="john@doe.com",
+                first_name="John",
+                last_name="Doe",
+                )
+            user: UserRead = await permit.api.users.create(user_create)
+            ```
+        """
         if isinstance(user, dict):
             json_body = UserCreate.parse_obj(user)
         else:
@@ -90,6 +147,21 @@ class User(PermitBaseApi):
 
     @lazy_load_context
     async def update(self, user_key: str, user: Union[UserUpdate, dict]) -> UserRead:
+        """
+        Updates a user under the context's environment - by a given user key - can be either UserUpdate or a dictionary.
+
+        Usage Example:
+            ```
+            from permit import Permit, UserRead, UserUpdate
+            permit = Permit(...)
+            user_update = UserUpdate(
+                email="john@doe.com",
+                first_name="Johnny",
+                last_name="Doe"
+                )
+            user: UserRead = await permit.api.users.update("auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678", user_update)
+            ```
+        """
         if isinstance(user, dict):
             json_body = UserUpdate.parse_obj(user)
         else:
@@ -106,6 +178,16 @@ class User(PermitBaseApi):
 
     @lazy_load_context
     async def delete(self, user_key: str | UserRead) -> None:
+        """
+        Deletes a user under the context's environment - by a given user key.
+
+        Usage Example:
+            ```
+            from permit import Permit
+            permit = Permit(...)
+            await permit.api.users.delete("auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678")
+            ```
+        """
         res = await delete_user.asyncio(
             self._config.context.project,
             self._config.context.environment,
@@ -117,8 +199,26 @@ class User(PermitBaseApi):
     # Role Assignment Methods
     @lazy_load_context
     async def assign_role(
-        self, user_key: str, role_key: str, tenant_key: str
+        self, user_key: str, role_key: str, tenant_key: str = None
     ) -> RoleAssignmentRead:
+        """
+        Assign a role to a user under the context's environment - by a given user key, role key and tenant key.
+        If no tenant key is given, your context's tenant will be used instead.
+
+        Usage Example:
+            ```
+            from permit import Permit, RoleAssignmentRead
+            permit = Permit(...)
+            role_assignment: RoleAssignmentRead = await permit.api.users.assign_role(
+                                                     "auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678",
+                                                     "reader",
+                                                     "rnd"
+                                                    )
+            ```
+        """
+        if tenant_key is None:
+            tenant_key = self._config.context.tenant
+
         json_body = RoleAssignmentCreate(
             role=role_key, tenant=tenant_key, user=user_key
         )
@@ -135,8 +235,25 @@ class User(PermitBaseApi):
 
     @lazy_load_context
     async def unassign_role(
-        self, user_key: str, role_key: str, tenant_key: str
+        self, user_key: str, role_key: str, tenant_key: str = None
     ) -> None:
+        """
+        Unassign (removes) a role from a user under the context's environment -
+        by a given user key, role key and tenant key.
+        If no tenant key is given, your context's tenant will be used instead.
+
+        Usage Example:
+            ```
+            from permit import Permit
+            permit = Permit(...)
+            await permit.api.users.unassign_role(
+                                             "auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678",
+                                             "reader",
+                                             "rnd"
+                                            )
+            ```
+        """
+
         json_body = RoleAssignmentRemove(
             role=role_key, tenant=tenant_key, user=user_key
         )
@@ -157,10 +274,26 @@ class User(PermitBaseApi):
     async def get_assigned_roles(
         self,
         user_key: str,
-        tenant_key: Optional[str],
+        tenant_key: Optional[str] = None,
         page: int = 1,
         per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
+        """
+        List all roles assigned to a user under the context's environment -
+        by a given user key, role key and tenant key.
+        If no tenant key is given, your context's tenant will be used instead.
+
+        Usage Example:
+            ```
+            from permit import Permit
+            permit = Permit(...)
+            await permit.api.users.get_assigned_roles(
+                                             "auth0_6ddc1215-e6e0-4888-bf23-41d58b09f678",
+                                             "rnd"
+                                            )
+            ```
+        """
+
         role_assignments = await list_role_assignments.asyncio(
             self._config.context.project,
             self._config.context.environment,

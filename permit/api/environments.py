@@ -32,6 +32,18 @@ class Environment(PermitBaseApi):
     # CRUD Methods
     @lazy_load_context
     async def list(self, page: int = 1, per_page: int = 100) -> List[EnvironmentRead]:
+        """
+        Lists the environments that you own - based on your Permit.io client's token.
+        You can use organization/project-level API key to list all environments under your project, otherwise,
+        only one environment will be returned - the environment of the API key.
+
+        Usage Example:
+            ```
+            from permit import Permit, EnvironmentRead
+            permit = Permit(...)
+            environments: List[EnvironmentRead] = await permit.api.environments.list()
+            ```
+        """
         environments = await list_environments.asyncio(
             self._config.context.project,
             page=page,
@@ -43,6 +55,18 @@ class Environment(PermitBaseApi):
 
     @lazy_load_context
     async def get(self, environment_key: str) -> EnvironmentRead:
+        """
+        Gets an environment for a given environment key.
+        In the case that you have an environment set in your context,
+        or if you are using an environment-level API key, only the chosen environment is obtainable.
+
+        Usage Example:
+            ```
+            from permit import Permit, EnvironmentRead
+            permit = Permit(...)
+            environment: EnvironmentRead = await permit.api.environments.get("development")
+            ```
+        """
         environment = await get_environment.asyncio(
             self._config.context.project,
             environment_key,
@@ -53,16 +77,57 @@ class Environment(PermitBaseApi):
 
     @lazy_load_context
     async def get_by_key(self, environment_key: str) -> EnvironmentRead:
+        """
+        Gets an environment for a given environment key - same as `get()` function.
+        In the case that you have an environment set in your context,
+        or if you are using an environment-level API key, only the chosen environment is obtainable.
+
+        Usage Example:
+            ```
+            from permit import Permit, EnvironmentRead
+            permit = Permit(...)
+            environment: EnvironmentRead = await permit.api.environments.get_by_key("development")
+            ```
+        """
         return await self.get(environment_key)
 
     @lazy_load_context
     async def get_by_id(self, environment_id: UUID) -> EnvironmentRead:
+        """
+        Gets an environment for a given environment id.
+        In the case that you have an environment set in your context,
+        or if you are using an environment-level API key, only the chosen environment is obtainable.
+
+        Usage Example:
+            ```
+            from permit import Permit, EnvironmentRead
+            permit = Permit(...)
+            environment: EnvironmentRead = await permit.api.environments.get_by_id(UUID("37f8c4c7-676f-47e9-b1e1-b213ffca475f"))
+            ```
+        """
         return await self.get(environment_id.hex)
 
     @lazy_load_context
     async def create(
         self, environment: Union[EnvironmentCreate, dict]
     ) -> EnvironmentRead:
+        """
+        Creates an environment under the context's project - can be either EnvironmentCreate or a dictionary.
+        You can create a new environment only if you are using a project/organization-level API key.
+
+        Usage Example:
+            ```
+            from permit import Permit, EnvironmentRead, EnvironmentCreate
+            permit = Permit(...)
+            environment_create = EnvironmentCreate(
+                key="staging",
+                name="Staging",
+                description="Our staging environment"
+            )
+            environment: EnvironmentRead = await permit.api.environments.create(environment_create)
+            ```
+        """
+
         if isinstance(environment, dict):
             json_body = EnvironmentCreate.parse_obj(environment)
         else:
@@ -81,6 +146,23 @@ class Environment(PermitBaseApi):
     async def update(
         self, environment_key: str, environment: Union[EnvironmentUpdate, dict]
     ) -> EnvironmentRead:
+        """
+        Updates an environment under the context's project - given an environment key -
+        can be either EnvironmentUpdate or a dictionary.
+        In the case that you have an environment set in your context,
+        or if you are using an environment-level API key, only the context's environment is mutable.
+
+        Usage Example:
+            ```
+            from permit import Permit, EnvironmentRead, EnvironmentUpdate
+            permit = Permit(...)
+            environment_update = EnvironmentUpdate(
+                name="Staging-old",
+                description="Our old staging environment"
+            )
+            environment: EnvironmentRead = await permit.api.environments.update("staging", environment_create)
+            ```
+        """
         if isinstance(environment, dict):
             json_body = EnvironmentUpdate.parse_obj(environment)
         else:
@@ -98,6 +180,18 @@ class Environment(PermitBaseApi):
 
     @lazy_load_context
     async def delete(self, environment_key: str):
+        """
+        Deletes an environment under the context's project - given an environment key.
+        In the case that you have an environment set in your context,
+        or if you are using an environment-level API key, only the context's environment can be deleted.
+
+        Usage Example:
+            ```
+            from permit import Permit
+            permit = Permit(...)
+            await permit.api.environments.delete("staging")
+            ```
+        """
         res = await delete_environment.asyncio(
             self._config.context.project,
             environment_key,
