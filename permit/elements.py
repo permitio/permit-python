@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import Enum
 
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -10,12 +11,11 @@ if TYPE_CHECKING:
     from permit.client import Permit
 
 
-class LoginAsErrorMessages:
+class LoginAsErrorMessages(str, Enum):
     USER_NOT_FOUND = "User not found"
     TENANT_NOT_FOUND = "Tenant not found"
     INVALID_PERMISSION_LEVEL = "Invalid user permission level"
     FORBIDDEN_ACCESS = "Forbidden access"
-
 
 class PermitElements:
     def __init__(self, client: Permit):
