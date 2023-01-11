@@ -34,7 +34,7 @@ class PermitContextError(PermitException):
     type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
     details: str = "error changing context - make sure the given context fits your API key origin"
 
-    def __init__(self, object_type: str, object_name: str, *args, **kwargs):
+    def __init__(self, details: str, *args, **kwargs):
         super().__init__(
             details=self.details,
             type=self.type,
