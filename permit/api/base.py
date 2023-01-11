@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Awaitable, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
 
 from typing_extensions import ParamSpec
 
-from permit.config import ApiKeyLevel, ContextFactory, get_api_key_level
-from permit.constants import DEFAULT_TENANT_KEY
-from permit.exceptions.exceptions import raise_for_error, PermitContextError
-from permit.openapi.api.api_keys import get_api_key_scope
+from permit.config import ApiKeyLevel, ContextFactory
+from permit.exceptions.exceptions import PermitContextError
 
 if TYPE_CHECKING:
     from loguru import Logger

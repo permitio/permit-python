@@ -199,7 +199,7 @@ class User(PermitBaseApi):
     # Role Assignment Methods
     @lazy_load_context
     async def assign_role(
-        self, user_key: str, role_key: str, tenant_key: str = None
+        self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
         """
         Assign a role to a user under the context's environment - by a given user key, role key and tenant key.
@@ -216,9 +216,6 @@ class User(PermitBaseApi):
                                                     )
             ```
         """
-        if tenant_key is None:
-            tenant_key = self._config.context.tenant
-
         json_body = RoleAssignmentCreate(
             role=role_key, tenant=tenant_key, user=user_key
         )
@@ -235,7 +232,7 @@ class User(PermitBaseApi):
 
     @lazy_load_context
     async def unassign_role(
-        self, user_key: str, role_key: str, tenant_key: str = None
+        self, user_key: str, role_key: str, tenant_key: str
     ) -> None:
         """
         Unassign (removes) a role from a user under the context's environment -

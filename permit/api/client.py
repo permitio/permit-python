@@ -21,7 +21,6 @@ from permit.constants import (
     DEPRECATION_WARNING_LOG,
     OBJECT_ENVIRONMENT_NAME,
     OBJECT_PROJECT_NAME,
-    OBJECT_TENANT_NAME, DEFAULT_TENANT_KEY,
 )
 from permit.openapi import AuthenticatedClient
 from permit.openapi.models import (
@@ -156,8 +155,6 @@ class PermitApiClient:
             await self.projects.get(context.project)
         if self._config.context.environment:
             await self.environments.get(context.environment)
-        if self._config.context.project:
-            await self.tenants.get(context.tenant)
 
     async def set_context(self, context: PermitContext | dict) -> None:
         log_message = "Setting context - "
@@ -168,12 +165,10 @@ class PermitApiClient:
             log_message += additional_log_text.format(OBJECT_PROJECT_NAME, context.project)
         if context.environment:
             log_message += additional_log_text.format(OBJECT_ENVIRONMENT_NAME, context.environment)
-        if context.tenant:
-            log_message += additional_log_text.format(OBJECT_TENANT_NAME, context.tenant)
 
         self._logger.info(log_message)
         self._config.context = await ContextFactory.build(self.client, context.project, context.environment,
-                                                          context.tenant or DEFAULT_TENANT_KEY, is_user_input=True)
+                                                          is_user_input=True)
         await self._is_context_valid()
 
     @lazy_load_context
@@ -212,7 +207,6 @@ class PermitApiClient:
             await self.users.assign_role(
                 key, initial_role.role, initial_role.tenant
             )
-
 
         return created_user
 

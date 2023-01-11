@@ -7,7 +7,7 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from permit.openapi.models import HTTPValidationError
-from permit.constants import DEFAULT_PDP_URL, DEFAULT_TENANT_KEY
+from permit.constants import DEFAULT_PDP_URL
 from permit.exceptions.exceptions import PermitContextError
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
@@ -63,15 +63,12 @@ class PermitContext(BaseModel):
     environment: str = Field(
         None, description="The Environment that the client will interact with"
     )
-    tenant: str = Field(
-        None, description="The Tenant that the client will interact with"
-    )
 
 
 class ContextFactory:
     @staticmethod
     async def build(
-        client: AuthenticatedClient, project: str = None, environment: str = None, tenant: str = DEFAULT_TENANT_KEY,
+        client: AuthenticatedClient, project: str = None, environment: str = None,
         is_user_input: bool = False
     ) -> PermitContext:
         res = await get_api_key_scope.asyncio(client=client)
@@ -81,7 +78,6 @@ class ContextFactory:
         if not is_user_input:
             return PermitContext(project=res.project_id.hex,
                                  environment=res.environment_id.hex,
-                                 tenant=tenant,
                                  api_key_level=api_key_level)
         if api_key_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY:
             if environment is None or project is None:
@@ -94,7 +90,7 @@ class ContextFactory:
                     message="You initiated the Permit.io Client with a Project level API key,"
                             " please set a context with the API key related project")
 
-        return PermitContext(project=project, environment=environment, tenant=tenant, api_key_level=api_key_level)
+        return PermitContext(project=project, environment=environment, api_key_level=api_key_level)
 
 
 class PermitConfig(BaseModel):
