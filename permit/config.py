@@ -1,9 +1,17 @@
+from __future__ import annotations
+
 from enum import Enum
+from logging import Logger
 from typing import List
 
 from pydantic import BaseModel, Field
 
-from permit.constants import DEFAULT_PDP_URL
+from permit.openapi.models import HTTPValidationError
+from permit.constants import DEFAULT_PDP_URL, DEFAULT_TENANT_KEY
+from permit.exceptions.exceptions import PermitContextError
+from permit.openapi import AuthenticatedClient
+from permit.openapi.api.api_keys import get_api_key_scope
+from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
 class ApiKeyLevel(Enum):
@@ -14,7 +22,7 @@ class ApiKeyLevel(Enum):
 
 
 class LoggerConfig(BaseModel):
-    level: str = Field("info", description="logging level")
+    level: str = Field("details", description="logging level")
     label: str = Field("Permit.io", description="label added to logs")
     log_as_json: bool = Field(
         False,
@@ -46,7 +54,7 @@ class MultiTenancyConfig(BaseModel):
 
 
 class PermitContext(BaseModel):
-    _api_key_level: ApiKeyLevel = Field(
+    api_key_level: ApiKeyLevel = Field(
         ApiKeyLevel.WAIT_FOR_INIT, description="The level of the client's API Key"
     )
     project: str = Field(
@@ -62,14 +70,31 @@ class PermitContext(BaseModel):
 
 class ContextFactory:
     @staticmethod
-    def build(
-        project: str, environment: str, tenant: str, api_key_level: ApiKeyLevel
+    async def build(
+        client: AuthenticatedClient, project: str = None, environment: str = None, tenant: str = DEFAULT_TENANT_KEY,
+        is_user_input: bool = False
     ) -> PermitContext:
-        # if api_key_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY and environment is None:
-        #     raise PermitContextException()
-        # if api_key_level == ApiKeyLevel.PROJECT_LEVEL_API_KEY and project is None:
-        #     raise PermitContextException()
-        return PermitContext(project=project, environment=environment, tenant=tenant)
+        res = await get_api_key_scope.asyncio(client=client)
+        if res is None or isinstance(res, HTTPValidationError):
+            raise PermitContextError(message="could not get api key scope in order to create a context")
+        api_key_level = get_api_key_level(res)
+        if not is_user_input:
+            return PermitContext(project=res.project_id.hex,
+                                 environment=res.environment_id.hex,
+                                 tenant=tenant,
+                                 api_key_level=api_key_level)
+        if api_key_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY:
+            if environment is None or project is None:
+                raise PermitContextError(
+                    message="You initiated the Permit.io Client with an Environment level API key,"
+                            " please set a context with the API key related environment and project")
+        if api_key_level == ApiKeyLevel.PROJECT_LEVEL_API_KEY:
+            if project is None:
+                raise PermitContextError(
+                    message="You initiated the Permit.io Client with a Project level API key,"
+                            " please set a context with the API key related project")
+
+        return PermitContext(project=project, environment=environment, tenant=tenant, api_key_level=api_key_level)
 
 
 class PermitConfig(BaseModel):
@@ -94,9 +119,17 @@ class ConfigFactory:
     def build(options: dict) -> PermitConfig:
         config = PermitConfig(**options)
         # if no log level was set manually but debug mode is set,
-        # we set the log level to debug/info respectively
+        # we set the log level to debug/details respectively
         log_level_option = options.get("log", {}).get("level", None)
         if log_level_option is None:
-            config.log.level = "debug" if config.debug_mode else "info"
+            config.log.level = "debug" if config.debug_mode else "details"
 
         return config
+
+
+def get_api_key_level(scope: APIKeyScopeRead) -> ApiKeyLevel:
+    if scope.environment_id is not None:
+        return ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY
+    if scope.project_id is not None:
+        return ApiKeyLevel.PROJECT_LEVEL_API_KEY
+    return ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY

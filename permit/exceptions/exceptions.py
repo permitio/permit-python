@@ -8,67 +8,61 @@ from permit.exceptions.base import (
     ErrorCode,
     ErrorType,
     PermitException,
-    ServiceException,
 )
 from permit.openapi.api.utils import APIErrorDict
 from permit.openapi.models import HTTPValidationError
 
 
-class PermitNotFound(ServiceException):
-    title = "We could not find the requested object/s"
+class PermitNotFound(PermitException):
     error_code: ErrorCode = ErrorCode.NOT_FOUND
     type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
-    reassurance = "The requested data could not be found"
-    explanation = "we could not find '{object_type}' object with the key '{object_name}'"  # TODO: ADD filters to explaination -"with the given filters{filters}"
-    suggestion: str = "Please try again with different filters"
-    way_out: str = (
-        "If you are sure there is an object with the given filters, "
-        "contact our support on Slack for further guidance"
-    )
+    details = "we could not find '{object_type}' object with the key '{object_name}'"
 
     def __init__(self, object_type: str, object_name: str, *args, **kwargs):
         super().__init__(
-            explanation=self.explanation.format(
+            details=self.details.format(
                 object_type=object_type,
                 object_name=object_name,
             ),
-            *args,
-            **kwargs,
-        )
-
-
-class PermitForbidden(ServiceException):
-    error_code = ErrorCode.FORBIDDEN_ACCESS
-    title = "You are not authorized to perform this request"
-    reassurance = "Your data was not changed, we could not let you perform this action"
-
-    type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
-    explanation = "we could not let you access to the specific object"
-    suggestion: str = (
-        "Please make sure you are authorized with correct token and try again"
-    )
-    way_out: str = (
-        "If you are sure that you authorized with the correct token, "
-        "contact our support on Slack for further guidance"
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(
             type=self.type,
-            title=self.title,
-            error_code=self.error_code,
-            reassurance=self.reassurance,
-            explanation=self.explanation,
-            suggestion=self.suggestion,
-            way_out=self.way_out,
+            error_code=self.error_code
         )
 
 
-class PermitConnectionError(ServiceException):
+class PermitContextError(PermitException):
+    error_code: ErrorCode = ErrorCode.NOT_FOUND
+    type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
+    details: str = "error changing context - make sure the given context fits your API key origin"
+
+    def __init__(self, object_type: str, object_name: str, *args, **kwargs):
+        super().__init__(
+            details=self.details,
+            type=self.type,
+            error_code=self.error_code,
+        )
+
+
+class PermitForbidden(PermitException):
+    error_code = ErrorCode.FORBIDDEN_ACCESS
+    type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
+    detail = "we could not let you access to the '{object_type}' object with the key '{object_name}'"
+
+    def __init__(self, object_type, object_name):
+        super().__init__(
+            details=self.details.format(
+                object_type=object_type,
+                object_name=object_name,
+            ),
+            type=self.type,
+            error_code=self.error_code,
+        )
+
+
+class PermitConnectionError(PermitException):
     """Permit connection exception"""
 
 
-class PermitExceptionFactory(ServiceException):
+class PermitExceptionFactory(PermitException):
     __exceptions_mappings: Final[dict[ErrorCode, Type[PermitException]]] = {
         ErrorCode.UNEXPECTED_ERROR: PermitException,
         ErrorCode.FORBIDDEN_ACCESS: PermitForbidden,
@@ -101,7 +95,7 @@ def raise_for_error(
             object_name=kwargs.get("object_name"),
         )
     elif isinstance(res, HTTPValidationError):
-        raise PermitException(message + f" {res}")
+        raise PermitException(details=message + f" {res}")
 
 
 def raise_for_error_by_action(

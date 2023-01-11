@@ -16,12 +16,12 @@ from permit.api.resources import Resource
 from permit.api.roles import Role
 from permit.api.tenants import Tenant
 from permit.api.users import User
-from permit.config import PermitConfig, PermitContext
+from permit.config import PermitConfig, PermitContext, ContextFactory
 from permit.constants import (
     DEPRECATION_WARNING_LOG,
     OBJECT_ENVIRONMENT_NAME,
     OBJECT_PROJECT_NAME,
-    OBJECT_TENANT_NAME,
+    OBJECT_TENANT_NAME, DEFAULT_TENANT_KEY,
 )
 from permit.openapi import AuthenticatedClient
 from permit.openapi.models import (
@@ -150,28 +150,35 @@ class PermitApiClient:
         return await self.resources.get(resource_key)
 
     # region write api ---------------------------------------------------------------
-    async def set_context(self, context: PermitContext):
+    async def _is_context_valid(self) -> None:
+        context = self._config.context
+        if self._config.context.project:
+            await self.projects.get(context.project)
+        if self._config.context.environment:
+            await self.environments.get(context.environment)
+        if self._config.context.project:
+            await self.tenants.get(context.tenant)
+
+    async def set_context(self, context: PermitContext | dict) -> None:
         log_message = "Setting context - "
         additional_log_text = "{}: {}"
+        if isinstance(context, dict):
+            context = PermitContext(**context)
         if context.project:
-            object_type = OBJECT_PROJECT_NAME
-            await self.projects.get(context.project)
-            self._config.context.project = context.project
-            log_message += additional_log_text.format(object_type, context.project)
+            log_message += additional_log_text.format(OBJECT_PROJECT_NAME, context.project)
         if context.environment:
-            object_type = OBJECT_ENVIRONMENT_NAME
-            await self.environments.get(context.environment)
-            self._config.context.environment = context.environment
-            log_message += additional_log_text.format(object_type, context.environment)
+            log_message += additional_log_text.format(OBJECT_ENVIRONMENT_NAME, context.environment)
         if context.tenant:
-            object_type = OBJECT_TENANT_NAME
-            await self.tenants.get(context.tenant)
-            self._config.context.tenant = context.tenant
-            log_message += additional_log_text.format(object_type, context.tenant)
+            log_message += additional_log_text.format(OBJECT_TENANT_NAME, context.tenant)
+
+        self._logger.info(log_message)
+        self._config.context = await ContextFactory.build(self.client, context.project, context.environment,
+                                                          context.tenant or DEFAULT_TENANT_KEY, is_user_input=True)
+        await self._is_context_valid()
 
     @lazy_load_context
     async def sync_user(
-        self, user: Union[UserCreate, dict], on_create: OnUserCreation
+        self, user: Union[UserCreate, dict], on_create: OnUserCreation = None
     ) -> UserRead:
         if isinstance(user, dict):
             key = user.get("key", None)
@@ -200,10 +207,12 @@ class PermitApiClient:
         created_user = await self.users.create(user)
 
         # Set initial roles when new user is created
+
         for initial_role in on_create.initial_roles:
             await self.users.assign_role(
                 key, initial_role.role, initial_role.tenant
             )
+
 
         return created_user
 

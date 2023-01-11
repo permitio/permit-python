@@ -2,38 +2,40 @@ import pytest
 from pydantic import EmailStr
 
 from permit.api.client import PermitApiClient
-from permit.config import PermitContext
 from permit.exceptions.base import PermitException
 from permit.openapi.models import RoleCreate, TenantCreate, TenantUpdate, UserCreate
+from tests.api.consts import MOCK_API_URL
+from tests.api.examples import USER_READ_EXAMPLE
 
 
 @pytest.mark.parametrize(
     "email", ["name1@domain.com", "name2@domain.com", "name3@domain.com"]
 )
-async def test_client_sync_user_create(api_client: PermitApiClient, email: str):
+async def test_client_sync_user_create(api_client: PermitApiClient, httpx_mock, email: str):
+    users_endpoint = "/v2/facts/{proj_id}/{env_id}/users"
+    context = api_client._config.context
+    user_json = (USER_READ_EXAMPLE.copy()).update({"email":email})
+
+    httpx_mock.add_response(
+        method="POST",
+        url=f"{MOCK_API_URL}{users_endpoint.format(proj_id=context.project, env_id=context.environment)}",
+        json=user_json
+    )
+    httpx_mock.add_response(
+        method="GET",
+        url=f"{MOCK_API_URL}{users_endpoint.format(proj_id=context.project, env_id=context.environment)}/{email}",
+        json=user_json
+    )
     create_user = UserCreate(
         key=email,
         email=EmailStr(email),
         first_name="test first name",
         last_name="test last name",
     )
-    user = await api_client.sync_user(create_user)
+    user = await api_client.users.create(create_user)
     created_user_dict = user.dict()
     for key, value in create_user.dict().items():
         assert created_user_dict.get(key) == value
-
-
-async def test_client_sync_user_create(api_client: PermitApiClient):
-    project_key = "abac"
-    environment_key = "production"
-    tenant_key = "default"
-    context = PermitContext(
-        project=project_key, environment=environment_key, tenant=tenant_key
-    )
-    # await api_client.projects.create({"key": project_key, "name": project_key})
-    # await api_client.environments.create({"key": environment_key, "name": environment_key})
-    # await api_client.tenants.create({"key": environment_key, "name": environment_key})
-    await api_client.set_context(context)
 
 
 @pytest.mark.parametrize(

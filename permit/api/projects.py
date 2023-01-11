@@ -123,6 +123,7 @@ class Project(PermitBaseApi):
             project: ProjectRead = await permit.api.projects.create(project_create)
             ```
         """
+        ProjectCreate(key="asdf.!24$%^&ד")
         if isinstance(project, dict):
             json_body = ProjectCreate.parse_obj(project)
         else:
