@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import functools
+from _ast import arg
+from functools import partial
 from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
 
 from typing_extensions import ParamSpec
@@ -29,8 +32,11 @@ class PermitBaseApi:
         self._api_key_level: ApiKeyLevel = ApiKeyLevel.WAIT_FOR_INIT
 
 
-def lazy_load_context(call_level: ApiKeyLevel = ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY):
-    def _lazy_load_context(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
+def lazy_load_context(func: Callable[P, RT] = None, call_level: ApiKeyLevel = ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY):
+    assert callable(func) or func is None
+
+    def decorator(func: Callable[P, RT]) -> Callable[P, Awaitable[RT]]:
+        @functools.wraps(func)
         async def wrapper(self: PermitBaseApi, *args: P.args, **kwargs: P.kwargs) -> RT:
             if self._config.context is None:
                 self._config.context = await ContextFactory.build(
@@ -59,4 +65,4 @@ def lazy_load_context(call_level: ApiKeyLevel = ApiKeyLevel.ENVIRONMENT_LEVEL_AP
 
         return wrapper
 
-    return _lazy_load_context
+    return decorator(func) if callable(func) else decorator

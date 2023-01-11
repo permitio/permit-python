@@ -15,7 +15,7 @@ async def test_client_sync_user_create(api_client: PermitApiClient, httpx_mock, 
     users_endpoint = "/v2/facts/{proj_id}/{env_id}/users"
     context = api_client._config.context
     user_json = (USER_READ_EXAMPLE.copy())
-    user_json.update({"email":email})
+    user_json.update({"email":email, "key": email})
 
     httpx_mock.add_response(
         method="POST",
@@ -25,13 +25,15 @@ async def test_client_sync_user_create(api_client: PermitApiClient, httpx_mock, 
     httpx_mock.add_response(
         method="GET",
         url=f"{MOCK_API_URL}{users_endpoint.format(proj_id=context.project, env_id=context.environment)}/{email}",
-        json=user_json
+        json={}
     )
+
     create_user = UserCreate(
         key=email,
         email=EmailStr(email),
-        first_name="test first name",
-        last_name="test last name",
+        first_name="Jane",
+        last_name="Doe",
+        attributes=user_json["attributes"]
     )
     user = await api_client.sync_user(create_user)
     created_user_dict = user.dict()

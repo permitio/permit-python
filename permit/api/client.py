@@ -202,11 +202,11 @@ class PermitApiClient:
         created_user = await self.users.create(user)
 
         # Set initial roles when new user is created
-
-        for initial_role in on_create.initial_roles:
-            await self.users.assign_role(
-                key, initial_role.role, initial_role.tenant
-            )
+        if on_create:
+            for initial_role in on_create.initial_roles:
+                await self.users.assign_role(
+                    key, initial_role.role, initial_role.tenant
+                )
 
         return created_user
 

@@ -26,30 +26,30 @@ class UserRead(BaseModel):
     )
 
 
-project_id: UUID = Field(
-    ...,
-    description="Unique id of the project that the user belongs to.",
-    title="Project Id",
-)
-environment_id: UUID = Field(
-    ...,
-    description="Unique id of the environment that the user belongs to.",
-    title="Environment Id",
-)
-roles: Optional[List[UserRole]] = Field([], title="Roles")
-email: Optional[EmailStr] = Field(
-    None,
-    description="The email of the user. If synced, will be unique inside the environment.",
-    title="Email",
-)
-first_name: Optional[str] = Field(
-    None, description="First name of the user.", title="First Name"
-)
-last_name: Optional[str] = Field(
-    None, description="Last name of the user.", title="Last Name"
-)
-attributes: Optional[Dict[str, Any]] = Field(
-    {},
-    description="Arbitraty user attributes that will be used to enforce attribute-based access control policies.",
-    title="Attributes",
-)
+    project_id: UUID = Field(
+        ...,
+        description="Unique id of the project that the user belongs to.",
+        title="Project Id",
+    )
+    environment_id: UUID = Field(
+        ...,
+        description="Unique id of the environment that the user belongs to.",
+        title="Environment Id",
+    )
+    roles: Optional[List[UserRole]] = Field([], title="Roles")
+    email: Optional[EmailStr] = Field(
+        None,
+        description="The email of the user. If synced, will be unique inside the environment.",
+        title="Email",
+    )
+    first_name: Optional[str] = Field(
+        None, description="First name of the user.", title="First Name"
+    )
+    last_name: Optional[str] = Field(
+        None, description="Last name of the user.", title="Last Name"
+    )
+    attributes: Optional[Dict[str, Any]] = Field(
+        {},
+        description="Arbitraty user attributes that will be used to enforce attribute-based access control policies.",
+        title="Attributes",
+    )
