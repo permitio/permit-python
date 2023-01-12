@@ -20,7 +20,7 @@ class UserLoginResponse(BaseModel):
 
 
 class UserLoginAsResponse(UserLoginResponse):
-    content: Optional[str] = Field(
+    content: Optional[dict] = Field(
         None,
         description="Content to return in the response body for header/bearer login",
     )
