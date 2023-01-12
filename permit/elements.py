@@ -25,5 +25,6 @@ class PermitElements:
         self, user_id: str | UUID, tenant_id: str | UUID
     ) -> UserLoginAsResponse:
         ticket = await self._client.api.elements_login_as(user_id, tenant_id)
-        ticket["content"] = {"url": ticket["redirect_url"]}
-        return ticket
+        return UserLoginAsResponse(
+            **ticket.dict(),
+            content={"url": ticket.redirect_url})
