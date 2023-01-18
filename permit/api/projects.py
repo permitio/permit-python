@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, List, Optional, Union
 from uuid import UUID
 
 from permit.api.base import PermitBaseApi, lazy_load_context
-from permit.config import PermitConfig
+from permit.config import PermitConfig, ApiKeyLevel
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.projects import (
     create_project,
@@ -30,7 +30,7 @@ class Project(PermitBaseApi):
         super().__init__(client=client, config=config, logger=logger)
 
     # CRUD Methods
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def list(self, page: int = 1, per_page: int = 100) -> List[ProjectRead]:
         """
         Lists the projects that you own - based on your Permit.io client's token.
@@ -52,7 +52,7 @@ class Project(PermitBaseApi):
         raise_for_error_by_action(projects, "list", "projects")
         return projects
 
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def get(self, project_key: str) -> ProjectRead:
         """
         Gets a project for a given project key.
@@ -73,7 +73,7 @@ class Project(PermitBaseApi):
         raise_for_error_by_action(project, "project", project_key)
         return project
 
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def get_by_key(self, project_key: str) -> ProjectRead:
         """
         Gets a project for a given project key - same as `get()` function.
@@ -89,7 +89,7 @@ class Project(PermitBaseApi):
         """
         return await self.get(project_key)
 
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def get_by_id(self, project_id: UUID) -> ProjectRead:
         """
         Gets a project for a given project id.
@@ -105,7 +105,7 @@ class Project(PermitBaseApi):
         """
         return await self.get(project_id.hex)
 
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def create(self, project: Union[ProjectCreate, dict]) -> ProjectRead:
         """
         Creates a project under the context's organization - can be either ProjectCreate or a dictionary.
@@ -137,7 +137,7 @@ class Project(PermitBaseApi):
         )
         return project
 
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def update(
         self, project_key: str, project: Union[ProjectUpdate, dict]
     ) -> ProjectRead:
@@ -172,7 +172,7 @@ class Project(PermitBaseApi):
         )
         return updated_project
 
-    @lazy_load_context
+    @lazy_load_context(call_level=ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     async def delete(self, project_key: str):
         """
         Deletes a project under the context's organization - given a project key.

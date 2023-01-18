@@ -43,7 +43,7 @@ class Permit:
         # TODO: self._cache = LocalCacheClient(self._config, logger)
 
         self._mutations_client = CompatApiClient(self._config)
-        self._api_client = PermitApiClient(self._config, self._context)
+        self._api_client = PermitApiClient(self._config)
         if self._config.debug_mode:
             self._logger.info(
                 f"Permit.io SDK initialized with config:\n${json.dumps(self._config.dict())}",
