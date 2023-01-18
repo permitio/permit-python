@@ -94,7 +94,7 @@ class PermitApiClient:
         # DEPRECATED ! Please use the API level method - instead of `permit.get_user()` use `permit.api.users.get()`.
         self._logger.warning(
             DEPRECATION_WARNING_LOG.format(
-                "permit.get_user()", "permit.api.users.get()"
+                "permit.api.get_user()", "permit.api.users.get()"
             )
         )
         return await self.users.get(user_key)
@@ -104,7 +104,7 @@ class PermitApiClient:
         # DEPRECATED ! Please use the API level method - instead of `permit.get_role()` use `permit.api.roles.get()`.
         self._logger.warning(
             DEPRECATION_WARNING_LOG.format(
-                "permit.get_role()", "permit.api.roles.get()"
+                "permit.api.get_role()", "permit.api.roles.get()"
             )
         )
         return await self.roles.get(role_key)
@@ -115,7 +115,7 @@ class PermitApiClient:
         # `permit.api.tenants.get()`.
         self._logger.warning(
             DEPRECATION_WARNING_LOG.format(
-                "permit.get_tenant()", "permit.api.tenants.get()"
+                "permit.api.get_tenant()", "permit.api.tenants.get()"
             )
         )
         return await self.tenants.get(tenant_key)
@@ -132,7 +132,7 @@ class PermitApiClient:
         # `permit.api.users.get_assigned_roles()`.
         self._logger.warning(
             DEPRECATION_WARNING_LOG.format(
-                "permit.get_assigned_roles()", "permit.api.users.get_assigned_roles()"
+                "permit.api.get_assigned_roles()", "permit.api.users.get_assigned_roles()"
             )
         )
         return await self.users.get_assigned_roles(user_key, tenant_key, page, per_page)
@@ -143,7 +143,7 @@ class PermitApiClient:
         # `permit.api.resources.get()`.
         self._logger.warning(
             DEPRECATION_WARNING_LOG.format(
-                "permit.get_resource()", "permit.api.resources.get()"
+                "permit.api.get_resource()", "permit.api.resources.get()"
             )
         )
         return await self.resources.get(resource_key)
