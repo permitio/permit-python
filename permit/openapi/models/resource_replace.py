@@ -10,7 +10,7 @@ from permit.openapi.models.roles_block import RolesBlock
 
 class ResourceReplace(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     name: str = Field(..., description="The name of the resource", title="Name")
     urn: Optional[str] = Field(

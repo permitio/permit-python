@@ -7,7 +7,7 @@ from permit.openapi.models.attribute_type import AttributeType
 
 class ResourceAttributeCreate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

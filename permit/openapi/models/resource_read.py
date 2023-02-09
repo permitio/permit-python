@@ -12,7 +12,7 @@ from permit.openapi.models.roles_block import RolesBlock
 
 class ResourceRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

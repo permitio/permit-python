@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Extra, Field
 
 class UserUpdate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     email: Optional[EmailStr] = Field(
         None,

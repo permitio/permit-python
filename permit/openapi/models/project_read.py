@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra, Field
 
 class ProjectRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     id: UUID = Field(..., description="Unique id of the project", title="Id")
     organization_id: UUID = Field(

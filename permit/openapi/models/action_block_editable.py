@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class ActionBlockEditable(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     name: Optional[str] = Field(
         None, description="a more descriptive name for the action", title="Name"

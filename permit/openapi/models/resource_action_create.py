@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class ResourceActionCreate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

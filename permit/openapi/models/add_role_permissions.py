@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class AddRolePermissions(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     permissions: List[str] = Field(
         ...,

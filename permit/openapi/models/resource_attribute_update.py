@@ -7,7 +7,7 @@ from permit.openapi.models.attribute_type import AttributeType
 
 class ResourceAttributeUpdate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     type: Optional[AttributeType] = Field(
         None,

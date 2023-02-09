@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra, Field
 
 class ResourceActionRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     name: str = Field(..., description="The name of the action", title="Name")
     description: Optional[str] = Field(

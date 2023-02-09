@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra, Field
 
 class TenantRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

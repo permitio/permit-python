@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Extra, Field
 
 class UserCreate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

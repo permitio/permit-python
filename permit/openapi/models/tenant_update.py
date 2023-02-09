@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class TenantUpdate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     name: Optional[str] = Field(
         None, description="A descriptive name for the tenant", title="Name"

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra, Field
 
 class OrganizationRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     id: UUID = Field(..., description="Unique id of the organization", title="Id")
     created_at: datetime = Field(

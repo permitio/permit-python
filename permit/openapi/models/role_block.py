@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class RoleBlock(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     description: Optional[str] = Field(
         None,

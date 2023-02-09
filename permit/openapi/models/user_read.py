@@ -8,7 +8,7 @@ from permit.openapi.models.user_role import UserRole
 
 class UserRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

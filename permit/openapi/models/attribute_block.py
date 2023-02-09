@@ -7,7 +7,7 @@ from permit.openapi.models.attribute_type import AttributeType
 
 class AttributeBlock(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     type: AttributeType = Field(
         ...,
