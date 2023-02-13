@@ -74,6 +74,16 @@ def test_sync_client_check_deny(
     assert result is False
     spy.assert_not_called()
 
+def test_sync_client_elements(
+    sync_client: Permit, mock_aioresponse: aioresponses, mocker: MockerFixture
+):
+    mock_aioresponse.post("http://localhost:7000/allowed", payload={"allow": False})
+    spy = mocker.spy(sync_client._enforcer._logger, "_log")
+    result = sync_client.api.Elements.login_as("asdf","asDf")
+
+    assert result is False
+    spy.assert_not_called()
+
 
 def test_debug_sync_client_check_deny(
     debug_sync_client: Permit, mock_aioresponse: aioresponses, mocker: MockerFixture

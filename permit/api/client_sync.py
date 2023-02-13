@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Awaitable, Callable, Dict, Generic, List, Optional, TypeVar, Union
 
+import loguru
 from pydantic import BaseModel
 
 from permit.api.client import PermitApiClient
+from permit.api.sync.elements import new_sync_api
 from permit.config import PermitConfig
 from permit.openapi.models import (
     ResourceCreate,
@@ -53,6 +55,7 @@ class WriteOperation(Operation[Dict]):
 class PermitSyncApiClient:
     def __init__(self, config: PermitConfig):
         self.config = config
+        self.Elements = new_sync_api(config=self.config)
 
     def __new__(cls, config: PermitConfig):
         async_api_instance = PermitApiClient(config=config)
@@ -65,6 +68,9 @@ class PermitSyncApiClient:
                 # ensure that the async api class has the method
                 continue
             attribute = getattr(async_api_instance, name)
+            if type(attribute) is type:
+                # setattr(sync_api_instance, name, attribute(client=async_api_instance.client, config=config,))
+                continue
             if callable(attribute) and iscoroutine_func(attribute):
                 # monkey-patch public method using async_to_sync decorator
                 setattr(sync_api_instance, name, async_to_sync(attribute))

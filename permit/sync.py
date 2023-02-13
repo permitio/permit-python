@@ -7,6 +7,7 @@ from permit.mutations.client import ReadOperation, WriteOperation
 from permit.resources.interfaces import ResourceConfig, ResourceTypes
 from permit.resources.reporter import ResourceStub
 from permit.utils.context import Context
+from .api.client_sync import PermitSyncApiClient
 
 from .client import Permit as AsyncPermit
 from .utils.sync import run_sync
@@ -44,3 +45,7 @@ class Permit(AsyncPermit):
 
     def write(self, *operations: WriteOperation) -> List[Dict]:
         return run_sync(super().write(*operations))
+
+    @property
+    def api(self):
+        return PermitSyncApiClient(self.config)
