@@ -7,7 +7,7 @@ from permit.openapi.models.user_read import UserRead
 
 class PaginatedResultUserRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     data: List[UserRead] = Field(..., title="Data")
     total_count: conint(ge=0) = Field(..., title="Total Count")

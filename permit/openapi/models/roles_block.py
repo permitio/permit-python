@@ -5,4 +5,4 @@ class RolesBlock(BaseModel):
     pass
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore

@@ -10,7 +10,7 @@ from permit.openapi.models.roles_block import RolesBlock
 
 class ResourceUpdate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     name: Optional[str] = Field(
         None, description="The name of the resource", title="Name"

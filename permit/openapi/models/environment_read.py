@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra, Field
 
 class EnvironmentRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     id: UUID = Field(..., description="Unique id of the environment", title="Id")
     organization_id: UUID = Field(

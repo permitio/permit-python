@@ -3,7 +3,7 @@ from pydantic import BaseModel, Extra, Field
 
 class RoleAssignmentCreate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     role: str = Field(
         ...,

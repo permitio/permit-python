@@ -6,7 +6,7 @@ from pydantic import BaseModel, Extra, Field
 
 class APIKeyScopeRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     organization_id: UUID = Field(
         ...,

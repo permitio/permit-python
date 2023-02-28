@@ -6,7 +6,7 @@ from pydantic import BaseModel, Extra, Field
 
 class RoleAssignmentRead(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     id: UUID = Field(..., description="Unique id of the role assignment", title="Id")
     user: str = Field(..., description="the user the role is assigned to", title="User")

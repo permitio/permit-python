@@ -10,7 +10,7 @@ from permit.openapi.models.roles_block import RolesBlock
 
 class ResourceCreate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: str = Field(
         ...,

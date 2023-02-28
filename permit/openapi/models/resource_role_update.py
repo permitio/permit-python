@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class ResourceRoleUpdate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     name: Optional[str] = Field(None, description="The name of the role", title="Name")
     description: Optional[str] = Field(

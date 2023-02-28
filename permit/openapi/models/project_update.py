@@ -5,7 +5,7 @@ from pydantic import BaseModel, Extra, Field
 
 class ProjectUpdate(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     key: Optional[str] = Field(
         None,
