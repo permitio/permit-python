@@ -31,11 +31,11 @@ class Operation(Generic[T]):
 
 
 class ReadOperation(Operation[Dict]):
-    pass
+    ...
 
 
 class WriteOperation(Operation[Dict]):
-    pass
+    ...
 
 
 class ReadApis:
@@ -82,7 +82,7 @@ class WriteApis:
 
 
 class PermitApi(ReadApis, WriteApis):
-    pass
+    ...
 
 
 class PermitApiClient(PermitApi):
@@ -105,8 +105,10 @@ class PermitApiClient(PermitApi):
                 try:
                     async with session.get(
                         f"{self._base_url}/cloud/users/{user_key}",
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to get user with key: {user_key}, got error: {err}"
@@ -124,8 +126,10 @@ class PermitApiClient(PermitApi):
                 try:
                     async with session.get(
                         f"{self._base_url}/cloud/roles/{role_key}",
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to get role with id: {role_key}, got error: {err}"
@@ -143,8 +147,10 @@ class PermitApiClient(PermitApi):
                 try:
                     async with session.get(
                         f"{self._base_url}/cloud/tenants/{tenant_key}",
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to get tenant with id: {tenant_key}, got error: {err}"
@@ -167,8 +173,9 @@ class PermitApiClient(PermitApi):
                 if tenant_key is not None:
                     url += f"&tenant={tenant_key}"
                 try:
-                    async with session.get(url) as response:
+                    async with session.get(url, raise_for_status=True) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"could not get user roles for user {user_key}, got error: {err}"
@@ -193,8 +200,10 @@ class PermitApiClient(PermitApi):
                     async with session.put(
                         f"{self._base_url}/cloud/users",
                         data=json.dumps(user.dict(exclude_none=True)),
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to sync user with key: {user.key}, got error: {err}"
@@ -212,8 +221,10 @@ class PermitApiClient(PermitApi):
                 try:
                     async with session.delete(
                         f"{self._base_url}/cloud/users/{user_key}",
+                        raise_for_status=True,
                     ) as response:
                         return dict(status=response.status)
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to delete user with key: {user_key}, got error: {err}"
@@ -241,8 +252,10 @@ class PermitApiClient(PermitApi):
                     async with session.put(
                         f"{self._base_url}/cloud/tenants",
                         data=json.dumps(data),
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to create tenant with key: {tenant.key}, got error: {err}"
@@ -270,8 +283,10 @@ class PermitApiClient(PermitApi):
                     async with session.patch(
                         f"{self._base_url}/cloud/tenants/{tenant.key}",
                         data=json.dumps(data),
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to update tenant with key: {tenant.key}, got error: {err}"
@@ -289,8 +304,10 @@ class PermitApiClient(PermitApi):
                 try:
                     async with session.delete(
                         f"{self._base_url}/cloud/tenants/{tenant_key}",
+                        raise_for_status=True,
                     ) as response:
                         return dict(status=response.status)
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"tried to delete tenant with key: {tenant_key}, got error: {err}"
@@ -312,8 +329,10 @@ class PermitApiClient(PermitApi):
                     async with session.post(
                         f"{self._base_url}/cloud/role_assignments",
                         data=json.dumps(data),
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"could not assign role {role_key} to {user_key} in tenant {tenant_key}, got error: {err}"
@@ -334,8 +353,10 @@ class PermitApiClient(PermitApi):
                 try:
                     async with session.delete(
                         f"{self._base_url}/cloud/role_assignments?role={role_key}&user={user_key}&scope={tenant_key}",
+                        raise_for_status=True,
                     ) as response:
                         return await response.json()
+
                 except aiohttp.ClientError as err:
                     self._logger.error(
                         f"could not unassign role {role_key} of {user_key} in tenant {tenant_key}, got error: {err}"
