@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from loguru import Logger
 
 from permit.api.base import PermitBaseApi, lazy_load_context
-from permit.config import PermitConfig, ApiKeyLevel
+from permit.config import ApiKeyLevel, PermitConfig
 from permit.exceptions.exceptions import raise_for_error_by_action
 from permit.openapi.api.environments import (
     create_environment,

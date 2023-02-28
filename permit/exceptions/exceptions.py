@@ -25,14 +25,16 @@ class PermitNotFound(PermitException):
                 object_name=object_name,
             ),
             type=self.type,
-            error_code=self.error_code
+            error_code=self.error_code,
         )
 
 
 class PermitContextError(PermitException):
     error_code: ErrorCode = ErrorCode.NOT_FOUND
     type: ErrorType = ErrorType.INVALID_REQUEST_ERROR
-    details: str = "error changing context - make sure the given context fits your API key origin"
+    details: str = (
+        "error changing context - make sure the given context fits your API key origin"
+    )
 
     def __init__(self, details: str, *args, **kwargs):
         super().__init__(

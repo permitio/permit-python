@@ -38,6 +38,7 @@ class ErrorType(str, Enum):
 
 class PermitException(Exception):
     """Permit base exception"""
+
     error_code: ErrorCode = ErrorCode.UNEXPECTED_ERROR
     type: ErrorType = ErrorType.GENERAL_ERROR
     details: str = "An error occurred within a Permit.io client"
@@ -48,11 +49,7 @@ class PermitException(Exception):
         type: ErrorType | None = None,
         details: str | None = None,
     ):
-        self._override_default_attributes_if_provided(
-            error_code,
-            type,
-            details
-        )
+        self._override_default_attributes_if_provided(error_code, type, details)
         super().__init__()
 
     @property

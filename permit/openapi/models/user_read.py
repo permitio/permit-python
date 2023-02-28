@@ -14,7 +14,6 @@ class UserRead(BaseModel):
         ...,
         description="A unique id by which Permit will identify the user for permission checks. You will later pass this ID to the `permit.check()` API. You can use anything for this ID, the user email, a UUID or anything else as long as it's unique on your end. The user key must be url-friendly (slugified).",
         title="Key",
-
     )
 
     id: UUID = Field(..., description="Unique id of the user", title="Id")
@@ -22,9 +21,7 @@ class UserRead(BaseModel):
         ...,
         description="Unique id of the organization that the user belongs to.",
         title="Organization Id",
-
     )
-
 
     project_id: UUID = Field(
         ...,

@@ -10,8 +10,8 @@ class OrganizationUpdate(BaseModel):
     name: Optional[str] = Field(
         None,
         description="The name of the organization, usually it's your company's name.",
-        title='Name',
+        title="Name",
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        None, description="the settings for this project", title="Settings"
     )

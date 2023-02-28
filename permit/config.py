@@ -6,11 +6,11 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from permit.openapi.models import HTTPValidationError
 from permit.constants import DEFAULT_PDP_URL
 from permit.exceptions.exceptions import PermitContextError
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
+from permit.openapi.models import HTTPValidationError
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
 
 
@@ -68,29 +68,39 @@ class PermitContext(BaseModel):
 class ContextFactory:
     @staticmethod
     async def build(
-        client: AuthenticatedClient, project: str = None, environment: str = None,
-        is_user_input: bool = False
+        client: AuthenticatedClient,
+        project: str = None,
+        environment: str = None,
+        is_user_input: bool = False,
     ) -> PermitContext:
         res = await get_api_key_scope.asyncio(client=client)
         if res is None or isinstance(res, HTTPValidationError):
-            raise PermitContextError(message="could not get api key scope in order to create a context")
+            raise PermitContextError(
+                message="could not get api key scope in order to create a context"
+            )
         api_key_level = get_api_key_level(res)
         if not is_user_input:
-            return PermitContext(project=res.project_id.hex,
-                                 environment=res.environment_id.hex,
-                                 api_key_level=api_key_level)
+            return PermitContext(
+                project=res.project_id.hex,
+                environment=res.environment_id.hex,
+                api_key_level=api_key_level,
+            )
         if api_key_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY:
             if environment is None or project is None:
                 raise PermitContextError(
                     message="You initiated the Permit.io Client with an Environment level API key,"
-                            " please set a context with the API key related environment and project")
+                    " please set a context with the API key related environment and project"
+                )
         if api_key_level == ApiKeyLevel.PROJECT_LEVEL_API_KEY:
             if project is None:
                 raise PermitContextError(
                     message="You initiated the Permit.io Client with a Project level API key,"
-                            " please set a context with the API key related project")
+                    " please set a context with the API key related project"
+                )
 
-        return PermitContext(project=project, environment=environment, api_key_level=api_key_level)
+        return PermitContext(
+            project=project, environment=environment, api_key_level=api_key_level
+        )
 
 
 class PermitConfig(BaseModel):

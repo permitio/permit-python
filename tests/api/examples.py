@@ -10,19 +10,10 @@ USER_READ_EXAMPLE = {
     "attributes": {
         "department": "marketing",
         "age": 30,
-        "subscription": {
-            "tier": "pro",
-            "expired": False
-        }
+        "subscription": {"tier": "pro", "expired": False},
     },
     "roles": [
-        {
-            "role": "admin",
-            "tenant": "stripe-inc"
-        },
-        {
-            "role": "viewer",
-            "tenant": "othercompany.com"
-        }
-    ]
+        {"role": "admin", "tenant": "stripe-inc"},
+        {"role": "viewer", "tenant": "othercompany.com"},
+    ],
 }

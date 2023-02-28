@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import List, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Union
 from uuid import UUID
 
 if TYPE_CHECKING:

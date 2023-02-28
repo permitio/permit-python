@@ -16,7 +16,7 @@ from permit.api.resources import Resource
 from permit.api.roles import Role
 from permit.api.tenants import Tenant
 from permit.api.users import User
-from permit.config import PermitConfig, PermitContext, ContextFactory
+from permit.config import ContextFactory, PermitConfig, PermitContext
 from permit.constants import (
     DEPRECATION_WARNING_LOG,
     OBJECT_ENVIRONMENT_NAME,
@@ -132,7 +132,8 @@ class PermitApiClient:
         # `permit.api.users.get_assigned_roles()`.
         self._logger.warning(
             DEPRECATION_WARNING_LOG.format(
-                "permit.api.get_assigned_roles()", "permit.api.users.get_assigned_roles()"
+                "permit.api.get_assigned_roles()",
+                "permit.api.users.get_assigned_roles()",
             )
         )
         return await self.users.get_assigned_roles(user_key, tenant_key, page, per_page)
@@ -162,13 +163,18 @@ class PermitApiClient:
         if isinstance(context, dict):
             context = PermitContext(**context)
         if context.project:
-            log_message += additional_log_text.format(OBJECT_PROJECT_NAME, context.project)
+            log_message += additional_log_text.format(
+                OBJECT_PROJECT_NAME, context.project
+            )
         if context.environment:
-            log_message += additional_log_text.format(OBJECT_ENVIRONMENT_NAME, context.environment)
+            log_message += additional_log_text.format(
+                OBJECT_ENVIRONMENT_NAME, context.environment
+            )
 
         self._logger.info(log_message)
-        self._config.context = await ContextFactory.build(self.client, context.project, context.environment,
-                                                          is_user_input=True)
+        self._config.context = await ContextFactory.build(
+            self.client, context.project, context.environment, is_user_input=True
+        )
         await self._is_context_valid()
 
     @lazy_load_context

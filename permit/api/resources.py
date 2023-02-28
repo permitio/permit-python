@@ -284,7 +284,9 @@ class Resource(PermitBaseApi):
         return await self.update(resource_key, resource_update)
 
     # Resource Actions Methods
-    async def add_resource_action(self, resource_key: str, resource_action_key: str) -> ResourceRead:
+    async def add_resource_action(
+        self, resource_key: str, resource_action_key: str
+    ) -> ResourceRead:
         """
         Add a resource-action to a resource under the context's environment -
         by a given resource key and a resource-action key.
@@ -308,7 +310,9 @@ class Resource(PermitBaseApi):
         resource_update = ResourceUpdate(actions=exist_resource_actions)
         return await self.update(resource_key, resource_update)
 
-    async def remove_resource_action(self, resource_key: str, resource_action_key: str) -> ResourceRead:
+    async def remove_resource_action(
+        self, resource_key: str, resource_action_key: str
+    ) -> ResourceRead:
         """
         Removes a resource-action from a resource under the context's environment -
         by a given resource key and a resource-action key.

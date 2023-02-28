@@ -9,18 +9,18 @@ class ProjectUpdate(BaseModel):
         extra = Extra.ignore
 
     name: Optional[str] = Field(
-        None, description='The name of the project', title='Name'
+        None, description="The name of the project", title="Name"
     )
     description: Optional[str] = Field(
         None,
-        description='a longer description outlining the project objectives',
-        title='Description',
+        description="a longer description outlining the project objectives",
+        title="Description",
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        None, description="the settings for this project", title="Settings"
     )
     active_policy_repo_id: Optional[UUID] = Field(
         None,
-        description='the id of the policy repo to use for this project',
-        title='Active Policy Repo Id',
+        description="the id of the policy repo to use for this project",
+        title="Active Policy Repo Id",
     )

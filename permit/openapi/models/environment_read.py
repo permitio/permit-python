@@ -43,6 +43,6 @@ class EnvironmentRead(BaseModel):
     )
     custom_branch_name: Optional[str] = Field(
         None,
-        description='when using gitops feature, an optional branch name for the environment',
-        title='Custom Branch Name',
+        description="when using gitops feature, an optional branch name for the environment",
+        title="Custom Branch Name",
     )

@@ -196,7 +196,9 @@ class Role(PermitBaseApi):
 
     # Permissions assignment methods
     @lazy_load_context
-    async def assign_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
+    async def assign_permissions(
+        self, role_key: str, permissions: List[str]
+    ) -> RoleRead:
         """
         Assign a list of permissions to a role under the context's environment -
         by a given role key and list of permissions.

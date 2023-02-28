@@ -11,21 +11,23 @@ from tests.api.examples import USER_READ_EXAMPLE
 @pytest.mark.parametrize(
     "email", ["name1@domain.com", "name2@domain.com", "name3@domain.com"]
 )
-async def test_client_sync_user_create(api_client: PermitApiClient, httpx_mock, email: str):
+async def test_client_sync_user_create(
+    api_client: PermitApiClient, httpx_mock, email: str
+):
     users_endpoint = "/v2/facts/{proj_id}/{env_id}/users"
     context = api_client._config.context
-    user_json = (USER_READ_EXAMPLE.copy())
-    user_json.update({"email":email, "key": email})
+    user_json = USER_READ_EXAMPLE.copy()
+    user_json.update({"email": email, "key": email})
 
     httpx_mock.add_response(
         method="POST",
         url=f"{MOCK_API_URL}{users_endpoint.format(proj_id=context.project, env_id=context.environment)}",
-        json=user_json
+        json=user_json,
     )
     httpx_mock.add_response(
         method="GET",
         url=f"{MOCK_API_URL}{users_endpoint.format(proj_id=context.project, env_id=context.environment)}/{email}",
-        json={}
+        json={},
     )
 
     create_user = UserCreate(
@@ -33,7 +35,7 @@ async def test_client_sync_user_create(api_client: PermitApiClient, httpx_mock, 
         email=EmailStr(email),
         first_name="Jane",
         last_name="Doe",
-        attributes=user_json["attributes"]
+        attributes=user_json["attributes"],
     )
     user = await api_client.sync_user(create_user)
     created_user_dict = user.dict()

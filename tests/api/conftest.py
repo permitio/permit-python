@@ -14,7 +14,7 @@ def config() -> PermitConfig:
             # dummy local api key for local tests
             token="permit_key_j6vbONQJMNJkH95LaueD6EzLjbiZ8uIaXtYtLXBPy1fdRUq2rjEd5lMQXGQ0SJDFZZEbL6Ftb7OvXD0UTmlOWU",
             api_url=MOCK_API_URL,
-            context=mock_context
+            context=mock_context,
         ),
     )
 

@@ -85,7 +85,6 @@ class User(PermitBaseApi):
         raise_for_error_by_action(user, "user", user_key)
         return user
 
-
     @lazy_load_context
     async def get_by_key(self, user_key: str) -> UserRead:
         """
