@@ -34,6 +34,12 @@ def raise_for_error_by_action(
             message=f"could not {action} {object_name} with key '{payload}'",
             allow_none=True,
         )
+    elif action == "create" and object_name == "role_assignment":
+        raise_for_error(
+            res,
+            message=f"could not {action} {object_name} with: {payload}",
+            allow_none=True,
+        )
     elif action in ("create", "update", "remove"):
         raise_for_error(
             res,
