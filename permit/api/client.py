@@ -193,16 +193,16 @@ class PermitApiClient:
 
     @lazy_load_scope
     async def list_roles(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
-        role = await list_roles.asyncio(
+        roles = await list_roles.asyncio(
             self.scope.project_id.hex,
             self.scope.environment_id.hex,
             page=page,
             per_page=per_page,
             client=self.client,
         )
-        if isinstance(role, HTTPValidationError):
-            raise PermitException(f"list role failed: {role.detail}")
-        return role
+        if isinstance(roles, HTTPValidationError):
+            raise PermitException(f"list_roles failed: {roles.detail}")
+        return roles
 
     # endregion
     # region write api ---------------------------------------------------------------
