@@ -10,7 +10,11 @@ from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
 from permit.config import PermitConfig
-from permit.exceptions import PermitException, raise_for_error, raise_for_error_by_action
+from permit.exceptions import (
+    PermitException,
+    raise_for_error,
+    raise_for_error_by_action,
+)
 from permit.openapi import AuthenticatedClient
 from permit.openapi.api.api_keys import get_api_key_scope
 from permit.openapi.api.authentication import elements_login_as
@@ -25,7 +29,13 @@ from permit.openapi.api.role_assignments import (
     list_role_assignments,
     unassign_role,
 )
-from permit.openapi.api.roles import create_role, delete_role, get_role, update_role, list_roles
+from permit.openapi.api.roles import (
+    create_role,
+    delete_role,
+    get_role,
+    list_roles,
+    update_role,
+)
 from permit.openapi.api.tenants import (
     create_tenant,
     delete_tenant,
@@ -35,6 +45,7 @@ from permit.openapi.api.tenants import (
 )
 from permit.openapi.api.users import create_user, delete_user, get_user, update_user
 from permit.openapi.models import (
+    HTTPValidationError,
     ResourceCreate,
     ResourceRead,
     ResourceUpdate,
@@ -54,7 +65,6 @@ from permit.openapi.models import (
     UserUpdate,
 )
 from permit.openapi.models.api_key_scope_read import APIKeyScopeRead
-from permit.openapi.models import HTTPValidationError
 
 T = TypeVar("T")
 
@@ -182,11 +192,7 @@ class PermitApiClient:
         return resource
 
     @lazy_load_scope
-    async def list_roles(
-        self,
-        page: int = 1,
-        per_page: int = 100
-    ) -> List[RoleRead]:
+    async def list_roles(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         role = await list_roles.asyncio(
             self.scope.project_id.hex,
             self.scope.environment_id.hex,
