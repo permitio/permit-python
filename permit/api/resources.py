@@ -31,7 +31,7 @@ class ResourcesApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
 
         Returns:
-            A promise that resolves to an array of resources.
+            an array of resources.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -50,7 +50,7 @@ class ResourcesApi(BasePermitApi):
             resource_key: The key of the resource.
 
         Returns:
-            A promise that resolves to the resource.
+            the resource.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -68,7 +68,7 @@ class ResourcesApi(BasePermitApi):
             resource_key: The key of the resource.
 
         Returns:
-            A promise that resolves to the resource.
+            the resource.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -86,7 +86,7 @@ class ResourcesApi(BasePermitApi):
             resource_id: The ID of the resource.
 
         Returns:
-            A promise that resolves to the resource.
+            the resource.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -103,7 +103,7 @@ class ResourcesApi(BasePermitApi):
             resource_data: The data for the new resource.
 
         Returns:
-            A promise that resolves to the created resource.
+            the created resource.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -125,7 +125,7 @@ class ResourcesApi(BasePermitApi):
             resource_data: The updated data for the resource.
 
         Returns:
-            A promise that resolves to the updated resource.
+            the updated resource.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -164,9 +164,6 @@ class ResourcesApi(BasePermitApi):
 
         Args:
             resource_key: The key of the resource to delete.
-
-        Returns:
-            A promise that resolves when the resource is deleted.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.

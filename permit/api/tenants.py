@@ -31,7 +31,7 @@ class TenantsApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
 
         Returns:
-            A promise that resolves to an array of tenants.
+            an array of tenants.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -54,7 +54,7 @@ class TenantsApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
 
         Returns:
-            A promise that resolves to a PaginatedResultUserRead object containing the list of tenant users.
+            a PaginatedResultUserRead object containing the list of tenant users.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -75,7 +75,7 @@ class TenantsApi(BasePermitApi):
             tenant_key: The key of the tenant.
 
         Returns:
-            A promise that resolves to the tenant.
+            the tenant.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -93,7 +93,7 @@ class TenantsApi(BasePermitApi):
             tenant_key: The key of the tenant.
 
         Returns:
-            A promise that resolves to the tenant.
+            the tenant.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -111,7 +111,7 @@ class TenantsApi(BasePermitApi):
             tenant_id: The ID of the tenant.
 
         Returns:
-            A promise that resolves to the tenant.
+            the tenant.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -128,7 +128,7 @@ class TenantsApi(BasePermitApi):
             tenant_data: The data for the new tenant.
 
         Returns:
-            A promise that resolves to the created tenant.
+            the created tenant.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -146,7 +146,7 @@ class TenantsApi(BasePermitApi):
             tenant_data: The updated data for the tenant.
 
         Returns:
-            A promise that resolves to the updated tenant.
+            the updated tenant.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -181,9 +181,6 @@ class TenantsApi(BasePermitApi):
         Args:
             tenant_key: The key of the tenant from which the user will be deleted.
             user_key: The key of the user to be deleted.
-
-        Returns:
-            A promise that resolves when the user is successfully deleted.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
