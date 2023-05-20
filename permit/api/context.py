@@ -1,31 +1,32 @@
 from enum import Enum
 from typing import Optional
 
+
 class ApiKeyLevel(Enum, str):
     """
     The `ApiKeyLevel` enum represents the levels of API key authorization in Permit.
     """
 
-    WAIT_FOR_INIT = 'WAIT_FOR_INIT'
+    WAIT_FOR_INIT = "WAIT_FOR_INIT"
     """
     Wait for initialization of the API key.
     """
 
-    ORGANIZATION_LEVEL_API_KEY = 'ORGANIZATION_LEVEL_API_KEY'
+    ORGANIZATION_LEVEL_API_KEY = "ORGANIZATION_LEVEL_API_KEY"
     """
     Organization level API key authorization.
     Using an API key of this scope will allow the SDK user to modify
     all projects and environments under the organization / workspace.
     """
 
-    PROJECT_LEVEL_API_KEY = 'PROJECT_LEVEL_API_KEY'
+    PROJECT_LEVEL_API_KEY = "PROJECT_LEVEL_API_KEY"
     """
     Project level API key authorization.
     Using an API key of this scope will allow the SDK user to modify
     a single project and the environments under that project.
     """
 
-    ENVIRONMENT_LEVEL_API_KEY = 'ENVIRONMENT_LEVEL_API_KEY'
+    ENVIRONMENT_LEVEL_API_KEY = "ENVIRONMENT_LEVEL_API_KEY"
     """
     Environment level API key authorization.
     Using an API key of this scope will allow the SDK user to modify
@@ -39,6 +40,7 @@ class ApiContext:
     It allows setting and retrieving the API Key context to be either:
     organization-level context, project-level context, or environment-level context.
     """
+
     def __init__(self):
         self._level = ApiKeyLevel.WAIT_FOR_INIT
         self._organization = None

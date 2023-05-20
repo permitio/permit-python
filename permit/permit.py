@@ -4,22 +4,23 @@ from typing import Dict, List, Optional
 from loguru import logger
 
 from permit.api.client import PermitApiClient
-from permit.config import ConfigFactory, PermitConfig
 from permit.api.elements import PermitElements
+from permit.config import ConfigFactory, PermitConfig
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
 from permit.utils.context import Context
 
 
 class Permit:
     def __init__(self, *, config: Optional[PermitConfig] = None, **options):
-        self._config: PermitConfig = config if config is not None else PermitConfig(**options)
+        self._config: PermitConfig = (
+            config if config is not None else PermitConfig(**options)
+        )
         self._logger = logger.bind(name="permit.io")
         self._enforcer = Enforcer(self._config)
         self._api_client = PermitApiClient(self._config)
         self._elements = PermitElements(self)
         self._logger.debug(
-            "Permit SDK initialized with config:\n${}",
-            json.dumps(self._config.dict())
+            "Permit SDK initialized with config:\n${}", json.dumps(self._config.dict())
         )
 
     @property

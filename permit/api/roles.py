@@ -1,10 +1,18 @@
 from typing import List
+
 from loguru import logger
+
 from permit.api.base import BasePermitApi, ensure_context
 from permit.api.context import ApiKeyLevel
-
-from permit.api.models import AddRolePermissions, RemoveRolePermissions, RoleCreate, RoleRead, RoleUpdate
+from permit.api.models import (
+    AddRolePermissions,
+    RemoveRolePermissions,
+    RoleCreate,
+    RoleRead,
+    RoleUpdate,
+)
 from permit.config import PermitConfig
+
 
 class RolesApi(BasePermitApi):
     """
@@ -19,7 +27,7 @@ class RolesApi(BasePermitApi):
                 env_id=self.config.api_context.environment,
             )
         )
-    
+
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     async def list(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         """
@@ -35,7 +43,9 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__roles.get("", model=List[RoleRead], params={"page": page, "per_page": per_page})
+        return await self.__roles.get(
+            "", model=List[RoleRead], params={"page": page, "per_page": per_page}
+        )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     async def get(self, roleKey: str) -> RoleRead:
@@ -123,7 +133,9 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__roles.patch(f"/{roleKey}", model=RoleRead, json=roleData.dict())
+        return await self.__roles.patch(
+            f"/{roleKey}", model=RoleRead, json=roleData.dict()
+        )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     async def delete(self, roleKey: str) -> None:
@@ -158,7 +170,7 @@ class RolesApi(BasePermitApi):
         return await self.__roles.post(
             f"/{roleKey}/permissions",
             model=RoleRead,
-            json=AddRolePermissions(permissions=permissions).dict()
+            json=AddRolePermissions(permissions=permissions).dict(),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -180,5 +192,5 @@ class RolesApi(BasePermitApi):
         return await self.__roles.delete(
             f"/{roleKey}/permissions",
             model=RoleRead,
-            json=RemoveRolePermissions(permissions=permissions).dict()
+            json=RemoveRolePermissions(permissions=permissions).dict(),
         )

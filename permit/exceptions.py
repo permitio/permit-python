@@ -1,5 +1,6 @@
 import functools
 from typing import Optional
+
 import aiohttp
 from loguru import logger
 
@@ -10,6 +11,7 @@ class PermitException(Exception):
 
 class PermitConnectionError(PermitException):
     """Permit connection exception"""
+
     def __init__(self, message: str, *, error: Optional[aiohttp.ClientError] = None):
         super().__init__(message)
         self.original_error = error
@@ -23,6 +25,7 @@ class PermitContextError(Exception):
     implicit context (i.e: most API Methods expects an Environment-level API key so the
     environment could be implicitly inferred from the API key itself).
     """
+
     pass
 
 
@@ -34,7 +37,7 @@ class PermitApiError(Exception):
     def __init__(self, message: str, response: aiohttp.ClientResponse):
         super().__init__(message)
         self._response = response
-    
+
     @property
     def response(self) -> aiohttp.ClientResponse:
         """
@@ -44,7 +47,7 @@ class PermitApiError(Exception):
             The HTTP response object.
         """
         return self._response
-    
+
     @property
     def status_code(self) -> int:
         """
@@ -71,4 +74,5 @@ def handle_client_error(func):
                 "got client error while sending an http request:\n{}".format(err)
             )
             raise PermitConnectionError(f"Permit SDK got error: {err}", err)
+
     return wrapped
