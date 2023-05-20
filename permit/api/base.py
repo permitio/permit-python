@@ -1,7 +1,7 @@
 import functools
 import aiohttp
 
-from typing import TypeVar, Optional
+from typing import Generic, Type, TypeVar, Optional
 from loguru import logger
 
 from pydantic import BaseModel, Field, Extra
@@ -40,6 +40,62 @@ def ensure_context(call_level: ApiKeyLevel):
     return decorator
 
 
+TModel = TypeVar('TModel', bound=BaseModel)
+TData = TypeVar('TData', bound=BaseModel)
+
+class SimpleHttpClient:
+    """
+    wraps aiohttp client to reduce boilerplace
+    """
+    def __init__(self, session: aiohttp.ClientSession):
+        self._session = session
+    
+    @property
+    def session(self):
+        return self._session
+
+    @handle_client_error
+    async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
+        async with self.session as client:
+            async with client.get(url, **kwargs) as response:
+                handle_api_error(response)
+                data = await response.json()
+                return model(**data)
+    
+    @handle_client_error
+    async def post(self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs) -> TModel:
+        async with self.session as client:
+            async with client.put(url, json=json, **kwargs) as response:
+                handle_api_error(response)
+                data = await response.json()
+                return model(**data)
+
+    @handle_client_error
+    async def put(self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs) -> TModel:
+        async with self.session as client:
+            async with client.put(url, json=json, **kwargs) as response:
+                handle_api_error(response)
+                data = await response.json()
+                return model(**data)
+    
+    @handle_client_error
+    async def patch(self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs) -> TModel:
+        async with self.session as client:
+            async with client.put(url, json=json, **kwargs) as response:
+                handle_api_error(response)
+                data = await response.json()
+                return model(**data)
+    
+    @handle_client_error
+    async def delete(self, url, model: Type[TModel] | None = None, json: Optional[dict] = None, **kwargs) -> TModel | None:
+        async with self.session as client:
+            async with client.put(url, json=json, **kwargs) as response:
+                handle_api_error(response)
+                if model is None:
+                    return None
+                data = await response.json()
+                return model(**data)
+
 class BasePermitApi:
     """
     The base class for Permit APIs.
@@ -53,7 +109,7 @@ class BasePermitApi:
             config: The Permit SDK configuration.
         """
         self.config = config
-        self._api_keys = self._build_http_client('/v2/api-key')
+        self.__api_keys = self._build_http_client('/v2/api-key')
     
     def _build_http_client(self, endpoint_url: str, **kwargs):
         client_config = ClientConfig(
@@ -63,21 +119,13 @@ class BasePermitApi:
                 "Authorization": f"bearer {self.config.token}",
             }
         )
-        return aiohttp.ClientSession(**client_config.dict(), **kwargs)
-    
-    @handle_client_error
-    async def _get_api_key_scope(self) -> APIKeyScopeRead:
-        async with self._api_keys as client:
-            async with client.get("/scope") as response:
-                handle_api_error(response)
-                data = await response.json()
-                return APIKeyScopeRead(**data)
+        return SimpleHttpClient(aiohttp.ClientSession(**client_config.dict(), **kwargs))
 
     async def _set_context_from_api_key(self) -> None:
         """
         Set the API context based on the API key scope.
         """
-        scope = await self._get_api_key_scope()
+        scope = await self.__api_keys.get("/scope", model=APIKeyScopeRead)
 
         if scope.organization_id is not None:
             if scope.project_id is not None:
