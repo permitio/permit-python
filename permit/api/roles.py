@@ -32,7 +32,8 @@ class RolesApi(BasePermitApi):
         Retrieves a list of roles.
 
         Args:
-            pagination: The pagination options.
+            page: The page number to fetch (default: 1).
+            per_page: How many items to fetch per page (default: 100).
 
         Returns:
             A list of roles.
