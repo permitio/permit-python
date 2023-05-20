@@ -1,9 +1,10 @@
 from typing import List
 
-from permit.api.base import BasePermitApi, ensure_context, pagination_params
-from permit.api.context import ApiKeyLevel
-from permit.api.models import ProjectCreate, ProjectRead, ProjectUpdate
 from permit.config import PermitConfig
+
+from .base import BasePermitApi, ensure_context, pagination_params
+from .context import ApiKeyLevel
+from .models import ProjectCreate, ProjectRead, ProjectUpdate
 
 
 class ProjectsApi(BasePermitApi):

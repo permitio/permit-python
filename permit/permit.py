@@ -3,11 +3,11 @@ from typing import Optional
 
 from loguru import logger
 
-from permit.api.api_client import PermitApiClient
-from permit.api.elements import ElementsApi
-from permit.config import PermitConfig
-from permit.enforcement.enforcer import Action, Enforcer, Resource, User
-from permit.utils.context import Context
+from .api.api_client import PermitApiClient
+from .api.elements import ElementsApi
+from .config import PermitConfig
+from .enforcement.enforcer import Action, Enforcer, Resource, User
+from .utils.context import Context
 
 
 class Permit:

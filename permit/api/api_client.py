@@ -1,17 +1,17 @@
-from permit.api.condition_set_rules import ConditionSetRulesApi
-from permit.api.condition_sets import ConditionSetsApi
-from permit.api.deprecated import DeprecatedApi
-from permit.api.environments import EnvironmentsApi
-from permit.api.projects import ProjectsApi
-from permit.api.resource_action_groups import ResourceActionGroupsApi
-from permit.api.resource_actions import ResourceActionsApi
-from permit.api.resource_attributes import ResourceAttributesApi
-from permit.api.resources import ResourcesApi
-from permit.api.role_assignments import RoleAssignmentsApi
-from permit.api.roles import RolesApi
-from permit.api.tenants import TenantsApi
-from permit.api.users import UsersApi
-from permit.config import PermitConfig
+from ..config import PermitConfig
+from .condition_set_rules import ConditionSetRulesApi
+from .condition_sets import ConditionSetsApi
+from .deprecated import DeprecatedApi
+from .environments import EnvironmentsApi
+from .projects import ProjectsApi
+from .resource_action_groups import ResourceActionGroupsApi
+from .resource_actions import ResourceActionsApi
+from .resource_attributes import ResourceAttributesApi
+from .resources import ResourcesApi
+from .role_assignments import RoleAssignmentsApi
+from .roles import RolesApi
+from .tenants import TenantsApi
+from .users import UsersApi
 
 
 class PermitApiClient(DeprecatedApi):

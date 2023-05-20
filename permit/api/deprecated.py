@@ -3,9 +3,11 @@ from typing import List, Optional, Union
 from uuid import UUID
 from warnings import warn
 
-from permit.api.base import BasePermitApi
-from permit.api.elements import ElementsApi
-from permit.api.models import (
+from permit.config import PermitConfig
+
+from .base import BasePermitApi
+from .elements import ElementsApi
+from .models import (
     EmbeddedLoginRequestOutput,
     ResourceCreate,
     ResourceRead,
@@ -22,12 +24,11 @@ from permit.api.models import (
     UserCreate,
     UserRead,
 )
-from permit.api.resources import ResourcesApi
-from permit.api.role_assignments import RoleAssignmentsApi
-from permit.api.roles import RolesApi
-from permit.api.tenants import TenantsApi
-from permit.api.users import UsersApi
-from permit.config import PermitConfig
+from .resources import ResourcesApi
+from .role_assignments import RoleAssignmentsApi
+from .roles import RolesApi
+from .tenants import TenantsApi
+from .users import UsersApi
 
 
 def deprecated(message: str):

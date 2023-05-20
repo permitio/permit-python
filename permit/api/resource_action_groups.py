@@ -1,9 +1,10 @@
 from typing import List
 
-from permit.api.base import BasePermitApi, ensure_context, pagination_params
-from permit.api.context import ApiKeyLevel
-from permit.api.models import ResourceActionGroupCreate, ResourceActionGroupRead
 from permit.config import PermitConfig
+
+from .base import BasePermitApi, ensure_context, pagination_params
+from .context import ApiKeyLevel
+from .models import ResourceActionGroupCreate, ResourceActionGroupRead
 
 
 class ResourceActionGroupsApi(BasePermitApi):

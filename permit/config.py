@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from permit.api.context import ApiContext
+from .api.context import ApiContext
 
 
 class LoggerConfig(BaseModel):

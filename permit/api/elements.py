@@ -6,9 +6,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from permit.api.base import BasePermitApi
-from permit.api.models import EmbeddedLoginRequestOutput
 from permit.config import PermitConfig
+
+from .base import BasePermitApi
+from .models import EmbeddedLoginRequestOutput
 
 
 class LoginAsErrorMessages(str, Enum):

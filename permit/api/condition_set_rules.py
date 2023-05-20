@@ -1,13 +1,10 @@
 from typing import List, Optional
 
-from permit.api.base import BasePermitApi, ensure_context, pagination_params
-from permit.api.context import ApiKeyLevel
-from permit.api.models import (
-    ConditionSetRuleCreate,
-    ConditionSetRuleRead,
-    ConditionSetRuleRemove,
-)
 from permit.config import PermitConfig
+
+from .base import BasePermitApi, ensure_context, pagination_params
+from .context import ApiKeyLevel
+from .models import ConditionSetRuleCreate, ConditionSetRuleRead, ConditionSetRuleRemove
 
 
 class ConditionSetRulesApi(BasePermitApi):

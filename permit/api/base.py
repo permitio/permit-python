@@ -5,10 +5,10 @@ import aiohttp
 from loguru import logger
 from pydantic import BaseModel, Extra, Field
 
-from permit.api.context import ApiKeyLevel
-from permit.api.models import APIKeyScopeRead
-from permit.config import PermitConfig
-from permit.exceptions import PermitContextError, handle_api_error, handle_client_error
+from ..config import PermitConfig
+from ..exceptions import PermitContextError, handle_api_error, handle_client_error
+from .context import ApiKeyLevel
+from .models import APIKeyScopeRead
 
 
 class ClientConfig(BaseModel):
