@@ -45,6 +45,10 @@ def ensure_context(call_level: ApiKeyLevel):
     return decorator
 
 
+def pagination_params(page: int, per_page: int) -> dict:
+    return {"page": page, "per_page": per_page}
+
+
 TModel = TypeVar("TModel", bound=BaseModel)
 TData = TypeVar("TData", bound=BaseModel)
 
