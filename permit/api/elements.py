@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from permit.openapi.models.user_login_response import UserLoginAsResponse
+from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from permit.client import Permit
+from permit.api.base import BasePermitApi
+from permit.api.models import EmbeddedLoginRequestOutput
+from permit.config import PermitConfig
 
 
 class LoginAsErrorMessages(str, Enum):
@@ -17,14 +18,45 @@ class LoginAsErrorMessages(str, Enum):
     FORBIDDEN_ACCESS = "Forbidden access"
 
 
-class PermitElements:
-    def __init__(self, client: Permit):
-        self._client = client
+class LoginAsSchema(BaseModel):
+    """
+    Represents the schema for the loginAs request.
+    """
+
+    user_id: str = Field(
+        ..., description="The key (or ID) of the user the element will log in as."
+    )
+    tenant_id: str = Field(
+        ...,
+        description="The key (or ID) of the active tenant for the logged in user."
+        + "The embedded user will only be able to access the active tenant.",
+    )
+
+
+class UserLoginAsResponse(EmbeddedLoginRequestOutput):
+    content: Optional[dict] = Field(
+        None,
+        description="Content to return in the response body for header/bearer login",
+    )
+
+
+class ElementsApi(BasePermitApi):
+    def __init__(self, config: PermitConfig):
+        super().__init__(config)
+        self.__auth = self._build_http_client("/v2/auth")
 
     async def login_as(
         self, user_id: str | UUID, tenant_id: str | UUID
     ) -> UserLoginAsResponse:
-        ticket = await self._client.api.elements_login_as(user_id, tenant_id)
+        if isinstance(user_id, UUID):
+            user_id = user_id.hex
+        if isinstance(tenant_id, UUID):
+            tenant_id = tenant_id.hex
+        ticket = await self.__auth.post(
+            "/elements_login_as",
+            model=EmbeddedLoginRequestOutput,
+            json=LoginAsSchema(user_id=user_id, tenant_id=tenant_id).dict(),
+        )
         return UserLoginAsResponse(
             **ticket.dict(), content={"url": ticket.redirect_url}
         )
