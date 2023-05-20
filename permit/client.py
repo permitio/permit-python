@@ -8,8 +8,6 @@ from permit.config import ConfigFactory, PermitConfig
 from permit.constants import DEFAULT_PDP_URL
 from permit.elements import PermitElements
 from permit.enforcement.enforcer import Action, Enforcer, Resource, User
-from permit.mutations.client import PermitApiClient as CompatApiClient
-from permit.mutations.client import ReadOperation, WriteOperation
 from permit.resources.interfaces import ActionConfig, ResourceConfig, ResourceTypes
 from permit.resources.registry import ActionDefinition, ResourceRegistry
 from permit.resources.reporter import ResourceReporter, ResourceStub
@@ -36,7 +34,6 @@ class Permit:
         self._enforcer = Enforcer(self._config)
         # TODO: self._cache = LocalCacheClient(self._config, logger)
 
-        self._mutations_client = CompatApiClient(self._config)
         self._api_client = PermitApiClient(self._config)
 
         self._elements = PermitElements(self)
@@ -78,9 +75,3 @@ class Permit:
     @property
     def api(self):
         return self._api_client.api
-
-    async def read(self, *operations: ReadOperation) -> List[Dict]:
-        return await self._mutations_client.read(*operations)
-
-    async def write(self, *operations: WriteOperation) -> List[Dict]:
-        return await self._mutations_client.write(*operations)
