@@ -1,5 +1,3 @@
-from typing import Optional
-
 from permit.api.condition_set_rules import ConditionSetRulesApi
 from permit.api.condition_sets import ConditionSetsApi
 from permit.api.deprecated import DeprecatedApi
@@ -16,7 +14,7 @@ from permit.api.users import UsersApi
 from permit.config import PermitConfig
 
 
-class ApiClient(DeprecatedApi):
+class PermitApiClient(DeprecatedApi):
     def __init__(self, config: PermitConfig):
         """
         Constructs a new instance of the ApiClient class with the specified SDK configuration.

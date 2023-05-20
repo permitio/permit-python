@@ -49,23 +49,31 @@ class Enforcer:
         context: Context = {},
     ) -> bool:
         """
-        usage:
+        Checks if a user is authorized to perform an action on a resource within the specified context.
 
-        user is a unique string identifying the user on the application end.
-        usually it is the `sub` claim (subject claim) present inside a JWT token.
+        Args:
+            user: The user object representing the user.
+            action: The action to be performed on the resource.
+            resource: The resource object representing the resource.
+            context: The context object representing the context in which the action is performed. Defaults to None.
 
-        it can also be dictionary of type UserInput, in case you want to pass
-        more context about the user (user attributes, etc).
+        Returns:
+            bool: True if the user is authorized, False otherwise.
 
-        # can the user close any issue?
-        await permit.check(user, 'close', 'issue')
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
-        # can the user close any issue who's id is 1234?
-        await permit.check(user, 'close', 'issue:1234')
+        Examples:
 
-        # can the user close (any) issues belonging to the 't1' tenant?
-        # (in a multi tenant application)
-        await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            # can the user close any issue?
+            await permit.check(user, 'close', 'issue')
+
+            # can the user close any issue who's id is 1234?
+            await permit.check(user, 'close', 'issue:1234')
+
+            # can the user close (any) issues belonging to the 't1' tenant?
+            # (in a multi tenant application)
+            await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
         normalized_user: UserInput = (
             UserInput(key=user) if isinstance(user, str) else UserInput(**user)
