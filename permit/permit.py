@@ -15,12 +15,8 @@ class Permit:
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
         self._logger = logger.bind(name="permit.io")
         self._enforcer = Enforcer(self._config)
-        # TODO: self._cache = LocalCacheClient(self._config, logger)
-
         self._api_client = PermitApiClient(self._config)
-
         self._elements = PermitElements(self)
-
         self._logger.debug(
             "Permit SDK initialized with config:\n${}",
             json.dumps(self._config.dict())
