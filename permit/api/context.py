@@ -33,17 +33,6 @@ class ApiKeyLevel(Enum, str):
     """
 
 
-class PermitContextError(Exception):
-    """
-    The `PermitContextError` class represents an error that occurs when an API method
-    is called with either insufficient level of API key authorization or trying to call
-    an API method that requires a lower level of API key authorization in order to extract
-    implicit context (i.e: most API Methods expects an Environment-level API key so the
-    environment could be implicitly inferred from the API key itself).
-    """
-    pass
-
-
 class ApiContext:
     """
     The `ApiContext` class represents the context for API key authorization in Permit.

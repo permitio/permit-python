@@ -1,9 +1,7 @@
 import functools
-from typing import Any, Optional, Union
+from typing import Optional
 import aiohttp
 from loguru import logger
-
-from permit.openapi.models import HTTPValidationError
 
 
 class PermitException(Exception):
@@ -15,6 +13,17 @@ class PermitConnectionError(PermitException):
     def __init__(self, message: str, *, error: Optional[aiohttp.ClientError] = None):
         super().__init__(message)
         self.original_error = error
+
+
+class PermitContextError(Exception):
+    """
+    The `PermitContextError` class represents an error that occurs when an API method
+    is called with either insufficient level of API key authorization or trying to call
+    an API method that requires a lower level of API key authorization in order to extract
+    implicit context (i.e: most API Methods expects an Environment-level API key so the
+    environment could be implicitly inferred from the API key itself).
+    """
+    pass
 
 
 class PermitApiError(Exception):

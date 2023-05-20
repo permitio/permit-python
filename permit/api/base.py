@@ -6,10 +6,10 @@ from loguru import logger
 
 from pydantic import BaseModel, Field, Extra
 
-from permit.api.context import ApiKeyLevel, PermitContextError
+from permit.api.context import ApiKeyLevel
 from permit.api.models import APIKeyScopeRead
 from permit.config import PermitConfig
-from permit.exceptions import handle_api_error, handle_client_error
+from permit.exceptions import handle_api_error, handle_client_error, PermitContextError
 
 
 class ClientConfig(BaseModel):
