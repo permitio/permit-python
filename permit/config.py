@@ -2,6 +2,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from permit.api.context import ApiContext
+
 
 class LoggerConfig(BaseModel):
     level: str = Field("info", description="Sets the log level configured for the Permit SDK Logger.")
@@ -34,4 +36,5 @@ class PermitConfig(BaseModel):
     )
     log: LoggerConfig = Field(LoggerConfig(), description="the logger configuration used by the SDK")
     multi_tenancy: MultiTenancyConfig = Field(MultiTenancyConfig(), description="configuration of default tenant assignment for RBAC")
+    api_context: ApiContext = Field(ApiContext(), description="represents the current API key authorization level.")
 
