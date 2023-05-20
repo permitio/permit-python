@@ -1,5 +1,6 @@
 aiohttp>=3.8.4,<4
 datamodel-code-generator>=0.19.0,<1
+httpx>=0.24.1,<1
 loguru>=0.7.0,<1
 pydantic[email]>=1.10.7,<2
 typing-extensions>=4.5.0,<5
