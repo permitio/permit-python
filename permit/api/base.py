@@ -70,6 +70,15 @@ class SimpleHttpClient:
             "Received HTTP response: {} {}, status: {}".format(method, url, status)
         )
 
+    def _prepare_json(self, json: Optional[TData | dict] = None) -> Optional[dict]:
+        if json is None:
+            return None
+
+        if isinstance(json, dict):
+            return json
+
+        return json.dict(exclude_unset=True, exclude_none=True)
+
     @handle_client_error
     async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
         url = f"{self._base_url}{url}"
@@ -83,12 +92,14 @@ class SimpleHttpClient:
 
     @handle_client_error
     async def post(
-        self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs
+        self, url, model: Type[TModel], json: Optional[TData | dict] = None, **kwargs
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "POST")
-            async with client.post(url, json=json, **kwargs) as response:
+            async with client.post(
+                url, json=self._prepare_json(json), **kwargs
+            ) as response:
                 await handle_api_error(response)
                 self._log_response(url, "POST", response.status)
                 data = await response.json()
@@ -96,12 +107,14 @@ class SimpleHttpClient:
 
     @handle_client_error
     async def put(
-        self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs
+        self, url, model: Type[TModel], json: Optional[TData | dict] = None, **kwargs
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "PUT")
-            async with client.put(url, json=json, **kwargs) as response:
+            async with client.put(
+                url, json=self._prepare_json(json), **kwargs
+            ) as response:
                 await handle_api_error(response)
                 self._log_response(url, "PUT", response.status)
                 data = await response.json()
@@ -109,12 +122,14 @@ class SimpleHttpClient:
 
     @handle_client_error
     async def patch(
-        self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs
+        self, url, model: Type[TModel], json: Optional[TData | dict] = None, **kwargs
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "PATCH")
-            async with client.patch(url, json=json, **kwargs) as response:
+            async with client.patch(
+                url, json=self._prepare_json(json), **kwargs
+            ) as response:
                 await handle_api_error(response)
                 self._log_response(url, "PATCH", response.status)
                 data = await response.json()
@@ -125,13 +140,15 @@ class SimpleHttpClient:
         self,
         url,
         model: Type[TModel] | None = None,
-        json: Optional[dict] = None,
+        json: Optional[TData | dict] = None,
         **kwargs,
     ) -> TModel | None:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "DELETE")
-            async with client.delete(url, json=json, **kwargs) as response:
+            async with client.delete(
+                url, json=self._prepare_json(json), **kwargs
+            ) as response:
                 await handle_api_error(response)
                 self._log_response(url, "DELETE", response.status)
                 if model is None:

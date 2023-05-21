@@ -134,7 +134,7 @@ class ResourceAttributesApi(BasePermitApi):
         return await self.__attributes.post(
             f"/{resource_key}/attributes",
             model=ResourceAttributeRead,
-            json=attribute_data.dict(),
+            json=attribute_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -163,7 +163,7 @@ class ResourceAttributesApi(BasePermitApi):
         return await self.__attributes.patch(
             f"/{resource_key}/attributes/{attribute_key}",
             model=ResourceAttributeRead,
-            json=attribute_data.dict(),
+            json=attribute_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)

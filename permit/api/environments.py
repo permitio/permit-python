@@ -175,7 +175,7 @@ class EnvironmentsApi(BasePermitApi):
         return await self.__environments.post(
             f"/v2/projects/{project_key}/envs",
             model=EnvironmentRead,
-            json=environment_data.dict(),
+            json=environment_data,
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
@@ -204,7 +204,7 @@ class EnvironmentsApi(BasePermitApi):
         return await self.__environments.patch(
             f"/v2/projects/{project_key}/envs/{environment_key}",
             model=EnvironmentRead,
-            json=environment_data.dict(),
+            json=environment_data,
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
@@ -230,7 +230,7 @@ class EnvironmentsApi(BasePermitApi):
         return await self.__environments.post(
             f"/v2/projects/{project_key}/envs/{environment_key}/copy",
             model=EnvironmentRead,
-            json=copy_params.dict(),
+            json=copy_params,
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)

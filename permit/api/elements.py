@@ -54,7 +54,7 @@ class ElementsApi(BasePermitApi):
         ticket = await self.__auth.post(
             "/elements_login_as",
             model=EmbeddedLoginRequestOutput,
-            json=LoginAsSchema(user_id=user_id, tenant_id=tenant_id).dict(),
+            json=LoginAsSchema(user_id=user_id, tenant_id=tenant_id),
         )
         return UserLoginAsResponse(
             **ticket.dict(), content={"url": ticket.redirect_url}

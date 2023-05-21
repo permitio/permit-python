@@ -120,7 +120,7 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__roles.post("", model=RoleRead, json=role_data.dict())
+        return await self.__roles.post("", model=RoleRead, json=role_data)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -139,9 +139,7 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__roles.patch(
-            f"/{role_key}", model=RoleRead, json=role_data.dict()
-        )
+        return await self.__roles.patch(f"/{role_key}", model=RoleRead, json=role_data)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -180,7 +178,7 @@ class RolesApi(BasePermitApi):
         return await self.__roles.post(
             f"/{role_key}/permissions",
             model=RoleRead,
-            json=AddRolePermissions(permissions=permissions).dict(),
+            json=AddRolePermissions(permissions=permissions),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -205,5 +203,5 @@ class RolesApi(BasePermitApi):
         return await self.__roles.delete(
             f"/{role_key}/permissions",
             model=RoleRead,
-            json=RemoveRolePermissions(permissions=permissions).dict(),
+            json=RemoveRolePermissions(permissions=permissions),
         )

@@ -129,7 +129,7 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__users.post("", model=UserRead, json=user_data.dict())
+        return await self.__users.post("", model=UserRead, json=user_data)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -148,9 +148,7 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__users.patch(
-            f"/{user_key}", model=UserRead, json=user_data.dict()
-        )
+        return await self.__users.patch(f"/{user_key}", model=UserRead, json=user_data)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -174,7 +172,7 @@ class UsersApi(BasePermitApi):
                 raise KeyError("required 'key' in input dictionary")
         else:
             user_key = user.key
-        return await self.__users.put(f"/{user_key}", model=UserRead, json=user.dict())
+        return await self.__users.put(f"/{user_key}", model=UserRead, json=user)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments

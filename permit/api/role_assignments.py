@@ -79,7 +79,7 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__role_assignments.post(
-            "", model=RoleAssignmentRead, json=assignment.dict()
+            "", model=RoleAssignmentRead, json=assignment
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -95,7 +95,7 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__role_assignments.delete("", json=unassignment.dict())
+        return await self.__role_assignments.delete("", json=unassignment)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -119,7 +119,7 @@ class RoleAssignmentsApi(BasePermitApi):
         return await self.__role_assignments.post(
             "",
             model=BulkRoleAssignmentReport,
-            json=[assignment.dict() for assignment in assignments],
+            json=[assignment for assignment in assignments],
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -144,5 +144,5 @@ class RoleAssignmentsApi(BasePermitApi):
         return await self.__role_assignments.post(
             "",
             model=BulkRoleUnAssignmentReport,
-            json=[unassignment.dict() for unassignment in unassignments],
+            json=[unassignment for unassignment in unassignments],
         )

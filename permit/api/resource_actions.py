@@ -128,7 +128,7 @@ class ResourceActionsApi(BasePermitApi):
         return await self.__actions.post(
             f"/{resource_key}/actions",
             model=ResourceActionRead,
-            json=action_data.dict(),
+            json=action_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -154,7 +154,7 @@ class ResourceActionsApi(BasePermitApi):
         return await self.__actions.patch(
             f"/{resource_key}/actions/{action_key}",
             model=ResourceActionRead,
-            json=action_data.dict(),
+            json=action_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)

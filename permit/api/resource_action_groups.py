@@ -131,7 +131,7 @@ class ResourceActionGroupsApi(BasePermitApi):
         return await self.__action_groups.post(
             f"/{resource_key}/action_groups",
             model=ResourceActionGroupRead,
-            json=group_data.dict(),
+            json=group_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)

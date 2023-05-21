@@ -112,9 +112,7 @@ class ResourcesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__resources.post(
-            "", model=ResourceRead, json=resource_data.dict()
-        )
+        return await self.__resources.post("", model=ResourceRead, json=resource_data)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -138,7 +136,7 @@ class ResourcesApi(BasePermitApi):
         return await self.__resources.patch(
             f"/{resource_key}",
             model=ResourceRead,
-            json=resource_data.dict(),
+            json=resource_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -163,7 +161,7 @@ class ResourcesApi(BasePermitApi):
         return await self.__resources.put(
             f"/{resource_key}",
             model=ResourceRead,
-            json=resource_data.dict(),
+            json=resource_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)

@@ -136,7 +136,7 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__tenants.post("", model=TenantRead, json=tenant_data.dict())
+        return await self.__tenants.post("", model=TenantRead, json=tenant_data)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -156,7 +156,7 @@ class TenantsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__tenants.patch(
-            f"/{tenant_key}", model=TenantRead, json=tenant_data.dict()
+            f"/{tenant_key}", model=TenantRead, json=tenant_data
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)

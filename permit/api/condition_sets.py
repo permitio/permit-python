@@ -113,7 +113,7 @@ class ConditionSetsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__condition_sets.post(
-            "", model=ConditionSetRead, json=condition_set_data.dict()
+            "", model=ConditionSetRead, json=condition_set_data
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -138,7 +138,7 @@ class ConditionSetsApi(BasePermitApi):
         return await self.__condition_sets.patch(
             f"/{condition_set_key}",
             model=ConditionSetRead,
-            json=condition_set_data.dict(),
+            json=condition_set_data,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)

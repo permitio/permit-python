@@ -106,9 +106,7 @@ class ProjectsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__projects.post(
-            "", model=ProjectRead, json=project_data.dict()
-        )
+        return await self.__projects.post("", model=ProjectRead, json=project_data)
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
     @validate_arguments
@@ -130,7 +128,7 @@ class ProjectsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__projects.patch(
-            f"/{project_key}", model=ProjectRead, json=project_data.dict()
+            f"/{project_key}", model=ProjectRead, json=project_data
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
