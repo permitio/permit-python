@@ -34,9 +34,15 @@ class PermitApiError(Exception):
     Wraps an error HTTP Response that occured during a Permit REST API request.
     """
 
-    def __init__(self, message: str, response: aiohttp.ClientResponse):
+    def __init__(
+        self,
+        message: str,
+        response: aiohttp.ClientResponse,
+        response_json: dict | None = None,
+    ):
         super().__init__(message)
         self._response = response
+        self._response_json = response_json
 
     @property
     def response(self) -> aiohttp.ClientResponse:
@@ -49,6 +55,26 @@ class PermitApiError(Exception):
         return self._response
 
     @property
+    def details(self) -> dict | None:
+        """
+        Get the HTTP response JSON body. Contains details about the error.
+
+        Returns:
+            The HTTP response json. If no content will return None.
+        """
+        return self._response_json
+
+    @property
+    def request_url(self) -> str:
+        """
+        Get the HTTP request URL that caused the error code.
+
+        Returns:
+            The HTTP request url
+        """
+        return str(self._response.url)
+
+    @property
     def status_code(self) -> int:
         """
         Get the HTTP response status code
@@ -59,9 +85,10 @@ class PermitApiError(Exception):
         return self._response.status
 
 
-def handle_api_error(response: aiohttp.ClientResponse):
+async def handle_api_error(response: aiohttp.ClientResponse):
     if response.status < 200 or response.status >= 400:
-        raise PermitApiError("API error", response)
+        json = await response.json()
+        raise PermitApiError("API error", response, json)
 
 
 def handle_client_error(func):

@@ -76,7 +76,7 @@ class SimpleHttpClient:
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "GET")
             async with client.get(url, **kwargs) as response:
-                handle_api_error(response)
+                await handle_api_error(response)
                 self._log_response(url, "GET", response.status)
                 data = await response.json()
                 return model(**data)
@@ -88,7 +88,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
-                handle_api_error(response)
+                await handle_api_error(response)
                 data = await response.json()
                 return model(**data)
 
@@ -99,7 +99,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
-                handle_api_error(response)
+                await handle_api_error(response)
                 data = await response.json()
                 return model(**data)
 
@@ -110,7 +110,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
-                handle_api_error(response)
+                await handle_api_error(response)
                 data = await response.json()
                 return model(**data)
 
@@ -125,7 +125,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
-                handle_api_error(response)
+                await handle_api_error(response)
                 if model is None:
                     return None
                 data = await response.json()
