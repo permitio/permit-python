@@ -4,10 +4,10 @@ from typing import Union
 import aiohttp
 from loguru import logger
 
-from permit.config import PermitConfig
-from permit.enforcement.interfaces import ResourceInput, UserInput
-from permit.exceptions import PermitConnectionError
-from permit.utils.context import Context, ContextStore
+from ..config import PermitConfig
+from ..exceptions import PermitConnectionError
+from ..utils.context import Context, ContextStore
+from .interfaces import ResourceInput, UserInput
 
 
 def set_if_not_none(d: dict, k: str, v):

@@ -6,8 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from permit.config import PermitConfig
-
+from ..config import PermitConfig
 from .base import BasePermitApi
 from .models import EmbeddedLoginRequestOutput
 

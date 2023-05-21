@@ -3,8 +3,7 @@ from typing import List, Optional, Union
 from uuid import UUID
 from warnings import warn
 
-from permit.config import PermitConfig
-
+from ..config import PermitConfig
 from .base import BasePermitApi
 from .elements import ElementsApi
 from .models import (

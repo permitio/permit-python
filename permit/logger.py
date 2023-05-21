@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-from permit.config import PermitConfig
+from .config import PermitConfig
 
 PERMIT_MODULE = "permit"
 

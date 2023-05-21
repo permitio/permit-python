@@ -1,6 +1,5 @@
-from permit.utils.sync import SyncClass
-
 from .permit import Permit as AsyncPermit
+from .utils.sync import SyncClass
 
 
 class Permit(AsyncPermit, metaclass=SyncClass):
