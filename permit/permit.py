@@ -12,7 +12,7 @@ from .utils.context import Context
 
 
 class Permit:
-    def __init__(self, *, config: Optional[PermitConfig] = None, **options):
+    def __init__(self, config: Optional[PermitConfig] = None, **options):
         self._config: PermitConfig = (
             config if config is not None else PermitConfig(**options)
         )
@@ -23,7 +23,8 @@ class Permit:
         self._elements = ElementsApi(self._config)
 
         logger.debug(
-            "Permit SDK initialized with config:\n${}", json.dumps(self._config.dict())
+            "Permit SDK initialized with config:\n${}",
+            json.dumps(self._config.dict(exclude={"api_context"})),
         )
 
     @property

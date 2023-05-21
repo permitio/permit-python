@@ -13,7 +13,7 @@ def configure_logger(config: PermitConfig):
             sys.stderr,
             format="{time} {level} {message}",
             filter=PERMIT_MODULE,
-            level=config.log.level,
+            level=config.log.level.upper(),
             serialize=config.log.log_as_json,
         )
     else:

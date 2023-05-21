@@ -57,3 +57,6 @@ class PermitConfig(BaseModel):
     api_context: ApiContext = Field(
         ApiContext(), description="represents the current API key authorization level."
     )
+
+    class Config:
+        arbitrary_types_allowed = True

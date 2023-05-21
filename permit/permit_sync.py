@@ -9,7 +9,7 @@ from .utils.context import Context
 
 
 class Permit(AsyncPermit):
-    def __init__(self, *, config: Optional[PermitConfig] = None, **options):
+    def __init__(self, config: Optional[PermitConfig] = None, **options):
         super().__init__(self, config, **options)
 
         self._enforcer = SyncEnforcer(self._config)

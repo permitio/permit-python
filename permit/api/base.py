@@ -1,5 +1,5 @@
 import functools
-from typing import Generic, Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar
 
 import aiohttp
 from loguru import logger
@@ -58,18 +58,26 @@ class SimpleHttpClient:
     wraps aiohttp client to reduce boilerplace
     """
 
-    def __init__(self, session: aiohttp.ClientSession):
-        self._session = session
+    def __init__(self, client_config: dict, base_url: str = ""):
+        self._client_config = client_config
+        self._base_url = base_url
 
-    @property
-    def session(self):
-        return self._session
+    def _log_request(self, url: str, method: str) -> None:
+        logger.debug("Sending HTTP request: {} {}".format(method, url))
+
+    def _log_response(self, url: str, method: str, status: int) -> None:
+        logger.debug(
+            "Received HTTP response: {} {}, status: {}".format(method, url, status)
+        )
 
     @handle_client_error
     async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
-        async with self.session as client:
+        url = f"{self._base_url}{url}"
+        async with aiohttp.ClientSession(**self._client_config) as client:
+            self._log_request(url, "GET")
             async with client.get(url, **kwargs) as response:
                 handle_api_error(response)
+                self._log_response(url, "GET", response.status)
                 data = await response.json()
                 return model(**data)
 
@@ -77,7 +85,8 @@ class SimpleHttpClient:
     async def post(
         self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs
     ) -> TModel:
-        async with self.session as client:
+        url = f"{self._base_url}{url}"
+        async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
                 handle_api_error(response)
                 data = await response.json()
@@ -87,7 +96,8 @@ class SimpleHttpClient:
     async def put(
         self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs
     ) -> TModel:
-        async with self.session as client:
+        url = f"{self._base_url}{url}"
+        async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
                 handle_api_error(response)
                 data = await response.json()
@@ -97,7 +107,8 @@ class SimpleHttpClient:
     async def patch(
         self, url, model: Type[TModel], json: Optional[dict] = None, **kwargs
     ) -> TModel:
-        async with self.session as client:
+        url = f"{self._base_url}{url}"
+        async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
                 handle_api_error(response)
                 data = await response.json()
@@ -111,7 +122,8 @@ class SimpleHttpClient:
         json: Optional[dict] = None,
         **kwargs,
     ) -> TModel | None:
-        async with self.session as client:
+        url = f"{self._base_url}{url}"
+        async with aiohttp.ClientSession(**self._client_config) as client:
             async with client.put(url, json=json, **kwargs) as response:
                 handle_api_error(response)
                 if model is None:
@@ -137,13 +149,18 @@ class BasePermitApi:
 
     def _build_http_client(self, endpoint_url: str, **kwargs):
         client_config = ClientConfig(
-            base_url=f"{self.config.api_url}{endpoint_url}",
+            base_url=f"{self.config.api_url}",
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"bearer {self.config.token}",
             },
         )
-        return SimpleHttpClient(aiohttp.ClientSession(**client_config.dict(), **kwargs))
+        client_config = client_config.dict()
+        client_config.update(kwargs)
+        return SimpleHttpClient(
+            client_config,
+            base_url=endpoint_url,
+        )
 
     async def _set_context_from_api_key(self) -> None:
         """
