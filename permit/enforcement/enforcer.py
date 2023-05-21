@@ -7,6 +7,7 @@ from loguru import logger
 from ..config import PermitConfig
 from ..exceptions import PermitConnectionError
 from ..utils.context import Context, ContextStore
+from ..utils.sync import SyncClass
 from .interfaces import ResourceInput, UserInput
 
 
@@ -176,3 +177,7 @@ class Enforcer:
         if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
         return ResourceInput(type=parts[0], id=(parts[1] if len(parts) > 1 else None))
+
+
+class SyncEnforcer(Enforcer, metaclass=SyncClass):
+    pass

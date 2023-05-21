@@ -1,12 +1,11 @@
-from __future__ import annotations
-
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from ..config import PermitConfig
+from ..utils.sync import SyncClass
 from .base import BasePermitApi
 from .models import EmbeddedLoginRequestOutput
 
@@ -60,3 +59,7 @@ class ElementsApi(BasePermitApi):
         return UserLoginAsResponse(
             **ticket.dict(), content={"url": ticket.redirect_url}
         )
+
+
+class SyncElementsApi(ElementsApi, metaclass=SyncClass):
+    pass
