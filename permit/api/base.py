@@ -70,12 +70,17 @@ class SimpleHttpClient:
             "Received HTTP response: {} {}, status: {}".format(method, url, status)
         )
 
-    def _prepare_json(self, json: Optional[TData | dict] = None) -> Optional[dict]:
+    def _prepare_json(
+        self, json: Optional[TData | dict | list] = None
+    ) -> Optional[dict]:
         if json is None:
             return None
 
         if isinstance(json, dict):
             return json
+
+        if isinstance(json, list):
+            return [self._prepare_json(item) for item in json]
 
         return json.dict(exclude_unset=True, exclude_none=True)
 
@@ -92,7 +97,11 @@ class SimpleHttpClient:
 
     @handle_client_error
     async def post(
-        self, url, model: Type[TModel], json: Optional[TData | dict] = None, **kwargs
+        self,
+        url,
+        model: Type[TModel],
+        json: Optional[TData | dict | list] = None,
+        **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
@@ -107,7 +116,11 @@ class SimpleHttpClient:
 
     @handle_client_error
     async def put(
-        self, url, model: Type[TModel], json: Optional[TData | dict] = None, **kwargs
+        self,
+        url,
+        model: Type[TModel],
+        json: Optional[TData | dict | list] = None,
+        **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
@@ -122,7 +135,11 @@ class SimpleHttpClient:
 
     @handle_client_error
     async def patch(
-        self, url, model: Type[TModel], json: Optional[TData | dict] = None, **kwargs
+        self,
+        url,
+        model: Type[TModel],
+        json: Optional[TData | dict | list] = None,
+        **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
@@ -140,7 +157,7 @@ class SimpleHttpClient:
         self,
         url,
         model: Type[TModel] | None = None,
-        json: Optional[TData | dict] = None,
+        json: Optional[TData | dict | list] = None,
         **kwargs,
     ) -> TModel | None:
         url = f"{self._base_url}{url}"

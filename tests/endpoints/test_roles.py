@@ -1,10 +1,7 @@
-import time
-from typing import List
-
 import pytest
 from loguru import logger
 
-from permit import Permit, RoleAssignmentRead
+from permit import Permit
 from permit.exceptions import PermitApiError
 from tests.utils import handle_api_error
 

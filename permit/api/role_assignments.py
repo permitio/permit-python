@@ -51,15 +51,17 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        params = pagination_params(page, per_page)
+        if user_key is not None:
+            params.update(dict(user=user_key))
+        if tenant_key is not None:
+            params.update(dict(tenant=tenant_key))
+        if role_key is not None:
+            params.update(dict(role=role_key))
         return await self.__role_assignments.get(
             "",
             model=List[RoleAssignmentRead],
-            params=dict(
-                user=user_key,
-                tenant=tenant_key,
-                role=role_key,
-                **pagination_params(page, per_page)
-            ),
+            params=params,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -117,7 +119,7 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__role_assignments.post(
-            "",
+            "/bulk",
             model=BulkRoleAssignmentReport,
             json=[assignment for assignment in assignments],
         )
@@ -141,8 +143,8 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__role_assignments.post(
-            "",
+        return await self.__role_assignments.delete(
+            "/bulk",
             model=BulkRoleUnAssignmentReport,
             json=[unassignment for unassignment in unassignments],
         )

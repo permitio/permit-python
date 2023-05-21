@@ -1,6 +1,3 @@
-import time
-from typing import List
-
 import pytest
 from loguru import logger
 
