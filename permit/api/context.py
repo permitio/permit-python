@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Optional
 
 
-class ApiKeyLevel(Enum, str):
+class ApiKeyLevel(str, Enum):
     """
     The `ApiKeyLevel` enum represents the levels of API key authorization in Permit.
     """
