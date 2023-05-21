@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -31,6 +33,7 @@ class UsersApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """
         Retrieves a list of users.
@@ -53,6 +56,7 @@ class UsersApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, user_key: str) -> UserRead:
         """
         Retrieves a user by its key.
@@ -70,6 +74,7 @@ class UsersApi(BasePermitApi):
         return await self.__users.get(f"/{user_key}", model=UserRead)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(self, user_key: str) -> UserRead:
         """
         Retrieves a user by its key.
@@ -88,6 +93,7 @@ class UsersApi(BasePermitApi):
         return await self.get(user_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, user_id: str) -> UserRead:
         """
         Retrieves a user by its ID.
@@ -106,6 +112,7 @@ class UsersApi(BasePermitApi):
         return await self.get(user_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, user_data: UserCreate) -> UserRead:
         """
         Creates a new user.
@@ -123,6 +130,7 @@ class UsersApi(BasePermitApi):
         return await self.__users.post("", model=UserRead, json=user_data.dict())
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def update(self, user_key: str, user_data: UserUpdate) -> UserRead:
         """
         Updates a user.
@@ -143,6 +151,7 @@ class UsersApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def sync(self, user: UserCreate | dict) -> UserRead:
         """
         Synchronizes user data by creating or updating a user.
@@ -166,6 +175,7 @@ class UsersApi(BasePermitApi):
         return await self.__users.put(f"/{user_key}", model=UserRead, json=user.dict())
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, user_key: str) -> None:
         """
         Deletes a user.
@@ -180,6 +190,7 @@ class UsersApi(BasePermitApi):
         return await self.__users.delete(f"/{user_key}")
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def assign_role(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
         Assigns a role to a user in the scope of a given tenant.
@@ -201,6 +212,7 @@ class UsersApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def unassign_role(self, unassignment: RoleAssignmentRemove) -> None:
         """
         Unassigns a role from a user in the scope of a given tenant.
@@ -218,6 +230,7 @@ class UsersApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_assigned_roles(
         self, user: str, tenant: Optional[str], page: int, per_page: int
     ) -> List[RoleAssignmentRead]:

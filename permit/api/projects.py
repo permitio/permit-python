@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -17,6 +19,7 @@ class ProjectsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ProjectRead]:
         """
         Retrieves a list of projects.
@@ -37,6 +40,7 @@ class ProjectsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, project_key: str) -> ProjectRead:
         """
         Retrieves a project by its key.
@@ -54,6 +58,7 @@ class ProjectsApi(BasePermitApi):
         return await self.__projects.get(f"/{project_key}", model=ProjectRead)
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(self, project_key: str) -> ProjectRead:
         """
         Retrieves a project by its key.
@@ -72,6 +77,7 @@ class ProjectsApi(BasePermitApi):
         return await self.get(project_key)
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, project_id: str) -> ProjectRead:
         """
         Retrieves a project by its ID.
@@ -90,6 +96,7 @@ class ProjectsApi(BasePermitApi):
         return await self.get(project_id)
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, project_data: ProjectCreate) -> ProjectRead:
         """
         Creates a new project.
@@ -109,6 +116,7 @@ class ProjectsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def update(
         self, project_key: str, project_data: ProjectUpdate
     ) -> ProjectRead:
@@ -131,6 +139,7 @@ class ProjectsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, project_key: str) -> None:
         """
         Deletes a project.

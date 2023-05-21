@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -19,6 +21,7 @@ class EnvironmentsApi(BasePermitApi):
         self.__environments = self._build_http_client("")
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def list(
         self, project_key: str, page: int = 1, per_page: int = 100
     ) -> List[EnvironmentRead]:
@@ -42,6 +45,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
         Gets an environment by project key and environment key.
@@ -62,6 +66,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(
         self, project_key: str, environment_key: str
     ) -> EnvironmentRead:
@@ -83,6 +88,7 @@ class EnvironmentsApi(BasePermitApi):
         return await self.get(project_key, environment_key)
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, project_id: str, environment_id: str) -> EnvironmentRead:
         """
         Gets an environment by project ID and environment ID.
@@ -102,6 +108,7 @@ class EnvironmentsApi(BasePermitApi):
         return await self.get(project_id, environment_id)
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get_stats(
         self, project_key: str, environment_key: str
     ) -> EnvironmentStats:
@@ -125,6 +132,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def get_api_key(self, project_key: str, environment_key: str) -> APIKeyRead:
         """
         Retrieves the API key that grants access for an environment.
@@ -146,6 +154,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def create(
         self, project_key: str, environment_data: EnvironmentCreate
     ) -> EnvironmentRead:
@@ -170,6 +179,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def update(
         self,
         project_key: str,
@@ -198,6 +208,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def copy(
         self, project_key: str, environment_key: str, copy_params: EnvironmentCopy
     ) -> EnvironmentRead:
@@ -223,6 +234,7 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, project_key: str, environment_key: str) -> None:
         """
         Deletes an environment.

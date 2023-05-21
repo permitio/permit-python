@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -17,6 +19,7 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ConditionSetRead]:
         """
         Retrieves a list of condition sets.
@@ -37,6 +40,7 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, condition_set_key: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its key.
@@ -56,6 +60,7 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its key.
@@ -74,6 +79,7 @@ class ConditionSetsApi(BasePermitApi):
         return await self.get(condition_set_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its ID.
@@ -92,6 +98,7 @@ class ConditionSetsApi(BasePermitApi):
         return await self.get(condition_set_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, condition_set_data: ConditionSetCreate) -> ConditionSetRead:
         """
         Creates a new condition set.
@@ -111,6 +118,7 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def update(
         self, condition_set_key: str, condition_set_data: ConditionSetUpdate
     ) -> ConditionSetRead:
@@ -135,6 +143,7 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, condition_set_key: str) -> None:
         """
         Deletes a condition set.

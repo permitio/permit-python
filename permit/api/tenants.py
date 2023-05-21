@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -17,6 +19,7 @@ class TenantsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
         """
         Retrieves a list of tenants.
@@ -37,6 +40,7 @@ class TenantsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list_tenant_users(
         self, tenant_key: str, page: int = 1, per_page: int = 100
     ) -> PaginatedResultUserRead:
@@ -62,6 +66,7 @@ class TenantsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, tenant_key: str) -> TenantRead:
         """
         Retrieves a tenant by its key.
@@ -79,6 +84,7 @@ class TenantsApi(BasePermitApi):
         return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(self, tenant_key: str) -> TenantRead:
         """
         Retrieves a tenant by its key.
@@ -97,6 +103,7 @@ class TenantsApi(BasePermitApi):
         return await self.get(tenant_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, tenant_id: str) -> TenantRead:
         """
         Retrieves a tenant by its ID.
@@ -115,6 +122,7 @@ class TenantsApi(BasePermitApi):
         return await self.get(tenant_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, tenant_data: TenantCreate) -> TenantRead:
         """
         Creates a new tenant.
@@ -132,6 +140,7 @@ class TenantsApi(BasePermitApi):
         return await self.__tenants.post("", model=TenantRead, json=tenant_data.dict())
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def update(self, tenant_key: str, tenant_data: TenantUpdate) -> TenantRead:
         """
         Updates a tenant.
@@ -152,6 +161,7 @@ class TenantsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, tenant_key: str) -> None:
         """
         Deletes a tenant.
@@ -169,6 +179,7 @@ class TenantsApi(BasePermitApi):
         return await self.__tenants.delete(f"/{tenant_key}")
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete_tenant_user(self, tenant_key: str, user_key: str) -> None:
         """
         Deletes a user from a given tenant (also removes all roles granted to the user in that tenant).

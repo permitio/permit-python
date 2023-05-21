@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -17,6 +19,7 @@ class ResourcesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ResourceRead]:
         """
         Retrieves a list of resources.
@@ -37,6 +40,7 @@ class ResourcesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, resource_key: str) -> ResourceRead:
         """
         Retrieves a resource by its key.
@@ -54,6 +58,7 @@ class ResourcesApi(BasePermitApi):
         return await self.__resources.get(f"/{resource_key}", model=ResourceRead)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(self, resource_key: str) -> ResourceRead:
         """
         Retrieves a resource by its key.
@@ -72,6 +77,7 @@ class ResourcesApi(BasePermitApi):
         return await self.get(resource_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, resource_id: str) -> ResourceRead:
         """
         Retrieves a resource by its ID.
@@ -90,6 +96,7 @@ class ResourcesApi(BasePermitApi):
         return await self.get(resource_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, resource_data: ResourceCreate) -> ResourceRead:
         """
         Creates a new resource.
@@ -109,6 +116,7 @@ class ResourcesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def update(
         self, resource_key: str, resource_data: ResourceUpdate
     ) -> ResourceRead:
@@ -131,6 +139,7 @@ class ResourcesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def replace(
         self, resource_key: str, resource_data: ResourceReplace
     ) -> ResourceRead:
@@ -153,6 +162,7 @@ class ResourcesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, resource_key: str) -> None:
         """
         Deletes a resource.

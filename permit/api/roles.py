@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -27,6 +29,7 @@ class RolesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         """
         Retrieves a list of roles.
@@ -47,6 +50,7 @@ class RolesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, role_key: str) -> RoleRead:
         """
         Retrieves a role by its key.
@@ -64,6 +68,7 @@ class RolesApi(BasePermitApi):
         return await self.__roles.get(f"/{role_key}", model=RoleRead)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(self, role_key: str) -> RoleRead:
         """
         Retrieves a role by its key.
@@ -82,6 +87,7 @@ class RolesApi(BasePermitApi):
         return await self.get(role_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, role_id: str) -> RoleRead:
         """
         Retrieves a role by its ID.
@@ -100,6 +106,7 @@ class RolesApi(BasePermitApi):
         return await self.get(role_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, role_data: RoleCreate) -> RoleRead:
         """
         Creates a new role.
@@ -117,6 +124,7 @@ class RolesApi(BasePermitApi):
         return await self.__roles.post("", model=RoleRead, json=role_data.dict())
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def update(self, role_key: str, role_data: RoleUpdate) -> RoleRead:
         """
         Updates a role.
@@ -137,6 +145,7 @@ class RolesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, role_key: str) -> None:
         """
         Deletes a role.
@@ -151,6 +160,7 @@ class RolesApi(BasePermitApi):
         return await self.__roles.delete(f"/{role_key}")
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def assign_permissions(
         self, role_key: str, permissions: List[str]
     ) -> RoleRead:
@@ -175,6 +185,7 @@ class RolesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def remove_permissions(
         self, role_key: str, permissions: List[str]
     ) -> RoleRead:

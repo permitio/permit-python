@@ -1,5 +1,7 @@
 from typing import List
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -17,6 +19,7 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> List[ResourceActionRead]:
@@ -42,6 +45,7 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
         Retrieves a action by its key.
@@ -62,6 +66,7 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_key(
         self, resource_key: str, action_key: str
     ) -> ResourceActionRead:
@@ -83,6 +88,7 @@ class ResourceActionsApi(BasePermitApi):
         return await self.get(resource_key, action_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
         """
         Retrieves a action by its ID.
@@ -102,6 +108,7 @@ class ResourceActionsApi(BasePermitApi):
         return await self.get(resource_id, action_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(
         self, resource_key: str, action_data: ResourceActionCreate
     ) -> ResourceActionRead:
@@ -126,6 +133,7 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def update(
         self, resource_key: str, action_key: str, action_data: ResourceActionUpdate
     ) -> ResourceActionRead:
@@ -151,6 +159,7 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, resource_key: str, action_key: str) -> None:
         """
         Deletes a action.

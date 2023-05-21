@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -23,6 +25,7 @@ class RoleAssignmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(
         self,
         user_key: Optional[str] = None,
@@ -60,6 +63,7 @@ class RoleAssignmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def assign(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
         Assigns a role to a user in the scope of a given tenant.
@@ -79,6 +83,7 @@ class RoleAssignmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def unassign(self, unassignment: RoleAssignmentRemove) -> None:
         """
         Unassigns a role from a user in the scope of a given tenant.
@@ -93,6 +98,7 @@ class RoleAssignmentsApi(BasePermitApi):
         return await self.__role_assignments.delete("", json=unassignment.dict())
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def bulk_assign(
         self, assignments: List[RoleAssignmentCreate]
     ) -> BulkRoleAssignmentReport:
@@ -117,6 +123,7 @@ class RoleAssignmentsApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def bulk_unassign(
         self, unassignments: List[RoleAssignmentRemove]
     ) -> BulkRoleUnAssignmentReport:

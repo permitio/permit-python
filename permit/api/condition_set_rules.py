@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from pydantic import validate_arguments
+
 from ..config import PermitConfig
 from .base import BasePermitApi, ensure_context, pagination_params
 from .context import ApiKeyLevel
@@ -17,6 +19,7 @@ class ConditionSetRulesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def list(
         self,
         user_set_key: Optional[str] = None,
@@ -55,6 +58,7 @@ class ConditionSetRulesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def create(self, rule: ConditionSetRuleCreate) -> List[ConditionSetRuleRead]:
         """
         Creates a new condition set rule.
@@ -74,6 +78,7 @@ class ConditionSetRulesApi(BasePermitApi):
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
     async def delete(self, rule: ConditionSetRuleRemove) -> None:
         """
         Deletes a condition set rule.
