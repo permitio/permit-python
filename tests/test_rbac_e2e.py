@@ -7,15 +7,11 @@ from loguru import logger
 from permit import Permit, RoleAssignmentRead
 from permit.exceptions import PermitApiError
 
+from .utils import handle_api_error
+
 
 def print_break():
     print("\n\n ----------- \n\n")
-
-
-def handle_api_error(error: PermitApiError, message: str):
-    err = f"{message}: status={error.status_code}, url={error.request_url}, method={error.response.method}, details={error.details}"
-    logger.error(err)
-    pytest.fail(err)
 
 
 async def test_permission_check_e2e(permit: Permit):
