@@ -87,7 +87,7 @@ class SimpleHttpClient:
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
-            async with client.put(url, json=json, **kwargs) as response:
+            async with client.post(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
                 data = await response.json()
                 return model(**data)
@@ -109,7 +109,7 @@ class SimpleHttpClient:
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
-            async with client.put(url, json=json, **kwargs) as response:
+            async with client.patch(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
                 data = await response.json()
                 return model(**data)
@@ -124,7 +124,7 @@ class SimpleHttpClient:
     ) -> TModel | None:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
-            async with client.put(url, json=json, **kwargs) as response:
+            async with client.delete(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
                 if model is None:
                     return None
@@ -147,7 +147,7 @@ class BasePermitApi:
         self.config = config
         self.__api_keys = self._build_http_client("/v2/api-key")
 
-    def _build_http_client(self, endpoint_url: str, **kwargs):
+    def _build_http_client(self, endpoint_url: str = "", **kwargs):
         client_config = ClientConfig(
             base_url=f"{self.config.api_url}",
             headers={

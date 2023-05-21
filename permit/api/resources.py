@@ -11,11 +11,13 @@ from .models import ResourceCreate, ResourceRead, ResourceReplace, ResourceUpdat
 class ResourcesApi(BasePermitApi):
     def __init__(self, config: PermitConfig):
         super().__init__(config)
-        self.__resources = self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/resources".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
-            )
+        self.__resources = self._build_http_client()
+
+    def build_url(self, url: str) -> str:
+        return "/v2/schema/{proj_id}/{env_id}/resources{url}".format(
+            proj_id=self.config.api_context.project,
+            env_id=self.config.api_context.environment,
+            url=url,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -36,7 +38,9 @@ class ResourcesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__resources.get(
-            "", model=List[ResourceRead], params=pagination_params(page, per_page)
+            self.build_url(""),
+            model=List[ResourceRead],
+            params=pagination_params(page, per_page),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -55,7 +59,9 @@ class ResourcesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__resources.get(f"/{resource_key}", model=ResourceRead)
+        return await self.__resources.get(
+            self.build_url(f"/{resource_key}"), model=ResourceRead
+        )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -112,7 +118,7 @@ class ResourcesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__resources.post(
-            "", model=ResourceRead, json=resource_data.dict()
+            self.build_url(""), model=ResourceRead, json=resource_data.dict()
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -135,7 +141,9 @@ class ResourcesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__resources.patch(
-            f"/{resource_key}", model=ResourceRead, json=resource_data.dict()
+            self.build_url(f"/{resource_key}"),
+            model=ResourceRead,
+            json=resource_data.dict(),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -158,7 +166,9 @@ class ResourcesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__resources.put(
-            f"/{resource_key}", model=ResourceRead, json=resource_data.dict()
+            self.build_url(f"/{resource_key}"),
+            model=ResourceRead,
+            json=resource_data.dict(),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -174,4 +184,4 @@ class ResourcesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__resources.delete(f"/{resource_key}")
+        return await self.__resources.delete(self.build_url(f"/{resource_key}"))
