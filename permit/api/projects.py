@@ -11,12 +11,7 @@ from .models import ProjectCreate, ProjectRead, ProjectUpdate
 class ProjectsApi(BasePermitApi):
     def __init__(self, config: PermitConfig):
         super().__init__(config)
-        self.__projects = self._build_http_client(
-            "/v2/projects".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
-            )
-        )
+        self.__projects = self._build_http_client("/v2/projects")
 
     @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
     @validate_arguments

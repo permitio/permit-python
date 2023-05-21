@@ -2,16 +2,15 @@ from typing import List
 
 from pydantic import validate_arguments
 
-from ..config import PermitConfig
-from .base import BasePermitApi, ensure_context, pagination_params
+from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
 from .context import ApiKeyLevel
 from .models import PaginatedResultUserRead, TenantCreate, TenantRead, TenantUpdate
 
 
 class TenantsApi(BasePermitApi):
-    def __init__(self, config: PermitConfig):
-        super().__init__(config)
-        self.__tenants = self._build_http_client(
+    @property
+    def __tenants(self) -> SimpleHttpClient:
+        self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/tenants".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,

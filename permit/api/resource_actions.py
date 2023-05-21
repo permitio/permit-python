@@ -2,17 +2,16 @@ from typing import List
 
 from pydantic import validate_arguments
 
-from ..config import PermitConfig
-from .base import BasePermitApi, ensure_context, pagination_params
+from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
 from .context import ApiKeyLevel
 from .models import ResourceActionCreate, ResourceActionRead, ResourceActionUpdate
 
 
 class ResourceActionsApi(BasePermitApi):
-    def __init__(self, config: PermitConfig):
-        super().__init__(config)
-        self.__actions = self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/resources".format(
+    @property
+    def __actions(self) -> SimpleHttpClient:
+        return self._build_http_client(
+            "/v2/schema/{proj_id}/{env_id}/resources".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
             )

@@ -53,6 +53,8 @@ async def test_permission_check_e2e(permit: Permit):
     assert (document.actions or {}).get("update") is not None
     assert (document.actions or {}).get("delete") is not None
 
+    await permit.api.resources.delete("document")
+
     # # verify list output
     # resources = await permit.api.resources.list()
     # assert len(resources) == 1
