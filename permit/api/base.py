@@ -3,7 +3,7 @@ from typing import Optional, Type, TypeVar
 
 import aiohttp
 from loguru import logger
-from pydantic import BaseModel, Extra, Field
+from pydantic import BaseModel, Extra, Field, parse_obj_as
 
 from ..config import PermitConfig
 from ..exceptions import PermitContextError, handle_api_error, handle_client_error
@@ -79,7 +79,7 @@ class SimpleHttpClient:
                 await handle_api_error(response)
                 self._log_response(url, "GET", response.status)
                 data = await response.json()
-                return model(**data)
+                return parse_obj_as(model, data)
 
     @handle_client_error
     async def post(
@@ -87,10 +87,12 @@ class SimpleHttpClient:
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
+            self._log_request(url, "POST")
             async with client.post(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
+                self._log_response(url, "POST", response.status)
                 data = await response.json()
-                return model(**data)
+                return parse_obj_as(model, data)
 
     @handle_client_error
     async def put(
@@ -98,10 +100,12 @@ class SimpleHttpClient:
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
+            self._log_request(url, "PUT")
             async with client.put(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
+                self._log_response(url, "PUT", response.status)
                 data = await response.json()
-                return model(**data)
+                return parse_obj_as(model, data)
 
     @handle_client_error
     async def patch(
@@ -109,10 +113,12 @@ class SimpleHttpClient:
     ) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
+            self._log_request(url, "PATCH")
             async with client.patch(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
+                self._log_response(url, "PATCH", response.status)
                 data = await response.json()
-                return model(**data)
+                return parse_obj_as(model, data)
 
     @handle_client_error
     async def delete(
@@ -124,12 +130,14 @@ class SimpleHttpClient:
     ) -> TModel | None:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
+            self._log_request(url, "DELETE")
             async with client.delete(url, json=json, **kwargs) as response:
                 await handle_api_error(response)
+                self._log_response(url, "DELETE", response.status)
                 if model is None:
                     return None
                 data = await response.json()
-                return model(**data)
+                return parse_obj_as(model, data)
 
 
 class BasePermitApi:

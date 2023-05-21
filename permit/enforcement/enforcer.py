@@ -117,15 +117,14 @@ class Enforcer:
 
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
-                    if self._config.debug_mode:
-                        logger.info(
-                            "permit.check({}, {}, {}) = {}".format(
-                                normalized_user,
-                                action,
-                                self._resource_repr(normalized_resource),
-                                repr(decision),
-                            )
+                    logger.debug(
+                        "permit.check({}, {}, {}) = {}".format(
+                            normalized_user,
+                            action,
+                            self._resource_repr(normalized_resource),
+                            repr(decision),
                         )
+                    )
                     return decision
             except aiohttp.ClientError as err:
                 logger.error(

@@ -208,9 +208,9 @@ class UsersApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__users.post(
-            f"/{assignment.user}",
-            model=UserRead,
-            json=assignment.dict(exclude=("user",)),
+            f"/{assignment.user}/roles",
+            model=RoleAssignmentRead,
+            json=assignment.dict(exclude={"user"}),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -227,14 +227,18 @@ class UsersApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__users.delete(
-            f"/{unassignment.user}",
-            json=unassignment.dict(exclude=("user",)),
+            f"/{unassignment.user}/roles",
+            json=unassignment.dict(exclude={"user"}),
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
     async def get_assigned_roles(
-        self, user: str, tenant: Optional[str], page: int, per_page: int
+        self,
+        user: str,
+        tenant: Optional[str] = None,
+        page: int = 1,
+        per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
         """
         Retrieves the roles assigned to a user in a given tenant (if the tenant filter is provided)
