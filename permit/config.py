@@ -6,6 +6,9 @@ from .api.context import ApiContext
 
 
 class LoggerConfig(BaseModel):
+    enable: bool = Field(
+        False, description="Whether or not to enable logging from the Permit library"
+    )
     level: str = Field(
         "info", description="Sets the log level configured for the Permit SDK Logger."
     )

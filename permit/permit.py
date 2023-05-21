@@ -7,6 +7,7 @@ from .api.api_client import PermitApiClient
 from .api.elements import ElementsApi
 from .config import PermitConfig
 from .enforcement.enforcer import Action, Enforcer, Resource, User
+from .logger import configure_logger
 from .utils.context import Context
 
 
@@ -15,13 +16,13 @@ class Permit:
         self._config: PermitConfig = (
             config if config is not None else PermitConfig(**options)
         )
-        self._logger = logger.bind(name="permit.io")
 
+        configure_logger(self._config)
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
 
-        self._logger.debug(
+        logger.debug(
             "Permit SDK initialized with config:\n${}", json.dumps(self._config.dict())
         )
 

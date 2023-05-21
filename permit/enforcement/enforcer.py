@@ -25,7 +25,6 @@ Resource = Union[dict, str]
 class Enforcer:
     def __init__(self, config: PermitConfig):
         self._config = config
-        self._logger = logger.bind(name="permit.enforcer")
         self._context_store = ContextStore()
         self._headers = {
             "Content-Type": "application/json",
@@ -101,7 +100,7 @@ class Enforcer:
                 ) as response:
                     if response.status != 200:
                         error_json: dict = await response.json()
-                        self._logger.error(
+                        logger.error(
                             "error in permit.check({}, {}, {}):\n{}\n{}".format(
                                 normalized_user,
                                 action,
@@ -118,7 +117,7 @@ class Enforcer:
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
                     if self._config.debug_mode:
-                        self._logger.info(
+                        logger.info(
                             "permit.check({}, {}, {}) = {}".format(
                                 normalized_user,
                                 action,
@@ -128,7 +127,7 @@ class Enforcer:
                         )
                     return decision
             except aiohttp.ClientError as err:
-                self._logger.error(
+                logger.error(
                     "error in permit.check({}, {}, {}):\n{}".format(
                         normalized_user,
                         action,
