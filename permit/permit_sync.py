@@ -1,27 +1,9 @@
-from distutils.log import debug
-from typing import Dict, List
+from permit.utils.sync import SyncClass
 
-from permit.constants import DEFAULT_PDP_URL
-from permit.enforcement.enforcer import Action, Resource, User
-from permit.mutations.client import ReadOperation, WriteOperation
-from permit.resources.interfaces import ResourceConfig, ResourceTypes
-from permit.resources.reporter import ResourceStub
-from permit.utils.context import Context
-
-from .client import Permit as AsyncPermit
-from .utils.sync import run_sync
+from .permit import Permit as AsyncPermit
 
 
-class Permit(AsyncPermit):
-    def __init__(
-        self,
-        token: str,
-        pdp: str = DEFAULT_PDP_URL,
-        debug_mode: bool = False,
-        **options,
-    ):
-        super().__init__(token=token, pdp=pdp, debug_mode=debug_mode, **options)
-
+class Permit(AsyncPermit, metaclass=SyncClass):
     def check(
         self,
         user: User,
