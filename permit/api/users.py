@@ -17,8 +17,8 @@ from .models import (
 
 class UsersApi(BasePermitApi):
     @property
-    def __role_assignments(self) -> SimpleHttpClient:
-        self._build_http_client(
+    def __users(self) -> SimpleHttpClient:
+        return self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/users".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
@@ -27,7 +27,7 @@ class UsersApi(BasePermitApi):
 
     @property
     def __role_assignments(self) -> SimpleHttpClient:
-        self._build_http_client(
+        return self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/role_assignments".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,

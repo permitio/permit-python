@@ -10,7 +10,7 @@ from .models import PaginatedResultUserRead, TenantCreate, TenantRead, TenantUpd
 class TenantsApi(BasePermitApi):
     @property
     def __tenants(self) -> SimpleHttpClient:
-        self._build_http_client(
+        return self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/tenants".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,

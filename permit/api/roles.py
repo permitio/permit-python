@@ -20,7 +20,7 @@ class RolesApi(BasePermitApi):
 
     @property
     def __roles(self) -> SimpleHttpClient:
-        self._build_http_client(
+        return self._build_http_client(
             "/v2/schema/{proj_id}/{env_id}/roles".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
