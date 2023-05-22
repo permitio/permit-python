@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -45,7 +45,7 @@ class ElementsApi(BasePermitApi):
         self.__auth = self._build_http_client("/v2/auth")
 
     async def login_as(
-        self, user_id: str | UUID, tenant_id: str | UUID
+        self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]
     ) -> UserLoginAsResponse:
         if isinstance(user_id, UUID):
             user_id = user_id.hex
