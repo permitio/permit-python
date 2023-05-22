@@ -2,63 +2,61 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from permit.constants import DEFAULT_PDP_URL
+from .api.context import ApiContext
 
 
 class LoggerConfig(BaseModel):
-    level: str = Field("info", description="logging level")
-    label: str = Field("Permit.io", description="label added to logs")
+    enable: bool = Field(
+        False, description="Whether or not to enable logging from the Permit library"
+    )
+    level: str = Field(
+        "info", description="Sets the log level configured for the Permit SDK Logger."
+    )
+    label: str = Field(
+        "Permit",
+        description="Sets the label configured for logs emitted by the Permit SDK Logger.",
+    )
     log_as_json: bool = Field(
         False,
         alias="json",
-        description="When logging - dump full data to console as JSON",
+        description="Sets whether the SDK log output should be in JSON format.",
     )
-
-
-class AutoMappingConfig(BaseModel):
-    enable: bool = Field(
-        False,
-        description="Should the module automatically plugin to map frameworks on load",
-    )
-    ignored_url_prefixes: List[str] = Field(
-        [],
-        description="if auto mapping is on, ignore these prefixes when analyzing url paths",
-    )
-    review_mode: bool = Field(False, description="Print review and do nothing active")
 
 
 class MultiTenancyConfig(BaseModel):
     default_tenant: str = Field(
-        "default", description="the tenant key of the default tenant"
+        "default",
+        description="the key of the default tenant to be used if use_default_tenant_if_empty == True",
     )
     use_default_tenant_if_empty: bool = Field(
         True,
-        description="if resource tenant was not specified, should we assume the default tenant?",
+        description="whether or not the SDK should automatically associate a resource with the defaultTenant "
+        + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
     )
 
 
 class PermitConfig(BaseModel):
-    api_url: str = Field(
-        "https://api.permit.io", description="The url of Permit.io API"
-    )
     token: str = Field(
-        "", description="Your PDP token, used to authenticate to the PDP"
+        ...,
+        description="The token (API Key) used for authorization against the PDP and the Permit REST API.",
     )
-    pdp: str = Field(DEFAULT_PDP_URL, description="Your PDP url")
-    debug_mode: bool = Field(False, description="in debug mode we log more stuff")
-    log: LoggerConfig = Field(LoggerConfig())
-    auto_mapping: AutoMappingConfig = Field(AutoMappingConfig())
-    multi_tenancy: MultiTenancyConfig = Field(MultiTenancyConfig())
+    pdp: str = Field(
+        "http://localhost:7766",
+        description="Configures the Policy Decision Point (PDP) url.",
+    )
+    api_url: str = Field(
+        "https://api.permit.io", description="The url of Permit REST API"
+    )
+    log: LoggerConfig = Field(
+        LoggerConfig(), description="the logger configuration used by the SDK"
+    )
+    multi_tenancy: MultiTenancyConfig = Field(
+        MultiTenancyConfig(),
+        description="configuration of default tenant assignment for RBAC",
+    )
+    api_context: ApiContext = Field(
+        ApiContext(), description="represents the current API key authorization level."
+    )
 
-
-class ConfigFactory:
-    @staticmethod
-    def build(options: dict) -> PermitConfig:
-        config = PermitConfig(**options)
-        # if no log level was set manually but debug mode is set,
-        # we set the log level to debug/info respectively
-        log_level_option = options.get("log", {}).get("level", None)
-        if log_level_option is None:
-            config.log.level = "debug" if config.debug_mode else "info"
-
-        return config
+    class Config:
+        arbitrary_types_allowed = True

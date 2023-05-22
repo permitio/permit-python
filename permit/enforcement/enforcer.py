@@ -4,10 +4,11 @@ from typing import Union
 import aiohttp
 from loguru import logger
 
-from permit.config import PermitConfig
-from permit.enforcement.interfaces import ResourceInput, UserInput
-from permit.exceptions import PermitConnectionError
-from permit.utils.context import Context, ContextStore
+from ..config import PermitConfig
+from ..exceptions import PermitConnectionError
+from ..utils.context import Context, ContextStore
+from ..utils.sync import SyncClass
+from .interfaces import ResourceInput, UserInput
 
 
 def set_if_not_none(d: dict, k: str, v):
@@ -25,7 +26,6 @@ Resource = Union[dict, str]
 class Enforcer:
     def __init__(self, config: PermitConfig):
         self._config = config
-        self._logger = logger.bind(name="permit.enforcer")
         self._context_store = ContextStore()
         self._headers = {
             "Content-Type": "application/json",
@@ -49,23 +49,31 @@ class Enforcer:
         context: Context = {},
     ) -> bool:
         """
-        usage:
+        Checks if a user is authorized to perform an action on a resource within the specified context.
 
-        user is a unique string identifying the user on the application end.
-        usually it is the `sub` claim (subject claim) present inside a JWT token.
+        Args:
+            user: The user object representing the user.
+            action: The action to be performed on the resource.
+            resource: The resource object representing the resource.
+            context: The context object representing the context in which the action is performed. Defaults to None.
 
-        it can also be dictionary of type UserInput, in case you want to pass
-        more context about the user (user attributes, etc).
+        Returns:
+            bool: True if the user is authorized, False otherwise.
 
-        # can the user close any issue?
-        await permit.check(user, 'close', 'issue')
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
-        # can the user close any issue who's id is 1234?
-        await permit.check(user, 'close', 'issue:1234')
+        Examples:
 
-        # can the user close (any) issues belonging to the 't1' tenant?
-        # (in a multi tenant application)
-        await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            # can the user close any issue?
+            await permit.check(user, 'close', 'issue')
+
+            # can the user close any issue who's id is 1234?
+            await permit.check(user, 'close', 'issue:1234')
+
+            # can the user close (any) issues belonging to the 't1' tenant?
+            # (in a multi tenant application)
+            await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
         normalized_user: UserInput = (
             UserInput(key=user) if isinstance(user, str) else UserInput(**user)
@@ -93,7 +101,7 @@ class Enforcer:
                 ) as response:
                     if response.status != 200:
                         error_json: dict = await response.json()
-                        self._logger.error(
+                        logger.error(
                             "error in permit.check({}, {}, {}):\n{}\n{}".format(
                                 normalized_user,
                                 action,
@@ -109,18 +117,17 @@ class Enforcer:
 
                     content: dict = await response.json()
                     decision: bool = bool(content.get("allow", False))
-                    if self._config.debug_mode:
-                        self._logger.info(
-                            "permit.check({}, {}, {}) = {}".format(
-                                normalized_user,
-                                action,
-                                self._resource_repr(normalized_resource),
-                                repr(decision),
-                            )
+                    logger.debug(
+                        "permit.check({}, {}, {}) = {}".format(
+                            normalized_user,
+                            action,
+                            self._resource_repr(normalized_resource),
+                            repr(decision),
                         )
+                    )
                     return decision
             except aiohttp.ClientError as err:
-                self._logger.error(
+                logger.error(
                     "error in permit.check({}, {}, {}):\n{}".format(
                         normalized_user,
                         action,
@@ -169,3 +176,7 @@ class Enforcer:
         if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
         return ResourceInput(type=parts[0], id=(parts[1] if len(parts) > 1 else None))
+
+
+class SyncEnforcer(Enforcer, metaclass=SyncClass):
+    pass

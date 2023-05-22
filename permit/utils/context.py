@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, List
 
-from permit.utils.dicts import deep_merge
+from .dicts import deep_merge
 
 Context = Dict[str, Any]
 ContextTransform = Callable[[Context], Context]
