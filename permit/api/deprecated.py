@@ -182,6 +182,6 @@ class DeprecatedApi(BasePermitApi):
 
     @deprecated("use permit.elements.login_as() instead")
     async def elements_login_as(
-        self, user_id: str | UUID, tenant_id: str | UUID
+        self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]
     ) -> EmbeddedLoginRequestOutput:
         return await self.__elements.login_as(user_id=user_id, tenant_id=tenant_id)

@@ -38,7 +38,7 @@ class PermitApiError(Exception):
         self,
         message: str,
         response: aiohttp.ClientResponse,
-        response_json: dict | None = None,
+        response_json: Optional[dict] = None,
     ):
         super().__init__(message)
         self._response = response
@@ -55,7 +55,7 @@ class PermitApiError(Exception):
         return self._response
 
     @property
-    def details(self) -> dict | None:
+    def details(self) -> Optional[dict]:
         """
         Get the HTTP response JSON body. Contains details about the error.
 

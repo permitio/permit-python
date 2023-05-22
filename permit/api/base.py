@@ -1,5 +1,5 @@
 import functools
-from typing import Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar, Union
 
 import aiohttp
 from loguru import logger
@@ -71,7 +71,7 @@ class SimpleHttpClient:
         )
 
     def _prepare_json(
-        self, json: Optional[TData | dict | list] = None
+        self, json: Optional[Union[TData, dict, list]] = None
     ) -> Optional[dict]:
         if json is None:
             return None
@@ -100,7 +100,7 @@ class SimpleHttpClient:
         self,
         url,
         model: Type[TModel],
-        json: Optional[TData | dict | list] = None,
+        json: Optional[Union[TData, dict, list]] = None,
         **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
@@ -119,7 +119,7 @@ class SimpleHttpClient:
         self,
         url,
         model: Type[TModel],
-        json: Optional[TData | dict | list] = None,
+        json: Optional[Union[TData, dict, list]] = None,
         **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
@@ -138,7 +138,7 @@ class SimpleHttpClient:
         self,
         url,
         model: Type[TModel],
-        json: Optional[TData | dict | list] = None,
+        json: Optional[Union[TData, dict, list]] = None,
         **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
@@ -156,10 +156,10 @@ class SimpleHttpClient:
     async def delete(
         self,
         url,
-        model: Type[TModel] | None = None,
-        json: Optional[TData | dict | list] = None,
+        model: Optional[Type[TModel]] = None,
+        json: Optional[Union[TData, dict, list]] = None,
         **kwargs,
-    ) -> TModel | None:
+    ) -> Optional[TModel]:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "DELETE")

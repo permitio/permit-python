@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import validate_arguments
 
@@ -152,7 +152,7 @@ class UsersApi(BasePermitApi):
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
-    async def sync(self, user: UserCreate | dict) -> UserRead:
+    async def sync(self, user: Union[UserCreate, dict]) -> UserRead:
         """
         Synchronizes user data by creating or updating a user.
 

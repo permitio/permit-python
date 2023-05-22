@@ -10,12 +10,12 @@ def get_requirements(env=""):
 
 setup(
     name="permit",
-    version="2.0.0",
+    version="2.0.1",
     packages=find_packages(),
     author="Asaf Cohen",
     author_email="asaf@permit.io",
     license="Apache 2.0",
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     description="Permit.io python sdk",
     install_requires=get_requirements(),
     classifiers=[
