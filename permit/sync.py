@@ -10,8 +10,7 @@ from .utils.context import Context
 
 class Permit(AsyncPermit):
     def __init__(self, config: Optional[PermitConfig] = None, **options):
-        super().__init__(self, config, **options)
-
+        super().__init__(config, **options)
         self._enforcer = SyncEnforcer(self._config)
         self._api = SyncPermitApiClient(self._config)
         self._elements = SyncElementsApi(self._config)

@@ -3,10 +3,11 @@ import os
 import pytest
 
 from permit import Permit, PermitConfig
+from permit.sync import Permit as SyncPermit
 
 
 @pytest.fixture
-def permit() -> Permit:
+def permit_config() -> PermitConfig:
     default_pdp_address = (
         "https://cloudpdp.api.permit.io"
         if os.getenv("CLOUD_PDP") == "true"
@@ -25,7 +26,7 @@ def permit() -> Permit:
     if not token:
         pytest.fail("PDP_API_KEY is not configured, test cannot run!")
 
-    config = PermitConfig(
+    return PermitConfig(
         **{
             "token": token,
             "pdp": pdp_address,
@@ -37,4 +38,12 @@ def permit() -> Permit:
         }
     )
 
-    return Permit(config)
+
+@pytest.fixture
+def permit(permit_config: PermitConfig) -> Permit:
+    return Permit(permit_config)
+
+
+@pytest.fixture
+def sync_permit(permit_config: PermitConfig) -> SyncPermit:
+    return SyncPermit(permit_config)

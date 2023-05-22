@@ -46,3 +46,5 @@ class SyncClass(type):
             if callable(attr) and iscoroutine_func(attr):
                 # monkey-patch public method using async_to_sync decorator
                 setattr(class_obj, name, async_to_sync(attr))
+
+        return class_obj
