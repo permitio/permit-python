@@ -15,7 +15,7 @@ setup(
     author="Asaf Cohen",
     author_email="asaf@permit.io",
     license="Apache 2.0",
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     description="Permit.io python sdk",
     install_requires=get_requirements(),
     classifiers=[
