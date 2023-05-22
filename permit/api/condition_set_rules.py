@@ -45,15 +45,17 @@ class ConditionSetRulesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        params = pagination_params(page, per_page)
+        if user_set_key is not None:
+            params.update(dict(user_set=user_set_key))
+        if permission_key is not None:
+            params.update(dict(permission=permission_key))
+        if resource_set_key is not None:
+            params.update(dict(resource_set=resource_set_key))
         return await self.__condition_set_rules.get(
             "",
             model=List[ConditionSetRuleRead],
-            params=dict(
-                user_set=user_set_key,
-                permission=permission_key,
-                resource_set=resource_set_key,
-                **pagination_params(page, per_page)
-            ),
+            params=params,
         )
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
