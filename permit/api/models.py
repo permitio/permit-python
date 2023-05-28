@@ -3745,6 +3745,7 @@ class UserInTenant(BaseModel):
 class UserRead(BaseModel):
     class Config:
         extra = Extra.allow
+        allow_population_by_field_name = True
 
     key: str = Field(
         ...,
@@ -3756,16 +3757,19 @@ class UserRead(BaseModel):
         ...,
         description="Unique id of the organization that the user belongs to.",
         title="Organization Id",
+        alias="org_id",
     )
     project_id: UUID = Field(
         ...,
         description="Unique id of the project that the user belongs to.",
         title="Project Id",
+        alias="proj_id",
     )
     environment_id: UUID = Field(
         ...,
         description="Unique id of the environment that the user belongs to.",
         title="Environment Id",
+        alias="env_id",
     )
     associated_tenants: Optional[List[UserInTenant]] = Field(
         [], title="Associated Tenants"
