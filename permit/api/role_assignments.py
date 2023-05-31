@@ -29,8 +29,9 @@ class RoleAssignmentsApi(BasePermitApi):
     async def list(
         self,
         user_key: Optional[str] = None,
-        tenant_key: Optional[str] = None,
         role_key: Optional[str] = None,
+        tenant_key: Optional[str] = None,
+        resource_instance_key: Optional[str] = None,
         page: int = 1,
         per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
@@ -39,8 +40,9 @@ class RoleAssignmentsApi(BasePermitApi):
 
         Args:
             user_key: if specified, only role granted to this user will be fetched.
-            tenant_key: if specified, only role granted within this tenant will be fetched.
             role_key: if specified, only assignments of this role will be fetched.
+            tenant_key: (for roles) if specified, only role granted within this tenant will be fetched.
+            resource_instance_key: (for resource roles) if specified, only roles granted with this instance as the object will be fetched.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
@@ -54,10 +56,12 @@ class RoleAssignmentsApi(BasePermitApi):
         params = pagination_params(page, per_page)
         if user_key is not None:
             params.update(dict(user=user_key))
-        if tenant_key is not None:
-            params.update(dict(tenant=tenant_key))
         if role_key is not None:
             params.update(dict(role=role_key))
+        if tenant_key is not None:
+            params.update(dict(tenant=tenant_key))
+        if resource_instance_key is not None:
+            params.update(dict(resource_instance=resource_instance_key))
         return await self.__role_assignments.get(
             "",
             model=List[RoleAssignmentRead],
