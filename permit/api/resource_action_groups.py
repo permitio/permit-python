@@ -4,7 +4,11 @@ from pydantic import validate_arguments
 
 from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
 from .context import ApiKeyLevel
-from .models import ResourceActionGroupCreate, ResourceActionGroupRead
+from .models import (
+    ResourceActionGroupCreate,
+    ResourceActionGroupRead,
+    ResourceActionGroupUpdate,
+)
 
 
 class ResourceActionGroupsApi(BasePermitApi):
@@ -130,6 +134,32 @@ class ResourceActionGroupsApi(BasePermitApi):
         """
         return await self.__action_groups.post(
             f"/{resource_key}/action_groups",
+            model=ResourceActionGroupRead,
+            json=group_data,
+        )
+
+    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
+    async def update(
+        self, resource_key: str, group_key: str, group_data: ResourceActionGroupUpdate
+    ) -> ResourceActionGroupRead:
+        """
+        Updates an action group.
+
+        Args:
+            resource_key: The key of the resource the action group belongs to.
+            group_key: The key of the action group.
+            group_data: The updated data for the action group.
+
+        Returns:
+            the updated action group.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__action_groups.patch(
+            f"/{resource_key}/action_groups/{group_key}",
             model=ResourceActionGroupRead,
             json=group_data,
         )
