@@ -6,6 +6,10 @@ from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_pa
 from .context import ApiKeyLevel
 from .models import (
     AddRolePermissions,
+    DerivedRoleRuleCreate,
+    DerivedRoleRuleDelete,
+    DerivedRoleRuleRead,
+    PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
     RemoveRolePermissions,
     ResourceRoleCreate,
     ResourceRoleRead,
@@ -227,4 +231,80 @@ class ResourceRolesApi(BasePermitApi):
             f"/{resource_key}/roles/{role_key}/permissions",
             model=ResourceRoleRead,
             json=RemoveRolePermissions(permissions=permissions),
+        )
+
+    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
+    async def create_role_derivation(
+        self, resource_key: str, role_key: str, derivation_rule: DerivedRoleRuleCreate
+    ) -> DerivedRoleRuleRead:
+        """
+        Create a conditional derivation from another role.
+
+        The derivation states that users with some other role on a related object will implicitly also be granted this role.
+
+        Args:
+            resource_key: The key of the resource the role belongs to.
+            role_key: The key of the role.
+            derivation_rule: A rule when to derived this role from another related role.
+
+        Returns:
+            A DerivedRoleRuleRead object representing the newly created role derivation.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__resource_roles.post(
+            f"/{resource_key}/roles/{role_key}/implicit_grants",
+            model=DerivedRoleRuleRead,
+            json=derivation_rule,
+        )
+
+    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
+    async def delete_role_derivation(
+        self, resource_key: str, role_key: str, derivation_rule: DerivedRoleRuleDelete
+    ) -> None:
+        """
+        Delete a role derivation.
+
+        Args:
+            resource_key: The key of the resource the role belongs to.
+            role_key: The key of the role.
+            derivation_rule: The details of the derivation rule to delete.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__resource_roles.delete(
+            f"/{resource_key}/roles/{role_key}/implicit_grants",
+            json=derivation_rule,
+        )
+
+    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @validate_arguments
+    async def update_role_derivation_conditions(
+        self,
+        resource_key: str,
+        role_key: str,
+        conditions: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
+    ) -> PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings:
+        """
+        Update the optional (ABAC) conditions when to derive this role from other roles.
+
+        Args:
+            resource_key: The key of the resource the role belongs to.
+            role_key: The key of the role.
+            conditions: The conditions object.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__resource_roles.put(
+            f"/{resource_key}/roles/{role_key}/implicit_grants/conditions",
+            model=DerivedRoleRuleRead,
+            json=conditions,
         )
