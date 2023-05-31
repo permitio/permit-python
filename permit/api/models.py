@@ -575,6 +575,68 @@ class ElementsPermissionLevel(str, Enum):
     UNCONFIGURED = "UNCONFIGURED"
 
 
+class PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    no_direct_roles_on_object: Optional[bool] = Field(
+        False,
+        description="If true, the derived role will not take action if the resource has any direct role",
+        title="No Direct Roles On Object",
+    )
+
+
+class PermitBackendSchemasSchemaOpalDataDerivedRoleSettings(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    superseded_by_direct_role: Optional[bool] = Field(
+        False, title="Superseded By Direct Role"
+    )
+
+
+class DerivedRole(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    conditions: Optional[str] = Field(None, title="Conditions")
+    settings: PermitBackendSchemasSchemaOpalDataDerivedRoleSettings
+    rules: List[DerivedRoleRule] = Field(..., title="Rules")
+
+
+class DerivedRoleBlockEdit(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    when: Optional[PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings] = Field(
+        default_factory=lambda: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings.parse_obj(
+            {"no_direct_roles_on_object": False}
+        ),
+        description="the settings of the derived role",
+        title="When",
+    )
+    users_with_role: Optional[List[DerivedRoleRuleCreate]] = Field(
+        [], description="the rules of the derived role", title="Users With Role"
+    )
+
+
+class DerivedRoleBlockRead(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    when: Optional[PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings] = Field(
+        default_factory=lambda: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings.parse_obj(
+            {"no_direct_roles_on_object": False}
+        ),
+        description="the settings of the derived role",
+        title="When",
+    )
+    id: UUID = Field(..., description="The unique id of the derived_role", title="Id")
+    users_with_role: Optional[List[DerivedRoleRuleRead]] = Field(
+        [], description="the rules of the derived role", title="Users With Role"
+    )
+
+
 class ElementsRoleRead(BaseModel):
     class Config:
         extra = Extra.allow
@@ -2885,26 +2947,6 @@ class PermitBackendOpalApiDataDataSourceConfig(BaseModel):
     )
 
 
-class PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    no_direct_roles_on_object: Optional[bool] = Field(
-        False,
-        description="If true, the derived role will not take action if the resource has any direct role",
-        title="No Direct Roles On Object",
-    )
-
-
-class PermitBackendSchemasSchemaOpalDataDerivedRoleSettings(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    superseded_by_direct_role: Optional[bool] = Field(
-        False, title="Superseded By Direct Role"
-    )
-
-
 class APIKeyCreate(BaseModel):
     class Config:
         extra = Extra.allow
@@ -3119,48 +3161,6 @@ class DataUpdateReport(BaseModel):
     update_id: Optional[str] = Field(None, title="Update Id")
     reports: List[DataEntryReport] = Field(..., title="Reports")
     policy_hash: Optional[str] = Field(None, title="Policy Hash")
-
-
-class DerivedRole(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    conditions: Optional[str] = Field(None, title="Conditions")
-    settings: PermitBackendSchemasSchemaOpalDataDerivedRoleSettings
-    rules: List[DerivedRoleRule] = Field(..., title="Rules")
-
-
-class DerivedRoleBlockEdit(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    when: Optional[PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings] = Field(
-        default_factory=lambda: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings.parse_obj(
-            {"no_direct_roles_on_object": False}
-        ),
-        description="the settings of the derived role",
-        title="When",
-    )
-    users_with_role: Optional[List[DerivedRoleRuleCreate]] = Field(
-        [], description="the rules of the derived role", title="Users With Role"
-    )
-
-
-class DerivedRoleBlockRead(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    when: Optional[PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings] = Field(
-        default_factory=lambda: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings.parse_obj(
-            {"no_direct_roles_on_object": False}
-        ),
-        description="the settings of the derived role",
-        title="When",
-    )
-    id: UUID = Field(..., description="The unique id of the derived_role", title="Id")
-    users_with_role: Optional[List[DerivedRoleRuleRead]] = Field(
-        [], description="the rules of the derived role", title="Users With Role"
-    )
 
 
 class DummyEngineModel(BaseModel):
