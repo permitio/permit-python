@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List
 
 import pytest
 from loguru import logger
@@ -17,27 +18,51 @@ from permit.api.models import (
 from permit.exceptions import PermitApiError
 from tests.utils import handle_api_error
 
-USER_A = UserCreate(
-    **dict(
-        key="asaf@permit.io",
-        email="asaf@permit.io",
-        first_name="Asaf",
-        last_name="Cohen",
-        attributes={"age": 35},
-    )
-)
-USER_B = UserCreate(
-    **dict(
-        key="auth0|john",
-        email="john@permit.io",
-        first_name="John",
-        last_name="Doe",
-        attributes={"age": 27},
-    )
-)
 
-TENANT_1 = TenantCreate(key="ten1", name="Tenant 1")
-TENANT_2 = TenantCreate(key="ten2", name="Tenant 2")
+@dataclass
+class ShortDerivation:
+    source_role: str
+    derived_role: str
+    via_relation: str
+
+    @property
+    def source_role_key(self) -> str:
+        return self.source_role.split("#")[1]
+
+    @property
+    def source_resource_key(self) -> str:
+        return self.source_role.split("#")[0]
+
+    @property
+    def derived_role_key(self) -> str:
+        return self.derived_role.split("#")[1]
+
+    @property
+    def object_key(self) -> str:
+        return self.derived_role.split("#")[0]
+
+
+@dataclass
+class CheckAssertion:
+    user: str
+    action: str
+    resource: dict
+    expected_decision: bool
+
+
+@dataclass
+class PermissionAssertions:
+    assignments: List[RoleAssignmentCreate]
+    assertions: List[CheckAssertion]
+
+
+# Graph Schema ----------------------------------------------------------------
+# role keys
+VIEWER = "viewer"
+COMMENTER = "commenter"
+EDITOR = "editor"
+ADMIN = "admin"
+MEMBER = "member"
 
 ACCOUNT = ResourceCreate(
     key="Account",
@@ -54,7 +79,7 @@ ACCOUNT = ResourceCreate(
     },
     # tests creation of resource roles as part of the resource
     roles={
-        "admin": {
+        ADMIN: {
             "name": "Admin",
             "permissions": [
                 "create",
@@ -65,7 +90,7 @@ ACCOUNT = ResourceCreate(
                 "create-document",
             ],
         },
-        "member": {
+        MEMBER: {
             "name": "Member",
             "permissions": [
                 "view-members",
@@ -106,33 +131,29 @@ DOCUMENT = ResourceCreate(
     },
 )
 
-CREATED_USERS = [USER_A, USER_B]
-CREATED_TENANTS = [TENANT_1, TENANT_2]
-CREATED_RESOURCES = [ACCOUNT, FOLDER, DOCUMENT]
-
 RESOURCE_ROLES = {
     FOLDER.key: [
-        ResourceRoleCreate(key="viewer", name="Viewer", permissions=[f"read"]),
+        ResourceRoleCreate(key=VIEWER, name="Viewer", permissions=["read"]),
         ResourceRoleCreate(
-            key="commenter",
+            key=COMMENTER,
             name="Commenter",
-            permissions=[f"read"],
+            permissions=["read"],
         ),
         ResourceRoleCreate(
-            key="editor",
+            key=EDITOR,
             name="Editor",
             permissions=[
-                f"read",
-                f"rename",
-                f"delete",
-                f"create-document",
+                "read",
+                "rename",
+                "delete",
+                "create-document",
             ],
             # tests creation of role derivation as part of the resource role
             # (account admin is editor on everything)
             granted_to=DerivedRoleBlockEdit(
                 users_with_role=[
                     DerivedRoleRuleCreate(
-                        role="admin",
+                        role=ADMIN,
                         on_resource="Account",
                         linked_by_relation="account",
                     )
@@ -141,20 +162,20 @@ RESOURCE_ROLES = {
         ),
     ],
     DOCUMENT.key: [
-        ResourceRoleCreate(key="viewer", name="Viewer", permissions=[f"read"]),
+        ResourceRoleCreate(key=VIEWER, name="Viewer", permissions=["read"]),
         ResourceRoleCreate(
-            key="commenter",
+            key=COMMENTER,
             name="Commenter",
-            permissions=[f"read", f"comment"],
+            permissions=["read", "comment"],
         ),
         ResourceRoleCreate(
-            key="editor",
+            key=EDITOR,
             name="Editor",
             permissions=[
-                f"read",
-                f"comment",
-                f"update",
-                f"delete",
+                "read",
+                "comment",
+                "update",
+                "delete",
             ],
         ),
     ],
@@ -170,29 +191,7 @@ RESOURCE_RELATIONS = {
     ],
 }
 
-
-@dataclass
-class ShortDerivation:
-    source_role: str
-    derived_role: str
-    via_relation: str
-
-    @property
-    def source_role_key(self) -> str:
-        return self.source_role.split("#")[1]
-
-    @property
-    def source_resource_key(self) -> str:
-        return self.source_role.split("#")[0]
-
-    @property
-    def derived_role_key(self) -> str:
-        return self.derived_role.split("#")[1]
-
-    @property
-    def object_key(self) -> str:
-        return self.derived_role.split("#")[0]
-
+CREATED_RESOURCES = [ACCOUNT, FOLDER, DOCUMENT]
 
 ROLE_DERIVATIONS = [
     *[
@@ -208,6 +207,208 @@ ROLE_DERIVATIONS = [
             "editor",
         ]
     ],
+]
+
+# Data ------------------------------------------------------------------------
+USER_PERMIT = UserCreate(
+    **dict(
+        key="asaf@permit.io",
+        email="asaf@permit.io",
+        first_name="Asaf",
+        last_name="Cohen",
+        attributes={"age": 35},
+    )
+)
+USER_CC = UserCreate(
+    **dict(
+        key="auth0|john",
+        email="john@cocacola.com",
+        first_name="John",
+        last_name="Doe",
+        attributes={"age": 27},
+    )
+)
+
+CREATED_USERS = [USER_PERMIT, USER_CC]
+
+TENANT_PERMIT = TenantCreate(key="permit", name="Permit.io")
+TENANT_CC = TenantCreate(key="cocacola", name="Coca Cola")
+
+CREATED_TENANTS = [TENANT_PERMIT, TENANT_CC]
+
+# Document -> parent -> Folder -> account -> Account
+RELATIONSHIPS = [
+    # finance folder contains 2 documents
+    (f"{FOLDER.key}:finance", "parent", f"{DOCUMENT.key}:budget23", TENANT_PERMIT.key),
+    (
+        f"{FOLDER.key}:finance",
+        "parent",
+        f"{DOCUMENT.key}:june-expenses",
+        TENANT_PERMIT.key,
+    ),
+    # rnd folder contains 2 documents
+    (f"{FOLDER.key}:rnd", "parent", f"{DOCUMENT.key}:architecture", TENANT_PERMIT.key),
+    (f"{FOLDER.key}:rnd", "parent", f"{DOCUMENT.key}:opal", TENANT_PERMIT.key),
+    # folders belongs in permit g-drive account
+    (f"{ACCOUNT.key}:permitio", "account", f"{FOLDER.key}:finance", TENANT_PERMIT.key),
+    (f"{ACCOUNT.key}:permitio", "account", f"{FOLDER.key}:rnd", TENANT_PERMIT.key),
+    # another account->folder->doc belongs to another tenant
+    (f"{FOLDER.key}:recipes", "parent", f"{DOCUMENT.key}:secret-recipe", TENANT_CC.key),
+    (f"{ACCOUNT.key}:cocacola", "account", f"{FOLDER.key}:recipes", TENANT_CC.key),
+]
+
+
+ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
+    # direct access
+    PermissionAssertions(
+        assignments=[
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=VIEWER,
+                resource_instance=f"{DOCUMENT.key}:architecture",
+                tenant=TENANT_PERMIT.key,
+            )
+        ],
+        assertions=[
+            # direct access allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {
+                    "type": DOCUMENT.key,
+                    "key": "architecture",
+                    "tenant": TENANT_PERMIT.key,
+                },
+                True,
+            ),
+            # higher permissions not allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "comment",
+                {
+                    "type": DOCUMENT.key,
+                    "key": "architecture",
+                    "tenant": TENANT_PERMIT.key,
+                },
+                False,
+            ),
+            # other instances not allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "comment",
+                {"type": DOCUMENT.key, "key": "opal", "tenant": TENANT_PERMIT.key},
+                False,
+            ),
+        ],
+    ),
+    # access from higher level
+    PermissionAssertions(
+        assignments=[
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=COMMENTER,
+                resource_instance=f"{FOLDER.key}:rnd",
+                tenant=TENANT_PERMIT.key,
+            )
+        ],
+        assertions=[
+            # direct access allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
+                True,
+            ),
+            # access to child resources allowed
+            *[
+                CheckAssertion(
+                    USER_PERMIT.key,
+                    action,
+                    {
+                        "type": DOCUMENT.key,
+                        "key": instance,
+                        "tenant": TENANT_PERMIT.key,
+                    },
+                    True,
+                )
+                for action in ["read", "comment"]
+                for instance in ["architecture", "opal"]
+            ],
+            # higher permissions not allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "update",
+                {
+                    "type": DOCUMENT.key,
+                    "key": "architecture",
+                    "tenant": TENANT_PERMIT.key,
+                },
+                False,
+            ),
+            # access to other resources not allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {"type": DOCUMENT.key, "key": "budget23", "tenant": TENANT_PERMIT.key},
+                False,
+            ),
+        ],
+    ),
+    # access from highest level (account)
+    PermissionAssertions(
+        assignments=[
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=ADMIN,
+                resource_instance=f"{ACCOUNT.key}:permitio",
+                tenant=TENANT_PERMIT.key,
+            ),
+            RoleAssignmentCreate(
+                user=USER_CC.key,
+                role=MEMBER,
+                resource_instance=f"{ACCOUNT.key}:cocacola",
+                tenant=TENANT_CC.key,
+            ),
+        ],
+        assertions=[
+            # direct access allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "invite-user",
+                {"type": ACCOUNT.key, "key": "permitio", "tenant": TENANT_PERMIT.key},
+                True,
+            ),
+            # access to child resources allowed
+            *[
+                CheckAssertion(
+                    USER_PERMIT.key,
+                    action,
+                    {
+                        "type": DOCUMENT.key,
+                        "key": instance,
+                        "tenant": TENANT_PERMIT.key,
+                    },
+                    True,
+                )
+                for action in ["read", "comment", "update", "delete"]
+                for instance in ["architecture", "opal", "budget23", "june-expenses"]
+            ],
+            # access to other tenants not allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {"type": DOCUMENT.key, "key": "secret-recipe", "tenant": TENANT_CC.key},
+                False,
+            ),
+            # but access is allowed to user with lower permissions in the right tenant
+            CheckAssertion(
+                USER_CC.key,
+                "read",
+                {"type": DOCUMENT.key, "key": "secret-recipe", "tenant": TENANT_CC.key},
+                True,
+            ),
+        ],
+    ),
 ]
 
 
@@ -240,7 +441,7 @@ async def cleanup(permit: Permit):
     print("Cleanup finished.")
 
 
-async def test_users_tenants(permit: Permit):
+async def test_rebac_policy(permit: Permit):
     logger.info("initial setup of objects")
     await cleanup(permit)
     try:
