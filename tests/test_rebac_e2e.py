@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from typing import List
 
@@ -9,9 +10,12 @@ from permit.api.models import (
     DerivedRoleBlockEdit,
     DerivedRoleRuleCreate,
     RelationCreate,
+    RelationshipTupleCreate,
+    RelationshipTupleDelete,
     ResourceCreate,
     ResourceRoleCreate,
     RoleAssignmentCreate,
+    RoleAssignmentRemove,
     TenantCreate,
     UserCreate,
 )
@@ -420,19 +424,48 @@ async def cleanup(permit: Permit):
                 await permit.api.users.delete(user.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(f"SKIPPING delete, user does not exists: {user.key}")
+                    print(f"SKIPPING delete, user does not exist: {user.key}")
         for tenant in CREATED_TENANTS:
             try:
                 await permit.api.tenants.delete(tenant.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(f"SKIPPING delete, tenant does not exists: {tenant.key}")
+                    print(f"SKIPPING delete, tenant does not exist: {tenant.key}")
+        for rel_tuple in RELATIONSHIPS:
+            subject, relation, object, tenant = rel_tuple
+            try:
+                await permit.api.relationship_tuples.delete(
+                    RelationshipTupleDelete(
+                        subject=subject, relation=relation, object=object
+                    )
+                )
+            except PermitApiError as error:
+                if error.status_code == 404:
+                    print(
+                        f"SKIPPING delete, rel tuple does not exist: ({subject}, {relation}, {object}, {tenant})"
+                    )
+        for assertion in ASSIGNMENTS_AND_ASSERTIONS:
+            for assignment in assertion.assignments:
+                try:
+                    await permit.api.role_assignments.unassign(
+                        RoleAssignmentRemove(
+                            user=assignment.user,
+                            role=assignment.role,
+                            resource_instance=assignment.resource_instance,
+                            tenant=assignment.tenant,
+                        )
+                    )
+                except PermitApiError as error:
+                    if error.status_code == 404:
+                        print(
+                            f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, {assignment.resource_instance}, {assignment.tenant})"
+                        )
         for resource in CREATED_RESOURCES:
             try:
                 await permit.api.resources.delete(resource.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(f"SKIPPING delete, resource does not exists: {resource.key}")
+                    print(f"SKIPPING delete, resource does not exist: {resource.key}")
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
     except Exception as error:
@@ -441,29 +474,19 @@ async def cleanup(permit: Permit):
     print("Cleanup finished.")
 
 
+async def assert_permit_check(permit: Permit, q: CheckAssertion):
+    logger.info(
+        f"asserting: permit.check({q.user}, {q.action}, {str(q.resource)}) === {str(q.expected_decision)}"
+    )
+    decision = await permit.check(q.user, q.action, q.resource)
+    assert q.expected_decision == decision
+
+
 async def test_rebac_policy(permit: Permit):
     logger.info("initial setup of objects")
     await cleanup(permit)
     try:
-        # create tenants
-        for tenant_data in CREATED_TENANTS:
-            print(f"creating tenant: {tenant_data.key}")
-            tenant = await permit.api.tenants.create(tenant_data)
-            assert tenant is not None
-            assert tenant.key == tenant_data.key
-            assert tenant.name == tenant_data.name
-            assert tenant.description is None
-
-        # create users
-        for user_data in CREATED_USERS:
-            print(f"creating user: {user_data.key}")
-            user = await permit.api.users.create(user_data)
-            assert user is not None
-            assert user.key == user_data.key
-            assert user.email == user_data.email
-            assert user.first_name == user_data.first_name
-            assert user.last_name == user_data.last_name
-            assert set(user.attributes.keys()) == set(user_data.attributes.keys())
+        # schema --------------------------------------------------------------
 
         # create resources
         for resource_data in CREATED_RESOURCES:
@@ -526,92 +549,63 @@ async def test_rebac_policy(permit: Permit):
             assert derivation.on_resource == derivation_data.source_resource_key
             assert derivation.linked_by_relation == derivation_data.via_relation
 
-        # bulk role assignments
-        # await permit.api.role_assignments.bulk_assign(
-        #     [
-        #         RoleAssignmentCreate(
-        #             user=USER_A.key, role=ADMIN.key, tenant=TENANT_1.key
-        #         ),
-        #         RoleAssignmentCreate(
-        #             user=USER_B.key, role=VIEWER.key, tenant=TENANT_1.key
-        #         ),
-        #     ]
-        # )
+        # data ----------------------------------------------------------------
 
-        # # get tenant users
-        # users1 = await permit.api.tenants.list_tenant_users(TENANT_1.key)
-        # assert len(users1.data) == 2
-        # users2 = await permit.api.tenants.list_tenant_users(TENANT_2.key)
-        # assert len(users2.data) == 0
+        # create tenants
+        for tenant_data in CREATED_TENANTS:
+            print(f"creating tenant: {tenant_data.key}")
+            tenant = await permit.api.tenants.create(tenant_data)
+            assert tenant is not None
+            assert tenant.key == tenant_data.key
+            assert tenant.name == tenant_data.name
+            assert tenant.description is None
 
-        # # get assigned roles of user A
-        # roles_a1 = await permit.api.users.get_assigned_roles(
-        #     USER_A.key, tenant=TENANT_1.key
-        # )
-        # assert len(roles_a1) == 1
-        # assert roles_a1[0].user == USER_A.key
-        # assert roles_a1[0].role == ADMIN.key
-        # assert roles_a1[0].tenant == TENANT_1.key
-        # roles_a2 = await permit.api.users.get_assigned_roles(
-        #     USER_A.key, tenant=TENANT_2.key
-        # )
-        # assert len(roles_a2) == 0
+        # create users
+        for user_data in CREATED_USERS:
+            print(f"creating user: {user_data.key}")
+            user = await permit.api.users.create(user_data)
+            assert user is not None
+            assert user.key == user_data.key
+            assert user.email == user_data.email
+            assert user.first_name == user_data.first_name
+            assert user.last_name == user_data.last_name
+            assert set(user.attributes.keys()) == set(user_data.attributes.keys())
 
-        # # assign role
-        # ra = await permit.api.users.assign_role(
-        #     RoleAssignmentCreate(user=USER_C.key, role=ADMIN.key, tenant=TENANT_2.key)
-        # )
-        # assert ra.user == USER_C.key or ra.user == USER_C.email  # TODO: fix bug in api
-        # assert ra.role == ADMIN.key
-        # assert ra.tenant == TENANT_2.key
+        # relationship tuples
+        for tuple_data in RELATIONSHIPS:
+            subject, relation, object, tenant = tuple_data
+            print(
+                f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})"
+            )
+            rel_tuple = await permit.api.relationship_tuples.create(
+                RelationshipTupleCreate(
+                    subject=subject, relation=relation, object=object, tenant=tenant
+                )
+            )
+            assert rel_tuple is not None
+            assert rel_tuple.subject == subject
+            assert rel_tuple.relation == relation
+            assert rel_tuple.object == object
+        # assert rel_tuple.tenant == tenant # TODO: api should return tenant
 
-        # # add user a to another tenant
-        # ra = await permit.api.users.assign_role(
-        #     RoleAssignmentCreate(user=USER_A.key, role=ADMIN.key, tenant=TENANT_2.key)
-        # )
+        # assign roles and then run permission checks
+        for test_step in ASSIGNMENTS_AND_ASSERTIONS:
+            # role assignments
+            for assignment in test_step.assignments:
+                f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                ra = await permit.api.role_assignments.assign(assignment)
+                assert ra.user == assignment.user
+                assert ra.role == assignment.role
+                assert ra.resource_instance == assignment.resource_instance
+                assert ra.tenant == assignment.tenant
 
-        # # get assigned roles
-        # roles_a = await permit.api.users.get_assigned_roles(USER_A.key)
-        # assert len(roles_a) == 2
-        # assert len(set([ra.tenant for ra in roles_a])) == 2  # user in 2 tenants
+            logger.info(
+                "sleeping 5 seconds before permit checks to make sure all writes propagated from cloud to PDP"
+            )
+            await asyncio.sleep(5)
 
-        # # delete tenant user
-        # tenant2_users = await permit.api.tenants.list_tenant_users(TENANT_2.key)
-        # assert len(tenant2_users.data) == 2
-        # await permit.api.tenants.delete_tenant_user(TENANT_2.key, USER_A.key)
-        # tenant2_users = await permit.api.tenants.list_tenant_users(TENANT_2.key)
-        # assert (
-        #     len(tenant2_users.data) == 2
-        # )  # TODO: change to 1, fix bug in delete_tenant_user
-
-        # # list role assignments
-        # ras = await permit.api.role_assignments.list()
-        # assert len(ras) == 3
-
-        # # role unassign
-        # await permit.api.role_assignments.unassign(
-        #     RoleAssignmentRemove(user=USER_C.key, role=ADMIN.key, tenant=TENANT_2.key)
-        # )
-
-        # # list role assignments
-        # ras = await permit.api.role_assignments.list()
-        # assert len(ras) == 2
-
-        # # bulk unassign
-        # await permit.api.role_assignments.bulk_unassign(
-        #     [
-        #         RoleAssignmentRemove(
-        #             user=USER_A.key, role=ADMIN.key, tenant=TENANT_1.key
-        #         ),
-        #         RoleAssignmentRemove(
-        #             user=USER_B.key, role=VIEWER.key, tenant=TENANT_1.key
-        #         ),
-        #     ]
-        # )
-
-        # # list role assignments
-        # ras = await permit.api.role_assignments.list()
-        # assert len(ras) == 0
+            for assertion in test_step.assertions:
+                await assert_permit_check(permit, assertion)
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
     except Exception as error:
