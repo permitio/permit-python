@@ -13,7 +13,7 @@ class ProjectsApi(BasePermitApi):
         super().__init__(config)
         self.__projects = self._build_http_client("/v2/projects")
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ProjectRead]:
         """
@@ -34,7 +34,7 @@ class ProjectsApi(BasePermitApi):
             "", model=List[ProjectRead], params=pagination_params(page, per_page)
         )
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, project_key: str) -> ProjectRead:
         """
@@ -52,7 +52,7 @@ class ProjectsApi(BasePermitApi):
         """
         return await self.__projects.get(f"/{project_key}", model=ProjectRead)
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def get_by_key(self, project_key: str) -> ProjectRead:
         """
@@ -71,7 +71,7 @@ class ProjectsApi(BasePermitApi):
         """
         return await self.get(project_key)
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def get_by_id(self, project_id: str) -> ProjectRead:
         """
@@ -90,7 +90,7 @@ class ProjectsApi(BasePermitApi):
         """
         return await self.get(project_id)
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def create(self, project_data: ProjectCreate) -> ProjectRead:
         """
@@ -108,7 +108,7 @@ class ProjectsApi(BasePermitApi):
         """
         return await self.__projects.post("", model=ProjectRead, json=project_data)
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def update(
         self, project_key: str, project_data: ProjectUpdate
@@ -131,7 +131,7 @@ class ProjectsApi(BasePermitApi):
             f"/{project_key}", model=ProjectRead, json=project_data
         )
 
-    @ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def delete(self, project_key: str) -> None:
         """

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra, Field, parse_obj_as
 
 from ..config import PermitConfig
 from ..exceptions import PermitContextError, handle_api_error, handle_client_error
-from .context import ApiKeyLevel
+from .context import API_ACCESS_LEVELS, ApiKeyLevel
 from .models import APIKeyScopeRead
 
 
@@ -247,10 +247,14 @@ class BasePermitApi:
             await self._set_context_from_api_key()
 
         if call_level != self.config.api_context.level:
-            raise PermitContextError(
-                f"You're trying to use an SDK method that requires an API Key with level: {call_level}, "
-                + f"however the SDK is running with an API key with level {self.config.api_context.level}."
-            )
+            if API_ACCESS_LEVELS.index(call_level) < API_ACCESS_LEVELS.index(
+                self.config.api_context.level
+            ):
+                raise PermitContextError(
+                    f"You're trying to use an SDK method that requires an API Key with level: {call_level}, "
+                    + f"however the SDK is running with an API key with level {self.config.api_context.level}."
+                )
+            return
 
         if (
             call_level == ApiKeyLevel.PROJECT_LEVEL_API_KEY
@@ -264,9 +268,9 @@ class BasePermitApi:
                 + "project using `permit.set_context()` method."
             )
 
-        if (
-            call_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY
-            and self.config.api_context.environment is None
+        if call_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY and (
+            self.config.api_context.project is None
+            or self.config.api_context.environment is None
         ):
             raise PermitContextError(
                 "You're trying to use an SDK method that's specific to an environment, "

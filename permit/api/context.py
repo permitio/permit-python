@@ -34,6 +34,13 @@ class ApiKeyLevel(str, Enum):
     """
 
 
+API_ACCESS_LEVELS = [
+    ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY,
+    ApiKeyLevel.PROJECT_LEVEL_API_KEY,
+    ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY,
+]
+
+
 class ApiContext:
     """
     The `ApiContext` class represents the context for API key authorization in Permit.
