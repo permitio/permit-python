@@ -3,7 +3,7 @@ from loguru import logger
 
 from permit import Permit, RoleCreate, TenantCreate, UserCreate
 from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
-from permit.exceptions import PermitApiError
+from permit.exceptions import PermitApiError, PermitConnectionError
 from tests.utils import handle_api_error
 
 USER_A = UserCreate(
@@ -228,6 +228,8 @@ async def test_users_tenants(permit: Permit):
         assert len(ras) == 0
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
+    except PermitConnectionError as error:
+        raise
     except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
@@ -243,6 +245,8 @@ async def test_users_tenants(permit: Permit):
             assert len(await permit.api.tenants.list()) == len_original
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
+        except PermitConnectionError as error:
+            raise
         except Exception as error:
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

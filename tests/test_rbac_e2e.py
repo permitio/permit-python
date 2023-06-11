@@ -5,7 +5,7 @@ import pytest
 from loguru import logger
 
 from permit import Permit, RoleAssignmentRead
-from permit.exceptions import PermitApiError
+from permit.exceptions import PermitApiError, PermitConnectionError
 
 from .utils import handle_api_error
 
@@ -235,6 +235,8 @@ async def test_permission_check_e2e(permit: Permit):
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
+    except PermitConnectionError as error:
+        raise
     except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
@@ -252,6 +254,8 @@ async def test_permission_check_e2e(permit: Permit):
             assert len((await permit.api.users.list()).data) == 0
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
+        except PermitConnectionError as error:
+            raise
         except Exception as error:
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")
