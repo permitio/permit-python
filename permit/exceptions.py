@@ -100,6 +100,6 @@ def handle_client_error(func):
             logger.error(
                 "got client error while sending an http request:\n{}".format(err)
             )
-            raise PermitConnectionError(f"Permit SDK got error: {err}", err)
+            raise PermitConnectionError(f"{err}", error=err)
 
     return wrapped
