@@ -13,7 +13,7 @@ from permit.api.models import (
     ProjectRead,
 )
 from permit.config import PermitConfig
-from permit.exceptions import PermitApiError, PermitContextError
+from permit.exceptions import PermitApiError, PermitConnectionError, PermitContextError
 from tests.utils import handle_api_error
 
 CREATED_PROJECTS = [ProjectCreate(key="test-python-proj", name="New Python Project")]
@@ -136,6 +136,8 @@ async def test_environment_creation_with_org_level_api_key(
         assert test_environment.description == CREATED_ENVIRONMENTS[0].description
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
+    except PermitConnectionError as error:
+        raise
     except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
@@ -182,6 +184,8 @@ async def test_environment_creation_with_project_level_api_key(
         assert len(actual_env_set.intersection(created_env_set)) == 2
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
+    except PermitConnectionError as error:
+        raise
     except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
