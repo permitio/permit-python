@@ -3,8 +3,14 @@ from typing import List, Optional
 from pydantic import validate_arguments
 
 from ..config import PermitConfig
-from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    SimpleHttpClient,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
     BulkRoleAssignmentReport,
     BulkRoleUnAssignmentReport,
@@ -24,7 +30,8 @@ class RoleAssignmentsApi(BasePermitApi):
             )
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(
         self,
@@ -64,7 +71,8 @@ class RoleAssignmentsApi(BasePermitApi):
             params=params,
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def assign(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
@@ -84,7 +92,8 @@ class RoleAssignmentsApi(BasePermitApi):
             "", model=RoleAssignmentRead, json=assignment
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def unassign(self, unassignment: RoleAssignmentRemove) -> None:
         """
@@ -99,7 +108,8 @@ class RoleAssignmentsApi(BasePermitApi):
         """
         return await self.__role_assignments.delete("", json=unassignment)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def bulk_assign(
         self, assignments: List[RoleAssignmentCreate]
@@ -124,7 +134,8 @@ class RoleAssignmentsApi(BasePermitApi):
             json=[assignment for assignment in assignments],
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def bulk_unassign(
         self, unassignments: List[RoleAssignmentRemove]
