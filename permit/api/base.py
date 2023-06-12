@@ -37,7 +37,7 @@ def ensure_context(call_level: ApiKeyLevel):
     def decorator(func):
         @functools.wraps(func)
         async def wrapped(self: BasePermitApi, *args, **kwargs):
-            await self.ensure_context(call_level)
+            await self._ensure_context(call_level)
             return await func(self, *args, **kwargs)
 
         return wrapped
@@ -233,7 +233,7 @@ class BasePermitApi:
 
         raise PermitContextError("Could not set API context level")
 
-    async def ensure_context(self, call_level: ApiKeyLevel) -> None:
+    async def _ensure_context(self, call_level: ApiKeyLevel) -> None:
         """
         Ensure that the API context matches the required endpoint context.
 
