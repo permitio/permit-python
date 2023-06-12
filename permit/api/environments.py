@@ -44,6 +44,11 @@ class EnvironmentsApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
+    async def _get(self, project_key: str, environment_key: str) -> EnvironmentRead:
+        return await self.__environments.get(
+            f"/v2/projects/{project_key}/envs/{environment_key}", model=EnvironmentRead
+        )
+
     @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
@@ -61,9 +66,7 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__environments.get(
-            f"/v2/projects/{project_key}/envs/{environment_key}", model=EnvironmentRead
-        )
+        return await self._get(project_key, environment_key)
 
     @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
@@ -85,7 +88,7 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(project_key, environment_key)
+        return await self._get(project_key, environment_key)
 
     @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments
@@ -105,7 +108,7 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(project_id, environment_id)
+        return await self._get(project_id, environment_id)
 
     @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
     @validate_arguments

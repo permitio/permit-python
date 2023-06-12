@@ -43,6 +43,11 @@ class ResourceActionsApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
+    async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
+        return await self.__actions.get(
+            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
+        )
+
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
@@ -60,9 +65,7 @@ class ResourceActionsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__actions.get(
-            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
-        )
+        return await self._get(resource_key, action_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -84,7 +87,7 @@ class ResourceActionsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(resource_key, action_key)
+        return await self._get(resource_key, action_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -104,7 +107,7 @@ class ResourceActionsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(resource_id, action_id)
+        return await self._get(resource_id, action_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments

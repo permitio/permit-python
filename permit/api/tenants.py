@@ -64,6 +64,9 @@ class TenantsApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
+    async def _get(self, tenant_key: str) -> TenantRead:
+        return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
+
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, tenant_key: str) -> TenantRead:
@@ -80,7 +83,7 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
+        return await self._get(tenant_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -99,7 +102,7 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(tenant_key)
+        return await self._get(tenant_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -118,7 +121,7 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(tenant_id)
+        return await self._get(tenant_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments

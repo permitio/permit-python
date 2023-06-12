@@ -38,6 +38,11 @@ class ConditionSetsApi(BasePermitApi):
             "", model=List[ConditionSetRead], params=pagination_params(page, per_page)
         )
 
+    async def _get(self, condition_set_key: str) -> ConditionSetRead:
+        return await self.__condition_sets.get(
+            f"/{condition_set_key}", model=ConditionSetRead
+        )
+
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, condition_set_key: str) -> ConditionSetRead:
@@ -54,9 +59,7 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__condition_sets.get(
-            f"/{condition_set_key}", model=ConditionSetRead
-        )
+        return await self._get(condition_set_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -75,7 +78,7 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(condition_set_key)
+        return await self._get(condition_set_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -94,7 +97,7 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(condition_set_id)
+        return await self._get(condition_set_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments

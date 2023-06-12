@@ -48,6 +48,9 @@ class RolesApi(BasePermitApi):
             "", model=List[RoleRead], params=pagination_params(page, per_page)
         )
 
+    async def _get(self, role_key: str) -> RoleRead:
+        return await self.__roles.get(f"/{role_key}", model=RoleRead)
+
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, role_key: str) -> RoleRead:
@@ -64,7 +67,7 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__roles.get(f"/{role_key}", model=RoleRead)
+        return await self._get(role_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -83,7 +86,7 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(role_key)
+        return await self._get(role_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -102,7 +105,7 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(role_id)
+        return await self._get(role_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments

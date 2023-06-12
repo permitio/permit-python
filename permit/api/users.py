@@ -57,6 +57,9 @@ class UsersApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
+    async def _get(self, user_key: str) -> UserRead:
+        return await self.__users.get(f"/{user_key}", model=UserRead)
+
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
     async def get(self, user_key: str) -> UserRead:
@@ -73,7 +76,7 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__users.get(f"/{user_key}", model=UserRead)
+        return await self._get(user_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -92,7 +95,7 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(user_key)
+        return await self._get(user_key)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
@@ -111,7 +114,7 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(user_id)
+        return await self._get(user_id)
 
     @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
     @validate_arguments
