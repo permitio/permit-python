@@ -1,5 +1,5 @@
 import functools
-from typing import Optional, Type, TypeVar, Union
+from typing import Callable, Optional, Type, TypeVar, Union
 
 import aiohttp
 from loguru import logger
@@ -10,20 +10,13 @@ from ..exceptions import PermitContextError, handle_api_error, handle_client_err
 from .context import API_ACCESS_LEVELS, ApiContextLevel, ApiKeyAccessLevel
 from .models import APIKeyScopeRead
 
-
-class ClientConfig(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    base_url: str = Field(
-        ...,
-        description="base url that will prefix the url fragment sent via the client",
-    )
-    headers: dict = Field(..., description="http headers sent to the API server")
+T = TypeVar("T", bound=Callable)
+TModel = TypeVar("TModel", bound=BaseModel)
+TData = TypeVar("TData", bound=BaseModel)
 
 
 def required_permissions(access_level: ApiKeyAccessLevel):
-    def decorator(func):
+    def decorator(func: T) -> T:
         @functools.wraps(func)
         async def wrapped(self: BasePermitApi, *args, **kwargs):
             await self._ensure_access_level(access_level)
@@ -46,7 +39,7 @@ def required_context(context: ApiContextLevel):
         PermitContextError: If the API context does not match the required endpoint context.
     """
 
-    def decorator(func):
+    def decorator(func: T) -> T:
         @functools.wraps(func)
         async def wrapped(self: BasePermitApi, *args, **kwargs):
             await self._ensure_context(context)
@@ -61,8 +54,15 @@ def pagination_params(page: int, per_page: int) -> dict:
     return {"page": page, "per_page": per_page}
 
 
-TModel = TypeVar("TModel", bound=BaseModel)
-TData = TypeVar("TData", bound=BaseModel)
+class ClientConfig(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    base_url: str = Field(
+        ...,
+        description="base url that will prefix the url fragment sent via the client",
+    )
+    headers: dict = Field(..., description="http headers sent to the API server")
 
 
 class SimpleHttpClient:
