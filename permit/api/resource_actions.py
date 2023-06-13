@@ -2,8 +2,14 @@ from typing import List
 
 from pydantic import validate_arguments
 
-from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    SimpleHttpClient,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import ResourceActionCreate, ResourceActionRead, ResourceActionUpdate
 
 
@@ -17,7 +23,8 @@ class ResourceActionsApi(BasePermitApi):
             )
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
@@ -43,7 +50,13 @@ class ResourceActionsApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
+        return await self.__actions.get(
+            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
@@ -60,11 +73,10 @@ class ResourceActionsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__actions.get(
-            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
-        )
+        return await self._get(resource_key, action_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(
         self, resource_key: str, action_key: str
@@ -84,9 +96,10 @@ class ResourceActionsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(resource_key, action_key)
+        return await self._get(resource_key, action_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
         """
@@ -104,9 +117,10 @@ class ResourceActionsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(resource_id, action_id)
+        return await self._get(resource_id, action_id)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(
         self, resource_key: str, action_data: ResourceActionCreate
@@ -131,7 +145,8 @@ class ResourceActionsApi(BasePermitApi):
             json=action_data,
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(
         self, resource_key: str, action_key: str, action_data: ResourceActionUpdate
@@ -157,7 +172,8 @@ class ResourceActionsApi(BasePermitApi):
             json=action_data,
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, resource_key: str, action_key: str) -> None:
         """

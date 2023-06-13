@@ -1,5 +1,5 @@
 import functools
-from typing import Optional, Type, TypeVar, Union
+from typing import Callable, Optional, Type, TypeVar, Union
 
 import aiohttp
 from loguru import logger
@@ -7,22 +7,27 @@ from pydantic import BaseModel, Extra, Field, parse_obj_as
 
 from ..config import PermitConfig
 from ..exceptions import PermitContextError, handle_api_error, handle_client_error
-from .context import API_ACCESS_LEVELS, ApiKeyLevel
+from .context import API_ACCESS_LEVELS, ApiContextLevel, ApiKeyAccessLevel
 from .models import APIKeyScopeRead
 
-
-class ClientConfig(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    base_url: str = Field(
-        ...,
-        description="base url that will prefix the url fragment sent via the client",
-    )
-    headers: dict = Field(..., description="http headers sent to the API server")
+T = TypeVar("T", bound=Callable)
+TModel = TypeVar("TModel", bound=BaseModel)
+TData = TypeVar("TData", bound=BaseModel)
 
 
-def ensure_context(call_level: ApiKeyLevel):
+def required_permissions(access_level: ApiKeyAccessLevel):
+    def decorator(func: T) -> T:
+        @functools.wraps(func)
+        async def wrapped(self: BasePermitApi, *args, **kwargs):
+            await self._ensure_access_level(access_level)
+            return await func(self, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+def required_context(context: ApiContextLevel):
     """
     a decorator that ensures that an API endpoint is called only after the SDK has initialized
     an API context (authorization level) by inferring it from the API key or manually by the user.
@@ -34,10 +39,10 @@ def ensure_context(call_level: ApiKeyLevel):
         PermitContextError: If the API context does not match the required endpoint context.
     """
 
-    def decorator(func):
+    def decorator(func: T) -> T:
         @functools.wraps(func)
         async def wrapped(self: BasePermitApi, *args, **kwargs):
-            await self.ensure_context(call_level)
+            await self._ensure_context(context)
             return await func(self, *args, **kwargs)
 
         return wrapped
@@ -49,8 +54,15 @@ def pagination_params(page: int, per_page: int) -> dict:
     return {"page": page, "per_page": per_page}
 
 
-TModel = TypeVar("TModel", bound=BaseModel)
-TData = TypeVar("TData", bound=BaseModel)
+class ClientConfig(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    base_url: str = Field(
+        ...,
+        description="base url that will prefix the url fragment sent via the client",
+    )
+    headers: dict = Field(..., description="http headers sent to the API server")
 
 
 class SimpleHttpClient:
@@ -206,76 +218,110 @@ class BasePermitApi:
 
     async def _set_context_from_api_key(self) -> None:
         """
-        Set the API context based on the API key scope.
+        Set the API context and permitted access level based on the API key scope.
         """
+        logger.debug("Fetching api key scope")
         scope = await self.__api_keys.get("/scope", model=APIKeyScopeRead)
 
         if scope.organization_id is not None:
+            # saves the permitted access level by that api key
+            self.config.api_context._save_api_key_accessible_scope(
+                org=str(scope.organization_id),
+                project=(
+                    str(scope.project_id) if scope.project_id is not None else None
+                ),
+                environment=(
+                    str(scope.environment_id)
+                    if scope.environment_id is not None
+                    else None
+                ),
+            )
+
             if scope.project_id is not None:
                 if scope.environment_id is not None:
                     # Set environment level context
                     self.config.api_context.set_environment_level_context(
-                        scope.organization_id, scope.project_id, scope.environment_id
+                        str(scope.organization_id),
+                        str(scope.project_id),
+                        str(scope.environment_id),
                     )
                     return
 
                 # Set project level context
                 self.config.api_context.set_project_level_context(
-                    scope.organization_id, scope.project_id
+                    str(scope.organization_id), str(scope.project_id)
                 )
                 return
 
             # Set org level context
             self.config.api_context.set_organization_level_context(
-                scope.organization_id
+                str(scope.organization_id)
             )
             return
 
         raise PermitContextError("Could not set API context level")
 
-    async def ensure_context(self, call_level: ApiKeyLevel) -> None:
+    async def _ensure_access_level(
+        self, required_access_level: ApiKeyAccessLevel
+    ) -> None:
         """
-        Ensure that the API context matches the required endpoint context.
+        Ensure that the API Key has the necessary permissions to successfully call the API endpoint.
+
+        Note that this check is not full proof, and the API may still throw 401.
 
         Args:
-            call_level: The required API key level for the endpoint.
+            required_access_level: The required API Key Access level for the endpoint.
 
         Raises:
-            PermitContextError: If the API context does not match the required endpoint context.
+            PermitContextError: If the currently set API key access level does not match the required access level.
         """
-        if self.config.api_context.level == ApiKeyLevel.WAIT_FOR_INIT:
+        # should only happen once in the lifetime of the sdk
+        if (
+            self.config.api_context.level == ApiContextLevel.WAIT_FOR_INIT
+            or self.config.api_context.permitted_access_level
+            == ApiKeyAccessLevel.WAIT_FOR_INIT
+        ):
             await self._set_context_from_api_key()
 
-        if call_level != self.config.api_context.level:
-            if API_ACCESS_LEVELS.index(call_level) < API_ACCESS_LEVELS.index(
-                self.config.api_context.level
+        if required_access_level != self.config.api_context.permitted_access_level:
+            if API_ACCESS_LEVELS.index(required_access_level) < API_ACCESS_LEVELS.index(
+                self.config.api_context.permitted_access_level
             ):
                 raise PermitContextError(
-                    f"You're trying to use an SDK method that requires an API Key with level: {call_level}, "
-                    + f"however the SDK is running with an API key with level {self.config.api_context.level}."
+                    f"You're trying to use an SDK method that requires an API Key with access level: {required_access_level}, "
+                    + f"however the SDK is running with an API key with level {self.config.api_context.permitted_access_level}."
                 )
             return
 
         if (
-            call_level == ApiKeyLevel.PROJECT_LEVEL_API_KEY
-            and self.config.api_context.project is None
+            self.config.api_context.permitted_access_level.value
+            < required_access_level.value
         ):
             raise PermitContextError(
-                "You're trying to use an SDK method that's specific to a project, "
-                + "but you haven't set the current project in your client's context yet, "
-                + "or you are using an organization level API key. "
-                + "Please set the context to a specific "
-                + "project using `permit.set_context()` method."
+                f"You're trying to use an SDK method that requires an api context of {required_context.name}, "
+                + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )
 
-        if call_level == ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY and (
-            self.config.api_context.project is None
-            or self.config.api_context.environment is None
+    async def _ensure_context(self, required_context: ApiContextLevel) -> None:
+        """
+        Ensure that the API context matches the required endpoint context.
+
+        Args:
+            context: The required API context level for the endpoint.
+
+        Raises:
+            PermitContextError: If the currently set API context level does not match the required context level.
+        """
+        # should only happen once in the lifetime of the sdk
+        if (
+            self.config.api_context.level == ApiContextLevel.WAIT_FOR_INIT
+            or self.config.api_context.permitted_access_level
+            == ApiKeyAccessLevel.WAIT_FOR_INIT
         ):
+            await self._set_context_from_api_key()
+
+        if self.config.api_context.level.value < required_context.value:
             raise PermitContextError(
-                "You're trying to use an SDK method that's specific to an environment, "
-                + "but you haven't set the current environment in your client's context yet, "
-                + "or you are using an organization/project level API key. "
-                + "Please set the context to a specific "
-                + "environment using `permit.set_context()` method."
+                f"You're trying to use an SDK method that requires an api context of {required_context.name}, "
+                + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )

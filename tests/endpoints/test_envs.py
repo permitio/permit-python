@@ -5,7 +5,7 @@ import pytest
 from loguru import logger
 
 from permit import Permit
-from permit.api.context import ApiKeyLevel
+from permit.api.context import ApiKeyAccessLevel
 from permit.api.models import (
     EnvironmentCreate,
     EnvironmentRead,
@@ -81,7 +81,9 @@ async def test_environment_creation_with_org_level_api_key(
 ):
     permit = permit_with_org_level_api_key
     try:
-        await permit.api.ensure_context(ApiKeyLevel.ORGANIZATION_LEVEL_API_KEY)
+        await permit.api._ensure_access_level(
+            ApiKeyAccessLevel.ORGANIZATION_LEVEL_API_KEY
+        )
     except PermitContextError:
         logger.warning("this test must run with an org level api key")
         return
@@ -150,7 +152,7 @@ async def test_environment_creation_with_project_level_api_key(
 ):
     permit = permit_with_project_level_api_key
     try:
-        await permit.api.ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+        await permit.api._ensure_access_level(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
     except PermitContextError:
         logger.warning("this test must run with a project level api key")
         return

@@ -1,9 +1,8 @@
-import functools
 from typing import List, Optional, Union
 from uuid import UUID
-from warnings import warn
 
 from ..config import PermitConfig
+from ..utils.deprecation import deprecated
 from .base import BasePermitApi
 from .elements import ElementsApi
 from .models import (
@@ -28,18 +27,6 @@ from .role_assignments import RoleAssignmentsApi
 from .roles import RolesApi
 from .tenants import TenantsApi
 from .users import UsersApi
-
-
-def deprecated(message: str):
-    def decorator(func):
-        @functools.wraps(func)
-        async def wrapped(self: BasePermitApi, *args, **kwargs):
-            warn(message, DeprecationWarning, stacklevel=2)
-            return await func(self, *args, **kwargs)
-
-        return wrapped
-
-    return decorator
 
 
 class DeprecatedApi(BasePermitApi):

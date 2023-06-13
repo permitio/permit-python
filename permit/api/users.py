@@ -2,8 +2,14 @@ from typing import List, Optional, Union
 
 from pydantic import validate_arguments
 
-from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    SimpleHttpClient,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
     PaginatedResultUserRead,
     RoleAssignmentCreate,
@@ -34,7 +40,8 @@ class UsersApi(BasePermitApi):
             )
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """
@@ -57,7 +64,11 @@ class UsersApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    async def _get(self, user_key: str) -> UserRead:
+        return await self.__users.get(f"/{user_key}", model=UserRead)
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, user_key: str) -> UserRead:
         """
@@ -73,9 +84,10 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__users.get(f"/{user_key}", model=UserRead)
+        return await self._get(user_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(self, user_key: str) -> UserRead:
         """
@@ -92,9 +104,10 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(user_key)
+        return await self._get(user_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, user_id: str) -> UserRead:
         """
@@ -111,9 +124,10 @@ class UsersApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(user_id)
+        return await self._get(user_id)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, user_data: UserCreate) -> UserRead:
         """
@@ -131,7 +145,8 @@ class UsersApi(BasePermitApi):
         """
         return await self.__users.post("", model=UserRead, json=user_data)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(self, user_key: str, user_data: UserUpdate) -> UserRead:
         """
@@ -150,7 +165,8 @@ class UsersApi(BasePermitApi):
         """
         return await self.__users.patch(f"/{user_key}", model=UserRead, json=user_data)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def sync(self, user: Union[UserCreate, dict]) -> UserRead:
         """
@@ -174,7 +190,8 @@ class UsersApi(BasePermitApi):
             user_key = user.key
         return await self.__users.put(f"/{user_key}", model=UserRead, json=user)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, user_key: str) -> None:
         """
@@ -189,7 +206,8 @@ class UsersApi(BasePermitApi):
         """
         return await self.__users.delete(f"/{user_key}")
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def assign_role(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
@@ -211,7 +229,8 @@ class UsersApi(BasePermitApi):
             json=assignment.dict(exclude={"user"}),
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def unassign_role(self, unassignment: RoleAssignmentRemove) -> None:
         """
@@ -229,7 +248,8 @@ class UsersApi(BasePermitApi):
             json=unassignment.dict(exclude={"user"}),
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_assigned_roles(
         self,

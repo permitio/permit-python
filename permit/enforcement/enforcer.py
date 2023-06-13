@@ -1,4 +1,5 @@
 import json
+from pprint import pformat
 from typing import Union
 
 import aiohttp
@@ -75,6 +76,7 @@ class Enforcer:
             # (in a multi tenant application)
             await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
+
         normalized_user: UserInput = (
             UserInput(key=user) if isinstance(user, str) else UserInput(**user)
         )
@@ -94,9 +96,10 @@ class Enforcer:
         )
 
         async with aiohttp.ClientSession(headers=self._headers) as session:
+            check_url = f"{self._base_url}/allowed"
             try:
                 async with session.post(
-                    f"{self._base_url}/allowed",
+                    check_url,
                     data=json.dumps(input),
                 ) as response:
                     if response.status != 200:
@@ -116,15 +119,19 @@ class Enforcer:
                         )
 
                     content: dict = await response.json()
-                    decision: bool = bool(content.get("allow", False))
                     logger.debug(
-                        "permit.check({}, {}, {}) = {}".format(
-                            normalized_user,
-                            action,
-                            self._resource_repr(normalized_resource),
-                            repr(decision),
-                        )
+                        f"permit.check() response:\ninput: {pformat(input, indent=2)}\nresponse status: {response.status}\nresponse data: {pformat(content, indent=2)}"
                     )
+                    decision: bool = bool(content.get("allow", False))
+                    # TODO: restore simple log when PDP is fixed
+                    # logger.debug(
+                    #     "permit.check({}, {}, {}) = {}".format(
+                    #         normalized_user,
+                    #         action,
+                    #         self._resource_repr(normalized_resource),
+                    #         repr(decision),
+                    #     )
+                    # )
                     return decision
             except aiohttp.ClientError as err:
                 logger.error(

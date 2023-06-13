@@ -2,8 +2,14 @@ from typing import List
 
 from pydantic import validate_arguments
 
-from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    SimpleHttpClient,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import PaginatedResultUserRead, TenantCreate, TenantRead, TenantUpdate
 
 
@@ -17,7 +23,8 @@ class TenantsApi(BasePermitApi):
             )
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
         """
@@ -38,7 +45,8 @@ class TenantsApi(BasePermitApi):
             "", model=List[TenantRead], params=pagination_params(page, per_page)
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list_tenant_users(
         self, tenant_key: str, page: int = 1, per_page: int = 100
@@ -64,7 +72,11 @@ class TenantsApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    async def _get(self, tenant_key: str) -> TenantRead:
+        return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, tenant_key: str) -> TenantRead:
         """
@@ -80,9 +92,10 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
+        return await self._get(tenant_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(self, tenant_key: str) -> TenantRead:
         """
@@ -99,9 +112,10 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(tenant_key)
+        return await self._get(tenant_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, tenant_id: str) -> TenantRead:
         """
@@ -118,9 +132,10 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.get(tenant_id)
+        return await self._get(tenant_id)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, tenant_data: TenantCreate) -> TenantRead:
         """
@@ -138,7 +153,8 @@ class TenantsApi(BasePermitApi):
         """
         return await self.__tenants.post("", model=TenantRead, json=tenant_data)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(self, tenant_key: str, tenant_data: TenantUpdate) -> TenantRead:
         """
@@ -159,7 +175,8 @@ class TenantsApi(BasePermitApi):
             f"/{tenant_key}", model=TenantRead, json=tenant_data
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, tenant_key: str) -> None:
         """
@@ -177,7 +194,8 @@ class TenantsApi(BasePermitApi):
         """
         return await self.__tenants.delete(f"/{tenant_key}")
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete_tenant_user(self, tenant_key: str, user_key: str) -> None:
         """
