@@ -239,9 +239,12 @@ async def test_abac_e2e(permit: Permit):
         )
         time.sleep(ABAC_SLEEP_TIME)
 
+        def abac_user(user: UserCreate):
+            return user.dict(exclude={"first_name", "last_name"})
+
         logger.info("testing that users over 30 can sign public documents")
         assert await permit.check(
-            USER_A.key,
+            abac_user(USER_A),
             "sign",
             {
                 "type": "document",
@@ -252,7 +255,7 @@ async def test_abac_e2e(permit: Permit):
 
         logger.info("testing that users under 30 cannot sign public documents")
         assert not await permit.check(
-            USER_B.key,
+            abac_user(USER_B),
             "sign",
             {
                 "type": "document",
@@ -263,7 +266,7 @@ async def test_abac_e2e(permit: Permit):
 
         logger.info("testing that users over 30 cannot sign private documents")
         assert not await permit.check(
-            USER_A.key,
+            abac_user(USER_A),
             "sign",
             {
                 "type": "document",
