@@ -2,8 +2,14 @@ from typing import List
 
 from pydantic import validate_arguments
 
-from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    SimpleHttpClient,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
     AddRolePermissions,
     RemoveRolePermissions,
@@ -27,7 +33,8 @@ class RolesApi(BasePermitApi):
             )
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         """
@@ -51,7 +58,8 @@ class RolesApi(BasePermitApi):
     async def _get(self, role_key: str) -> RoleRead:
         return await self.__roles.get(f"/{role_key}", model=RoleRead)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, role_key: str) -> RoleRead:
         """
@@ -69,7 +77,8 @@ class RolesApi(BasePermitApi):
         """
         return await self._get(role_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(self, role_key: str) -> RoleRead:
         """
@@ -88,7 +97,8 @@ class RolesApi(BasePermitApi):
         """
         return await self._get(role_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, role_id: str) -> RoleRead:
         """
@@ -107,7 +117,8 @@ class RolesApi(BasePermitApi):
         """
         return await self._get(role_id)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, role_data: RoleCreate) -> RoleRead:
         """
@@ -125,7 +136,8 @@ class RolesApi(BasePermitApi):
         """
         return await self.__roles.post("", model=RoleRead, json=role_data)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(self, role_key: str, role_data: RoleUpdate) -> RoleRead:
         """
@@ -144,7 +156,8 @@ class RolesApi(BasePermitApi):
         """
         return await self.__roles.patch(f"/{role_key}", model=RoleRead, json=role_data)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, role_key: str) -> None:
         """
@@ -159,7 +172,8 @@ class RolesApi(BasePermitApi):
         """
         return await self.__roles.delete(f"/{role_key}")
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def assign_permissions(
         self, role_key: str, permissions: List[str]
@@ -184,7 +198,8 @@ class RolesApi(BasePermitApi):
             json=AddRolePermissions(permissions=permissions),
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def remove_permissions(
         self, role_key: str, permissions: List[str]

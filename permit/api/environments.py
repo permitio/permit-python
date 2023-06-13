@@ -3,8 +3,13 @@ from typing import List
 from pydantic import validate_arguments
 
 from ..config import PermitConfig
-from .base import BasePermitApi, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
     APIKeyRead,
     EnvironmentCopy,
@@ -20,7 +25,8 @@ class EnvironmentsApi(BasePermitApi):
         super().__init__(config)
         self.__environments = self._build_http_client("")
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def list(
         self, project_key: str, page: int = 1, per_page: int = 100
@@ -49,7 +55,8 @@ class EnvironmentsApi(BasePermitApi):
             f"/v2/projects/{project_key}/envs/{environment_key}", model=EnvironmentRead
         )
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
@@ -68,7 +75,8 @@ class EnvironmentsApi(BasePermitApi):
         """
         return await self._get(project_key, environment_key)
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_by_key(
         self, project_key: str, environment_key: str
@@ -90,7 +98,8 @@ class EnvironmentsApi(BasePermitApi):
         """
         return await self._get(project_key, environment_key)
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_by_id(self, project_id: str, environment_id: str) -> EnvironmentRead:
         """
@@ -110,7 +119,8 @@ class EnvironmentsApi(BasePermitApi):
         """
         return await self._get(project_id, environment_id)
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_stats(
         self, project_key: str, environment_key: str
@@ -134,7 +144,8 @@ class EnvironmentsApi(BasePermitApi):
             model=EnvironmentStats,
         )
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_api_key(self, project_key: str, environment_key: str) -> APIKeyRead:
         """
@@ -156,7 +167,8 @@ class EnvironmentsApi(BasePermitApi):
             model=APIKeyRead,
         )
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def create(
         self, project_key: str, environment_data: EnvironmentCreate
@@ -181,7 +193,8 @@ class EnvironmentsApi(BasePermitApi):
             json=environment_data,
         )
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def update(
         self,
@@ -210,7 +223,8 @@ class EnvironmentsApi(BasePermitApi):
             json=environment_data,
         )
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def copy(
         self, project_key: str, environment_key: str, copy_params: EnvironmentCopy
@@ -236,7 +250,8 @@ class EnvironmentsApi(BasePermitApi):
             json=copy_params,
         )
 
-    @ensure_context(ApiKeyLevel.PROJECT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def delete(self, project_key: str, environment_key: str) -> None:
         """

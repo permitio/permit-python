@@ -2,8 +2,14 @@ from typing import List
 
 from pydantic import validate_arguments
 
-from .base import BasePermitApi, SimpleHttpClient, ensure_context, pagination_params
-from .context import ApiKeyLevel
+from .base import (
+    BasePermitApi,
+    SimpleHttpClient,
+    pagination_params,
+    required_context,
+    required_permissions,
+)
+from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import ConditionSetCreate, ConditionSetRead, ConditionSetUpdate
 
 
@@ -17,7 +23,8 @@ class ConditionSetsApi(BasePermitApi):
             )
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ConditionSetRead]:
         """
@@ -43,7 +50,8 @@ class ConditionSetsApi(BasePermitApi):
             f"/{condition_set_key}", model=ConditionSetRead
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, condition_set_key: str) -> ConditionSetRead:
         """
@@ -61,7 +69,8 @@ class ConditionSetsApi(BasePermitApi):
         """
         return await self._get(condition_set_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
         """
@@ -80,7 +89,8 @@ class ConditionSetsApi(BasePermitApi):
         """
         return await self._get(condition_set_key)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
         """
@@ -99,7 +109,8 @@ class ConditionSetsApi(BasePermitApi):
         """
         return await self._get(condition_set_id)
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, condition_set_data: ConditionSetCreate) -> ConditionSetRead:
         """
@@ -119,7 +130,8 @@ class ConditionSetsApi(BasePermitApi):
             "", model=ConditionSetRead, json=condition_set_data
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(
         self, condition_set_key: str, condition_set_data: ConditionSetUpdate
@@ -144,7 +156,8 @@ class ConditionSetsApi(BasePermitApi):
             json=condition_set_data,
         )
 
-    @ensure_context(ApiKeyLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, condition_set_key: str) -> None:
         """
