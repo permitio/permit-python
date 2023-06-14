@@ -25,6 +25,7 @@ class UserInput(UserKey):
 class ResourceInput(BaseModel):
     type: str  # namespace/type of resources/objects
     id: Optional[str]  # id of individual object
+    key: Optional[str]  # key of individual object
     tenant: Optional[str]  # tenant the resource belongs to
     attributes: Optional[Dict]  # extra resources attributes
     context: Optional[Dict]  # extra context

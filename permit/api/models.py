@@ -1638,6 +1638,10 @@ class RelationshipTupleRead(BaseModel):
         description="resource_key:resource_instance_key of the object",
         title="Object",
     )
+    tenant: str = Field(
+        ...,
+        description=""
+    )
     subject_id: UUID = Field(
         ..., description="Unique id of the subject", title="Subject Id"
     )
