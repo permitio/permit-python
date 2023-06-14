@@ -137,7 +137,20 @@ DOCUMENT = ResourceCreate(
 
 RESOURCE_ROLES = {
     FOLDER.key: [
-        ResourceRoleCreate(key=VIEWER, name="Viewer", permissions=["read"]),
+        ResourceRoleCreate(
+            key=VIEWER,
+            name="Viewer",
+            permissions=["read"],
+            granted_to=DerivedRoleBlockEdit(
+                users_with_role=[
+                    DerivedRoleRuleCreate(
+                        role=MEMBER,
+                        on_resource="Account",
+                        linked_by_relation="account",
+                    )
+                ]
+            ),
+        ),
         ResourceRoleCreate(
             key=COMMENTER,
             name="Commenter",
@@ -417,20 +430,20 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
 
 
 async def cleanup(permit: Permit):
-    print("Running cleanup...")
+    logger.debug("Running cleanup...")
     try:
         for user in CREATED_USERS:
             try:
                 await permit.api.users.delete(user.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(f"SKIPPING delete, user does not exist: {user.key}")
+                    logger.debug(f"SKIPPING delete, user does not exist: {user.key}")
         for tenant in CREATED_TENANTS:
             try:
                 await permit.api.tenants.delete(tenant.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(f"SKIPPING delete, tenant does not exist: {tenant.key}")
+                    logger.debug(f"SKIPPING delete, tenant does not exist: {tenant.key}")
         for rel_tuple in RELATIONSHIPS:
             subject, relation, object, tenant = rel_tuple
             try:
@@ -441,7 +454,7 @@ async def cleanup(permit: Permit):
                 )
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(
+                    logger.debug(
                         f"SKIPPING delete, rel tuple does not exist: ({subject}, {relation}, {object}, {tenant})"
                     )
         for assertion in ASSIGNMENTS_AND_ASSERTIONS:
@@ -457,7 +470,7 @@ async def cleanup(permit: Permit):
                     )
                 except PermitApiError as error:
                     if error.status_code == 404:
-                        print(
+                        logger.debug(
                             f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, {assignment.resource_instance}, {assignment.tenant})"
                         )
         for resource in CREATED_RESOURCES:
@@ -465,13 +478,13 @@ async def cleanup(permit: Permit):
                 await permit.api.resources.delete(resource.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    print(f"SKIPPING delete, resource does not exist: {resource.key}")
+                    logger.debug(f"SKIPPING delete, resource does not exist: {resource.key}")
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
     except Exception as error:
         logger.error(f"Got error during cleanup: {error}")
         pytest.fail(f"Got error during cleanup: {error}")
-    print("Cleanup finished.")
+    logger.debug("Cleanup finished.")
 
 
 async def assert_permit_check(permit: Permit, q: CheckAssertion):
@@ -490,7 +503,7 @@ async def test_rebac_policy(permit: Permit):
 
         # create resources
         for resource_data in CREATED_RESOURCES:
-            print(f"creating resource: {resource_data.key}")
+            logger.debug(f"creating resource: {resource_data.key}")
             resource = await permit.api.resources.create(resource_data)
             assert resource is not None
             assert resource.key == resource_data.key
@@ -504,7 +517,7 @@ async def test_rebac_policy(permit: Permit):
         # create resource roles
         for resource_key, resource_roles in iter(RESOURCE_ROLES.items()):
             for role_data in resource_roles:
-                print(f"creating resource role: {resource_key}#{role_data.key}")
+                logger.debug(f"creating resource role: {resource_key}#{role_data.key}")
                 role = await permit.api.resource_roles.create(
                     resource_key=resource_key, role_data=role_data
                 )
@@ -518,7 +531,7 @@ async def test_rebac_policy(permit: Permit):
         # create resource relations
         for resource_key, resource_relations in iter(RESOURCE_RELATIONS.items()):
             for relation_data in resource_relations:
-                print(
+                logger.debug(
                     f"creating resource relation: {resource_key}->{relation_data.key}"
                 )
                 relation = await permit.api.resource_relations.create(
@@ -532,7 +545,7 @@ async def test_rebac_policy(permit: Permit):
 
         # create role derivations
         for derivation_data in ROLE_DERIVATIONS:
-            print(
+            logger.debug(
                 f"creating derivation: {derivation_data.source_role} -> {derivation_data.derived_role} (via {derivation_data.via_relation})"
             )
             derivation = await permit.api.resource_roles.create_role_derivation(
@@ -553,7 +566,7 @@ async def test_rebac_policy(permit: Permit):
 
         # create tenants
         for tenant_data in CREATED_TENANTS:
-            print(f"creating tenant: {tenant_data.key}")
+            logger.debug(f"creating tenant: {tenant_data.key}")
             tenant = await permit.api.tenants.create(tenant_data)
             assert tenant is not None
             assert tenant.key == tenant_data.key
@@ -562,7 +575,7 @@ async def test_rebac_policy(permit: Permit):
 
         # create users
         for user_data in CREATED_USERS:
-            print(f"creating user: {user_data.key}")
+            logger.debug(f"creating user: {user_data.key}")
             user = await permit.api.users.create(user_data)
             assert user is not None
             assert user.key == user_data.key
@@ -574,7 +587,7 @@ async def test_rebac_policy(permit: Permit):
         # relationship tuples
         for tuple_data in RELATIONSHIPS:
             subject, relation, object, tenant = tuple_data
-            print(
+            logger.debug(
                 f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})"
             )
             rel_tuple = await permit.api.relationship_tuples.create(
@@ -586,13 +599,13 @@ async def test_rebac_policy(permit: Permit):
             assert rel_tuple.subject == subject
             assert rel_tuple.relation == relation
             assert rel_tuple.object == object
-        # assert rel_tuple.tenant == tenant # TODO: api should return tenant
+            assert rel_tuple.tenant == tenant
 
         # assign roles and then run permission checks
         for test_step in ASSIGNMENTS_AND_ASSERTIONS:
             # role assignments
             for assignment in test_step.assignments:
-                f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                logger.debug(f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}")
                 ra = await permit.api.role_assignments.assign(assignment)
                 assert ra.user == assignment.user
                 assert ra.role == assignment.role
@@ -600,9 +613,9 @@ async def test_rebac_policy(permit: Permit):
                 assert ra.tenant == assignment.tenant
 
             logger.info(
-                "sleeping 5 seconds before permit checks to make sure all writes propagated from cloud to PDP"
+                "sleeping 180 seconds before permit checks to make sure all writes propagated from cloud to PDP"
             )
-            await asyncio.sleep(5)
+            await asyncio.sleep(180)
 
             for assertion in test_step.assertions:
                 await assert_permit_check(permit, assertion)
