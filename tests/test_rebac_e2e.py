@@ -443,7 +443,9 @@ async def cleanup(permit: Permit):
                 await permit.api.tenants.delete(tenant.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    logger.debug(f"SKIPPING delete, tenant does not exist: {tenant.key}")
+                    logger.debug(
+                        f"SKIPPING delete, tenant does not exist: {tenant.key}"
+                    )
         for rel_tuple in RELATIONSHIPS:
             subject, relation, object, tenant = rel_tuple
             try:
@@ -478,7 +480,9 @@ async def cleanup(permit: Permit):
                 await permit.api.resources.delete(resource.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    logger.debug(f"SKIPPING delete, resource does not exist: {resource.key}")
+                    logger.debug(
+                        f"SKIPPING delete, resource does not exist: {resource.key}"
+                    )
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
     except Exception as error:
@@ -605,7 +609,9 @@ async def test_rebac_policy(permit: Permit):
         for test_step in ASSIGNMENTS_AND_ASSERTIONS:
             # role assignments
             for assignment in test_step.assignments:
-                logger.debug(f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}")
+                logger.debug(
+                    f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                )
                 ra = await permit.api.role_assignments.assign(assignment)
                 assert ra.user == assignment.user
                 assert ra.role == assignment.role
