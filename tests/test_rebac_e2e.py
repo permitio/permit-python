@@ -8,6 +8,7 @@ from loguru import logger
 from permit import Permit
 from permit.api.models import (
     DerivedRoleBlockEdit,
+    PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
     DerivedRoleRuleCreate,
     RelationCreate,
     RelationshipTupleCreate,
@@ -168,6 +169,9 @@ RESOURCE_ROLES = {
             # tests creation of role derivation as part of the resource role
             # (account admin is editor on everything)
             granted_to=DerivedRoleBlockEdit(
+                when=PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(
+                    no_direct_roles_on_object=True,
+                ),
                 users_with_role=[
                     DerivedRoleRuleCreate(
                         role=ADMIN,
@@ -424,6 +428,57 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
                 {"type": DOCUMENT.key, "key": "secret-recipe", "tenant": TENANT_CC.key},
                 True,
             ),
+        ],
+    ),
+    # permissions from higher level blocked by condition
+    PermissionAssertions(
+        assignments=[
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=ADMIN,
+                resource_instance=f"{ACCOUNT.key}:permitio",
+                tenant=TENANT_PERMIT.key,
+            ),
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=VIEWER,
+                resource_instance=f"{FOLDER.key}:rnd",
+                tenant=TENANT_PERMIT.key,
+            ),
+        ],
+        assertions=[
+            # direct access allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
+                True,
+            ),
+            # access given by direct role is allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {
+                    "type": FOLDER.key,
+                    "key": "rnd",
+                    "tenant": TENANT_PERMIT.key,
+                },
+                True,
+            ),
+            # access given by derived role is not allowed
+            *[
+                CheckAssertion(
+                    USER_PERMIT.key,
+                    action,
+                    {
+                        "type": FOLDER.key,
+                        "key": "rnd",
+                        "tenant": TENANT_PERMIT.key,
+                    },
+                    False,
+                )
+                for action in ["rename", "delete", "create-document"]
+            ],
         ],
     ),
 ]
