@@ -8,8 +8,8 @@ from loguru import logger
 from permit import Permit
 from permit.api.models import (
     DerivedRoleBlockEdit,
-    PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
     DerivedRoleRuleCreate,
+    PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
     RelationCreate,
     RelationshipTupleCreate,
     RelationshipTupleDelete,
