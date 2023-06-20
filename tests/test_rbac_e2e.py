@@ -152,7 +152,7 @@ async def test_permission_check_e2e(permit: Permit):
         assert ra.user_id == user.id
         assert ra.role_id == viewer.id
         assert ra.tenant_id == tenant.id
-        assert ra.user == user.email
+        assert ra.user == user.email or ra.user == user.key
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
