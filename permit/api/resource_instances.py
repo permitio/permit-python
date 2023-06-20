@@ -10,18 +10,14 @@ from .base import (
     required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
-    ResourceActionGroupCreate,
-    ResourceActionGroupRead,
-    ResourceActionGroupUpdate,
-)
+from .models import ResourceInstanceCreate, ResourceInstanceRead, ResourceInstanceUpdate
 
 
-class ResourceActionGroupsApi(BasePermitApi):
+class ResourceInstancesApi(BasePermitApi):
     @property
-    def __action_groups(self) -> SimpleHttpClient:
+    def __resource_instances(self) -> SimpleHttpClient:
         return self._build_http_client(
-            "/v2/schema/{proj_id}/{env_id}/resources".format(
+            "/v2/facts/{proj_id}/{env_id}/resource_instances".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
             )
@@ -31,169 +27,156 @@ class ResourceActionGroupsApi(BasePermitApi):
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(
-        self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceActionGroupRead]:
+        self, page: int = 1, per_page: int = 100
+    ) -> List[ResourceInstanceRead]:
         """
-        Retrieves a list of action groups.
+        Retrieves a list of resource instances.
 
         Args:
-            resource_key: The key of the resource to filter on.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
         Returns:
-            an array of action groups.
+            an array of resource instances.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__action_groups.get(
-            f"/{resource_key}/action_groups",
-            model=List[ResourceActionGroupRead],
+        return await self.__resource_instances.get(
+            "",
+            model=List[ResourceInstanceRead],
             params=pagination_params(page, per_page),
         )
 
-    async def _get(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
-        return await self.__action_groups.get(
-            f"/{resource_key}/action_groups/{group_key}",
-            model=ResourceActionGroupRead,
+    async def _get(self, instance_key: str) -> ResourceInstanceRead:
+        return await self.__resource_instances.get(
+            f"/{instance_key}", model=ResourceInstanceRead
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
+    async def get(self, instance_key: str) -> ResourceInstanceRead:
         """
-        Retrieves a action group by its key.
+        Retrieves a resource instance by its key.
 
         Args:
-            resource_key: The key of the resource the action group belongs to.
-            group_key: The key of the action group.
+            instance_key: The key of the resource instance.
 
         Returns:
-            the action group.
+            the resource instance.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self._get(resource_key, group_key)
+        return await self._get(instance_key)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_key(
-        self, resource_key: str, group_key: str
-    ) -> ResourceActionGroupRead:
+    async def get_by_key(self, instance_key: str) -> ResourceInstanceRead:
         """
-        Retrieves a action group by its key.
+        Retrieves a resource instance by its key.
         Alias for the get method.
 
         Args:
-            resource_key: The key of the resource the action group belongs to.
-            group_key: The key of the action group.
+            instance_key: The key of the resource instance.
 
         Returns:
-            the action group.
+            the resource instance.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self._get(resource_key, group_key)
+        return await self._get(instance_key)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_id(
-        self, resource_id: str, group_id: str
-    ) -> ResourceActionGroupRead:
+    async def get_by_id(self, instance_id: str) -> ResourceInstanceRead:
         """
-        Retrieves a action group by its ID.
+        Retrieves a resource instance by its ID.
         Alias for the get method.
 
         Args:
-            resource_key: The ID of the resource the action group belongs to.
-            group_id: The ID of the action group.
+            instance_id: The ID of the resource instance.
 
         Returns:
-            the action group.
+            the resource instance.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self._get(resource_id, group_id)
+        return await self._get(instance_id)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(
-        self, resource_key: str, group_data: ResourceActionGroupCreate
-    ) -> ResourceActionGroupRead:
+        self, instance_data: ResourceInstanceCreate
+    ) -> ResourceInstanceRead:
         """
-        Creates a new action group.
+        Creates a new resource instance.
 
         Args:
-            resource_key: The key of the resource under which the action group should be created.
-            group_data: The data for the new action group.
+            instance_data: The data for the new resource instance.
 
         Returns:
-            the created action group.
+            the created resource instance.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__action_groups.post(
-            f"/{resource_key}/action_groups",
-            model=ResourceActionGroupRead,
-            json=group_data,
+        return await self.__resource_instances.post(
+            "", model=ResourceInstanceRead, json=instance_data
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(
-        self, resource_key: str, group_key: str, group_data: ResourceActionGroupUpdate
-    ) -> ResourceActionGroupRead:
+        self, instance_key: str, instance_data: ResourceInstanceUpdate
+    ) -> ResourceInstanceRead:
         """
-        Updates an action group.
+        Updates a resource instance.
 
         Args:
-            resource_key: The key of the resource the action group belongs to.
-            group_key: The key of the action group.
-            group_data: The updated data for the action group.
+            instance_key: The key of the resource instance.
+            instance_data: The updated data for the resource instance.
 
         Returns:
-            the updated action group.
+            the updated resource instance.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__action_groups.patch(
-            f"/{resource_key}/action_groups/{group_key}",
-            model=ResourceActionGroupRead,
-            json=group_data,
+        return await self.__resource_instances.patch(
+            f"/{instance_key}",
+            model=ResourceInstanceRead,
+            json=instance_data,
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def delete(self, resource_key: str, group_key: str) -> None:
+    async def delete(self, instance_key: str) -> None:
         """
-        Deletes a action group.
+        Deletes a resource instance.
 
         Args:
-            resource_key: The key of the resource the action group belongs to.
-            group_key: The key of the action group to delete.
+            instance_key: The key of the resource instance to delete.
+
+        Returns:
+            A promise that resolves when the resource instance is deleted.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__action_groups.delete(
-            f"/{resource_key}/action_groups/{group_key}"
-        )
+        return await self.__resource_instances.delete(f"/{instance_key}")
