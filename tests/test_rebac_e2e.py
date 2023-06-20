@@ -718,9 +718,9 @@ async def test_rebac_policy(permit: Permit):
                     assert ra.tenant == assignment.tenant
 
                 logger.info(
-                    "sleeping 180 seconds before permit checks to make sure all writes propagated from cloud to PDP"
+                    "sleeping 10 seconds before permit checks to make sure all writes propagated from cloud to PDP"
                 )
-                await asyncio.sleep(180)
+                await asyncio.sleep(10)
 
                 for assertion in test_step.assertions:
                     await assert_permit_check(permit, assertion)
