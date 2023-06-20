@@ -466,6 +466,17 @@ class DerivedRoleRule(BaseModel):
     related_role: str = Field(..., title="Related Role")
 
 
+class PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    no_direct_roles_on_object: Optional[bool] = Field(
+        False,
+        description="If true, the derived role will not take action if the resource has any direct role",
+        title="No Direct Roles On Object",
+    )
+
+
 class DerivedRoleRuleCreate(BaseModel):
     class Config:
         extra = Extra.allow
@@ -484,6 +495,13 @@ class DerivedRoleRuleCreate(BaseModel):
         ...,
         description="the relation key that needs to exist between the resource and the related resource",
         title="Linked By Relation",
+    )
+    when: Optional[PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings] = Field(
+        default_factory=lambda: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings.parse_obj(
+            {"no_direct_roles_on_object": False}
+        ),
+        description="the settings of the derived role rule",
+        title="When",
     )
 
 
@@ -573,17 +591,6 @@ class ElementsPermissionLevel(str, Enum):
     LEVEL_4 = "LEVEL_4"
     HIDDEN = "HIDDEN"
     UNCONFIGURED = "UNCONFIGURED"
-
-
-class PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    no_direct_roles_on_object: Optional[bool] = Field(
-        False,
-        description="If true, the derived role will not take action if the resource has any direct role",
-        title="No Direct Roles On Object",
-    )
 
 
 class PermitBackendSchemasSchemaOpalDataDerivedRoleSettings(BaseModel):

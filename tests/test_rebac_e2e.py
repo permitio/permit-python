@@ -68,6 +68,7 @@ COMMENTER = "commenter"
 EDITOR = "editor"
 ADMIN = "admin"
 MEMBER = "member"
+WATCHER = "watcher"
 
 ACCOUNT = ResourceCreate(
     key="Account",
@@ -142,20 +143,23 @@ RESOURCE_ROLES = {
             key=VIEWER,
             name="Viewer",
             permissions=["read"],
+        ),
+        ResourceRoleCreate(
+            key=COMMENTER,
+            name="Commenter",
+            permissions=["read", "rename"],
             granted_to=DerivedRoleBlockEdit(
                 users_with_role=[
                     DerivedRoleRuleCreate(
                         role=MEMBER,
                         on_resource="Account",
                         linked_by_relation="account",
+                        when=PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(
+                            no_direct_roles_on_object=True,
+                        ),
                     )
                 ]
             ),
-        ),
-        ResourceRoleCreate(
-            key=COMMENTER,
-            name="Commenter",
-            permissions=["read"],
         ),
         ResourceRoleCreate(
             key=EDITOR,
@@ -178,7 +182,7 @@ RESOURCE_ROLES = {
                         on_resource="Account",
                         linked_by_relation="account",
                     )
-                ]
+                ],
             ),
         ),
     ],
@@ -414,23 +418,37 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
                 for action in ["read", "comment", "update", "delete"]
                 for instance in ["architecture", "opal", "budget23", "june-expenses"]
             ],
-            # access to other tenants not allowed
-            CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {"type": DOCUMENT.key, "key": "secret-recipe", "tenant": TENANT_CC.key},
-                False,
-            ),
-            # but access is allowed to user with lower permissions in the right tenant
-            CheckAssertion(
-                USER_CC.key,
-                "read",
-                {"type": DOCUMENT.key, "key": "secret-recipe", "tenant": TENANT_CC.key},
-                True,
-            ),
+            *[
+                # access to other tenants not allowed
+                CheckAssertion(
+                    USER_PERMIT.key,
+                    action,
+                    {
+                        "type": DOCUMENT.key,
+                        "key": "secret-recipe",
+                        "tenant": TENANT_CC.key,
+                    },
+                    False,
+                )
+                for action in ["read", "comment"]
+            ],
+            *[
+                # but access is allowed to user with lower permissions in the right tenant
+                CheckAssertion(
+                    USER_CC.key,
+                    action,
+                    {
+                        "type": DOCUMENT.key,
+                        "key": "secret-recipe",
+                        "tenant": TENANT_CC.key,
+                    },
+                    True,
+                )
+                for action in ["read", "comment"]
+            ],
         ],
     ),
-    # permissions from higher level blocked by condition
+    # permissions from higher level blocked by condition on role derivation
     PermissionAssertions(
         assignments=[
             RoleAssignmentCreate(
@@ -454,17 +472,6 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
                 {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
                 True,
             ),
-            # access given by direct role is allowed
-            CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {
-                    "type": FOLDER.key,
-                    "key": "rnd",
-                    "tenant": TENANT_PERMIT.key,
-                },
-                True,
-            ),
             # access given by derived role is not allowed
             *[
                 CheckAssertion(
@@ -479,6 +486,43 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
                 )
                 for action in ["rename", "delete", "create-document"]
             ],
+        ],
+    ),
+    # permissions from higher level blocked by condition on role derivation rule
+    PermissionAssertions(
+        assignments=[
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=MEMBER,
+                resource_instance=f"{ACCOUNT.key}:permitio",
+                tenant=TENANT_PERMIT.key,
+            ),
+            RoleAssignmentCreate(
+                user=USER_PERMIT.key,
+                role=VIEWER,
+                resource_instance=f"{FOLDER.key}:rnd",
+                tenant=TENANT_PERMIT.key,
+            ),
+        ],
+        assertions=[
+            # direct access allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "read",
+                {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
+                True,
+            ),
+            # access given by derived role is not allowed
+            CheckAssertion(
+                USER_PERMIT.key,
+                "rename",
+                {
+                    "type": FOLDER.key,
+                    "key": "rnd",
+                    "tenant": TENANT_PERMIT.key,
+                },
+                False,
+            ),
         ],
     ),
 ]
@@ -659,27 +703,43 @@ async def test_rebac_policy(permit: Permit):
             assert rel_tuple.relation == relation
             assert rel_tuple.object == object
             assert rel_tuple.tenant == tenant
-
         # assign roles and then run permission checks
         for test_step in ASSIGNMENTS_AND_ASSERTIONS:
-            # role assignments
-            for assignment in test_step.assignments:
-                logger.debug(
-                    f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+            try:
+                # role assignments
+                for assignment in test_step.assignments:
+                    logger.debug(
+                        f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                    )
+                    ra = await permit.api.role_assignments.assign(assignment)
+                    assert ra.user == assignment.user
+                    assert ra.role == assignment.role
+                    assert ra.resource_instance == assignment.resource_instance
+                    assert ra.tenant == assignment.tenant
+
+                logger.info(
+                    "sleeping 180 seconds before permit checks to make sure all writes propagated from cloud to PDP"
                 )
-                ra = await permit.api.role_assignments.assign(assignment)
-                assert ra.user == assignment.user
-                assert ra.role == assignment.role
-                assert ra.resource_instance == assignment.resource_instance
-                assert ra.tenant == assignment.tenant
+                await asyncio.sleep(180)
 
-            logger.info(
-                "sleeping 180 seconds before permit checks to make sure all writes propagated from cloud to PDP"
-            )
-            await asyncio.sleep(180)
-
-            for assertion in test_step.assertions:
-                await assert_permit_check(permit, assertion)
+                for assertion in test_step.assertions:
+                    await assert_permit_check(permit, assertion)
+            finally:
+                for assignment in test_step.assignments:
+                    try:
+                        await permit.api.role_assignments.unassign(
+                            RoleAssignmentRemove(
+                                user=assignment.user,
+                                role=assignment.role,
+                                resource_instance=assignment.resource_instance,
+                                tenant=assignment.tenant,
+                            )
+                        )
+                    except PermitApiError as error:
+                        if error.status_code == 404:
+                            logger.debug(
+                                f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, {assignment.resource_instance}, {assignment.tenant})"
+                            )
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
     except Exception as error:
