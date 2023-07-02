@@ -261,11 +261,11 @@ class UsersApi(BasePermitApi):
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_assigned_roles(
-        self,
-        user: str,
-        tenant: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 100,
+            self,
+            user: str,
+            tenant: Optional[str] = None,
+            page: int = 1,
+            per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
         """
         Retrieves the roles assigned to a user in a given tenant (if the tenant filter is provided)
@@ -297,7 +297,7 @@ class UsersApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def approve_user(self, email: str, invite_code: str) -> UserRead:
+    async def approve_user(self, user_key: str, email: str, invite_code: str) -> UserRead:
         """
         Approves a user.
 
@@ -315,5 +315,5 @@ class UsersApi(BasePermitApi):
         return await self.__user_invites.post(
             f"/{invite_code}/approve",
             model=UserRead,
-            json={"email": email},
+            json={"email": email, "key": user_key},
         )
