@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from typing import List
+from typing import Any, Awaitable, Callable, List, Optional
 
 import pytest
 from loguru import logger
@@ -53,6 +53,8 @@ class CheckAssertion:
     action: str
     resource: dict
     expected_decision: bool
+    pre_assertion_hook: Optional[Callable[[Permit], Awaitable[Any]]] = None
+    post_assertion_hook: Optional[Callable[[Permit], Awaitable[Any]]] = None
 
 
 @dataclass
@@ -282,7 +284,6 @@ RELATIONSHIPS = [
     (f"{ACCOUNT.key}:cocacola", "account", f"{FOLDER.key}:recipes", TENANT_CC.key),
 ]
 
-
 ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
     # direct access
     PermissionAssertions(
@@ -414,6 +415,20 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
                         "tenant": TENANT_PERMIT.key,
                     },
                     True,
+                    pre_assertion_hook=lambda permit: permit.api.resource_roles.update_role_derivation_conditions(
+                        resource_key=FOLDER.key,
+                        role_key=EDITOR,
+                        conditions=PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(
+                            no_direct_roles_on_object=False
+                        ),
+                    ),
+                    post_assertion_hook=lambda permit: permit.api.resource_roles.update_role_derivation_conditions(
+                        resource_key=FOLDER.key,
+                        role_key=EDITOR,
+                        conditions=PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings(
+                            no_direct_roles_on_object=True
+                        ),
+                    ),
                 )
                 for action in ["read", "comment", "update", "delete"]
                 for instance in ["architecture", "opal", "budget23", "june-expenses"]
@@ -723,10 +738,21 @@ async def test_rebac_policy(permit: Permit):
                 await asyncio.sleep(10)
 
                 for assertion in test_step.assertions:
+                    if assertion.pre_assertion_hook is not None:
+                        logger.debug("executing pre assertion hook")
+                        await assertion.pre_assertion_hook(permit)
+                        await asyncio.sleep(1)
                     await assert_permit_check(permit, assertion)
+                    if assertion.post_assertion_hook is not None:
+                        logger.debug("executing post assertion hook")
+                        await assertion.post_assertion_hook(permit)
+                        await asyncio.sleep(1)
             finally:
                 for assignment in test_step.assignments:
                     try:
+                        logger.debug(
+                            f"deleting role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                        )
                         await permit.api.role_assignments.unassign(
                             RoleAssignmentRemove(
                                 user=assignment.user,
@@ -740,6 +766,8 @@ async def test_rebac_policy(permit: Permit):
                             logger.debug(
                                 f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, {assignment.resource_instance}, {assignment.tenant})"
                             )
+                        else:
+                            raise
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
     except Exception as error:
