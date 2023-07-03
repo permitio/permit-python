@@ -326,6 +326,6 @@ class ResourceRolesApi(BasePermitApi):
         """
         return await self.__resource_roles.put(
             f"/{resource_key}/roles/{role_key}/implicit_grants/conditions",
-            model=DerivedRoleRuleRead,
+            model=PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
             json=conditions,
         )
