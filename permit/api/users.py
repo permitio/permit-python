@@ -298,7 +298,11 @@ class UsersApi(BasePermitApi):
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def approve(
-        self, user_key: str, email: str, invite_code: str, attributes: Optional[dict] = None
+        self,
+        user_key: str,
+        email: str,
+        invite_code: str,
+        attributes: Optional[dict] = None,
     ) -> UserRead:
         """
         Approves a user.
