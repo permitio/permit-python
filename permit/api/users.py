@@ -297,8 +297,8 @@ class UsersApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def approve_user(
-        self, user_key: str, email: str, invite_code: str
+    async def approve(
+        self, user_key: str, email: str, invite_code: str, attributes: Optional[dict] = None
     ) -> UserRead:
         """
         Approves a user.
@@ -317,5 +317,5 @@ class UsersApi(BasePermitApi):
         return await self.__user_invites.post(
             f"/{invite_code}/approve",
             model=UserRead,
-            json={"email": email, "key": user_key},
+            json={"email": email, "key": user_key, "attributes": attributes or None},
         )
