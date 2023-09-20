@@ -2,7 +2,12 @@ from enum import Enum
 from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from ..utils.pydantic_version import PYDANTIC_VERSION
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import BaseModel, Field
+else:
+    from pydantic.v1 import BaseModel, Field  # type: ignore
 
 from ..config import PermitConfig
 from ..utils.sync import SyncClass

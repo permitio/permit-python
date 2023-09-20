@@ -3,7 +3,14 @@ from typing import Callable, Optional, Type, TypeVar, Union
 
 import aiohttp
 from loguru import logger
-from pydantic import BaseModel, Extra, Field, parse_obj_as
+
+from ..utils.pydantic_version import PYDANTIC_VERSION
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import BaseModel, Extra, Field, parse_obj_as
+else:
+    from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as  # type: ignore
+
 
 from ..config import PermitConfig
 from ..exceptions import PermitContextError, handle_api_error, handle_client_error

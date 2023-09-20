@@ -9,7 +9,14 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
+from ..utils.pydantic_version import PYDANTIC_VERSION
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
+else:
+    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr  # type: ignore
+
+
 from typing_extensions import Literal
 
 
