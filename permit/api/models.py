@@ -9,10 +9,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-import pydantic
-
-PYDANTIC_VERSION = tuple(map(int, pydantic.__version__.split('.')))
-
+from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
 else:
