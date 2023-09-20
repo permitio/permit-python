@@ -1,10 +1,11 @@
 from typing import List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
+
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments # type: ignore
+    from pydantic.v1 import validate_arguments  # type: ignore
 
 from .base import (
     BasePermitApi,

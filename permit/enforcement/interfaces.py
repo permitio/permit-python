@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
+
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel
 else:
