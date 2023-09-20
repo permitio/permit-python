@@ -1,6 +1,14 @@
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+import pydantic
+
+PYDANTIC_VERSION = tuple(map(int, pydantic.__version__.split('.')))
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import BaseModel
+else:
+    from pydantic.v1 import BaseModel  # type: ignore
+
 
 JWT = str
 

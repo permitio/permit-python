@@ -1,6 +1,13 @@
 from typing import List
 
-from pydantic import validate_arguments
+import pydantic
+
+PYDANTIC_VERSION = tuple(map(int, pydantic.__version__.split('.')))
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import validate_arguments
+else:
+    from pydantic.v1 import validate_arguments # type: ignore
 
 from ..config import PermitConfig
 from .base import (
