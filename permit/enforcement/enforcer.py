@@ -89,9 +89,9 @@ class Enforcer:
         )
         query_context = self._context_store.get_derived_context(context)
         input = dict(
-            user=normalized_user.dict(),
+            user=normalized_user.dict(exclude_unset=True),
             action=action,
-            resource=normalized_resource.dict(),
+            resource=normalized_resource.dict(exclude_unset=True),
             context=query_context,
         )
 
