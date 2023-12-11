@@ -89,9 +89,9 @@ class Enforcer:
         )
         query_context = self._context_store.get_derived_context(context)
         input = dict(
-            user=normalized_user.dict(),
+            user=normalized_user.dict(exclude_unset=True),
             action=action,
-            resource=normalized_resource.dict(),
+            resource=normalized_resource.dict(exclude_unset=True),
             context=query_context,
         )
 
@@ -171,8 +171,8 @@ class Enforcer:
     @staticmethod
     def _resource_repr(resource: ResourceInput) -> str:
         resource_repr: str = resource.type
-        if resource.id is not None:
-            resource_repr += ":" + resource.id
+        if resource.key is not None:
+            resource_repr += ":" + resource.key
         if resource.tenant:
             resource_repr += f", tenant: {resource.tenant}"
         return resource_repr
@@ -182,7 +182,7 @@ class Enforcer:
         parts = resource.split(RESOURCE_DELIMITER)
         if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
-        return ResourceInput(type=parts[0], id=(parts[1] if len(parts) > 1 else None))
+        return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
 
 
 class SyncEnforcer(Enforcer, metaclass=SyncClass):
