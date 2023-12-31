@@ -6,7 +6,7 @@ from loguru import logger
 from .api.api_client import PermitApiClient
 from .api.elements import ElementsApi
 from .config import PermitConfig
-from .enforcement.enforcer import Action, Enforcer, Resource, User, CheckQuery
+from .enforcement.enforcer import Action, CheckQuery, Enforcer, Resource, User
 from .logger import configure_logger
 from .utils.context import Context
 
@@ -63,11 +63,11 @@ class Permit:
             await permit.elements.loginAs(user, tenant)
         """
         return self._elements
-    
+
     async def bulk_check(
-            self,
-            checks: list[CheckQuery],
-            context: Context = {},
+        self,
+        checks: list[CheckQuery],
+        context: Context = {},
     ) -> list[bool]:
         """
         Checks if a user is authorized to perform an action on a list of resources within the specified context.

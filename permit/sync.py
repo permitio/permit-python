@@ -3,7 +3,7 @@ from typing import Optional
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
 from .config import PermitConfig
-from .enforcement.enforcer import Action, Resource, SyncEnforcer, User, CheckQuery
+from .enforcement.enforcer import Action, CheckQuery, Resource, SyncEnforcer, User
 from .permit import Permit as AsyncPermit
 from .utils.context import Context
 
