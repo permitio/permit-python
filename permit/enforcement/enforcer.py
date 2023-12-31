@@ -23,6 +23,12 @@ User = Union[dict, str]
 Action = str
 Resource = Union[dict, str]
 
+CheckQuery = {
+    "user": User,
+    "action": Action,
+    "resource": Resource,
+}
+
 
 class Enforcer:
     def __init__(self, config: PermitConfig):
@@ -41,6 +47,125 @@ class Enforcer:
         using app can setup a flexible contextual behavior for authorization queries
         """
         return self._context_store
+
+    async def bulk_check(
+        self,
+        checks: list[CheckQuery],
+        context: Context = {},
+    ) -> list[bool]:
+        """
+        Checks if a user is authorized to perform an action on a resource within the specified context.
+
+        Args:
+            checks: A list of CheckQuery objects representing the authorization queries to be performed.
+            context: The context object representing the context in which the action is performed. Defaults to None.
+
+        Returns:
+            list[bool]: A list of booleans indicating whether the user is authorized for each resource.
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+
+        Examples:
+
+            # Bulk query of multiple check conventions
+            await permit.bulk_check([
+                {
+                    "user": user,
+                    "action": "close",
+                    "resource": {type: "issue", key: "1234"},
+                },
+                {
+                    "user": {key: "user"},
+                    "action": "close",
+                    "resource": "issue:1235",
+                },
+                {
+                    "user": "user_a",
+                    "action": "close",
+                    "resource": "issue",
+                },
+            ])
+        """
+
+        input = []
+        for check in checks:
+            normalized_user: UserInput = (
+                UserInput(key=check["user"])
+                if isinstance(check["user"], str)
+                else UserInput(**check["user"])
+            )
+            normalized_resource: ResourceInput = self._normalize_resource(
+                (
+                    self._resource_from_string(check["resource"])
+                    if isinstance(check["resource"], str)
+                    else ResourceInput(**check["resource"])
+                )
+            )
+            query_context = self._context_store.get_derived_context(context)
+            input.append(
+                dict(
+                    user=normalized_user.dict(exclude_unset=True),
+                    action=check["action"],
+                    resource=normalized_resource.dict(exclude_unset=True),
+                    context=query_context,
+                )
+            )
+
+        async with aiohttp.ClientSession(headers=self._headers) as session:
+            check_url = f"{self._base_url}/allowed/bulk"
+            try:
+                async with session.post(
+                    check_url,
+                    data=json.dumps(input),
+                ) as response:
+                    if response.status != 200:
+                        error_json: dict = await response.json()
+                        logger.error(
+                            "error in permit.check({}):\n{}\n{}".format(
+                                (
+                                    [
+                                        [
+                                            check.get("user"),
+                                            check.get("action"),
+                                            check.get("resource"),
+                                        ]
+                                        for check in input
+                                    ]
+                                ),
+                                f"status code: {response.status}",
+                                repr(error_json),
+                            )
+                        )
+                        raise PermitConnectionError
+                    content: dict = await response.json()
+                    logger.debug(
+                        f"permit.check() response:\ninput: {pformat(input, indent=2)}\nresponse status: {response.status}\nresponse data: {pformat(content, indent=2)}"
+                    )
+                    data = content.get(
+                        "allow", content.get("result", {}).get("allow", [])
+                    )
+                    decisions: list[bool] = [
+                        bool(item.get("allow", False)) for item in data
+                    ]
+            except aiohttp.ClientError as err:
+                logger.error(
+                    "error in permit.check({}):\n{}".format(
+                        (
+                            [
+                                [
+                                    check.get("user"),
+                                    check.get("action"),
+                                    check.get("resource"),
+                                ]
+                                for check in input
+                            ]
+                        ),
+                        err,
+                    )
+                )
+                raise PermitConnectionError
+            return decisions
 
     async def check(
         self,

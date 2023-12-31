@@ -212,6 +212,34 @@ async def test_abac_e2e(permit: Permit):
 
         print_break()
 
+        logger.info("testing admin permissions in bulk")
+        assert await permit.bulk_check(
+            [
+                {
+                    "user": USER_A.key,
+                    "action": "create",
+                    "resource": {"type": "document", "tenant": TESLA.key},
+                },
+                {
+                    "user": USER_B.key,
+                    "action": "create",
+                    "resource": {"type": "document", "tenant": TESLA.key},
+                },
+                {
+                    "user": USER_A.key,
+                    "action": "sign",
+                    "resource": {"type": "document", "tenant": TESLA.key},
+                },
+                {
+                    "user": USER_B.key,
+                    "action": "sign",
+                    "resource": {"type": "document", "tenant": TESLA.key},
+                },
+            ]
+        ) == [True, True, False, False]
+
+        print_break()
+
         logger.info("creating condition sets")
         for condition_set_data in CONDITION_SETS:
             condition_set = await permit.api.condition_sets.create(condition_set_data)

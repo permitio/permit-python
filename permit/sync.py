@@ -3,7 +3,7 @@ from typing import Optional
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
 from .config import PermitConfig
-from .enforcement.enforcer import Action, Resource, SyncEnforcer, User
+from .enforcement.enforcer import Action, Resource, SyncEnforcer, User, CheckQuery
 from .permit import Permit as AsyncPermit
 from .utils.context import Context
 
@@ -38,6 +38,40 @@ class Permit(AsyncPermit):
             permit.elements.loginAs(user, tenant)
         """
         return self._elements
+
+    def bulk_check(
+        self,
+        checks: list[CheckQuery],
+        context: Context = {},
+    ) -> list[bool]:
+        """
+        Checks if a user is authorized to perform an action on a list of resources within the specified context.
+
+        Args:
+            user: The user object representing the user.
+            action: The action to be performed on the resource.
+            resources: The list of resource objects representing the resources.
+            context: The context object representing the context in which the action is performed. Defaults to None.
+
+        Returns:
+            list[bool]: A list of booleans indicating whether the user is authorized for each resource.
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+
+        Examples:
+
+            # can the user close any issue?
+            permit.bulk_check(user, 'close', ['issue'])
+
+            # can the user close any issue who's id is 1234?
+            permit.bulk_check(user, 'close', ['issue:1234'])
+
+            # can the user close (any) issues belonging to the 't1' tenant?
+            # (in a multi tenant application)
+            permit.bulk_check(user, 'close', [{'type': 'issue', 'tenant': 't1'}])
+        """
+        return self._enforcer.bulk_check(checks, context)
 
     def check(
         self,
