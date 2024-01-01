@@ -48,9 +48,7 @@ class Permit(AsyncPermit):
         Checks if a user is authorized to perform an action on a list of resources within the specified context.
 
         Args:
-            user: The user object representing the user.
-            action: The action to be performed on the resource.
-            resources: The list of resource objects representing the resources.
+            checks: A list of CheckQuery objects representing the authorization checks to be performed.
             context: The context object representing the context in which the action is performed. Defaults to None.
 
         Returns:
@@ -61,15 +59,24 @@ class Permit(AsyncPermit):
 
         Examples:
 
-            # can the user close any issue?
-            permit.bulk_check(user, 'close', ['issue'])
-
-            # can the user close any issue who's id is 1234?
-            permit.bulk_check(user, 'close', ['issue:1234'])
-
-            # can the user close (any) issues belonging to the 't1' tenant?
-            # (in a multi tenant application)
-            permit.bulk_check(user, 'close', [{'type': 'issue', 'tenant': 't1'}])
+            # Bulk query of multiple check conventions
+            await permit.bulk_check([
+                {
+                    "user": user,
+                    "action": "close",
+                    "resource": {type: "issue", key: "1234"},
+                },
+                {
+                    "user": {key: "user"},
+                    "action": "close",
+                    "resource": "issue:1235",
+                },
+                {
+                    "user": "user_a",
+                    "action": "close",
+                    "resource": "issue",
+                },
+            ])
         """
         return self._enforcer.bulk_check(checks, context)
 
