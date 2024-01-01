@@ -2127,6 +2127,11 @@ class ResourceRoleCreate(BaseModel):
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title="Attributes",
     )
+    extends: Optional[List[str]] = Field(
+        None,
+        description="list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.",
+        title="Extends",
+    )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
         None,
         description="Derived role that inherit will be applied on this role",
@@ -2153,6 +2158,11 @@ class ResourceRoleRead(BaseModel):
         None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title="Attributes",
+    )
+    extends: Optional[List[str]] = Field(
+        [],
+        description="list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.",
+        title="Extends",
     )
     granted_to: Optional[DerivedRoleBlockRead] = Field(
         None,
@@ -2221,6 +2231,11 @@ class ResourceRoleUpdate(BaseModel):
         None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title="Attributes",
+    )
+    extends: Optional[List[str]] = Field(
+        None,
+        description="list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.",
+        title="Extends",
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
         None,
@@ -2408,6 +2423,11 @@ class RoleCreate(BaseModel):
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title="Attributes",
     )
+    extends: Optional[List[str]] = Field(
+        None,
+        description="list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.",
+        title="Extends",
+    )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
         None,
         description="Derived role that inherit will be applied on this role",
@@ -2441,6 +2461,11 @@ class RoleRead(BaseModel):
         None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title="Attributes",
+    )
+    extends: Optional[List[str]] = Field(
+        [],
+        description="list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.",
+        title="Extends",
     )
     granted_to: Optional[DerivedRoleBlockRead] = Field(
         {},
@@ -2499,6 +2524,11 @@ class RoleUpdate(BaseModel):
         None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title="Attributes",
+    )
+    extends: Optional[List[str]] = Field(
+        None,
+        description="list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.",
+        title="Extends",
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
         None,
