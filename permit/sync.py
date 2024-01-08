@@ -3,7 +3,7 @@ from typing import Optional
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
 from .config import PermitConfig
-from .enforcement.enforcer import Action, Resource, SyncEnforcer, User
+from .enforcement.enforcer import Action, CheckQuery, Resource, SyncEnforcer, User
 from .permit import Permit as AsyncPermit
 from .utils.context import Context
 
@@ -38,6 +38,47 @@ class Permit(AsyncPermit):
             permit.elements.loginAs(user, tenant)
         """
         return self._elements
+
+    def bulk_check(
+        self,
+        checks: list[CheckQuery],
+        context: Context = {},
+    ) -> list[bool]:
+        """
+        Checks if a user is authorized to perform an action on a list of resources within the specified context.
+
+        Args:
+            checks: A list of CheckQuery objects representing the authorization checks to be performed.
+            context: The context object representing the context in which the action is performed. Defaults to None.
+
+        Returns:
+            list[bool]: A list of booleans indicating whether the user is authorized for each resource.
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+
+        Examples:
+
+            # Bulk query of multiple check conventions
+            await permit.bulk_check([
+                {
+                    "user": user,
+                    "action": "close",
+                    "resource": {type: "issue", key: "1234"},
+                },
+                {
+                    "user": {key: "user"},
+                    "action": "close",
+                    "resource": "issue:1235",
+                },
+                {
+                    "user": "user_a",
+                    "action": "close",
+                    "resource": "issue",
+                },
+            ])
+        """
+        return self._enforcer.bulk_check(checks, context)
 
     def check(
         self,

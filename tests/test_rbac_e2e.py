@@ -189,6 +189,36 @@ async def test_permission_check_e2e(permit: Permit):
 
         print_break()
 
+        logger.info("testing bulk permission check")
+        assert (
+            await permit.bulk_check(
+                [
+                    {
+                        "user": "auth0|elon",
+                        "action": "read",
+                        "resource": {
+                            "type": "document",
+                            "tenant": "tesla",
+                            "attributes": resource_attributes,
+                        },
+                    },
+                    {
+                        "user": user.dict(),
+                        "action": "read",
+                        "resource": {"type": document.key, "tenant": tenant.key},
+                    },
+                    {
+                        "user": user.key,
+                        "action": "create",
+                        "resource": {"type": document.key, "tenant": tenant.key},
+                    },
+                ],
+                {},
+            )
+        ) == [True, True, False]
+
+        print_break()
+
         logger.info("changing the user roles")
 
         # change the user role - assign admin role
