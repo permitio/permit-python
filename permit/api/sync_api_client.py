@@ -5,9 +5,13 @@ from .condition_sets import ConditionSetsApi
 from .deprecated import DeprecatedApi
 from .environments import EnvironmentsApi
 from .projects import ProjectsApi
+from .relationship_tuples import RelationshipTuplesApi
 from .resource_action_groups import ResourceActionGroupsApi
 from .resource_actions import ResourceActionsApi
 from .resource_attributes import ResourceAttributesApi
+from .resource_instances import ResourceInstancesApi
+from .resource_relations import ResourceRelationsApi
+from .resource_roles import ResourceRolesApi
 from .resources import ResourcesApi
 from .role_assignments import RoleAssignmentsApi
 from .roles import RolesApi
@@ -35,6 +39,10 @@ class SyncProjectsApi(ProjectsApi, metaclass=SyncClass):
     pass
 
 
+class SyncRelationshipTuplesApi(RelationshipTuplesApi, metaclass=SyncClass):
+    pass
+
+
 class SyncResourceActionGroupsApi(ResourceActionGroupsApi, metaclass=SyncClass):
     pass
 
@@ -44,6 +52,18 @@ class SyncResourceActionsApi(ResourceActionsApi, metaclass=SyncClass):
 
 
 class SyncResourceAttributesApi(ResourceAttributesApi, metaclass=SyncClass):
+    pass
+
+
+class SyncResourceInstancesApi(ResourceInstancesApi, metaclass=SyncClass):
+    pass
+
+
+class SyncResourceRelationsApi(ResourceRelationsApi, metaclass=SyncClass):
+    pass
+
+
+class SyncResourceRolesApi(ResourceRolesApi, metaclass=SyncClass):
     pass
 
 
@@ -81,9 +101,13 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         self._condition_sets = SyncConditionSetsApi(config)
         self._environments = SyncEnvironmentsApi(config)
         self._projects = SyncProjectsApi(config)
+        self._relationship_tuples = SyncRelationshipTuplesApi(config)
         self._action_groups = SyncResourceActionGroupsApi(config)
         self._resource_actions = SyncResourceActionsApi(config)
         self._resource_attributes = SyncResourceAttributesApi(config)
+        self._resource_instances = SyncResourceInstancesApi(config)
+        self._resource_relations = SyncResourceRelationsApi(config)
+        self._resource_roles = SyncResourceRolesApi(config)
         self._resources = SyncResourcesApi(config)
         self._role_assignments = SyncRoleAssignmentsApi(config)
         self._roles = SyncRolesApi(config)
@@ -147,6 +171,30 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         return self._resource_attributes
 
     @property
+    def resource_roles(self) -> SyncResourceRolesApi:
+        """
+        API for managing resource roles.
+        See: https://api.permit.io/v2/redoc#tag/Resource-Roles
+        """
+        return self._resource_roles
+
+    @property
+    def resource_relations(self) -> SyncResourceRelationsApi:
+        """
+        API for managing resource relations.
+        See: https://api.permit.io/v2/redoc#tag/Resource-Relations
+        """
+        return self._resource_relations
+
+    @property
+    def resource_instances(self) -> SyncResourceInstancesApi:
+        """
+        API for managing resource instances.
+        See: https://api.permit.io/v2/redoc#tag/Resource-Instances
+        """
+        return self._resource_instances
+
+    @property
     def resources(self) -> SyncResourcesApi:
         """
         API for managing resources.
@@ -161,6 +209,14 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Role-Assignments
         """
         return self._role_assignments
+
+    @property
+    def relationship_tuples(self) -> SyncRelationshipTuplesApi:
+        """
+        API for managing role assignments.
+        See: https://api.permit.io/v2/redoc#tag/Relationship-tuples
+        """
+        return self._relationship_tuples
 
     @property
     def roles(self) -> SyncRolesApi:
