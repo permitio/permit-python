@@ -17,7 +17,11 @@ from .base import (
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
     RelationshipTupleCreate,
+    RelationshipTupleCreateBulkOperation,
+    RelationshipTupleCreateBulkOperationResult,
     RelationshipTupleDelete,
+    RelationshipTupleDeleteBulkOperation,
+    RelationshipTupleDeleteBulkOperationResult,
     RelationshipTupleRead,
 )
 
@@ -100,3 +104,71 @@ class RelationshipTuplesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__relationship_tuples.delete("", json=tuple_data)
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_create(
+        self, tuples: List[RelationshipTupleCreate]
+    ) -> RelationshipTupleRead:
+        """
+        Creates multiple relationship tuples at once using the provided tuple data.
+
+
+        Args:
+            tuples: The relationship tuples to create.
+                Each tuple object is of type RelationshipTupleCreate and is essentially
+                a tuple of (subject, relation, object, tenant).
+
+                subject and object are both resource instances, formatted as
+                `<resourcetype:instancekey>` strings (e.g: Folder:budget23).
+                relation is the name of the relation.
+                tenant is the key of the tenant in which to place the relation
+                (optional if at least one of subject/object already exists).
+
+                Subject and object must both be resource instances *in the same tenant*!
+
+        Returns:
+            the tuples creation result (RelationshipTupleCreateBulkOperationResult)
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__relationship_tuples.post(
+            "/bulk",
+            model=RelationshipTupleCreateBulkOperationResult,
+            json=RelationshipTupleCreateBulkOperation(operations=tuples),
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_delete(
+        self, tuples: List[RelationshipTupleDelete]
+    ) -> RelationshipTupleRead:
+        """
+        Deletes multiple relationship tuples at once using the provided tuple data.
+
+
+        Args:
+            tuples: The relationship tuples to delete.
+                Each tuple object is of type RelationshipTupleDelete and is essentially
+                a tuple of (subject, relation, object).
+
+                subject and object are both resource instances, formatted as
+                `<resourcetype:instancekey>` strings (e.g: Folder:budget23).
+                relation is the name of the relation.
+
+        Returns:
+            the tuples creation result (RelationshipTupleCreateBulkOperationResult)
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__relationship_tuples.delete(
+            "/bulk",
+            model=RelationshipTupleDeleteBulkOperationResult,
+            json=RelationshipTupleDeleteBulkOperation(idents=tuples),
+        )
