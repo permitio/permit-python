@@ -213,7 +213,7 @@ class SyncPermitApiClient(SyncDeprecatedApi):
     @property
     def relationship_tuples(self) -> SyncRelationshipTuplesApi:
         """
-        API for managing role assignments.
+        API for managing relationship tuples.
         See: https://api.permit.io/v2/redoc#tag/Relationship-tuples
         """
         return self._relationship_tuples

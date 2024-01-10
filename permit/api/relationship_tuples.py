@@ -110,10 +110,9 @@ class RelationshipTuplesApi(BasePermitApi):
     @validate_arguments
     async def bulk_create(
         self, tuples: List[RelationshipTupleCreate]
-    ) -> RelationshipTupleRead:
+    ) -> RelationshipTupleCreateBulkOperationResult:
         """
         Creates multiple relationship tuples at once using the provided tuple data.
-
 
         Args:
             tuples: The relationship tuples to create.
@@ -146,10 +145,9 @@ class RelationshipTuplesApi(BasePermitApi):
     @validate_arguments
     async def bulk_delete(
         self, tuples: List[RelationshipTupleDelete]
-    ) -> RelationshipTupleRead:
+    ) -> RelationshipTupleDeleteBulkOperationResult:
         """
         Deletes multiple relationship tuples at once using the provided tuple data.
-
 
         Args:
             tuples: The relationship tuples to delete.
@@ -161,7 +159,7 @@ class RelationshipTuplesApi(BasePermitApi):
                 relation is the name of the relation.
 
         Returns:
-            the tuples creation result (RelationshipTupleCreateBulkOperationResult)
+            the tuples deletion result (RelationshipTupleDeleteBulkOperationResult)
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
