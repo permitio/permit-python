@@ -1578,6 +1578,25 @@ class RelationRead(BaseModel):
     )
 
 
+class RelationshipTupleBlockRead(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    subject: str = Field(
+        ...,
+        description="resource_key:resource_instance_key of the subject",
+        title="Subject",
+    )
+    relation: str = Field(
+        ..., description="key of the assigned relation", title="Relation"
+    )
+    object: str = Field(
+        ...,
+        description="resource_key:resource_instance_key of the object",
+        title="Object",
+    )
+
+
 class RelationshipTupleCreate(BaseModel):
     class Config:
         extra = Extra.allow
@@ -1604,6 +1623,22 @@ class RelationshipTupleCreate(BaseModel):
     )
 
 
+class RelationshipTupleCreateBulkOperation(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    operations: List[RelationshipTupleCreate] = Field(
+        ..., max_items=1000, title="Operations"
+    )
+
+
+class RelationshipTupleCreateBulkOperationResult(BaseModel):
+    pass
+
+    class Config:
+        extra = Extra.allow
+
+
 class RelationshipTupleDelete(BaseModel):
     class Config:
         extra = Extra.allow
@@ -1623,6 +1658,20 @@ class RelationshipTupleDelete(BaseModel):
         description="the resource instance on which the new relation is assigned (accepts either the resource instance id or resource_key:resource_instance_key)",
         title="Object",
     )
+
+
+class RelationshipTupleDeleteBulkOperation(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    idents: List[RelationshipTupleDelete] = Field(..., max_items=1000, title="Idents")
+
+
+class RelationshipTupleDeleteBulkOperationResult(BaseModel):
+    pass
+
+    class Config:
+        extra = Extra.allow
 
 
 class RelationshipTupleObj(BaseModel):

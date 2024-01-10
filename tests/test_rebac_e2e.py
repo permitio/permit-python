@@ -14,6 +14,7 @@ from permit.api.models import (
     RelationshipTupleCreate,
     RelationshipTupleDelete,
     ResourceCreate,
+    ResourceInstanceCreate,
     ResourceRoleCreate,
     RoleAssignmentCreate,
     RoleAssignmentRemove,
@@ -282,6 +283,18 @@ RELATIONSHIPS = [
     # another account->folder->doc belongs to another tenant
     (f"{FOLDER.key}:recipes", "parent", f"{DOCUMENT.key}:secret-recipe", TENANT_CC.key),
     (f"{ACCOUNT.key}:cocacola", "account", f"{FOLDER.key}:recipes", TENANT_CC.key),
+]
+
+BULK_RELATIONSHIPS = [
+    # rnd folder contains 2 documents
+    (f"{FOLDER.key}:media", "parent", f"{DOCUMENT.key}:movie1", TENANT_PERMIT.key),
+    (f"{FOLDER.key}:media", "parent", f"{DOCUMENT.key}:movie2", TENANT_PERMIT.key),
+]
+
+BULK_RELATIONSHIPS_INSTANCES = [
+    f"{FOLDER.key}:media",
+    f"{DOCUMENT.key}:movie1",
+    f"{DOCUMENT.key}:movie2",
 ]
 
 ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
@@ -718,6 +731,66 @@ async def test_rebac_policy(permit: Permit):
             assert rel_tuple.relation == relation
             assert rel_tuple.object == object
             assert rel_tuple.tenant == tenant
+
+        tuples = await permit.api.relationship_tuples.list()
+        len_tuples = len(tuples)
+        logger.debug(
+            f"there are currently {len_tuples} relationship tuples in the system"
+        )
+
+        # bulk create relationship tuples
+        bulk_relationships_to_create = [
+            RelationshipTupleCreate(
+                subject=subject, relation=relation, object=object, tenant=tenant
+            )
+            for (subject, relation, object, tenant) in BULK_RELATIONSHIPS
+        ]
+        bulk_relationships_to_delete = [
+            RelationshipTupleDelete(subject=subject, relation=relation, object=object)
+            for (subject, relation, object, tenant) in BULK_RELATIONSHIPS
+        ]
+
+        for instance_key in BULK_RELATIONSHIPS_INSTANCES:
+            parts = instance_key.split(":")
+            logger.debug(f"creating resource instance: {instance_key}")
+            await permit.api.resource_instances.create(
+                ResourceInstanceCreate(
+                    key=parts[1], resource=parts[0], tenant=TENANT_PERMIT.key
+                )
+            )
+
+        async def create_relationships_in_bulk():
+            await permit.api.relationship_tuples.bulk_create(
+                tuples=bulk_relationships_to_create
+            )
+
+            tuples = await permit.api.relationship_tuples.list()
+            assert len(tuples) == len_tuples + len(BULK_RELATIONSHIPS)
+            logger.debug(
+                f"there are currently {len(tuples)} relationship tuples in the system"
+            )
+
+        async def remove_relationships_in_bulk():
+            await permit.api.relationship_tuples.bulk_delete(
+                tuples=bulk_relationships_to_delete
+            )
+
+            tuples = await permit.api.relationship_tuples.list()
+            assert len(tuples) == len_tuples
+            logger.debug(
+                f"there are currently {len(tuples)} relationship tuples in the system"
+            )
+
+        logger.debug(
+            f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {str(BULK_RELATIONSHIPS)}"
+        )
+        await create_relationships_in_bulk()
+
+        logger.debug(
+            f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {str(BULK_RELATIONSHIPS)}"
+        )
+        await remove_relationships_in_bulk()
+
         # assign roles and then run permission checks
         for test_step in ASSIGNMENTS_AND_ASSERTIONS:
             try:
