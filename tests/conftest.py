@@ -47,3 +47,30 @@ def permit(permit_config: PermitConfig) -> Permit:
 @pytest.fixture
 def sync_permit(permit_config: PermitConfig) -> SyncPermit:
     return SyncPermit(permit_config)
+
+
+@pytest.fixture
+def permit_config_cloud() -> PermitConfig:
+    token = os.getenv("PDP_API_KEY", "")
+    pdp_address = os.getenv("PDP_URL", "https://cloudpdp.api.permit.io")
+    api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
+
+    if not token:
+        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+
+    return PermitConfig(
+        **{
+            "token": token,
+            "pdp": pdp_address,
+            "api_url": api_url,
+            "log": {
+                "level": "debug",
+                "enable": True,
+            },
+        }
+    )
+
+
+@pytest.fixture
+def permit_cloud(permit_config_cloud: PermitConfig) -> Permit:
+    return Permit(permit_config_cloud)
