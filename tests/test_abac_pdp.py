@@ -19,7 +19,7 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit):
     TESLA = TenantCreate(key="tesla", name="Tesla Inc")
 
     try:
-        resp = await permit_cloud.check(
+        await permit_cloud.check(
             abac_user(user_test),
             "sign",
             {
