@@ -1,3 +1,5 @@
+import pytest
+
 from permit import Permit, PermitConnectionError, TenantCreate, UserCreate
 
 
@@ -31,3 +33,6 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit):
 
     except Exception as error:
         assert isinstance(error, PermitConnectionError)
+
+    else:
+        pytest.fail("Should have raised an exception")

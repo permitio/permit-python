@@ -231,12 +231,11 @@ class Enforcer:
                         if response.status == 501:
                             raise PermitConnectionError(
                                 f"Permit SDK got an error: {response.status},\n"
-                                f"and cannot connect to the PDP container. Please ensure you are not using ABAC/ReBAC policies,\n"
-                                f"as the cloud PDP is not compatible with these kinds of policies.\n\
-                                Also, please check your configuration and make"
-                                f" sure it's running at {self._base_url} and accepting requests. \n \
-                                Read more about setting up the PDP at "
-                                f"https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+                                "and cannot connect to the PDP container. Please ensure you are not using ABAC/ReBAC policies,\n"
+                                "as the cloud PDP is not compatible with these kinds of policies.\n"
+                                "Also, please check your configuration and make sure it's running at {self._base_url} and accepting requests.\n"
+                                "Read more about setting up the PDP at "
+                                "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
                             )
 
                         error_json: dict = await response.json()
