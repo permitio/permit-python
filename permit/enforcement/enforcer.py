@@ -228,6 +228,16 @@ class Enforcer:
                     data=json.dumps(input),
                 ) as response:
                     if response.status != 200:
+                        if response.status == 501:
+                            raise PermitConnectionError(
+                                f"Permit SDK got an error: {response.status},\n"
+                                "and cannot connect to the PDP container. Please ensure you are not using ABAC/ReBAC policies,\n"
+                                "as the cloud PDP is not compatible with these kinds of policies.\n"
+                                "Also, please check your configuration and make sure it's running at {self._base_url} and accepting requests.\n"
+                                "Read more about setting up the PDP at "
+                                "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+                            )
+
                         error_json: dict = await response.json()
                         logger.error(
                             "error in permit.check({}, {}, {}):\n{}\n{}".format(
@@ -240,7 +250,7 @@ class Enforcer:
                         )
                         raise PermitConnectionError(
                             f"Permit SDK got unexpected status code: {response.status}, please check your Permit SDK class init and PDP container are configured correctly. \n\
-                            Read more about setting up the PDP at https://docs.permit.io/reference/SDKs/Python/quickstart_python"
+                            Read more about setting up the PDP at https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
                         )
 
                     content: dict = await response.json()
@@ -270,7 +280,7 @@ class Enforcer:
                 raise PermitConnectionError(
                     f"Permit SDK got error: {err}, \n \
                     and cannot connect to the PDP container, please check your configuration and make sure it's running at {self._base_url} and accepting requests. \n \
-                    Read more about setting up the PDP at https://docs.permit.io/reference/SDKs/Python/quickstart_python"
+                    Read more about setting up the PDP at https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
                 )
 
     def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
