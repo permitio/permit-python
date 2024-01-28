@@ -15,7 +15,16 @@ from .base import (
     required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import PaginatedResultUserRead, TenantCreate, TenantRead, TenantUpdate
+from .models import (
+    PaginatedResultUserRead,
+    TenantCreate,
+    TenantCreateBulkOperation,
+    TenantCreateBulkOperationResult,
+    TenantDeleteBulkOperation,
+    TenantDeleteBulkOperationResult,
+    TenantRead,
+    TenantUpdate,
+)
 
 
 class TenantsApi(BasePermitApi):
@@ -23,6 +32,15 @@ class TenantsApi(BasePermitApi):
     def __tenants(self) -> SimpleHttpClient:
         return self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/tenants".format(
+                proj_id=self.config.api_context.project,
+                env_id=self.config.api_context.environment,
+            )
+        )
+
+    @property
+    def __bulk_operations(self) -> SimpleHttpClient:
+        return self._build_http_client(
+            "/v2/facts/{proj_id}/{env_id}/bulk/tenants".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
             )
@@ -215,3 +233,53 @@ class TenantsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__tenants.delete(f"/{tenant_key}/users/{user_key}")
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_create(
+        self, tenants: List[TenantCreate]
+    ) -> TenantCreateBulkOperationResult:
+        """
+        Creates tenants in bulk.
+
+        Args:
+            tenants: The tenants to create
+
+        Returns:
+            the bulk creation report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.post(
+            "",
+            model=TenantCreateBulkOperationResult,
+            json=TenantCreateBulkOperation(operations=tenants),
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_delete(self, tenants: List[str]) -> TenantDeleteBulkOperationResult:
+        """
+        Deletes tenants in bulk.
+
+        If the tenant exists - replaces it. Otherwise creates a non-existing tenant.
+
+        Args:
+            tenants: The tenants identities to delete. Each identity can be either the tenant key or the tenant id.
+
+        Returns:
+            the bulk delete report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.delete(
+            "",
+            model=TenantDeleteBulkOperationResult,
+            json=TenantDeleteBulkOperation(idents=tenants),
+        )

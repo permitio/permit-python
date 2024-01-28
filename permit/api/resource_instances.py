@@ -15,7 +15,15 @@ from .base import (
     required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import ResourceInstanceCreate, ResourceInstanceRead, ResourceInstanceUpdate
+from .models import (
+    ResourceInstanceCreate,
+    ResourceInstanceCreateBulkOperation,
+    ResourceInstanceCreateBulkOperationResult,
+    ResourceInstanceDeleteBulkOperation,
+    ResourceInstanceDeleteBulkOperationResult,
+    ResourceInstanceRead,
+    ResourceInstanceUpdate,
+)
 
 
 class ResourceInstancesApi(BasePermitApi):
@@ -23,6 +31,15 @@ class ResourceInstancesApi(BasePermitApi):
     def __resource_instances(self) -> SimpleHttpClient:
         return self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/resource_instances".format(
+                proj_id=self.config.api_context.project,
+                env_id=self.config.api_context.environment,
+            )
+        )
+
+    @property
+    def __bulk_operations(self) -> SimpleHttpClient:
+        return self._build_http_client(
+            "/v2/facts/{proj_id}/{env_id}/bulk/resource_instances".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
             )
@@ -185,3 +202,57 @@ class ResourceInstancesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__resource_instances.delete(f"/{instance_key}")
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_replace(
+        self, resource_instances: List[ResourceInstanceCreate]
+    ) -> ResourceInstanceCreateBulkOperationResult:
+        """
+        Creates (and if need replaces) resource instances in bulk.
+
+        If the resource instance exists - replaces it.
+        Otherwise creates previously non-existing resource instances.
+
+        Args:
+            resource_instances: The resource instances to create/replace.
+
+        Returns:
+            the bulk replace report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.put(
+            "",
+            model=ResourceInstanceCreateBulkOperationResult,
+            json=ResourceInstanceCreateBulkOperation(operations=resource_instances),
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_delete(
+        self, resource_instances: List[str]
+    ) -> ResourceInstanceDeleteBulkOperationResult:
+        """
+        Deletes resource instances in bulk.
+
+        Args:
+            resource_instances: The resource instance identities to delete.
+            Each identity can be either `resource_type:instance_key` (like Repository:react) or the resource instance uuid.
+
+        Returns:
+            the bulk delete report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.delete(
+            "",
+            model=ResourceInstanceDeleteBulkOperationResult,
+            json=ResourceInstanceDeleteBulkOperation(idents=resource_instances),
+        )
