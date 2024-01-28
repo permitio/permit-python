@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -32,7 +32,13 @@ class ResourceInstancesApi(BasePermitApi):
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(
-        self, page: int = 1, per_page: int = 100
+        self,
+        page: int = 1,
+        per_page: int = 100,
+        tenant_key: Optional[str] = None,
+        resource_key: Optional[str] = None,
+        detailed_key: Optional[bool] = None,
+        search_key: Optional[str] = None,
     ) -> List[ResourceInstanceRead]:
         """
         Retrieves a list of resource instances.
@@ -48,10 +54,20 @@ class ResourceInstancesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        params = pagination_params(page, per_page)
+        if tenant_key is not None:
+            params.update(dict(tenant=tenant_key))
+        if resource_key is not None:
+            params.update(dict(resource=resource_key))
+        if detailed_key is not None:
+            params.update(dict(detailed=detailed_key))
+        if search_key is not None:
+            params.update(dict(search=search_key))
+
         return await self.__resource_instances.get(
             "",
             model=List[ResourceInstanceRead],
-            params=pagination_params(page, per_page),
+            params=params,
         )
 
     async def _get(self, instance_key: str) -> ResourceInstanceRead:
