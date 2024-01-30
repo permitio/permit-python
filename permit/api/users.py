@@ -21,7 +21,13 @@ from .models import (
     RoleAssignmentRead,
     RoleAssignmentRemove,
     UserCreate,
+    UserCreateBulkOperation,
+    UserCreateBulkOperationResult,
+    UserDeleteBulkOperation,
+    UserDeleteBulkOperationResult,
     UserRead,
+    UserReplaceBulkOperation,
+    UserReplaceBulkOperationResult,
     UserUpdate,
 )
 
@@ -40,6 +46,15 @@ class UsersApi(BasePermitApi):
     def __role_assignments(self) -> SimpleHttpClient:
         return self._build_http_client(
             "/v2/facts/{proj_id}/{env_id}/role_assignments".format(
+                proj_id=self.config.api_context.project,
+                env_id=self.config.api_context.environment,
+            )
+        )
+
+    @property
+    def __bulk_operations(self) -> SimpleHttpClient:
+        return self._build_http_client(
+            "/v2/facts/{proj_id}/{env_id}/bulk/users".format(
                 proj_id=self.config.api_context.project,
                 env_id=self.config.api_context.environment,
             )
@@ -210,6 +225,82 @@ class UsersApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         return await self.__users.delete(f"/{user_key}")
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_create(
+        self, users: List[UserCreate]
+    ) -> UserCreateBulkOperationResult:
+        """
+        Creates users in bulk.
+
+        Args:
+            users: The users to create
+
+        Returns:
+            the bulk creation report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.post(
+            "",
+            model=UserCreateBulkOperationResult,
+            json=UserCreateBulkOperation(operations=users),
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_replace(
+        self, users: List[UserCreate]
+    ) -> UserReplaceBulkOperationResult:
+        """
+        Replaces users in bulk.
+
+        If the user exists - replaces it.
+        Otherwise creates previously non-existing users.
+
+        Args:
+            users: The users to replace.
+
+        Returns:
+            the bulk replace report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.put(
+            "",
+            model=UserReplaceBulkOperationResult,
+            json=UserReplaceBulkOperation(operations=users),
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def bulk_delete(self, users: List[str]) -> UserDeleteBulkOperationResult:
+        """
+        Deletes users in bulk.
+
+        Args:
+            users: The users identities to delete. Each identity can be either the user key or the user id.
+
+        Returns:
+            the bulk delete report.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__bulk_operations.delete(
+            "",
+            model=UserDeleteBulkOperationResult,
+            json=UserDeleteBulkOperation(idents=users),
+        )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)

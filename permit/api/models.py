@@ -2078,6 +2078,34 @@ class ResourceInstanceCreate(BaseModel):
     )
 
 
+class ResourceInstanceCreateBulkOperation(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    operations: List[ResourceInstanceCreate] = Field(..., title="Operations")
+
+
+class ResourceInstanceCreateBulkOperationResult(BaseModel):
+    pass
+
+    class Config:
+        extra = Extra.allow
+
+
+class ResourceInstanceDeleteBulkOperation(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    idents: List[str] = Field(..., title="Idents")
+
+
+class ResourceInstanceDeleteBulkOperationResult(BaseModel):
+    pass
+
+    class Config:
+        extra = Extra.allow
+
+
 class ResourceInstanceRead(BaseModel):
     class Config:
         extra = Extra.allow
