@@ -95,11 +95,32 @@ class PermitApiError(Exception):
         """
         return self._response.status
 
+    @property
+    def content_type(self) -> str:
+        """
+        Get the HTTP content type header of the error response.
+
+        Returns:
+            The value of the HTTP Response Content-type header, or None
+        """
+        return self._response.headers.get("content-type")
+
 
 async def handle_api_error(response: aiohttp.ClientResponse):
     if response.status < 200 or response.status >= 400:
+        # handle non-json errors (can be returned by load balancer)
+        content_type = response.headers.get("content-type")
+        if content_type is not None and content_type.lower() != "application/json":
+            error_string = await response.text()
+            raise PermitApiError(
+                f"{response.status} API Error",
+                response,
+                json={"status_code": response.status, "error": error_string},
+            )
+
+        # fallback to handle json errors
         json = await response.json()
-        raise PermitApiError("API error", response, json)
+        raise PermitApiError(f"{response.status} API error", response, json)
 
 
 def handle_client_error(func):
