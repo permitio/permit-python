@@ -1,0 +1,45 @@
+name: Release permit python SDK
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  publish_python_sdk:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/permit
+    permissions:
+      id-token: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Python setup
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+
+    # - name: pytests
+    #   run: ORG_PDP_API_KEY=<org level api key> PROJECT_PDP_API_KEY=<proj level api key> PDP_API_KEY=<env level api key> API_TIER=prod pytest -s
+
+    - name: Bump version and commit changes
+      run: |
+        sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
+        git config --local user.email "eli@permit.io"
+        git config --local user.name "elimoshkovich"
+        git add setup.py
+        git commit -m "Bump version to ${{ github.event.release.tag_name }}"
+
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_TOKEN }}
+
+    - name: Push changes of setup.py to GitHub
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.TOKEN_GITHUB }}
+        branch: main
