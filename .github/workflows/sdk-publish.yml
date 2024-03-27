@@ -1,9 +1,8 @@
 name: Release permit python SDK
 
 on:
-  push:
-    tags:
-      - "*"
+  release:
+    types: [published]
 
 jobs:
   publish_python_sdk:
