@@ -61,30 +61,29 @@ jobs:
         PERMIT_API_KEY: ${{ env.ENV_API_KEY }}
       run: docker run -d -p 7766:7000 --env PDP_API_KEY=${{ env.ENV_API_KEY }} --env PDP_DEBUG=true permitio/pdp-v2:latest
 
-    - name: Install dependencies
+    - name: Test with pytest
+      env:
+        PDP_URL: http://localhost:7766
+        API_TIER: prod
+        ORG_PDP_API_KEY: ${{ env.ENV_API_KEY }}
+        PROJECT_PDP_API_KEY: ${{ env.ENV_API_KEY }}
+        PDP_API_KEY: ${{ env.ENV_API_KEY }}
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest pytest-cov
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-    - name: Build coverage file
-      run: |
-        pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=app tests/ | tee pytest-coverage.txt
-
-    - name: Pytest coverage comment
-      uses: MishaKav/pytest-coverage-comment@main
+        pip install -r requirements.txt
+        pytest -s
+      
+    - name: Archive Pytest test report
+      uses: actions/upload-artifact@v3
       with:
-        pytest-coverage-path: ./pytest-coverage.txt
-        junitxml-path: ./pytest.xml
-
-    # - name: Running Pytests
-    #   env:
-    #     PDP_URL: http://localhost:7766
-    #     API_TIER: prod
-    #   run: |
-    #     pip install --upgrade pip
-    #     pip install pytest
-    #     ORG_PDP_API_KEY=${{ env.ENV_API_KEY }} PROJECT_PDP_API_KEY=${{ env.ENV_API_KEY }} PDP_API_KEY=${{ env.ENV_API_KEY }} PDP_URL=$PDP_URL API_TIER=$API_TIER pytest -s
+        name: SuperTest-test-report
+        path: report
+          
+    - name: Upload Pytest report to GitHub
+      uses: actions/upload-artifact@v3
+      with:
+        name: Pytest-test-report
+        path: report
 
     - name: Delete env ${{ env.ENV_NAME }}
       if: always()
