@@ -66,6 +66,7 @@ jobs:
         PDP_URL: http://localhost:7766
         API_TIER: prod
       run: |
+        pip install --upgrade pip
         pip install pytest
         ORG_PDP_API_KEY=${{ env.ENV_API_KEY }} PROJECT_PDP_API_KEY=${{ env.ENV_API_KEY }} PDP_API_KEY=${{ env.ENV_API_KEY }} PDP_URL=$PDP_URL API_TIER=$API_TIER pytest -s
 
