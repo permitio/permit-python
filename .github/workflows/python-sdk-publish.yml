@@ -1,21 +1,21 @@
 name: Release permit python SDK
 
-on: push
-  # release:
-  #   types: [published]
+on:
+  release:
+    types: [published]
 
-env: 
+env:
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
 
 jobs:
   publish_python_sdk:
     runs-on: ubuntu-latest
-    # environment:
-    #   name: pypi
-    #   url: https://pypi.org/p/permit
-    # permissions:
-    #   id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/permit
+    permissions:
+      id-token: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
         echo "ENV_ID=$(echo "$response" | jq -r '.id')" >> $GITHUB_ENV
 
         echo "New env ID: $ENV_ID"
-      
+
     - name: Fetch API_KEY of ${{ env.ENV_NAME }}
       run: |
         response=$(curl -X GET \
@@ -73,7 +73,7 @@ jobs:
         pip install flake8 pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         pytest -s --cache-clear --cov=app tests/ > pytest-coverage.txt
-      
+
     - name: Comment coverage
       uses: coroo/pytest-coverage-commentator@v1.0.2
       with:
@@ -86,21 +86,21 @@ jobs:
           https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs/${{ env.ENV_ID }} \
           -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}'
 
-    # - name: Bump version and commit changes
-    #   run: |
-    #     sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
-    #     git config --local user.email "eli@permit.io"
-    #     git config --local user.name "elimoshkovich"
-    #     git add setup.py
-    #     git commit -m "Bump version to ${{ github.event.release.tag_name }}"
+    - name: Bump version and commit changes
+      run: |
+        sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
+        git config --local user.email "eli@permit.io"
+        git config --local user.name "elimoshkovich"
+        git add setup.py
+        git commit -m "Bump version to ${{ github.event.release.tag_name }}"
 
-    # - name: Publish package distributions to PyPI
-    #   uses: pypa/gh-action-pypi-publish@release/v1
-    #   with:
-    #     password: ${{ secrets.PYPI_TOKEN }}
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_TOKEN }}
 
-    # - name: Push changes of setup.py to GitHub
-    #   uses: ad-m/github-push-action@master
-    #   with:
-    #     github_token: ${{ secrets.TOKEN_GITHUB }}
-    #     branch: main
+    - name: Push changes of setup.py to GitHub
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.TOKEN_GITHUB }}
+        branch: main
