@@ -11,11 +11,11 @@ env:
 jobs:
   publish_python_sdk:
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/permit
-    permissions:
-      id-token: write
+    # environment:
+    #   name: pypi
+    #   url: https://pypi.org/p/permit
+    # permissions:
+    #   id-token: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
