@@ -24,6 +24,12 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.8'
+      
+    - name: setup pyenv
+      uses: "gabrielfalcao/pyenv-action@v18"
+      with:
+        default: 3.8
+        command: pip install -U pip  # upgrade pip after installing python
 
     - name: Install Docker
       uses: docker-practice/actions-setup-docker@master
