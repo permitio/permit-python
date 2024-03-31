@@ -1,8 +1,12 @@
 name: Release permit python SDK
 
-on:
-  release:
-    types: [published]
+on: push
+  # release:
+  #   types: [published]
+
+env: 
+  PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
+  ENV_NAME: python-sdk-ci
 
 jobs:
   publish_python_sdk:
@@ -21,24 +25,69 @@ jobs:
       with:
         python-version: '3.8'
 
-    # - name: pytests
-    #   run: ORG_PDP_API_KEY=<org level api key> PROJECT_PDP_API_KEY=<proj level api key> PDP_API_KEY=<env level api key> API_TIER=prod pytest -s
+    - name: Install Docker
+        uses: docker-practice/actions-setup-docker@master
 
-    - name: Bump version and commit changes
-      run: |
-        sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
-        git config --local user.email "eli@permit.io"
-        git config --local user.name "elimoshkovich"
-        git add setup.py
-        git commit -m "Bump version to ${{ github.event.release.tag_name }}"
+      - name: Creation env ${{ env.ENV_NAME }} under 'Permit.io Tests' workspace
+        run: |
+          response=$(curl -X POST \
+            https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs \
+            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{
+            "key": "${{ env.ENV_NAME }}",
+            "name": "${{ env.ENV_NAME }}"
+          }')
 
-    - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_TOKEN }}
+          # Extract the new env id
+          echo "ENV_ID=$(echo "$response" | jq -r '.id')" >> $GITHUB_ENV
 
-    - name: Push changes of setup.py to GitHub
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.TOKEN_GITHUB }}
-        branch: main
+          echo "New env ID: $ENV_ID"
+      
+      - name: Fetch API_KEY of ${{ env.ENV_NAME }}
+        run: |
+          response=$(curl -X GET \
+            https://api.permit.io/v2/api-key/${{ env.PROJECT_ID }}/${{ env.ENV_ID }} \
+            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}')
+
+          # Extract the secret from the response which is the API_KEY of the new env
+          echo "ENV_API_KEY=$(echo "$response" | jq -r '.secret')" >> $GITHUB_ENV
+
+          echo "New env api key: $ENV_API_KEY"
+
+      - name: local PDP runnning
+        env:
+          PDP_API_KEY: ${{ env.ENV_API_KEY }}
+          PERMIT_API_KEY: ${{ env.ENV_API_KEY }}
+        run: docker run -d -p 7766:7000 --env PDP_API_KEY=${{ env.ENV_API_KEY }} --env PDP_DEBUG=true permitio/pdp-v2:latest
+
+      - name: Running Pytests
+        env:
+          API_TIER: prod
+        run: ORG_PDP_API_KEY=${{ env.ENV_API_KEY }} PROJECT_PDP_API_KEY=${{ env.ENV_API_KEY }} PDP_API_KEY=${{ env.ENV_API_KEY }} API_TIER=$API_TIER pytest -s
+
+      - name: Delete env ${{ env.ENV_NAME }}
+        if: always()
+        run: |
+          curl -X DELETE \
+            https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs/${{ env.ENV_ID }} \
+            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}'
+
+    # - name: Bump version and commit changes
+    #   run: |
+    #     sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
+    #     git config --local user.email "eli@permit.io"
+    #     git config --local user.name "elimoshkovich"
+    #     git add setup.py
+    #     git commit -m "Bump version to ${{ github.event.release.tag_name }}"
+
+    # - name: Publish package distributions to PyPI
+    #   uses: pypa/gh-action-pypi-publish@release/v1
+    #   with:
+    #     password: ${{ secrets.PYPI_TOKEN }}
+
+    # - name: Push changes of setup.py to GitHub
+    #   uses: ad-m/github-push-action@master
+    #   with:
+    #     github_token: ${{ secrets.TOKEN_GITHUB }}
+    #     branch: main
