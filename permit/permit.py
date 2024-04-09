@@ -8,6 +8,7 @@ from .api.elements import ElementsApi
 from .config import PermitConfig
 from .enforcement.enforcer import Action, CheckQuery, Enforcer, Resource, User
 from .logger import configure_logger
+from .pdp_api.base import BasePdpPermitApi
 from .utils.context import Context
 
 
@@ -21,7 +22,7 @@ class Permit:
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
-
+        self. _pdp_api = BasePdpPermitApi(self._config)
         logger.debug(
             "Permit SDK initialized with config:\n${}",
             json.dumps(self._config.dict(exclude={"api_context"})),
