@@ -72,6 +72,7 @@ class ClientConfig(BaseModel):
     headers: dict = Field(..., description="http headers sent to the API server")
 
 
+
 class SimpleHttpClient:
     """
     wraps aiohttp client to reduce boilerplace
@@ -215,6 +216,7 @@ class BasePermitApi:
                 "Content-Type": "application/json",
                 "Authorization": f"bearer {self.config.token}",
             },
+            timeout=self.config.api_timeout,
         )
         client_config = client_config.dict()
         client_config.update(kwargs)

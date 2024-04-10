@@ -111,8 +111,7 @@ class Enforcer:
                     context=query_context,
                 )
             )
-
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+        async with aiohttp.ClientSession(headers=self._headers, timeout=self._config.pdp_timeout) as session:
             check_url = f"{self._base_url}/allowed/bulk"
             try:
                 async with session.post(
@@ -220,7 +219,7 @@ class Enforcer:
             context=query_context,
         )
 
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+        async with aiohttp.ClientSession(headers=self._headers, timeout=self._config.pdp_timeout) as session:
             check_url = f"{self._base_url}/allowed"
             try:
                 async with session.post(
