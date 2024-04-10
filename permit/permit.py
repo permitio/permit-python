@@ -8,6 +8,7 @@ from .api.elements import ElementsApi
 from .config import PermitConfig
 from .enforcement.enforcer import Action, CheckQuery, Enforcer, Resource, User
 from .logger import configure_logger
+from .pdp_api.pdp_api import PdpApi
 from .utils.context import Context
 
 
@@ -21,6 +22,7 @@ class Permit:
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
+        self._pdp_api = PdpApi(self._config)
 
         logger.debug(
             "Permit SDK initialized with config:\n${}",
@@ -63,6 +65,18 @@ class Permit:
             await permit.elements.loginAs(user, tenant)
         """
         return self._elements
+
+    @property
+    def pdp(self) -> PdpApi:
+        """
+        Access the Permit PDP API using this property.
+
+        Usage example:
+
+            permit = Permit(token
+            await permit.pdp.list_role_assignments()
+        """
+        return self._pdp_api
 
     async def bulk_check(
         self,

@@ -4,9 +4,9 @@ from typing import List
 import pytest
 from loguru import logger
 
-from permit import Permit, RoleAssignmentRead
 from permit.exceptions import PermitApiError, PermitConnectionError
 
+from .permit import Permit
 from .utils import handle_api_error
 
 
@@ -15,6 +15,7 @@ def print_break():
 
 
 async def test_permission_check_e2e(permit: Permit):
+
     logger.info("initial setup of objects")
     try:
         document = await permit.api.resources.create(
@@ -191,7 +192,7 @@ async def test_permission_check_e2e(permit: Permit):
 
         logger.info("testing bulk permission check")
         assert (
-            await permit.bulk_check(
+            await permit.pdp_api.list_role_assignment(
                 [
                     {
                         "user": "auth0|elon",
@@ -219,8 +220,12 @@ async def test_permission_check_e2e(permit: Permit):
 
         print_break()
 
-        logger.info("changing the user roles")
+        # list role assignments in PDP
+        logger.info("testing list role assignments")
+        assert permit.pdp_api.list_role_assignments({})
+        print_break()
 
+        logger.info("changing the user roles")
         # change the user role - assign admin role
         await permit.api.users.assign_role(
             {
