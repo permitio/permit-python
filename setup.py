@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from setuptools import find_packages, setup
 
 
@@ -6,6 +8,12 @@ def get_requirements(env=""):
         env = "-{}".format(env)
     with open("requirements{}.txt".format(env)) as fp:
         return [x.strip() for x in fp.read().split("\n") if not x.startswith("#")]
+
+
+def get_readme() -> str:
+    this_directory = Path(__file__).parent
+    long_description = (this_directory / "README.md").read_text()
+    return long_description
 
 
 setup(
@@ -18,6 +26,8 @@ setup(
     python_requires=">=3.8",
     description="Permit.io python sdk",
     install_requires=get_requirements(),
+    long_description=get_readme(),
+    long_description_content_type="text/markdown",
     classifiers=[
         "Operating System :: OS Independent",
         "Programming Language :: Python",
