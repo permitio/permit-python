@@ -6,6 +6,7 @@ from loguru import logger
 
 from permit import Permit, RoleAssignmentRead
 from permit.exceptions import PermitApiError, PermitConnectionError
+from permit.pdp_api.models import RoleAssignment
 
 from .utils import handle_api_error
 
@@ -220,7 +221,13 @@ async def test_permission_check_e2e(permit: Permit):
         print_break()
 
         logger.info("testing list role assignments")
-        assert permit.pdp_api.role_assignments.list()
+        assignments_returned: List[
+            RoleAssignment
+        ] = await permit.pdp_api.role_assignments.list()
+        assert len(assignments_returned) == 1
+        assert assignments_returned[0].user == user.key
+        assert assignments_returned[0].role == viewer.key
+        assert assignments_returned[0].tenant == tenant.key
         print_break()
 
         logger.info("changing the user roles")
