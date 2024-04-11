@@ -1,8 +1,7 @@
 from typing import List, Optional
 
-from permit.api.base import SimpleHttpClient
-
 from permit import PYDANTIC_VERSION
+from permit.api.base import SimpleHttpClient
 from permit.pdp_api.base import BasePdpPermitApi, pagination_params
 from permit.pdp_api.models import RoleAssignment
 
@@ -12,15 +11,10 @@ else:
     from pydantic.v1 import validate_arguments  # type: ignore
 
 
-
-
 class RoleAssignmentsApi(BasePdpPermitApi):
     @property
     def __role_assignments(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/local/role_assignments"
-        )
-
+        return self._build_http_client("/local/role_assignments")
 
     @validate_arguments
     async def list(

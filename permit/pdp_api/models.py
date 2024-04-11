@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import  Optional
+from typing import Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -14,16 +14,14 @@ else:
     from pydantic.v1 import BaseModel, Field  # type: ignore
 
 
-
 class RoleAssignment(BaseModel):
-    user: str = Field(..., description='the user the role is assigned to', title='User')
-    role: str = Field(..., description='the role that is assigned', title='Role')
+    user: str = Field(..., description="the user the role is assigned to", title="User")
+    role: str = Field(..., description="the role that is assigned", title="Role")
     tenant: str = Field(
-        ..., description='the tenant the role is associated with', title='Tenant'
+        ..., description="the tenant the role is associated with", title="Tenant"
     )
     resource_instance: Optional[str] = Field(
         None,
-        description='the resource instance the role is associated with',
-        title='Resource Instance',
+        description="the resource instance the role is associated with",
+        title="Resource Instance",
     )
-

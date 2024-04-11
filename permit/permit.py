@@ -22,7 +22,7 @@ class Permit:
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
-        self. _pdp_api = PermitPdpApiClient(self._config)
+        self._pdp_api = PermitPdpApiClient(self._config)
         logger.debug(
             "Permit SDK initialized with config:\n${}",
             json.dumps(self._config.dict(exclude={"api_context"})),
@@ -76,7 +76,6 @@ class Permit:
             await permit.pdp_api.role_assignments.list()
         """
         return self._pdp_api
-
 
     async def bulk_check(
         self,
