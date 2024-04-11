@@ -94,13 +94,16 @@ jobs:
         git add setup.py
         git commit -m "Bump version to ${{ github.event.release.tag_name }}"
 
+    - name: Build Python package
+      run: python setup.py sdist bdist_wheel
+        
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_TOKEN }}
 
     - name: Push changes of setup.py to GitHub
-      uses: ad-m/github-push-action@master
+      uses: ad-m/github-push-actioעn@master
       with:
         github_token: ${{ secrets.TOKEN_GITHUB }}
         branch: main
