@@ -219,6 +219,10 @@ async def test_permission_check_e2e(permit: Permit):
 
         print_break()
 
+        logger.info("testing list role assignments")
+        assert permit.pdp_api.role_assignments.list()
+        print_break()
+
         logger.info("changing the user roles")
 
         # change the user role - assign admin role
