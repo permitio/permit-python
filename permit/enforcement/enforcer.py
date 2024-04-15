@@ -3,6 +3,7 @@ from pprint import pformat
 from typing import Union
 
 import aiohttp
+from aiohttp import ClientTimeout
 from loguru import logger
 
 from ..config import PermitConfig
@@ -111,7 +112,10 @@ class Enforcer:
                     context=query_context,
                 )
             )
-        async with aiohttp.ClientSession(headers=self._headers, timeout=self._config.pdp_timeout) as session:
+        timeout_config = {}
+        if self._config.pdp_timeout is not None:
+            timeout_config = {"timeout": ClientTimeout(total=self._config.pdp_timeout)}
+        async with aiohttp.ClientSession(headers=self._headers, **timeout_config) as session:
             check_url = f"{self._base_url}/allowed/bulk"
             try:
                 async with session.post(
@@ -218,8 +222,10 @@ class Enforcer:
             resource=normalized_resource.dict(exclude_unset=True),
             context=query_context,
         )
-
-        async with aiohttp.ClientSession(headers=self._headers, timeout=self._config.pdp_timeout) as session:
+        timeout_config = {}
+        if self._config.pdp_timeout is not None:
+            timeout_config = {"timeout": ClientTimeout(total=self._config.pdp_timeout)}
+        async with aiohttp.ClientSession(headers=self._headers, **timeout_config) as session:
             check_url = f"{self._base_url}/allowed"
             try:
                 async with session.post(

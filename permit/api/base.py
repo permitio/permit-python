@@ -2,6 +2,7 @@ import functools
 from typing import Callable, Optional, Type, TypeVar, Union
 
 import aiohttp
+from aiohttp import ClientTimeout
 from loguru import logger
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
@@ -78,9 +79,11 @@ class SimpleHttpClient:
     wraps aiohttp client to reduce boilerplace
     """
 
-    def __init__(self, client_config: dict, base_url: str = ""):
+    def __init__(self, client_config: dict, base_url: str = "", timeout: Union[int, None] = None):
         self._client_config = client_config
         self._base_url = base_url
+        if timeout is not None:
+            self._client_config["timeout"] = ClientTimeout(total=timeout)
 
     def _log_request(self, url: str, method: str) -> None:
         logger.debug("Sending HTTP request: {} {}".format(method, url))
@@ -216,13 +219,13 @@ class BasePermitApi:
                 "Content-Type": "application/json",
                 "Authorization": f"bearer {self.config.token}",
             },
-            timeout=self.config.api_timeout,
         )
         client_config = client_config.dict()
         client_config.update(kwargs)
         return SimpleHttpClient(
             client_config,
             base_url=endpoint_url,
+            timeout=self.config.api_timeout,
         )
 
     async def _set_context_from_api_key(self) -> None:
