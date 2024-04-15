@@ -131,4 +131,5 @@ dmypy.json
 # editors
 .vscode/
 .DS_Store  # macOS
-.idea/     # PyCharm
+.idea     # PyCharm
+.idea/
