@@ -1,3 +1,4 @@
+![Python.png](imgs/Python.png)
 # Permit.io Python SDK
 
 Python SDK for interacting with the Permit.io full-stack permissions platform.
