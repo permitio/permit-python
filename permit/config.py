@@ -8,7 +8,6 @@ if PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import BaseModel, Field  # type: ignore
 
-DEFAULT_TIMEOUT = 60 * 5  # 5 minutes
 
 class LoggerConfig(BaseModel):
     enable: bool = Field(
@@ -63,11 +62,11 @@ class PermitConfig(BaseModel):
         ApiContext(), description="represents the current API key authorization level."
     )
     api_timeout: int = Field(
-        DEFAULT_TIMEOUT,
+        None,
         description="The timeout in seconds for requests to the Permit REST API.",
     )
     pdp_timeout: int = Field(
-        DEFAULT_TIMEOUT,
+        None,
         description="The timeout in seconds for requests to the PDP.",
     )
 
