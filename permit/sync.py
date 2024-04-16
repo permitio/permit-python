@@ -2,9 +2,9 @@ from typing import Optional
 
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
-from .pdp_api.pdp_api_client import SyncPDPApi
 from .config import PermitConfig
 from .enforcement.enforcer import Action, CheckQuery, Resource, SyncEnforcer, User
+from .pdp_api.pdp_api_client import SyncPDPApi
 from .permit import Permit as AsyncPermit
 from .utils.context import Context
 

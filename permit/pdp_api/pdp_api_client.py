@@ -25,5 +25,6 @@ class PermitPdpApiClient:
     def role_assignments(self) -> RoleAssignmentsApi:
         return self._role_assignments
 
+
 class SyncPDPApi(PermitPdpApiClient, metaclass=SyncClass):
     pass
