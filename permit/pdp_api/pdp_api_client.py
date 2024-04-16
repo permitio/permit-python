@@ -1,3 +1,5 @@
+from permit.utils.sync import SyncClass
+
 from ..config import PermitConfig
 from .role_assignments import RoleAssignmentsApi
 
@@ -22,3 +24,6 @@ class PermitPdpApiClient:
     @property
     def role_assignments(self) -> RoleAssignmentsApi:
         return self._role_assignments
+
+class SyncPDPApi(PermitPdpApiClient, metaclass=SyncClass):
+    pass

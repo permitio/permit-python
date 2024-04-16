@@ -2,6 +2,7 @@ from typing import Optional
 
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
+from .pdp_api.pdp_api_client import SyncPDPApi
 from .config import PermitConfig
 from .enforcement.enforcer import Action, CheckQuery, Resource, SyncEnforcer, User
 from .permit import Permit as AsyncPermit
@@ -14,6 +15,7 @@ class Permit(AsyncPermit):
         self._enforcer = SyncEnforcer(self._config)
         self._api = SyncPermitApiClient(self._config)
         self._elements = SyncElementsApi(self._config)
+        self._pdp_api = SyncPDPApi(self._config)
 
     @property
     def api(self) -> SyncPermitApiClient:
