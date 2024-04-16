@@ -41,6 +41,17 @@ class Permit(AsyncPermit):
         """
         return self._elements
 
+    @property
+    def pdp_api(self) -> SyncPDPApi:
+        """
+        Access the Permit PDP API using this property.
+
+        Usage example:
+
+            permit
+        """
+        return self._pdp_api
+
     def bulk_check(
         self,
         checks: list[CheckQuery],
