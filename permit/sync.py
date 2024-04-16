@@ -47,8 +47,8 @@ class Permit(AsyncPermit):
         Access the Permit PDP API using this property.
 
         Usage example:
-
-            permit
+        permit = Permit(token="<YOUR_API_KEY>")
+        permit.pdp_api.role_assignments(...)
         """
         return self._pdp_api
 
