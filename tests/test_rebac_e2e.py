@@ -626,6 +626,31 @@ async def assert_permit_check(permit: Permit, q: CheckAssertion):
     assert q.expected_decision == decision
 
 
+async def assert_permit_authorized_users(
+    permit: Permit, q: CheckAssertion, assignments: list[RoleAssignmentCreate]
+):
+    logger.info(
+        f"asserting: permit.authorized_users({q.action}, {q.resource}) === {q.expected_decision}",
+    )
+    authorized_users = await permit.authorized_users(q.action, q.resource)
+    assert authorized_users.tenant == q.resource["tenant"]
+    assert authorized_users.resource == f"{q.resource['type']}:{q.resource['key']}"
+    if q.expected_decision is True:
+        assert q.user in authorized_users.users.keys()
+        for assignment in authorized_users.users[q.user]:
+            assert any(
+                (
+                    assignment.role.split("#")[1] == created_assignment.role
+                    and assignment.tenant == created_assignment.tenant
+                    and assignment.user == created_assignment.user
+                    and assignment.resource == created_assignment.resource_instance
+                )
+                for created_assignment in assignments
+            )
+    else:
+        assert q.user not in authorized_users.users.keys()
+
+
 async def test_rebac_policy(permit: Permit):
     logger.info("initial setup of objects")
     await cleanup(permit)
@@ -816,6 +841,9 @@ async def test_rebac_policy(permit: Permit):
                         await assertion.pre_assertion_hook(permit)
                         await asyncio.sleep(1)
                     await assert_permit_check(permit, assertion)
+                    await assert_permit_authorized_users(
+                        permit, assertion, test_step.assignments
+                    )
                     if assertion.post_assertion_hook is not None:
                         logger.debug("executing post assertion hook")
                         await assertion.post_assertion_hook(permit)

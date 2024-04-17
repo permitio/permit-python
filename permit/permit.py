@@ -6,7 +6,14 @@ from loguru import logger
 from .api.api_client import PermitApiClient
 from .api.elements import ElementsApi
 from .config import PermitConfig
-from .enforcement.enforcer import Action, CheckQuery, Enforcer, Resource, User
+from .enforcement.enforcer import (
+    Action,
+    AuthorizedUsersResult,
+    CheckQuery,
+    Enforcer,
+    Resource,
+    User,
+)
 from .logger import configure_logger
 from .pdp_api.pdp_api_client import PermitPdpApiClient
 from .utils.context import Context
@@ -76,6 +83,40 @@ class Permit:
             await permit.pdp_api.role_assignments.list()
         """
         return self._pdp_api
+
+    async def authorized_users(
+        self,
+        action: Action,
+        resource: Resource,
+        context: Context = {},
+    ) -> AuthorizedUsersResult:
+        """
+        Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+
+        Args:
+            action: The action to be performed on the resource.
+            resource: The resource object representing the resource.
+            context: The context object representing the context in which the action is performed. Defaults to None.
+
+        Returns:
+            AuthorizedUsersResult: Contains all the authorized users and the role assignments that granted the permission.
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+
+        Examples:
+
+            # all the users that can close any issue?
+            await permit.authorized_users('close', 'issue')
+
+            # all the users that can close an issue who's id is 1234?
+            await permit.authorized_users('close', 'issue:1234')
+
+            # all the users that can close (any) issues belonging to the 't1' tenant?
+            # (in a multi tenant application)
+            await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+        """
+        return await self._enforcer.authorized_users(action, resource, context)
 
     async def bulk_check(
         self,

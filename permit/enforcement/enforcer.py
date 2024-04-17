@@ -5,12 +5,13 @@ from typing import Union
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
+from pydantic import parse_obj_as
 
 from ..config import PermitConfig
 from ..exceptions import PermitConnectionError
 from ..utils.context import Context, ContextStore
 from ..utils.sync import SyncClass
-from .interfaces import ResourceInput, UserInput
+from .interfaces import AuthorizedUsersResult, ResourceInput, UserInput
 
 
 def set_if_not_none(d: dict, k: str, v):
@@ -55,6 +56,106 @@ class Enforcer:
         if self._config.pdp_timeout is not None:
             timeout_config["timeout"] = ClientTimeout(total=self._config.pdp_timeout)
         return timeout_config
+
+    async def authorized_users(
+        self,
+        action: Action,
+        resource: Resource,
+        context: Context = {},
+    ) -> AuthorizedUsersResult:
+        """
+        Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+
+        Args:
+            action: The action to be performed on the resource.
+            resource: The resource object representing the resource.
+            context: The context object representing the context in which the action is performed. Defaults to None.
+
+        Returns:
+            AuthorizedUsersResult: Contains all the authorized users and the role assignments that granted the permission.
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+
+        Examples:
+
+            # all the users that can close any issue?
+            await permit.authorized_users('close', 'issue')
+
+            # all the users that can close an issue who's id is 1234?
+            await permit.authorized_users('close', 'issue:1234')
+
+            # all the users that can close (any) issues belonging to the 't1' tenant?
+            # (in a multi tenant application)
+            await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+        """
+        normalized_resource: ResourceInput = self._normalize_resource(
+            (
+                self._resource_from_string(resource)
+                if isinstance(resource, str)
+                else ResourceInput(**resource)
+            )
+        )
+        query_context = self._context_store.get_derived_context(context)
+        input = dict(
+            action=action,
+            resource=normalized_resource.dict(exclude_unset=True),
+            context=query_context,
+        )
+
+        async with aiohttp.ClientSession(headers=self._headers) as session:
+            check_url = f"{self._base_url}/authorized_users"
+            try:
+                async with session.post(
+                    check_url,
+                    data=json.dumps(input),
+                ) as response:
+                    if response.status != 200:
+                        if response.status == 501:
+                            raise PermitConnectionError(
+                                f"Permit SDK got an error: {response.status},\n"
+                                "and cannot connect to the PDP container. Please ensure you are not using ABAC/ReBAC policies,\n"
+                                "as the cloud PDP is not compatible with these kinds of policies.\n"
+                                "Also, please check your configuration and make sure it's running at {self._base_url} and accepting requests.\n"
+                                "Read more about setting up the PDP at "
+                                "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+                            )
+
+                        error_json: dict = await response.json()
+                        logger.error(
+                            "error in permit.authorized_users({}, {}):\n{}\n{}".format(
+                                action,
+                                self._resource_repr(normalized_resource),
+                                f"status code: {response.status}",
+                                repr(error_json),
+                            )
+                        )
+                        raise PermitConnectionError(
+                            f"Permit SDK got unexpected status code: {response.status}, please check your Permit SDK class init and PDP container are configured correctly. \n\
+                            Read more about setting up the PDP at https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+                        )
+
+                    content: dict = await response.json()
+                    logger.debug(
+                        f"permit.authorized_users() response:\ninput: {pformat(input, indent=2)}\nresponse status: {response.status}\nresponse data: {pformat(content, indent=2)}"
+                    )
+                    result: AuthorizedUsersResult = parse_obj_as(
+                        AuthorizedUsersResult, content
+                    )
+                    return result
+            except aiohttp.ClientError as err:
+                logger.error(
+                    "error in permit.authorized_users({}, {}):\n{}".format(
+                        action,
+                        self._resource_repr(normalized_resource),
+                        err,
+                    )
+                )
+                raise PermitConnectionError(
+                    f"Permit SDK got error: {err}, \n \
+                    and cannot connect to the PDP container, please check your configuration and make sure it's running at {self._base_url} and accepting requests. \n \
+                    Read more about setting up the PDP at https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+                )
 
     async def bulk_check(
         self,
