@@ -4,6 +4,10 @@ from ..config import PermitConfig
 from .role_assignments import RoleAssignmentsApi
 
 
+class SyncRoleAssignmentsApi(RoleAssignmentsApi, metaclass=SyncClass):
+    pass
+
+
 class PermitPdpApiClient:
     def __init__(self, config: PermitConfig):
         """
@@ -26,5 +30,10 @@ class PermitPdpApiClient:
         return self._role_assignments
 
 
-class SyncPDPApi(PermitPdpApiClient, metaclass=SyncClass):
-    pass
+class SyncPDPApi(PermitPdpApiClient):
+    def __init__(self, config: PermitConfig):
+        self._role_assignments = SyncRoleAssignmentsApi(config)
+
+    @property
+    def role_assignments(self) -> SyncRoleAssignmentsApi:
+        return self._role_assignments

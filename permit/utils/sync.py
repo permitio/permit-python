@@ -31,8 +31,12 @@ class SyncClass(type):
                 continue
 
             attr = getattr(class_obj, name)
-
-            if callable(attr) and iscoroutine_func(attr):
+            if attr.__class__.__name__ == "cython_function_or_method":
+                # Handle cython method
+                is_coroutine = True
+            else:
+                is_coroutine = iscoroutine_func(attr)
+            if callable(attr) and is_coroutine:
                 # monkey-patch public method using async_to_sync decorator
                 setattr(class_obj, name, async_to_sync(attr))
 
