@@ -31,7 +31,7 @@ class SyncClass(type):
                 continue
 
             attr = getattr(class_obj, name)
-            if attr.__class__.__name__ == "cython_function_or_method":
+            if attr.__class__.__name__ in ("cython_function_or_method", "function"):
                 # Handle cython method
                 is_coroutine = True
             else:
