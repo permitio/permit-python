@@ -16,6 +16,8 @@ jobs:
       url: https://pypi.org/p/permit
     permissions:
       id-token: write
+      contents: write           # 'write' access to repository contents
+      pull-requests: write      # 'write' access to pull requests
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
