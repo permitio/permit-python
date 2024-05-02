@@ -79,7 +79,7 @@ class SimpleHttpClient:
     wraps aiohttp client to reduce boilerplace
     """
 
-    def __init__(self, client_config: dict, base_url: str = "", timeout: Union[int, None] = None):
+    def __init__(self, client_config: dict, base_url: str = "", timeout: Optional[int] = None):
         self._client_config = client_config
         self._base_url = base_url
         if timeout is not None:
