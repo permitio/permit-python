@@ -1,18 +1,16 @@
+import asyncio
 import time
 from typing import List
 
 import pytest
 from loguru import logger
-import asyncio
-
-from werkzeug import Response, Request
+from pytest_httpserver import HTTPServer
+from werkzeug import Request, Response
 
 from permit import Permit, RoleAssignmentRead
 from permit.exceptions import PermitApiError, PermitConnectionError
 
 from .utils import handle_api_error
-import time
-from pytest_httpserver import HTTPServer
 
 
 def print_break():
@@ -22,8 +20,10 @@ def print_break():
 TEST_TIMEOUT = 1
 MOCKED_URL = "http://localhost"
 MOCKED_PORT = 9999
+
+
 def sleeping(request: Request):
-    time.sleep(TEST_TIMEOUT+1)
+    time.sleep(TEST_TIMEOUT + 1)
     return Response("OK", status=200)
 
 
@@ -33,7 +33,12 @@ def httpserver_listen_address():
 
 
 async def test_api_timeout(httpserver: HTTPServer):
-    permit = Permit(token="mocked", pdp=f"{MOCKED_URL}:{MOCKED_PORT}", api_url=f"{MOCKED_URL}:{MOCKED_PORT}", api_timeout=TEST_TIMEOUT)
+    permit = Permit(
+        token="mocked",
+        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
+        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        api_timeout=TEST_TIMEOUT,
+    )
     current_time = time.time()
     httpserver.expect_request("/v2/api-key/scope").respond_with_handler(sleeping)
     with pytest.raises(asyncio.TimeoutError):
@@ -43,7 +48,12 @@ async def test_api_timeout(httpserver: HTTPServer):
 
 
 async def test_pdp_timeout(httpserver: HTTPServer):
-    permit = Permit(token="mocked", pdp=f"{MOCKED_URL}:{MOCKED_PORT}", api_url=f"{MOCKED_URL}:{MOCKED_PORT}", pdp_timeout=TEST_TIMEOUT)
+    permit = Permit(
+        token="mocked",
+        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
+        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp_timeout=TEST_TIMEOUT,
+    )
     current_time = time.time()
     httpserver.expect_request("/allowed").respond_with_handler(sleeping)
     with pytest.raises(asyncio.TimeoutError):
@@ -54,9 +64,18 @@ async def test_pdp_timeout(httpserver: HTTPServer):
     current_time = time.time()
     httpserver.expect_request("/allowed/bulk").respond_with_handler(sleeping)
     with pytest.raises(asyncio.TimeoutError):
-        await permit.bulk_check([{"user": "user", "action": "action", "resource": {"type": "resource", "tenant": "tenant"}}])
+        await permit.bulk_check(
+            [
+                {
+                    "user": "user",
+                    "action": "action",
+                    "resource": {"type": "resource", "tenant": "tenant"},
+                }
+            ]
+        )
     time_passed = time.time() - current_time
     assert time_passed < 3
+
 
 async def test_permission_check_e2e(permit: Permit):
     logger.info("initial setup of objects")
