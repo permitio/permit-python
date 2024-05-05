@@ -103,7 +103,9 @@ class Enforcer:
             context=query_context,
         )
 
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+        async with aiohttp.ClientSession(
+            headers=self._headers, **self._timeout_config
+        ) as session:
             check_url = f"{self._base_url}/authorized_users"
             try:
                 async with session.post(
