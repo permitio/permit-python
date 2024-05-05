@@ -3,6 +3,7 @@ from pprint import pformat
 from typing import Union
 
 import aiohttp
+from aiohttp import ClientTimeout
 from loguru import logger
 
 from ..config import PermitConfig
@@ -47,6 +48,13 @@ class Enforcer:
         using app can setup a flexible contextual behavior for authorization queries
         """
         return self._context_store
+
+    @property
+    def _timeout_config(self):
+        timeout_config = {}
+        if self._config.pdp_timeout is not None:
+            timeout_config["timeout"] = ClientTimeout(total=self._config.pdp_timeout)
+        return timeout_config
 
     async def bulk_check(
         self,
@@ -112,7 +120,9 @@ class Enforcer:
                 )
             )
 
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+        async with aiohttp.ClientSession(
+            headers=self._headers, **self._timeout_config
+        ) as session:
             check_url = f"{self._base_url}/allowed/bulk"
             try:
                 async with session.post(
@@ -219,8 +229,9 @@ class Enforcer:
             resource=normalized_resource.dict(exclude_unset=True),
             context=query_context,
         )
-
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+        async with aiohttp.ClientSession(
+            headers=self._headers, **self._timeout_config
+        ) as session:
             check_url = f"{self._base_url}/allowed"
             try:
                 async with session.post(

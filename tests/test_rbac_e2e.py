@@ -1,8 +1,11 @@
+import asyncio
 import time
 from typing import List
 
 import pytest
 from loguru import logger
+from pytest_httpserver import HTTPServer
+from werkzeug import Request, Response
 
 from permit import Permit, RoleAssignmentRead
 from permit.exceptions import PermitApiError, PermitConnectionError
@@ -13,6 +16,66 @@ from .utils import handle_api_error
 
 def print_break():
     print("\n\n ----------- \n\n")
+
+
+TEST_TIMEOUT = 1
+MOCKED_URL = "http://localhost"
+MOCKED_PORT = 9999
+
+
+def sleeping(request: Request):
+    time.sleep(TEST_TIMEOUT + 1)
+    return Response("OK", status=200)
+
+
+@pytest.fixture(scope="session")
+def httpserver_listen_address():
+    return "localhost", MOCKED_PORT
+
+
+async def test_api_timeout(httpserver: HTTPServer):
+    permit = Permit(
+        token="mocked",
+        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
+        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        api_timeout=TEST_TIMEOUT,
+    )
+    current_time = time.time()
+    httpserver.expect_request("/v2/api-key/scope").respond_with_handler(sleeping)
+    with pytest.raises(asyncio.TimeoutError):
+        await permit.api.roles.list()
+    time_passed = time.time() - current_time
+    assert time_passed < 3
+
+
+async def test_pdp_timeout(httpserver: HTTPServer):
+    permit = Permit(
+        token="mocked",
+        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
+        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp_timeout=TEST_TIMEOUT,
+    )
+    current_time = time.time()
+    httpserver.expect_request("/allowed").respond_with_handler(sleeping)
+    with pytest.raises(asyncio.TimeoutError):
+        await permit.check("user", "action", {"type": "resource", "tenant": "tenant"})
+    time_passed = time.time() - current_time
+    assert time_passed < 3
+
+    current_time = time.time()
+    httpserver.expect_request("/allowed/bulk").respond_with_handler(sleeping)
+    with pytest.raises(asyncio.TimeoutError):
+        await permit.bulk_check(
+            [
+                {
+                    "user": "user",
+                    "action": "action",
+                    "resource": {"type": "resource", "tenant": "tenant"},
+                }
+            ]
+        )
+    time_passed = time.time() - current_time
+    assert time_passed < 3
 
 
 async def test_permission_check_e2e(permit: Permit):

@@ -61,6 +61,14 @@ class PermitConfig(BaseModel):
     api_context: ApiContext = Field(
         ApiContext(), description="represents the current API key authorization level."
     )
+    api_timeout: int = Field(
+        None,
+        description="The timeout in seconds for requests to the Permit REST API.",
+    )
+    pdp_timeout: int = Field(
+        None,
+        description="The timeout in seconds for requests to the PDP.",
+    )
 
     class Config:
         arbitrary_types_allowed = True
