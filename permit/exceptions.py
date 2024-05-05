@@ -115,7 +115,7 @@ async def handle_api_error(response: aiohttp.ClientResponse):
             raise PermitApiError(
                 f"{response.status} API Error",
                 response,
-                json={"status_code": response.status, "error": error_string},
+                {"status_code": response.status, "error": error_string},
             )
 
         # fallback to handle json errors
