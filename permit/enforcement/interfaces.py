@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Field
 else:
-    from pydantic.v1 import BaseModel  # type: ignore
+    from pydantic.v1 import BaseModel, Field  # type: ignore
 
 JWT = str
 
