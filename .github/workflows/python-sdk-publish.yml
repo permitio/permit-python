@@ -74,12 +74,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pytest -s --cache-clear --cov=app tests/ > pytest-coverage.txt
-
-    - name: Comment coverage
-      uses: coroo/pytest-coverage-commentator@v1.0.2
-      with:
-        pytest-coverage: pytest-coverage.txt
+        pytest -s --cache-clear tests/
 
     - name: Delete env ${{ env.ENV_NAME }}
       if: always()
