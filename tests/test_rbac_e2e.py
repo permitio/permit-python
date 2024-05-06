@@ -336,7 +336,21 @@ async def test_permission_check_e2e(permit: Permit):
         )
 
         print_break()
-
+        logger.info("testing get authorized users")
+        authorized_users = await permit.authorized_users(
+            "create", {"type": document.key, "tenant": tenant.key}
+        )
+        assert authorized_users.tenant == tenant.key
+        assert authorized_users.resource == f"{document.key}:*"
+        assert len(authorized_users.users) == 1
+        assert user.key in authorized_users.users.keys()
+        assignments_authorized = authorized_users.users[user.key]
+        assert len(assignments_authorized) == 1
+        assert assignments_authorized[0].user == user.key
+        assert assignments_authorized[0].role == admin.key
+        assert assignments_authorized[0].tenant == tenant.key
+        assert assignments_authorized[0].resource == f"__tenant:{tenant.key}"
+        print_break()
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
     except PermitConnectionError as error:

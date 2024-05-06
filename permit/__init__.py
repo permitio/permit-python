@@ -1,7 +1,12 @@
 from .api.models import *
 from .config import PermitConfig
 from .enforcement.enforcer import Action, Resource, User
-from .enforcement.interfaces import AssignedRole, ResourceInput, UserInput
+from .enforcement.interfaces import (
+    AssignedRole,
+    AuthorizedUsersResult,
+    ResourceInput,
+    UserInput,
+)
 from .exceptions import (
     PermitApiError,
     PermitConnectionError,
