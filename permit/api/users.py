@@ -35,30 +35,39 @@ from .models import (
 class UsersApi(BasePermitApi):
     @property
     def __users(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/users".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
+        if self.config.local_facts:
+            return self._build_http_client("/facts/users", use_pdp=True)
+        else:
+            return self._build_http_client(
+                "/v2/facts/{proj_id}/{env_id}/users".format(
+                    proj_id=self.config.api_context.project,
+                    env_id=self.config.api_context.environment,
+                )
             )
-        )
 
     @property
     def __role_assignments(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/role_assignments".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
+        if self.config.local_facts:
+            return self._build_http_client("/facts/role_assignments", use_pdp=True)
+        else:
+            return self._build_http_client(
+                "/v2/facts/{proj_id}/{env_id}/role_assignments".format(
+                    proj_id=self.config.api_context.project,
+                    env_id=self.config.api_context.environment,
+                )
             )
-        )
 
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/bulk/users".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
+        if self.config.local_facts:
+            return self._build_http_client("/bulk/users", use_pdp=True)
+        else:
+            return self._build_http_client(
+                "/v2/facts/{proj_id}/{env_id}/bulk/users".format(
+                    proj_id=self.config.api_context.project,
+                    env_id=self.config.api_context.environment,
+                )
             )
-        )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)

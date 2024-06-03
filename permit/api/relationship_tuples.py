@@ -29,12 +29,15 @@ from .models import (
 class RelationshipTuplesApi(BasePermitApi):
     @property
     def __relationship_tuples(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/relationship_tuples".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
+        if self.config.local_facts:
+            return self._build_http_client("/facts/relationship_tuples", use_pdp=True)
+        else:
+            return self._build_http_client(
+                "/v2/facts/{proj_id}/{env_id}/relationship_tuples".format(
+                    proj_id=self.config.api_context.project,
+                    env_id=self.config.api_context.environment,
+                )
             )
-        )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
