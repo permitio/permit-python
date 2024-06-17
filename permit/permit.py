@@ -1,5 +1,6 @@
 import json
-from typing import Optional
+from contextlib import contextmanager
+from typing import Optional, Self, Iterable
 
 from loguru import logger
 
@@ -47,6 +48,16 @@ class Permit:
             pdp_url = permit.config.pdp
         """
         return self._config.copy()
+
+    @contextmanager
+    def synced_facts(self) -> Iterable[Self]:
+        if not self._config.proxy_facts_via_pdp:
+            logger.warning("Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring...")
+            yield self
+            return
+        contextualized_config = self.config  # this copies the config
+        contextualized_config.synced_facts = True
+        yield self.__class__(contextualized_config)
 
     @property
     def api(self) -> PermitApiClient:

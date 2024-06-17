@@ -1,10 +1,12 @@
-from typing import List
+from typing import Any
+
+from loguru import logger
 
 from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, Field, validator
 else:
     from pydantic.v1 import BaseModel, Field  # type: ignore
 
@@ -35,7 +37,7 @@ class MultiTenancyConfig(BaseModel):
     use_default_tenant_if_empty: bool = Field(
         True,
         description="whether or not the SDK should automatically associate a resource with the defaultTenant "
-        + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
+                    + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
     )
 
 
@@ -73,6 +75,20 @@ class PermitConfig(BaseModel):
         False,
         description="Create facts via the PDP or use the Permit REST API.",
     )
+    synced_facts: bool = Field(
+        False,
+        description="Wait for facts to be available before returning from the Permit SDK."
+                    "Available only when proxy_facts_via_pdp is True.",
+    )
+
+    @validator("synced_facts")
+    def validate_synced_facts(cls, v: bool, values: dict[str, Any]) -> bool:
+        proxy_facts_via_pdp: bool = values.get("proxy_facts_via_pdp", False)
+        if not proxy_facts_via_pdp:
+            if v:
+                logger.warning("synced_facts can only be set to True when proxy_facts_via_pdp is True, ignoring...")
+            return False
+        return v
 
     class Config:
         arbitrary_types_allowed = True

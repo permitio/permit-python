@@ -1,9 +1,11 @@
 import functools
-from typing import Callable, Optional, Type, TypeVar, Union
+from contextlib import contextmanager
+from typing import Callable, Optional, Type, TypeVar, Union, Iterable
 
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
+from typing_extensions import Self
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -11,7 +13,6 @@ if PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Extra, Field, parse_obj_as
 else:
     from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as  # type: ignore
-
 
 from ..config import PermitConfig
 from ..exceptions import PermitContextError, handle_api_error, handle_client_error
@@ -216,11 +217,15 @@ class BasePermitApi:
     def _build_http_client(
         self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs
     ):
+        optional_headers = {}
+        if self.config.synced_facts:
+            optional_headers["X-Wait-Fact"] = True
         client_config = ClientConfig(
             base_url=self.config.pdp if use_pdp else self.config.api_url,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"bearer {self.config.token}",
+                **optional_headers,
             },
         )
         client_config = client_config.dict()
