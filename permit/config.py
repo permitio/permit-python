@@ -69,9 +69,9 @@ class PermitConfig(BaseModel):
         None,
         description="The timeout in seconds for requests to the PDP.",
     )
-    local_facts: bool = Field(
+    proxy_facts_via_pdp: bool = Field(
         False,
-        description="Whether to create facts locally in the PDP or use the Permit REST API.",
+        description="Create facts via the PDP or use the Permit REST API.",
     )
 
     class Config:

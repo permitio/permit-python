@@ -30,7 +30,7 @@ from .models import (
 class TenantsApi(BasePermitApi):
     @property
     def __tenants(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/tenants", use_pdp=True)
         else:
             return self._build_http_client(
@@ -42,7 +42,7 @@ class TenantsApi(BasePermitApi):
 
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/users", use_pdp=True)
         else:
             return self._build_http_client(

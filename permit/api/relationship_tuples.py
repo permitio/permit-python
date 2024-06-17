@@ -29,7 +29,7 @@ from .models import (
 class RelationshipTuplesApi(BasePermitApi):
     @property
     def __relationship_tuples(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/relationship_tuples", use_pdp=True)
         else:
             return self._build_http_client(

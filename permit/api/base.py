@@ -213,7 +213,9 @@ class BasePermitApi:
         self.config = config
         self.__api_keys = self._build_http_client("/v2/api-key")
 
-    def _build_http_client(self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs):
+    def _build_http_client(
+        self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs
+    ):
         client_config = ClientConfig(
             base_url=self.config.pdp if use_pdp else self.config.api_url,
             headers={

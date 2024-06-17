@@ -21,7 +21,7 @@ from .models import ConditionSetRuleCreate, ConditionSetRuleRead, ConditionSetRu
 class ConditionSetRulesApi(BasePermitApi):
     @property
     def __condition_set_rules(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/set_rules", use_pdp=True)
         else:
             return self._build_http_client(

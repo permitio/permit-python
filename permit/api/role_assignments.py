@@ -28,7 +28,7 @@ from .models import (
 class RoleAssignmentsApi(BasePermitApi):
     @property
     def __role_assignments(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/role_assignments", use_pdp=True)
         else:
             return self._build_http_client(

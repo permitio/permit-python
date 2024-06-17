@@ -35,7 +35,7 @@ from .models import (
 class UsersApi(BasePermitApi):
     @property
     def __users(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/users", use_pdp=True)
         else:
             return self._build_http_client(
@@ -47,7 +47,7 @@ class UsersApi(BasePermitApi):
 
     @property
     def __role_assignments(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/role_assignments", use_pdp=True)
         else:
             return self._build_http_client(
@@ -59,7 +59,7 @@ class UsersApi(BasePermitApi):
 
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
-        if self.config.local_facts:
+        if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/bulk/users", use_pdp=True)
         else:
             return self._build_http_client(
