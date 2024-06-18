@@ -1,8 +1,10 @@
 import json
 from contextlib import contextmanager
-from typing import Optional, Self, Iterable
+from typing import Optional, Generator
 
 from loguru import logger
+from pydantic import NonNegativeFloat
+from typing_extensions import Self
 
 from .api.api_client import PermitApiClient
 from .api.elements import ElementsApi
@@ -50,13 +52,13 @@ class Permit:
         return self._config.copy()
 
     @contextmanager
-    def synced_facts(self) -> Iterable[Self]:
+    def synced_facts(self, timeout: NonNegativeFloat = 10.0) -> Generator[Self, None, None]:
         if not self._config.proxy_facts_via_pdp:
             logger.warning("Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring...")
             yield self
             return
         contextualized_config = self.config  # this copies the config
-        contextualized_config.synced_facts = True
+        contextualized_config.facts_sync_timeout = timeout
         yield self.__class__(contextualized_config)
 
     @property

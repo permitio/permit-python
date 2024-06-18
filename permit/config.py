@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from loguru import logger
 
@@ -6,7 +6,7 @@ from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
-    from pydantic import BaseModel, Field, validator
+    from pydantic import BaseModel, Field, validator, NonNegativeFloat
 else:
     from pydantic.v1 import BaseModel, Field  # type: ignore
 
@@ -75,18 +75,20 @@ class PermitConfig(BaseModel):
         False,
         description="Create facts via the PDP or use the Permit REST API.",
     )
-    synced_facts: bool = Field(
-        False,
-        description="Wait for facts to be available before returning from the Permit SDK."
+    facts_sync_timeout: Optional[NonNegativeFloat] = Field(
+        None,
+        description="The amount of time to wait for facts to be available before returning from the Permit SDK."
                     "Available only when proxy_facts_via_pdp is True.",
     )
 
-    @validator("synced_facts")
-    def validate_synced_facts(cls, v: bool, values: dict[str, Any]) -> bool:
+    @validator("facts_sync_timeout")
+    def validate_facts_sync_timeout(cls, v: Optional[NonNegativeFloat], values: dict[str, Any]) -> Optional[
+        NonNegativeFloat]:
         proxy_facts_via_pdp: bool = values.get("proxy_facts_via_pdp", False)
         if not proxy_facts_via_pdp:
             if v:
-                logger.warning("synced_facts can only be set to True when proxy_facts_via_pdp is True, ignoring...")
+                logger.warning(
+                    "facts_sync_timeout can only be set to True when proxy_facts_via_pdp is True, ignoring...")
             return False
         return v
 
