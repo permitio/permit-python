@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import List, AsyncIterable
+from typing import AsyncIterable, List
 
 import pytest
 from loguru import logger
@@ -8,9 +8,10 @@ from pytest_httpserver import HTTPServer
 from typing_extensions import Final
 from werkzeug import Request, Response
 
-from permit import Permit, RoleAssignmentRead, ResourceRead, RoleRead
+from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
 from permit.exceptions import PermitApiError, PermitConnectionError
 from permit.pdp_api.models import RoleAssignment
+
 from .utils import handle_api_error
 
 
@@ -38,9 +39,7 @@ ADMIN_ROLE_PERMISSIONS: Final[List[str]] = [
     f"{RESOURCE_KEY}:{RESOURCE_READ_ACTION}",
 ]
 VIEWER_ROLE_KEY: Final[str] = "viewer"
-VIEWER_ROLE_PERMISSIONS: Final[List[str]] = [
-    f"{RESOURCE_KEY}:{RESOURCE_READ_ACTION}"
-]
+VIEWER_ROLE_PERMISSIONS: Final[List[str]] = [f"{RESOURCE_KEY}:{RESOURCE_READ_ACTION}"]
 TENANT_KEY: Final[str] = "tesla"
 USER_KEY: Final[str] = "auth0|elon"
 
@@ -284,14 +283,20 @@ async def test_permission_check_e2e(
         assert await permit.check(
             USER_KEY,
             RESOURCE_READ_ACTION,
-            {"type": RESOURCE_KEY, "tenant": TENANT_KEY, "attributes": resource_attributes},
+            {
+                "type": RESOURCE_KEY,
+                "tenant": TENANT_KEY,
+                "attributes": resource_attributes,
+            },
         )
 
         print_break()
 
         logger.info("testing positive permission check with complete user object")
         assert await permit.check(
-            user.dict(), RESOURCE_READ_ACTION, {"type": document.key, "tenant": tenant.key}
+            user.dict(),
+            RESOURCE_READ_ACTION,
+            {"type": document.key, "tenant": tenant.key},
         )
 
         print_break()
@@ -299,40 +304,42 @@ async def test_permission_check_e2e(
         # negative permission check (will be False because a viewer cannot create a document)
         logger.info("testing negative permission check")
         assert (
-                   await permit.check(
-                       user.key, RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
-                   )
-               ) == False
+            await permit.check(
+                user.key,
+                RESOURCE_CREATE_ACTION,
+                {"type": document.key, "tenant": tenant.key},
+            )
+        ) == False
 
         print_break()
 
         logger.info("testing bulk permission check")
         assert (
-                   await permit.bulk_check(
-                       [
-                           {
-                               "user": USER_KEY,
-                               "action": RESOURCE_READ_ACTION,
-                               "resource": {
-                                   "type": RESOURCE_KEY,
-                                   "tenant": TENANT_KEY,
-                                   "attributes": resource_attributes,
-                               },
-                           },
-                           {
-                               "user": user.dict(),
-                               "action": RESOURCE_READ_ACTION,
-                               "resource": {"type": document.key, "tenant": tenant.key},
-                           },
-                           {
-                               "user": user.key,
-                               "action": RESOURCE_CREATE_ACTION,
-                               "resource": {"type": document.key, "tenant": tenant.key},
-                           },
-                       ],
-                       {},
-                   )
-               ) == [True, True, False]
+            await permit.bulk_check(
+                [
+                    {
+                        "user": USER_KEY,
+                        "action": RESOURCE_READ_ACTION,
+                        "resource": {
+                            "type": RESOURCE_KEY,
+                            "tenant": TENANT_KEY,
+                            "attributes": resource_attributes,
+                        },
+                    },
+                    {
+                        "user": user.dict(),
+                        "action": RESOURCE_READ_ACTION,
+                        "resource": {"type": document.key, "tenant": tenant.key},
+                    },
+                    {
+                        "user": user.key,
+                        "action": RESOURCE_CREATE_ACTION,
+                        "resource": {"type": document.key, "tenant": tenant.key},
+                    },
+                ],
+                {},
+            )
+        ) == [True, True, False]
 
         print_break()
 
@@ -385,7 +392,9 @@ async def test_permission_check_e2e(
             "testing previously negative permission check, should now be positive"
         )
         assert await permit.check(
-            user.dict(), RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
+            user.dict(),
+            RESOURCE_CREATE_ACTION,
+            {"type": document.key, "tenant": tenant.key},
         )
 
         print_break()
@@ -495,14 +504,20 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert await permit.check(
                 USER_KEY,
                 RESOURCE_READ_ACTION,
-                {"type": RESOURCE_KEY, "tenant": TENANT_KEY, "attributes": resource_attributes},
+                {
+                    "type": RESOURCE_KEY,
+                    "tenant": TENANT_KEY,
+                    "attributes": resource_attributes,
+                },
             )
 
             print_break()
 
             logger.info("testing positive permission check with complete user object")
             assert await permit.check(
-                user.dict(), RESOURCE_READ_ACTION, {"type": document.key, "tenant": tenant.key}
+                user.dict(),
+                RESOURCE_READ_ACTION,
+                {"type": document.key, "tenant": tenant.key},
             )
 
             print_break()
@@ -510,40 +525,42 @@ async def test_local_facts_uploader_permission_check_e2e(
             # negative permission check (will be False because a viewer cannot create a document)
             logger.info("testing negative permission check")
             assert (
-                       await permit.check(
-                           user.key, RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
-                       )
-                   ) == False
+                await permit.check(
+                    user.key,
+                    RESOURCE_CREATE_ACTION,
+                    {"type": document.key, "tenant": tenant.key},
+                )
+            ) == False
 
             print_break()
 
             logger.info("testing bulk permission check")
             assert (
-                       await permit.bulk_check(
-                           [
-                               {
-                                   "user": USER_KEY,
-                                   "action": RESOURCE_READ_ACTION,
-                                   "resource": {
-                                       "type": RESOURCE_KEY,
-                                       "tenant": TENANT_KEY,
-                                       "attributes": resource_attributes,
-                                   },
-                               },
-                               {
-                                   "user": user.dict(),
-                                   "action": RESOURCE_READ_ACTION,
-                                   "resource": {"type": document.key, "tenant": tenant.key},
-                               },
-                               {
-                                   "user": user.key,
-                                   "action": RESOURCE_CREATE_ACTION,
-                                   "resource": {"type": document.key, "tenant": tenant.key},
-                               },
-                           ],
-                           {},
-                       )
-                   ) == [True, True, False]
+                await permit.bulk_check(
+                    [
+                        {
+                            "user": USER_KEY,
+                            "action": RESOURCE_READ_ACTION,
+                            "resource": {
+                                "type": RESOURCE_KEY,
+                                "tenant": TENANT_KEY,
+                                "attributes": resource_attributes,
+                            },
+                        },
+                        {
+                            "user": user.dict(),
+                            "action": RESOURCE_READ_ACTION,
+                            "resource": {"type": document.key, "tenant": tenant.key},
+                        },
+                        {
+                            "user": user.key,
+                            "action": RESOURCE_CREATE_ACTION,
+                            "resource": {"type": document.key, "tenant": tenant.key},
+                        },
+                    ],
+                    {},
+                )
+            ) == [True, True, False]
 
             print_break()
 
@@ -583,7 +600,9 @@ async def test_local_facts_uploader_permission_check_e2e(
                 "testing previously negative permission check, should now be positive"
             )
             assert await permit.check(
-                user.dict(), RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
+                user.dict(),
+                RESOURCE_CREATE_ACTION,
+                {"type": document.key, "tenant": tenant.key},
             )
 
             print_break()

@@ -1,6 +1,6 @@
 import functools
 from contextlib import contextmanager
-from typing import Callable, Optional, Type, TypeVar, Union, Iterable
+from typing import Callable, Iterable, Optional, Type, TypeVar, Union
 
 import aiohttp
 from aiohttp import ClientTimeout

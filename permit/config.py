@@ -6,7 +6,7 @@ from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
-    from pydantic import BaseModel, Field, validator, NonNegativeFloat
+    from pydantic import BaseModel, Field, NonNegativeFloat, validator
 else:
     from pydantic.v1 import BaseModel, Field  # type: ignore
 
@@ -37,7 +37,7 @@ class MultiTenancyConfig(BaseModel):
     use_default_tenant_if_empty: bool = Field(
         True,
         description="whether or not the SDK should automatically associate a resource with the defaultTenant "
-                    + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
+        + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
     )
 
 
@@ -78,17 +78,19 @@ class PermitConfig(BaseModel):
     facts_sync_timeout: Optional[float] = Field(
         None,
         description="The amount of time to wait for facts to be available before returning from the Permit SDK."
-                    "Available only when proxy_facts_via_pdp is True.",
+        "Available only when proxy_facts_via_pdp is True.",
     )
 
     @validator("facts_sync_timeout")
-    def validate_facts_sync_timeout(cls, v: Optional[float], values: dict[str, Any]) -> Optional[
-        NonNegativeFloat]:
+    def validate_facts_sync_timeout(
+        cls, v: Optional[float], values: dict[str, Any]
+    ) -> Optional[NonNegativeFloat]:
         proxy_facts_via_pdp: bool = values.get("proxy_facts_via_pdp", False)
         if not proxy_facts_via_pdp:
             if v:
                 logger.warning(
-                    "facts_sync_timeout can only be set to True when proxy_facts_via_pdp is True, ignoring...")
+                    "facts_sync_timeout can only be set to True when proxy_facts_via_pdp is True, ignoring..."
+                )
             return False
         return v
 

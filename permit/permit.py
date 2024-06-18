@@ -1,6 +1,6 @@
 import json
 from contextlib import contextmanager
-from typing import Optional, Generator
+from typing import Generator, Optional
 
 from loguru import logger
 from pydantic import NonNegativeFloat
@@ -54,7 +54,9 @@ class Permit:
     @contextmanager
     def synced_facts(self, timeout: float = 10.0) -> Generator[Self, None, None]:
         if not self._config.proxy_facts_via_pdp:
-            logger.warning("Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring...")
+            logger.warning(
+                "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
+            )
             yield self
             return
         contextualized_config = self.config  # this copies the config
