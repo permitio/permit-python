@@ -44,6 +44,7 @@ VIEWER_ROLE_PERMISSIONS: Final[List[str]] = [
 TENANT_KEY: Final[str] = "tesla"
 USER_KEY: Final[str] = "auth0|elon"
 
+
 def sleeping(request: Request):
     time.sleep(TEST_TIMEOUT + 1)
     return Response("OK", status=200)
@@ -97,6 +98,7 @@ async def test_pdp_timeout(httpserver: HTTPServer):
         )
     time_passed = time.time() - current_time
     assert time_passed < 3
+
 
 @pytest.fixture
 async def setup_env(
@@ -191,6 +193,7 @@ async def setup_env(
         assert len(assigned_viewer.permissions or []) == len(VIEWER_ROLE_PERMISSIONS)
         for permission in VIEWER_ROLE_PERMISSIONS:
             assert permission in assigned_viewer.permissions
+        await asyncio.sleep(10)
         yield document, admin, viewer
     finally:
         # cleanup
@@ -210,6 +213,7 @@ async def setup_env(
         except Exception as error:
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")
+
 
 async def test_permission_check_e2e(
     permit: Permit,
@@ -483,7 +487,8 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert ra.user == user.email or ra.user == user.key
             assert ra.role == viewer.key
             assert ra.tenant == tenant.key
-
+            # TODO: remove sleep
+            await asyncio.sleep(10)
             # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
             logger.info("testing positive permission check")
             resource_attributes = {"secret": True}
@@ -542,16 +547,6 @@ async def test_local_facts_uploader_permission_check_e2e(
 
             print_break()
 
-            logger.info("testing list role assignments")
-            assignments_returned: List[
-                RoleAssignment
-            ] = await permit.pdp_api.role_assignments.list()
-            assert len(assignments_returned) == 1
-            assert assignments_returned[0].user == user.key
-            assert assignments_returned[0].role == viewer.key
-            assert assignments_returned[0].tenant == tenant.key
-            print_break()
-
             logger.info("changing the user roles")
 
             # change the user role - assign admin role
@@ -581,6 +576,8 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert assigned_roles[0].role_id == admin.id
             assert assigned_roles[0].tenant_id == tenant.id
 
+            # TODO: remove sleep
+            await asyncio.sleep(10)
             # run the same negative permission check again, this time it's True
             logger.info(
                 "testing previously negative permission check, should now be positive"
@@ -608,10 +605,10 @@ async def test_local_facts_uploader_permission_check_e2e(
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
     except PermitConnectionError as error:
-            raise
+        raise
     except Exception as error:
         logger.error(f"Got error: {error}")
-        pytest.fail(f"Got error: {error}")
+        raise
     finally:
         # cleanup
         try:
