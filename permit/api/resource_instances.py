@@ -29,21 +29,27 @@ from .models import (
 class ResourceInstancesApi(BasePermitApi):
     @property
     def __resource_instances(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/resource_instances".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
+        if self.config.proxy_facts_via_pdp:
+            return self._build_http_client("/bulk/resource_instances", use_pdp=True)
+        else:
+            return self._build_http_client(
+                "/v2/facts/{proj_id}/{env_id}/resource_instances".format(
+                    proj_id=self.config.api_context.project,
+                    env_id=self.config.api_context.environment,
+                )
             )
-        )
 
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
-        return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/bulk/resource_instances".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
+        if self.config.proxy_facts_via_pdp:
+            return self._build_http_client("/bulk/resource_instances", use_pdp=True)
+        else:
+            return self._build_http_client(
+                "/v2/facts/{proj_id}/{env_id}/bulk/resource_instances".format(
+                    proj_id=self.config.api_context.project,
+                    env_id=self.config.api_context.environment,
+                )
             )
-        )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
