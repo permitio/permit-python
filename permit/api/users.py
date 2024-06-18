@@ -60,7 +60,7 @@ class UsersApi(BasePermitApi):
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
-            return self._build_http_client("/bulk/users", use_pdp=True)
+            return self._build_http_client("/facts/bulk/users", use_pdp=True)
         else:
             return self._build_http_client(
                 "/v2/facts/{proj_id}/{env_id}/bulk/users".format(

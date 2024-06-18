@@ -30,7 +30,7 @@ class ResourceInstancesApi(BasePermitApi):
     @property
     def __resource_instances(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
-            return self._build_http_client("/bulk/resource_instances", use_pdp=True)
+            return self._build_http_client("/facts/resource_instances", use_pdp=True)
         else:
             return self._build_http_client(
                 "/v2/facts/{proj_id}/{env_id}/resource_instances".format(
@@ -42,7 +42,9 @@ class ResourceInstancesApi(BasePermitApi):
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
-            return self._build_http_client("/bulk/resource_instances", use_pdp=True)
+            return self._build_http_client(
+                "/facts/bulk/resource_instances", use_pdp=True
+            )
         else:
             return self._build_http_client(
                 "/v2/facts/{proj_id}/{env_id}/bulk/resource_instances".format(
