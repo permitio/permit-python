@@ -218,7 +218,7 @@ class BasePermitApi:
         self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs
     ):
         optional_headers = {}
-        if self.config.facts_sync_timeout:
+        if self.config.proxy_facts_via_pdp and self.config.facts_sync_timeout:
             optional_headers["X-Wait-Timeout"] = str(self.config.facts_sync_timeout)
         client_config = ClientConfig(
             base_url=self.config.pdp if use_pdp else self.config.api_url,
