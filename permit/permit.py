@@ -52,7 +52,7 @@ class Permit:
         return self._config.copy()
 
     @contextmanager
-    def synced_facts(self, timeout: NonNegativeFloat = 10.0) -> Generator[Self, None, None]:
+    def synced_facts(self, timeout: float = 10.0) -> Generator[Self, None, None]:
         if not self._config.proxy_facts_via_pdp:
             logger.warning("Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring...")
             yield self

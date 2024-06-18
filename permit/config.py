@@ -75,14 +75,14 @@ class PermitConfig(BaseModel):
         False,
         description="Create facts via the PDP or use the Permit REST API.",
     )
-    facts_sync_timeout: Optional[NonNegativeFloat] = Field(
+    facts_sync_timeout: Optional[float] = Field(
         None,
         description="The amount of time to wait for facts to be available before returning from the Permit SDK."
                     "Available only when proxy_facts_via_pdp is True.",
     )
 
     @validator("facts_sync_timeout")
-    def validate_facts_sync_timeout(cls, v: Optional[NonNegativeFloat], values: dict[str, Any]) -> Optional[
+    def validate_facts_sync_timeout(cls, v: Optional[float], values: dict[str, Any]) -> Optional[
         NonNegativeFloat]:
         proxy_facts_via_pdp: bool = values.get("proxy_facts_via_pdp", False)
         if not proxy_facts_via_pdp:
