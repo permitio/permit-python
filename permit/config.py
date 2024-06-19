@@ -76,7 +76,7 @@ class PermitConfig(BaseModel):
     facts_sync_timeout: Optional[float] = Field(
         None,
         description="The amount of time in seconds to wait for facts to be available "
-                    "in the PDP cache before returning the response.",
+        "in the PDP cache before returning the response.",
     )
 
     class Config:
