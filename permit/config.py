@@ -1,4 +1,4 @@
-from typing import List
+from typing import Optional
 
 from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
@@ -68,6 +68,15 @@ class PermitConfig(BaseModel):
     pdp_timeout: int = Field(
         None,
         description="The timeout in seconds for requests to the PDP.",
+    )
+    proxy_facts_via_pdp: bool = Field(
+        False,
+        description="Create facts via the PDP API instead of using the default Permit REST API.",
+    )
+    facts_sync_timeout: Optional[float] = Field(
+        None,
+        description="The amount of time in seconds to wait for facts to be available "
+        "in the PDP cache before returning the response.",
     )
 
     class Config:

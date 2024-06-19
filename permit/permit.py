@@ -1,7 +1,10 @@
 import json
-from typing import Optional
+from contextlib import contextmanager
+from typing import Generator, Optional
 
 from loguru import logger
+from pydantic import NonNegativeFloat
+from typing_extensions import Self
 
 from .api.api_client import PermitApiClient
 from .api.elements import ElementsApi
@@ -47,6 +50,33 @@ class Permit:
             pdp_url = permit.config.pdp
         """
         return self._config.copy()
+
+    @contextmanager
+    def wait_for_sync(self, timeout: float = 10.0) -> Generator[Self, None, None]:
+        """
+        Context manager that returns a client that is configured
+        to wait for facts to be synced before proceeding.
+
+
+        Args:
+            timeout: The amount of time in seconds to wait for facts to be available in the PDP
+            cache before returning the response.
+
+        Yields:
+            Permit: A Permit instance that is configured to wait for facts to be synced.
+
+        See Also:
+            https://docs.permit.io/how-to/manage-data/local-facts-uploader
+        """
+        if not self._config.proxy_facts_via_pdp:
+            logger.warning(
+                "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
+            )
+            yield self
+            return
+        contextualized_config = self.config  # this copies the config
+        contextualized_config.facts_sync_timeout = timeout
+        yield self.__class__(contextualized_config)
 
     @property
     def api(self) -> PermitApiClient:
