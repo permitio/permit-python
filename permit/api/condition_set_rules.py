@@ -21,15 +21,12 @@ from .models import ConditionSetRuleCreate, ConditionSetRuleRead, ConditionSetRu
 class ConditionSetRulesApi(BasePermitApi):
     @property
     def __condition_set_rules(self) -> SimpleHttpClient:
-        if self.config.proxy_facts_via_pdp:
-            return self._build_http_client("/facts/set_rules", use_pdp=True)
-        else:
-            return self._build_http_client(
-                "/v2/facts/{proj_id}/{env_id}/set_rules".format(
-                    proj_id=self.config.api_context.project,
-                    env_id=self.config.api_context.environment,
-                )
+        return self._build_http_client(
+            "/v2/facts/{proj_id}/{env_id}/set_rules".format(
+                proj_id=self.config.api_context.project,
+                env_id=self.config.api_context.environment,
             )
+        )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)

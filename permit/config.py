@@ -71,12 +71,12 @@ class PermitConfig(BaseModel):
     )
     proxy_facts_via_pdp: bool = Field(
         False,
-        description="Create facts via the PDP or use the Permit REST API.",
+        description="Create facts via the PDP API instead of using the default Permit REST API.",
     )
     facts_sync_timeout: Optional[float] = Field(
         None,
-        description="The amount of time to wait for facts to be available before returning from the Permit SDK."
-        "Available only when proxy_facts_via_pdp is True.",
+        description="The amount of time in seconds to wait for facts to be available "
+                    "in the PDP cache before returning the response.",
     )
 
     class Config:

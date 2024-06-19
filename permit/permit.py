@@ -52,7 +52,22 @@ class Permit:
         return self._config.copy()
 
     @contextmanager
-    def synced_facts(self, timeout: float = 10.0) -> Generator[Self, None, None]:
+    def wait_for_sync(self, timeout: float = 10.0) -> Generator[Self, None, None]:
+        """
+        Context manager that returns a client that is configured
+        to wait for facts to be synced before proceeding.
+
+
+        Args:
+            timeout: The amount of time in seconds to wait for facts to be available in the PDP
+            cache before returning the response.
+
+        Yields:
+            Permit: A Permit instance that is configured to wait for facts to be synced.
+
+        See Also:
+            https://docs.permit.io/how-to/manage-data/local-facts-uploader
+        """
         if not self._config.proxy_facts_via_pdp:
             logger.warning(
                 "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
