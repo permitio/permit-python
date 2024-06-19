@@ -197,12 +197,9 @@ async def setup_env(
     finally:
         # cleanup
         try:
-            if is_admin_created:
-                await permit.api.roles.delete(ADMIN_ROLE_KEY)
-            if is_viewer_created:
-                await permit.api.roles.delete(VIEWER_ROLE_KEY)
-            if is_document_created:
-                await permit.api.resources.delete(RESOURCE_KEY)
+            await permit.api.roles.delete(ADMIN_ROLE_KEY)
+            await permit.api.roles.delete(VIEWER_ROLE_KEY)
+            await permit.api.resources.delete(RESOURCE_KEY)
             assert len(await permit.api.resources.list()) == 0
             assert len(await permit.api.roles.list()) == 0
         except PermitApiError as error:
@@ -444,7 +441,7 @@ async def test_local_facts_uploader_permission_check_e2e(
     assert permit.api.users.config.proxy_facts_via_pdp is True
     document, admin, viewer = setup_env
     try:
-        with permit.synced_facts() as permit:
+        with permit.wait_for_sync() as permit:
             # create a tenant
             tenant = await permit.api.tenants.create(
                 {
@@ -496,8 +493,6 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert ra.user == user.email or ra.user == user.key
             assert ra.role == viewer.key
             assert ra.tenant == tenant.key
-            # TODO: remove sleep
-            await asyncio.sleep(10)
             # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
             logger.info("testing positive permission check")
             resource_attributes = {"secret": True}
@@ -593,8 +588,6 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert assigned_roles[0].role_id == admin.id
             assert assigned_roles[0].tenant_id == tenant.id
 
-            # TODO: remove sleep
-            await asyncio.sleep(10)
             # run the same negative permission check again, this time it's True
             logger.info(
                 "testing previously negative permission check, should now be positive"
