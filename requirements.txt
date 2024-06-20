@@ -1,4 +1,4 @@
-aiohttp>=3.8.4,<4
+aiohttp>=3.9.2,<4
 httpx>=0.24.1,<1
 loguru>=0.7.0,<1
 pydantic[email]>=1.10.7
