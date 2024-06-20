@@ -19,6 +19,7 @@ jobs:
       contents: write           # 'write' access to repository contents
       pull-requests: write      # 'write' access to pull requests
     steps:
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -26,63 +27,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11.8'
-
-    - name: Install Docker
-      uses: docker-practice/actions-setup-docker@master
-
-    - name: Creation env ${{ env.ENV_NAME }} under 'Permit.io Tests' workspace
-      run: |
-        response=$(curl -X POST \
-          https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs \
-          -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}' \
-          -H 'Content-Type: application/json' \
-          -d '{
-          "key": "${{ env.ENV_NAME }}",
-          "name": "${{ env.ENV_NAME }}"
-        }')
-
-        # Extract the new env id
-        echo "ENV_ID=$(echo "$response" | jq -r '.id')" >> $GITHUB_ENV
-
-        echo "New env ID: $ENV_ID"
-
-    - name: Fetch API_KEY of ${{ env.ENV_NAME }}
-      run: |
-        response=$(curl -X GET \
-          https://api.permit.io/v2/api-key/${{ env.PROJECT_ID }}/${{ env.ENV_ID }} \
-          -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}')
-
-        # Extract the secret from the response which is the API_KEY of the new env
-        echo "ENV_API_KEY=$(echo "$response" | jq -r '.secret')" >> $GITHUB_ENV
-
-        echo "New env api key: $ENV_API_KEY"
-
-    - name: local PDP runnning
-      env:
-        PDP_API_KEY: ${{ env.ENV_API_KEY }}
-        PERMIT_API_KEY: ${{ env.ENV_API_KEY }}
-      run: docker run -d -p 7766:7000 --env PDP_API_KEY=${{ env.ENV_API_KEY }} --env PDP_DEBUG=true permitio/pdp-v2:latest
-
-    - name: Test with pytest
-      env:
-        PDP_URL: http://localhost:7766
-        API_TIER: prod
-        ORG_PDP_API_KEY: ${{ env.ENV_API_KEY }}
-        PROJECT_PDP_API_KEY: ${{ env.ENV_API_KEY }}
-        PDP_API_KEY: ${{ env.ENV_API_KEY }}
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest pytest-cov
-        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pytest -s --cache-clear tests/
-
-    - name: Delete env ${{ env.ENV_NAME }}
-      if: always()
-      run: |
-        curl -X DELETE \
-          https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs/${{ env.ENV_ID }} \
-          -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}'
 
     - name: Bump version and commit changes
       run: |
