@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -44,7 +44,7 @@ class RoleAssignmentsApi(BasePermitApi):
     async def list(
         self,
         user_key: Optional[str] = None,
-        role_key: Optional[str] = None,
+        role_key: Optional[Union[str, List[str]]] = None,
         tenant_key: Optional[str] = None,
         resource_instance_key: Optional[str] = None,
         page: int = 1,
@@ -68,15 +68,19 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        params = pagination_params(page, per_page)
+        params = list(pagination_params(page, per_page).items())
         if user_key is not None:
-            params.update(dict(user=user_key))
+            params.append(("user", user_key))
         if role_key is not None:
-            params.update(dict(role=role_key))
+            if isinstance(role_key, list):
+                for role in role_key:
+                    params.append(("role", role))
+            else:
+                params.append(("role", role_key))
         if tenant_key is not None:
-            params.update(dict(tenant=tenant_key))
+            params.append(("tenant", tenant_key))
         if resource_instance_key is not None:
-            params.update(dict(resource_instance=resource_instance_key))
+            params.append(("resource_instance", resource_instance_key))
         return await self.__role_assignments.get(
             "",
             model=List[RoleAssignmentRead],
