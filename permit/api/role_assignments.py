@@ -46,6 +46,7 @@ class RoleAssignmentsApi(BasePermitApi):
         user_key: Optional[Union[str, List[str]]] = None,
         role_key: Optional[Union[str, List[str]]] = None,
         tenant_key: Optional[Union[str, List[str]]] = None,
+        resource_key: Optional[str] = None,
         resource_instance_key: Optional[str] = None,
         page: int = 1,
         per_page: int = 100,
@@ -57,6 +58,7 @@ class RoleAssignmentsApi(BasePermitApi):
             user_key: if specified, only role granted to this user will be fetched.
             role_key: if specified, only assignments of this role will be fetched.
             tenant_key: (for roles) if specified, only role granted within this tenant will be fetched.
+            resource_key: (for resource roles) if specified, only roles granted on instances of this resource type will be fetched.
             resource_instance_key: (for resource roles) if specified, only roles granted with this instance as the object will be fetched.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -87,6 +89,8 @@ class RoleAssignmentsApi(BasePermitApi):
                     params.append(("tenant", tenant))
             else:
                 params.append(("tenant", tenant_key))
+        if resource_key is not None:
+            params.append(("resource", resource_key))
         if resource_instance_key is not None:
             params.append(("resource_instance", resource_instance_key))
         return await self.__role_assignments.get(
