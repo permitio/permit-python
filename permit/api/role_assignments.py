@@ -43,9 +43,9 @@ class RoleAssignmentsApi(BasePermitApi):
     @validate_arguments
     async def list(
         self,
-        user_key: Optional[str] = None,
+        user_key: Optional[Union[str, List[str]]] = None,
         role_key: Optional[Union[str, List[str]]] = None,
-        tenant_key: Optional[str] = None,
+        tenant_key: Optional[Union[str, List[str]]] = None,
         resource_instance_key: Optional[str] = None,
         page: int = 1,
         per_page: int = 100,
@@ -70,7 +70,11 @@ class RoleAssignmentsApi(BasePermitApi):
         """
         params = list(pagination_params(page, per_page).items())
         if user_key is not None:
-            params.append(("user", user_key))
+            if isinstance(user_key, list):
+                for user in user_key:
+                    params.append(("user", user))
+            else:
+                params.append(("user", user_key))
         if role_key is not None:
             if isinstance(role_key, list):
                 for role in role_key:
@@ -78,7 +82,11 @@ class RoleAssignmentsApi(BasePermitApi):
             else:
                 params.append(("role", role_key))
         if tenant_key is not None:
-            params.append(("tenant", tenant_key))
+            if isinstance(tenant_key, list):
+                for tenant in tenant_key:
+                    params.append(("tenant", tenant))
+            else:
+                params.append(("tenant", tenant_key))
         if resource_instance_key is not None:
             params.append(("resource_instance", resource_instance_key))
         return await self.__role_assignments.get(
