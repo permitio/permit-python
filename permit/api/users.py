@@ -69,6 +69,15 @@ class UsersApi(BasePermitApi):
                 )
             )
 
+    @property
+    def __user_invites(self) -> SimpleHttpClient:
+        return self._build_http_client(
+            "/v2/facts/{proj_id}/{env_id}/user_invites".format(
+                proj_id=self.config.api_context.project,
+                env_id=self.config.api_context.environment,
+            )
+        )
+
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
@@ -388,4 +397,34 @@ class UsersApi(BasePermitApi):
             "",
             model=List[RoleAssignmentRead],
             params=params,
+        )
+
+    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+    @required_context(ApiContextLevel.ENVIRONMENT)
+    @validate_arguments
+    async def approve(
+        self,
+        user_key: str,
+        email: str,
+        invite_code: str,
+        attributes: Optional[dict] = None,
+    ) -> UserRead:
+        """
+        Approves a user.
+
+        Args:
+            email: The email address of the user.
+            invite_code: The invite code of the user.
+
+        Returns:
+            the approved new created user object.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+        """
+        return await self.__user_invites.post(
+            f"/{invite_code}/approve",
+            model=UserRead,
+            json={"email": email, "key": user_key, "attributes": attributes or None},
         )
