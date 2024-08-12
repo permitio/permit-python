@@ -18,7 +18,7 @@ def get_readme() -> str:
 
 setup(
     name="permit",
-    version="2.6.0",
+    version="2.7.0",
     packages=find_packages(),
     author="Asaf Cohen",
     author_email="asaf@permit.io",

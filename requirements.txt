@@ -3,3 +3,4 @@ httpx>=0.24.1,<1
 loguru>=0.7.0,<1
 pydantic[email]>=1.10.7
 typing-extensions>=4.5.0,<5
+permit-datafilter>=0.0.3,<1
