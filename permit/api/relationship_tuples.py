@@ -44,6 +44,10 @@ class RelationshipTuplesApi(BasePermitApi):
     @validate_arguments
     async def list(
         self,
+        subject_key: Optional[str] = None,
+        relation_key: Optional[str] = None,
+        object_key: Optional[str] = None,
+        tenant_key: Optional[str] = None,
         page: int = 1,
         per_page: int = 100,
     ) -> List[RelationshipTupleRead]:
@@ -51,6 +55,10 @@ class RelationshipTuplesApi(BasePermitApi):
         Retrieves a list of relationship tuples based on the specified filters.
 
         Args:
+            subject_key: if specified, only relationship tuples with this subject will be fetched.
+            relation_key: if specified, only relationship tuples with this relation will be fetched.
+            object_key: if specified, only relationship tuples with this object will be fetched.
+            tenant_key: if specified, only relationship tuples with this tenant will be fetched.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
@@ -61,7 +69,17 @@ class RelationshipTuplesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        params = pagination_params(page, per_page)
+        params = list(pagination_params(page, per_page).items())
+
+        if subject_key is not None:
+            params.append(("subject", subject_key))
+        if relation_key is not None:
+            params.append(("relation", relation_key))
+        if object_key is not None:
+            params.append(("object", object_key))
+        if tenant_key is not None:
+            params.append(("tenant", tenant_key))
+
         return await self.__relationship_tuples.get(
             "",
             model=List[RelationshipTupleRead],
