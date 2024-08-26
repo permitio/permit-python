@@ -28,14 +28,6 @@ jobs:
       with:
         python-version: '3.11.8'
 
-    - name: Bump version and commit changes
-      run: |
-        sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
-        git config --local user.email "eli@permit.io"
-        git config --local user.name "elimoshkovich"
-        git add setup.py
-        git commit -m "Bump version to ${{ github.event.release.tag_name }}"
-
     - name: Build Python package
       run: |
         pip install wheel
@@ -45,9 +37,3 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_TOKEN }}
-
-    - name: Push changes of setup.py to GitHub
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.TOKEN_GITHUB }}
-        branch: main
