@@ -44,23 +44,23 @@ class RelationshipTuplesApi(BasePermitApi):
     @validate_arguments
     async def list(
         self,
+        page: int = 1,
+        per_page: int = 100,
         subject_key: Optional[str] = None,
         relation_key: Optional[str] = None,
         object_key: Optional[str] = None,
         tenant_key: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 100,
     ) -> List[RelationshipTupleRead]:
         """
         Retrieves a list of relationship tuples based on the specified filters.
 
         Args:
+            page: The page number to fetch (default: 1).
+            per_page: How many items to fetch per page (default: 100).
             subject_key: if specified, only relationship tuples with this subject will be fetched.
             relation_key: if specified, only relationship tuples with this relation will be fetched.
             object_key: if specified, only relationship tuples with this object will be fetched.
             tenant_key: if specified, only relationship tuples with this tenant will be fetched.
-            page: The page number to fetch (default: 1).
-            per_page: How many items to fetch per page (default: 100).
 
         Returns:
             an array of relationship tuples.
