@@ -28,6 +28,10 @@ jobs:
       with:
         python-version: '3.11.8'
 
+    - name: Bump version and commit changes
+      run: |
+        sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
+
     - name: Build Python package
       run: |
         pip install wheel
