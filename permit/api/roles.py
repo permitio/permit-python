@@ -11,8 +11,6 @@ from .base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
-    required_context,
-    required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
@@ -35,8 +33,6 @@ class RolesApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/roles"
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         """
@@ -53,13 +49,13 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.get("", model=List[RoleRead], params=pagination_params(page, per_page))
 
     async def _get(self, role_key: str) -> RoleRead:
         return await self.__roles.get(f"/{role_key}", model=RoleRead)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, role_key: str) -> RoleRead:
         """
@@ -75,10 +71,10 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(role_key)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(self, role_key: str) -> RoleRead:
         """
@@ -95,10 +91,10 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(role_key)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, role_id: str) -> RoleRead:
         """
@@ -115,10 +111,10 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(role_id)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, role_data: RoleCreate) -> RoleRead:
         """
@@ -134,10 +130,10 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.post("", model=RoleRead, json=role_data)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(self, role_key: str, role_data: RoleUpdate) -> RoleRead:
         """
@@ -154,10 +150,10 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.patch(f"/{role_key}", model=RoleRead, json=role_data)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, role_key: str) -> None:
         """
@@ -170,10 +166,10 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.delete(f"/{role_key}")
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def assign_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
         """
@@ -190,14 +186,14 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.post(
             f"/{role_key}/permissions",
             model=RoleRead,
             json=AddRolePermissions(permissions=permissions),
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def remove_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
         """
@@ -214,6 +210,8 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.delete(
             f"/{role_key}/permissions",
             model=RoleRead,

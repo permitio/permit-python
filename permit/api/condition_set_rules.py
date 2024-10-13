@@ -5,14 +5,12 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
-    required_context,
-    required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import ConditionSetRuleCreate, ConditionSetRuleRead, ConditionSetRuleRemove
@@ -25,8 +23,6 @@ class ConditionSetRulesApi(BasePermitApi):
             f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/set_rules"
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(
         self,
@@ -54,6 +50,8 @@ class ConditionSetRulesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         params = pagination_params(page, per_page)
         if user_set_key is not None:
             params.update(user_set=user_set_key)
@@ -67,8 +65,6 @@ class ConditionSetRulesApi(BasePermitApi):
             params=params,
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, rule: ConditionSetRuleCreate) -> List[ConditionSetRuleRead]:
         """
@@ -84,10 +80,10 @@ class ConditionSetRulesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_set_rules.post("", model=List[ConditionSetRuleRead], json=rule)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, rule: ConditionSetRuleRemove) -> None:
         """
@@ -100,4 +96,6 @@ class ConditionSetRulesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_set_rules.delete("", json=rule)

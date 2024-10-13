@@ -11,8 +11,6 @@ from ..config import PermitConfig
 from .base import (
     BasePermitApi,
     pagination_params,
-    required_context,
-    required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
@@ -30,8 +28,6 @@ class EnvironmentsApi(BasePermitApi):
         super().__init__(config)
         self.__environments = self._build_http_client("")
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def list(self, project_key: str, page: int = 1, per_page: int = 100) -> List[EnvironmentRead]:
         """
@@ -47,6 +43,8 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.get(
             f"/v2/projects/{project_key}/envs",
             model=List[EnvironmentRead],
@@ -58,8 +56,6 @@ class EnvironmentsApi(BasePermitApi):
             f"/v2/projects/{project_key}/envs/{environment_key}", model=EnvironmentRead
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
@@ -76,10 +72,10 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_key, environment_key)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_by_key(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
@@ -97,10 +93,10 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_key, environment_key)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_by_id(self, project_id: str, environment_id: str) -> EnvironmentRead:
         """
@@ -118,10 +114,10 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_id, environment_id)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_stats(self, project_key: str, environment_key: str) -> EnvironmentStats:
         """
@@ -138,13 +134,13 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.get(
             f"/v2/projects/{project_key}/envs/{environment_key}/stats",
             model=EnvironmentStats,
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def get_api_key(self, project_key: str, environment_key: str) -> APIKeyRead:
         """
@@ -161,13 +157,13 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.get(
             f"/v2/api-key/{project_key}/{environment_key}",
             model=APIKeyRead,
         )
 
-    @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def create(self, project_key: str, environment_data: EnvironmentCreate) -> EnvironmentRead:
         """
@@ -184,14 +180,14 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.post(
             f"/v2/projects/{project_key}/envs",
             model=EnvironmentRead,
             json=environment_data,
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def update(
         self,
@@ -214,14 +210,14 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.patch(
             f"/v2/projects/{project_key}/envs/{environment_key}",
             model=EnvironmentRead,
             json=environment_data,
         )
 
-    @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def copy(self, project_key: str, environment_key: str, copy_params: EnvironmentCopy) -> EnvironmentRead:
         """
@@ -239,14 +235,14 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.post(
             f"/v2/projects/{project_key}/envs/{environment_key}/copy",
             model=EnvironmentRead,
             json=copy_params,
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
     async def delete(self, project_key: str, environment_key: str) -> None:
         """
@@ -260,4 +256,6 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.delete(f"/v2/projects/{project_key}/envs/{environment_key}")
