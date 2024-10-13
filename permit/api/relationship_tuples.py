@@ -33,10 +33,7 @@ class RelationshipTuplesApi(BasePermitApi):
             return self._build_http_client("/facts/relationship_tuples", use_pdp=True)
         else:
             return self._build_http_client(
-                "/v2/facts/{proj_id}/{env_id}/relationship_tuples".format(
-                    proj_id=self.config.api_context.project,
-                    env_id=self.config.api_context.environment,
-                )
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
             )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)

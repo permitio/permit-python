@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from typing import Generator, Optional
 
 from loguru import logger
-from pydantic import NonNegativeFloat
 from typing_extensions import Self
 
 from .api.api_client import PermitApiClient
@@ -114,7 +113,7 @@ class Permit:
         self,
         action: Action,
         resource: Resource,
-        context: Context = {},
+        context: Context | None = None,
     ) -> AuthorizedUsersResult:
         """
         Queries to get all the users that are authorized to perform an action on a resource within the specified context.
@@ -141,13 +140,13 @@ class Permit:
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
             await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
-        """
+        """  # noqa: E501
         return await self._enforcer.authorized_users(action, resource, context)
 
     async def bulk_check(
         self,
         checks: list[CheckQuery],
-        context: Context = {},
+        context: Context | None = None,
     ) -> list[bool]:
         """
         Checks if a user is authorized to perform an action on a list of resources within the specified context.
@@ -190,7 +189,7 @@ class Permit:
         user: User,
         action: Action,
         resource: Resource,
-        context: Context = {},
+        context: Context | None = None,
     ) -> bool:
         """
         Checks if a user is authorized to perform an action on a resource within the specified context.

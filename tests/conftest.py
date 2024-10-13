@@ -21,15 +21,13 @@ def permit_config() -> PermitConfig:
         pytest.fail("PDP_API_KEY is not configured, test cannot run!")
 
     return PermitConfig(
-        **{
-            "token": token,
-            "pdp": pdp_address,
-            "api_url": api_url,
-            "log": {
-                "level": "debug",
-                "enable": True,
-            },
-        }
+        token=token,
+        pdp=pdp_address,
+        api_url=api_url,
+        log={
+            "level": "debug",
+            "enable": True,
+        },
     )
 
 
@@ -53,15 +51,13 @@ def permit_config_cloud() -> PermitConfig:
         pytest.fail("PDP_API_KEY is not configured, test cannot run!")
 
     return PermitConfig(
-        **{
-            "token": token,
-            "pdp": pdp_address,
-            "api_url": api_url,
-            "log": {
-                "level": "debug",
-                "enable": True,
-            },
-        }
+        token=token,
+        pdp=pdp_address,
+        api_url=api_url,
+        log={
+            "level": "debug",
+            "enable": True,
+        },
     )
 
 

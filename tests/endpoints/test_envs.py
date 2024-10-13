@@ -3,6 +3,7 @@ from typing import List
 
 import pytest
 from loguru import logger
+from tests.utils import handle_api_error
 
 from permit import Permit
 from permit.api.context import ApiKeyAccessLevel
@@ -14,7 +15,6 @@ from permit.api.models import (
 )
 from permit.config import PermitConfig
 from permit.exceptions import PermitApiError, PermitConnectionError, PermitContextError
-from tests.utils import handle_api_error
 
 CREATED_PROJECTS = [ProjectCreate(key="test-python-proj", name="New Python Project")]
 CREATED_ENVIRONMENTS = [
@@ -31,15 +31,13 @@ def permit_with_org_level_api_key() -> Permit:
 
     return Permit(
         PermitConfig(
-            **{
-                "token": token,
-                "pdp": pdp_address,
-                "api_url": api_url,
-                "log": {
-                    "level": "debug",
-                    "enable": True,
-                },
-            }
+            token=token,
+            pdp=pdp_address,
+            api_url=api_url,
+            log={
+                "level": "debug",
+                "enable": True,
+            },
         )
     )
 
@@ -52,15 +50,13 @@ def permit_with_project_level_api_key() -> Permit:
 
     return Permit(
         PermitConfig(
-            **{
-                "token": token,
-                "pdp": pdp_address,
-                "api_url": api_url,
-                "log": {
-                    "level": "debug",
-                    "enable": True,
-                },
-            }
+            token=token,
+            pdp=pdp_address,
+            api_url=api_url,
+            log={
+                "level": "debug",
+                "enable": True,
+            },
         )
     )
 
@@ -71,7 +67,7 @@ async def cleanup(permit: Permit, project_key: str):
             await permit.api.environments.delete(project_key, env.key)
         except PermitApiError as error:
             if error.status_code == 404:
-                print(f"SKIPPING delete, env does not exist: {env.key}, project_key={project_key}")
+                print(f"SKIPPING delete, env does not exist: {env.key}, project_key={project_key}")  # noqa: T201
 
 
 async def test_environment_creation_with_org_level_api_key(
@@ -88,12 +84,12 @@ async def test_environment_creation_with_org_level_api_key(
         await cleanup(permit, CREATED_PROJECTS[0].key)
         projects: List[ProjectRead] = []
         for project_data in CREATED_PROJECTS:
-            print(f"trying to creating project: {project_data.key}")
+            print(f"trying to creating project: {project_data.key}")  # noqa: T201
             try:
                 project: ProjectRead = await permit.api.projects.create(project_data)
             except PermitApiError as error:
                 if error.status_code == 409:
-                    print(f"SKIPPING create, project already exists: {project_data.key}")
+                    print(f"SKIPPING create, project already exists: {project_data.key}")  # noqa: T201
                 project: ProjectRead = await permit.api.projects.get(project_key=project_data.key)
             assert project is not None
             assert project.key == project_data.key
@@ -103,7 +99,7 @@ async def test_environment_creation_with_org_level_api_key(
 
         # create environments
         for environment_data in CREATED_ENVIRONMENTS:
-            print(f"creating environment: {environment_data.key}")
+            print(f"creating environment: {environment_data.key}")  # noqa: T201
             environment: EnvironmentRead = await permit.api.environments.create(
                 project_key=project.key, environment_data=environment_data
             )
@@ -128,9 +124,9 @@ async def test_environment_creation_with_org_level_api_key(
         assert test_environment.description == CREATED_ENVIRONMENTS[0].description
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -159,7 +155,7 @@ async def test_environment_creation_with_project_level_api_key(
 
         # create environments
         for environment_data in CREATED_ENVIRONMENTS:
-            print(f"creating environment: {environment_data.key}")
+            print(f"creating environment: {environment_data.key}")  # noqa: T201
             environment: EnvironmentRead = await permit.api.environments.create(
                 project_key=project.key, environment_data=environment_data
             )
@@ -176,9 +172,9 @@ async def test_environment_creation_with_project_level_api_key(
         assert len(actual_env_set.intersection(created_env_set)) == 2
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:

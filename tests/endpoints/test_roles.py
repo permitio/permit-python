@@ -1,9 +1,9 @@
 import pytest
 from loguru import logger
+from tests.utils import handle_api_error
 
 from permit import Permit
 from permit.exceptions import PermitApiError, PermitConnectionError
-from tests.utils import handle_api_error
 
 TEST_RESOURCE_KEY = "test"
 TEST_ADMIN_ROLE_KEY = "testadmin"
@@ -16,7 +16,7 @@ async def test_roles(permit: Permit):
     logger.info("initial setup of objects")
     len_roles_original = 0
     try:
-        test_resource = await permit.api.resources.create(
+        await permit.api.resources.create(
             {
                 "key": TEST_RESOURCE_KEY,
                 "name": TEST_RESOURCE_KEY,
@@ -133,9 +133,9 @@ async def test_roles(permit: Permit):
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -148,8 +148,8 @@ async def test_roles(permit: Permit):
             assert len(await permit.api.roles.list()) == len_roles_original
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

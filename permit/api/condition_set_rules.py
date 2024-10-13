@@ -22,10 +22,7 @@ class ConditionSetRulesApi(BasePermitApi):
     @property
     def __condition_set_rules(self) -> SimpleHttpClient:
         return self._build_http_client(
-            "/v2/facts/{proj_id}/{env_id}/set_rules".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
-            )
+            f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/set_rules"
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -59,11 +56,11 @@ class ConditionSetRulesApi(BasePermitApi):
         """
         params = pagination_params(page, per_page)
         if user_set_key is not None:
-            params.update(dict(user_set=user_set_key))
+            params.update(user_set=user_set_key)
         if permission_key is not None:
-            params.update(dict(permission=permission_key))
+            params.update(permission=permission_key)
         if resource_set_key is not None:
-            params.update(dict(resource_set=resource_set_key))
+            params.update(resource_set=resource_set_key)
         return await self.__condition_set_rules.get(
             "",
             model=List[ConditionSetRuleRead],

@@ -1,37 +1,31 @@
 import pytest
 from loguru import logger
+from tests.utils import handle_api_error
 
 from permit import Permit, RoleCreate, TenantCreate, UserCreate
 from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
 from permit.exceptions import PermitApiError, PermitConnectionError
-from tests.utils import handle_api_error
 
 USER_A = UserCreate(
-    **dict(
-        key="asaf@permit.io",
-        email="asaf@permit.io",
-        first_name="Asaf",
-        last_name="Cohen",
-        attributes={"age": 35},
-    )
+    key="asaf@permit.io",
+    email="asaf@permit.io",
+    first_name="Asaf",
+    last_name="Cohen",
+    attributes={"age": 35},
 )
 USER_B = UserCreate(
-    **dict(
-        key="auth0|john",
-        email="john@permit.io",
-        first_name="John",
-        last_name="Doe",
-        attributes={"age": 27},
-    )
+    key="auth0|john",
+    email="john@permit.io",
+    first_name="John",
+    last_name="Doe",
+    attributes={"age": 27},
 )
 USER_BB = UserCreate(
-    **dict(
-        key="auth0|john",
-        email="john@apple.com",
-        first_name="John",
-        last_name="Appleseed",
-        attributes={"age": 27},
-    )
+    key="auth0|john",
+    email="john@apple.com",
+    first_name="John",
+    last_name="Appleseed",
+    attributes={"age": 27},
 )
 USER_C = UserCreate(
     key="auth0|jane",
@@ -179,7 +173,7 @@ async def test_users_tenants(permit: Permit):
         # get assigned roles
         roles_a = await permit.api.users.get_assigned_roles(USER_A.key)
         assert len(roles_a) == 2
-        assert len(set([ra.tenant for ra in roles_a])) == 2  # user in 2 tenants
+        assert len({ra.tenant for ra in roles_a}) == 2  # user in 2 tenants
 
         # delete tenant user
         tenant2_users = await permit.api.tenants.list_tenant_users(TENANT_2.key)
@@ -214,9 +208,9 @@ async def test_users_tenants(permit: Permit):
         assert len(ras) == 0
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -231,8 +225,8 @@ async def test_users_tenants(permit: Permit):
             assert len(await permit.api.tenants.list()) == len_original
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

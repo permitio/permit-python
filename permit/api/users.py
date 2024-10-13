@@ -39,10 +39,7 @@ class UsersApi(BasePermitApi):
             return self._build_http_client("/facts/users", use_pdp=True)
         else:
             return self._build_http_client(
-                "/v2/facts/{proj_id}/{env_id}/users".format(
-                    proj_id=self.config.api_context.project,
-                    env_id=self.config.api_context.environment,
-                )
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/users"
             )
 
     @property
@@ -51,10 +48,7 @@ class UsersApi(BasePermitApi):
             return self._build_http_client("/facts/role_assignments", use_pdp=True)
         else:
             return self._build_http_client(
-                "/v2/facts/{proj_id}/{env_id}/role_assignments".format(
-                    proj_id=self.config.api_context.project,
-                    env_id=self.config.api_context.environment,
-                )
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
             )
 
     @property
@@ -63,10 +57,7 @@ class UsersApi(BasePermitApi):
             return self._build_http_client("/facts/bulk/users", use_pdp=True)
         else:
             return self._build_http_client(
-                "/v2/facts/{proj_id}/{env_id}/bulk/users".format(
-                    proj_id=self.config.api_context.project,
-                    env_id=self.config.api_context.environment,
-                )
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/bulk/users"
             )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)

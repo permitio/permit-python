@@ -22,8 +22,8 @@ def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
 
 
 class SyncClass(type):
-    def __new__(mcs, name, bases, class_dict):
-        class_obj = super().__new__(mcs, name, bases, class_dict)
+    def __new__(cls, name, bases, class_dict):
+        class_obj = super().__new__(cls, name, bases, class_dict)
 
         for name in dir(class_obj):
             if name.startswith("_"):

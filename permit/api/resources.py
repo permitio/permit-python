@@ -22,10 +22,7 @@ class ResourcesApi(BasePermitApi):
     @property
     def __resources(self) -> SimpleHttpClient:
         return self._build_http_client(
-            "/v2/schema/{proj_id}/{env_id}/resources".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
-            )
+            f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)

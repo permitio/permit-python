@@ -239,22 +239,18 @@ ROLE_DERIVATIONS = [
 
 # Data ------------------------------------------------------------------------
 USER_PERMIT = UserCreate(
-    **dict(
-        key="asaf@permit.io",
-        email="asaf@permit.io",
-        first_name="Asaf",
-        last_name="Cohen",
-        attributes={"age": 35},
-    )
+    key="asaf@permit.io",
+    email="asaf@permit.io",
+    first_name="Asaf",
+    last_name="Cohen",
+    attributes={"age": 35},
 )
 USER_CC = UserCreate(
-    **dict(
-        key="auth0|john",
-        email="john@cocacola.com",
-        first_name="John",
-        last_name="Doe",
-        attributes={"age": 27},
-    )
+    key="auth0|john",
+    email="john@cocacola.com",
+    first_name="John",
+    last_name="Doe",
+    attributes={"age": 27},
 )
 
 CREATED_USERS = [USER_PERMIT, USER_CC]
@@ -311,32 +307,32 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
         assertions=[
             # direct access allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {
+                user=USER_PERMIT.key,
+                action="read",
+                resource={
                     "type": DOCUMENT.key,
                     "key": "architecture",
                     "tenant": TENANT_PERMIT.key,
                 },
-                True,
+                expected_decision=True,
             ),
             # higher permissions not allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "comment",
-                {
+                user=USER_PERMIT.key,
+                action="comment",
+                resource={
                     "type": DOCUMENT.key,
                     "key": "architecture",
                     "tenant": TENANT_PERMIT.key,
                 },
-                False,
+                expected_decision=False,
             ),
             # other instances not allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "comment",
-                {"type": DOCUMENT.key, "key": "opal", "tenant": TENANT_PERMIT.key},
-                False,
+                user=USER_PERMIT.key,
+                action="comment",
+                resource={"type": DOCUMENT.key, "key": "opal", "tenant": TENANT_PERMIT.key},
+                expected_decision=False,
             ),
         ],
     ),
@@ -353,43 +349,43 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
         assertions=[
             # direct access allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
-                True,
+                user=USER_PERMIT.key,
+                action="read",
+                resource={"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
+                expected_decision=True,
             ),
             # access to child resources allowed
             *[
                 CheckAssertion(
-                    USER_PERMIT.key,
-                    action,
-                    {
+                    user=USER_PERMIT.key,
+                    action=action,
+                    resource={
                         "type": DOCUMENT.key,
                         "key": instance,
                         "tenant": TENANT_PERMIT.key,
                     },
-                    True,
+                    expected_decision=True,
                 )
                 for action in ["read", "comment"]
                 for instance in ["architecture", "opal"]
             ],
             # higher permissions not allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "update",
-                {
+                user=USER_PERMIT.key,
+                action="update",
+                resource={
                     "type": DOCUMENT.key,
                     "key": "architecture",
                     "tenant": TENANT_PERMIT.key,
                 },
-                False,
+                expected_decision=False,
             ),
             # access to other resources not allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {"type": DOCUMENT.key, "key": "budget23", "tenant": TENANT_PERMIT.key},
-                False,
+                user=USER_PERMIT.key,
+                action="read",
+                resource={"type": DOCUMENT.key, "key": "budget23", "tenant": TENANT_PERMIT.key},
+                expected_decision=False,
             ),
         ],
     ),
@@ -412,22 +408,22 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
         assertions=[
             # direct access allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "invite-user",
-                {"type": ACCOUNT.key, "key": "permitio", "tenant": TENANT_PERMIT.key},
-                True,
+                user=USER_PERMIT.key,
+                action="invite-user",
+                resource={"type": ACCOUNT.key, "key": "permitio", "tenant": TENANT_PERMIT.key},
+                expected_decision=True,
             ),
             # access to child resources allowed
             *[
                 CheckAssertion(
-                    USER_PERMIT.key,
-                    action,
-                    {
+                    user=USER_PERMIT.key,
+                    action=action,
+                    resource={
                         "type": DOCUMENT.key,
                         "key": instance,
                         "tenant": TENANT_PERMIT.key,
                     },
-                    True,
+                    expected_decision=True,
                     pre_assertion_hook=lambda permit: permit.api.resource_roles.update_role_derivation_conditions(
                         resource_key=FOLDER.key,
                         role_key=EDITOR,
@@ -449,28 +445,28 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
             *[
                 # access to other tenants not allowed
                 CheckAssertion(
-                    USER_PERMIT.key,
-                    action,
-                    {
+                    user=USER_PERMIT.key,
+                    action=action,
+                    resource={
                         "type": DOCUMENT.key,
                         "key": "secret-recipe",
                         "tenant": TENANT_CC.key,
                     },
-                    False,
+                    expected_decision=False,
                 )
                 for action in ["read", "comment"]
             ],
             *[
                 # but access is allowed to user with lower permissions in the right tenant
                 CheckAssertion(
-                    USER_CC.key,
-                    action,
-                    {
+                    user=USER_CC.key,
+                    action=action,
+                    resource={
                         "type": DOCUMENT.key,
                         "key": "secret-recipe",
                         "tenant": TENANT_CC.key,
                     },
-                    True,
+                    expected_decision=True,
                 )
                 for action in ["read", "comment"]
             ],
@@ -495,22 +491,22 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
         assertions=[
             # direct access allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
-                True,
+                user=USER_PERMIT.key,
+                action="read",
+                resource={"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
+                expected_decision=True,
             ),
             # access given by derived role is not allowed
             *[
                 CheckAssertion(
-                    USER_PERMIT.key,
-                    action,
-                    {
+                    user=USER_PERMIT.key,
+                    action=action,
+                    resource={
                         "type": FOLDER.key,
                         "key": "rnd",
                         "tenant": TENANT_PERMIT.key,
                     },
-                    False,
+                    expected_decision=False,
                 )
                 for action in ["rename", "delete", "create-document"]
             ],
@@ -535,21 +531,21 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
         assertions=[
             # direct access allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "read",
-                {"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
-                True,
+                user=USER_PERMIT.key,
+                action="read",
+                resource={"type": FOLDER.key, "key": "rnd", "tenant": TENANT_PERMIT.key},
+                expected_decision=True,
             ),
             # access given by derived role is not allowed
             CheckAssertion(
-                USER_PERMIT.key,
-                "rename",
-                {
+                user=USER_PERMIT.key,
+                action="rename",
+                resource={
                     "type": FOLDER.key,
                     "key": "rnd",
                     "tenant": TENANT_PERMIT.key,
                 },
-                False,
+                expected_decision=False,
             ),
         ],
     ),
@@ -596,7 +592,8 @@ async def cleanup(permit: Permit):
                 except PermitApiError as error:
                     if error.status_code == 404:
                         logger.debug(
-                            f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, {assignment.resource_instance}, {assignment.tenant})"
+                            f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, "
+                            f"{assignment.resource_instance}, {assignment.tenant})"
                         )
         for resource in CREATED_RESOURCES:
             try:
@@ -606,14 +603,14 @@ async def cleanup(permit: Permit):
                     logger.debug(f"SKIPPING delete, resource does not exist: {resource.key}")
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error during cleanup: {error}")
         pytest.fail(f"Got error during cleanup: {error}")
     logger.debug("Cleanup finished.")
 
 
 async def assert_permit_check(permit: Permit, q: CheckAssertion):
-    logger.info(f"asserting: permit.check({q.user}, {q.action}, {str(q.resource)}) === {str(q.expected_decision)}")
+    logger.info(f"asserting: permit.check({q.user}, {q.action}, {q.resource!s}) === {q.expected_decision!s}")
     decision = await permit.check(q.user, q.action, q.resource)
     assert q.expected_decision == decision
 
@@ -626,7 +623,7 @@ async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assi
     assert authorized_users.tenant == q.resource["tenant"]
     assert authorized_users.resource == f"{q.resource['type']}:{q.resource['key']}"
     if q.expected_decision is True:
-        assert q.user in authorized_users.users.keys()
+        assert q.user in authorized_users.users
         for assignment in authorized_users.users[q.user]:
             assert any(
                 (
@@ -638,7 +635,7 @@ async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assi
                 for created_assignment in assignments
             )
     else:
-        assert q.user not in authorized_users.users.keys()
+        assert q.user not in authorized_users.users
 
 
 async def test_rebac_policy(permit: Permit):
@@ -688,7 +685,8 @@ async def test_rebac_policy(permit: Permit):
         # create role derivations
         for derivation_data in ROLE_DERIVATIONS:
             logger.debug(
-                f"creating derivation: {derivation_data.source_role} -> {derivation_data.derived_role} (via {derivation_data.via_relation})"
+                f"creating derivation: {derivation_data.source_role} -> {derivation_data.derived_role} "
+                f"(via {derivation_data.via_relation})"
             )
             derivation = await permit.api.resource_roles.create_role_derivation(
                 resource_key=derivation_data.object_key,
@@ -774,12 +772,10 @@ async def test_rebac_policy(permit: Permit):
             assert len(tuples) == len_tuples
             logger.debug(f"there are currently {len(tuples)} relationship tuples in the system")
 
-        logger.debug(f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {str(BULK_RELATIONSHIPS)}")
+        logger.debug(f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}")
         await create_relationships_in_bulk()
 
-        logger.debug(
-            f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {str(BULK_RELATIONSHIPS)}"
-        )
+        logger.debug(f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}")
         await remove_relationships_in_bulk()
 
         # assign roles and then run permission checks
@@ -788,7 +784,8 @@ async def test_rebac_policy(permit: Permit):
                 # role assignments
                 for assignment in test_step.assignments:
                     logger.debug(
-                        f"creating role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                        f"creating role assignment: ({assignment.user}, {assignment.role}, "
+                        f"{assignment.resource_instance}) in tenant: {assignment.tenant}"
                     )
                     ra = await permit.api.role_assignments.assign(assignment)
                     assert ra.user == assignment.user
@@ -816,7 +813,8 @@ async def test_rebac_policy(permit: Permit):
                 for assignment in test_step.assignments:
                     try:
                         logger.debug(
-                            f"deleting role assignment: ({assignment.user}, {assignment.role}, {assignment.resource_instance}) in tenant: {assignment.tenant}"
+                            f"deleting role assignment: ({assignment.user}, {assignment.role}, "
+                            f"{assignment.resource_instance}) in tenant: {assignment.tenant}"
                         )
                         await permit.api.role_assignments.unassign(
                             RoleAssignmentRemove(
@@ -829,13 +827,15 @@ async def test_rebac_policy(permit: Permit):
                     except PermitApiError as error:
                         if error.status_code == 404:
                             logger.debug(
-                                f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, {assignment.resource_instance}, {assignment.tenant})"
+                                f"SKIPPING delete, role assignment does not exist: "
+                                f"({assignment.user}, {assignment.role}, "
+                                f"{assignment.resource_instance}, {assignment.tenant})"
                             )
                         else:
                             raise
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:

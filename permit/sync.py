@@ -55,7 +55,7 @@ class Permit(AsyncPermit):
     def bulk_check(
         self,
         checks: list[CheckQuery],
-        context: Context = {},
+        context: Context | None = None,
     ) -> list[bool]:
         """
         Checks if a user is authorized to perform an action on a list of resources within the specified context.
@@ -98,7 +98,7 @@ class Permit(AsyncPermit):
         user: User,
         action: Action,
         resource: Resource,
-        context: Context = {},
+        context: Context | None = None,
     ) -> bool:
         """
         Checks if a user is authorized to perform an action on a resource within the specified context.

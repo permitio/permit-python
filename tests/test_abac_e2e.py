@@ -1,10 +1,9 @@
-import time
-from typing import List
+import asyncio
 
 import pytest
 from loguru import logger
 
-from permit import Permit, RoleAssignmentRead
+from permit import Permit
 from permit.api.models import (
     AttributeType,
     ConditionSetCreate,
@@ -21,26 +20,22 @@ from .utils import handle_api_error
 
 
 def print_break():
-    print("\n\n ----------- \n\n")
+    print("\n\n ----------- \n\n")  # noqa: T201
 
 
 USER_A = UserCreate(
-    **dict(
-        key="asaf@permit.io",
-        email="asaf@permit.io",
-        first_name="Asaf",
-        last_name="Cohen",
-        attributes={"age": 35},
-    )
+    key="asaf@permit.io",
+    email="asaf@permit.io",
+    first_name="Asaf",
+    last_name="Cohen",
+    attributes={"age": 35},
 )
 USER_B = UserCreate(
-    **dict(
-        key="auth0|john",
-        email="john@permit.io",
-        first_name="John",
-        last_name="Doe",
-        attributes={"age": 27},
-    )
+    key="auth0|john",
+    email="john@permit.io",
+    first_name="John",
+    last_name="Doe",
+    attributes={"age": 27},
 )
 USER_C = UserCreate(
     key="auth0|jane",
@@ -180,9 +175,10 @@ async def test_abac_e2e(permit: Permit):
         )
 
         logger.info(
-            f"sleeping {RBAC_SLEEP_TIME} seconds before permit.check() to make sure all writes propagated from cloud to PDP"
+            f"sleeping {RBAC_SLEEP_TIME} seconds before permit.check() "
+            f"to make sure all writes propagated from cloud to PDP"
         )
-        time.sleep(RBAC_SLEEP_TIME)
+        await asyncio.sleep(RBAC_SLEEP_TIME)
 
         # testing Admin permissions
         logger.info("testing admin permissions")
@@ -261,9 +257,10 @@ async def test_abac_e2e(permit: Permit):
         print_break()
 
         logger.info(
-            f"sleeping {ABAC_SLEEP_TIME} seconds before permit.check() to make sure all writes propagated from cloud to PDP"
+            f"sleeping {ABAC_SLEEP_TIME} seconds before permit.check() "
+            f"to make sure all writes propagated from cloud to PDP"
         )
-        time.sleep(ABAC_SLEEP_TIME)
+        await asyncio.sleep(ABAC_SLEEP_TIME)
 
         def abac_user(user: UserCreate):
             return user.dict(exclude={"first_name", "last_name"})
@@ -303,9 +300,9 @@ async def test_abac_e2e(permit: Permit):
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -322,8 +319,8 @@ async def test_abac_e2e(permit: Permit):
             await permit.api.resources.delete("document")
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

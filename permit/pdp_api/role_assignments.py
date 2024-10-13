@@ -45,18 +45,18 @@ class RoleAssignmentsApi(BasePdpPermitApi):
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """
+        """  # noqa: E501
         params = pagination_params(page, per_page)
         if user_key is not None:
-            params.update(dict(user=user_key))
+            params.update(user=user_key)
         if role_key is not None:
-            params.update(dict(role=role_key))
+            params.update(role=role_key)
         if tenant_key is not None:
-            params.update(dict(tenant=tenant_key))
+            params.update(tenant=tenant_key)
         if resource_key is not None:
-            params.update(dict(resource=resource_key))
+            params.update(resource=resource_key)
         if resource_instance_key is not None:
-            params.update(dict(resource_instance=resource_instance_key))
+            params.update(resource_instance=resource_instance_key)
         return await self.__role_assignments.get(
             "",
             model=List[RoleAssignment],

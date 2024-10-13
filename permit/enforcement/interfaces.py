@@ -20,8 +20,8 @@ class AssignedRole(BaseModel):
 
 
 class UserInput(UserKey):
-    firstName: Optional[str]
-    lastName: Optional[str]
+    first_name: Optional[str] = Field(None, alias="firstName")
+    last_name: Optional[str] = Field(None, alias="lastName")
     email: Optional[str]
     roles: Optional[List[AssignedRole]]
     attributes: Optional[Dict]

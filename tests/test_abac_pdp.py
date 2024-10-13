@@ -9,15 +9,13 @@ def abac_user(user: UserCreate):
 
 async def test_abac_pdp_cloud_error(permit_cloud: Permit):
     user_test = UserCreate(
-        **dict(
-            key="maya@permit.io",
-            email="maya@permit.io",
-            first_name="Maya",
-            last_name="Barak",
-            attributes={"age": 23},
-        )
+        key="maya@permit.io",
+        email="maya@permit.io",
+        first_name="Maya",
+        last_name="Barak",
+        attributes={"age": 23},
     )
-    TESLA = TenantCreate(key="tesla", name="Tesla Inc")
+    tesla = TenantCreate(key="tesla", name="Tesla Inc")
 
     try:
         await permit_cloud.check(
@@ -25,12 +23,12 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit):
             "sign",
             {
                 "type": "document",
-                "tenant": TESLA.key,
+                "tenant": tesla.key,
                 "attributes": {"private": False},
             },
         )
 
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         assert isinstance(error, PermitConnectionError)
 
     else:
