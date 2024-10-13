@@ -4,9 +4,8 @@ from uuid import UUID
 from ..config import PermitConfig
 from ..utils.deprecation import deprecated
 from .base import BasePermitApi
-from .elements import ElementsApi
+from .elements import ElementsApi, EmbeddedLoginRequestOutput
 from .models import (
-    EmbeddedLoginRequestOutput,
     ResourceCreate,
     ResourceRead,
     ResourceUpdate,

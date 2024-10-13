@@ -5,14 +5,44 @@ from uuid import UUID
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, Extra, Field
 else:
-    from pydantic.v1 import BaseModel, Field  # type: ignore
+    from pydantic.v1 import BaseModel, Extra, Field  # type: ignore
 
 from ..config import PermitConfig
 from ..utils.sync import SyncClass
 from .base import BasePermitApi
-from .models import EmbeddedLoginRequestOutput
+
+
+class EmbeddedLoginRequestOutput(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    error: Optional[str] = Field(
+        None,
+        description="If the login request failed, this field will contain the error message",
+        title="Error",
+    )
+    error_code: Optional[int] = Field(
+        None,
+        description="If the login request failed, this field will contain the error code",
+        title="Error Code",
+    )
+    token: Optional[str] = Field(
+        None,
+        description="The auth token that lets your users login into permit elements",
+        title="Token",
+    )
+    extra: Optional[str] = Field(
+        None,
+        description="Extra data that you can pass to the login request",
+        title="Extra",
+    )
+    redirect_url: str = Field(
+        ...,
+        description="The full URL to which the user should be redirected in order to complete the login process",
+        title="Redirect Url",
+    )
 
 
 class LoginAsErrorMessages(str, Enum):
