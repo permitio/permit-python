@@ -1,5 +1,4 @@
-import functools
-from typing import Callable, Optional, Type, TypeVar, Union
+from typing import Optional, Type, TypeVar, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -17,44 +16,8 @@ from ..exceptions import PermitContextError, handle_api_error, handle_client_err
 from .context import API_ACCESS_LEVELS, ApiContextLevel, ApiKeyAccessLevel
 from .models import APIKeyScopeRead
 
-T = TypeVar("T", bound=Callable)
 TModel = TypeVar("TModel", bound=BaseModel)
 TData = TypeVar("TData", bound=BaseModel)
-
-
-def required_permissions(access_level: ApiKeyAccessLevel):
-    def decorator(func: T) -> T:
-        @functools.wraps(func)
-        async def wrapped(self: BasePermitApi, *args, **kwargs):
-            await self._ensure_access_level(access_level)
-            return await func(self, *args, **kwargs)
-
-        return wrapped
-
-    return decorator
-
-
-def required_context(context: ApiContextLevel):
-    """
-    a decorator that ensures that an API endpoint is called only after the SDK has initialized
-    an API context (authorization level) by inferring it from the API key or manually by the user.
-
-    Args:
-        call_level: The required API key level for the endpoint.
-
-    Raises:
-        PermitContextError: If the API context does not match the required endpoint context.
-    """
-
-    def decorator(func: T) -> T:
-        @functools.wraps(func)
-        async def wrapped(self: BasePermitApi, *args, **kwargs):
-            await self._ensure_context(context)
-            return await func(self, *args, **kwargs)
-
-        return wrapped
-
-    return decorator
 
 
 def pagination_params(page: int, per_page: int) -> dict:
@@ -285,7 +248,7 @@ class BasePermitApi:
 
         if self.config.api_context.permitted_access_level.value < required_access_level.value:
             raise PermitContextError(
-                f"You're trying to use an SDK method that requires an api context of {required_context.name}, "
+                f"You're trying to use an SDK method that requires an api context of {required_access_level.name}, "
                 + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )
 

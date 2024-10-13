@@ -11,8 +11,6 @@ from .base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
-    required_context,
-    required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
@@ -34,8 +32,6 @@ class RoleAssignmentsApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
             )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(
         self,
@@ -66,6 +62,8 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """  # noqa: E501
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         params = list(pagination_params(page, per_page).items())
         if user_key is not None:
             if isinstance(user_key, list):
@@ -95,8 +93,6 @@ class RoleAssignmentsApi(BasePermitApi):
             params=params,
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def assign(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
@@ -112,10 +108,10 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.post("", model=RoleAssignmentRead, json=assignment)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def unassign(self, unassignment: RoleAssignmentRemove) -> None:
         """
@@ -128,10 +124,10 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.delete("", json=unassignment)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def bulk_assign(self, assignments: List[RoleAssignmentCreate]) -> BulkRoleAssignmentReport:
         """
@@ -148,14 +144,14 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.post(
             "/bulk",
             model=BulkRoleAssignmentReport,
             json=list(assignments),
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def bulk_unassign(self, unassignments: List[RoleAssignmentRemove]) -> BulkRoleUnAssignmentReport:
         """
@@ -172,6 +168,8 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.delete(
             "/bulk",
             model=BulkRoleUnAssignmentReport,

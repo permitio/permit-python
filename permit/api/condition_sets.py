@@ -5,14 +5,12 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
-    required_context,
-    required_permissions,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import ConditionSetCreate, ConditionSetRead, ConditionSetUpdate
@@ -25,8 +23,6 @@ class ConditionSetsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/condition_sets"
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ConditionSetRead]:
         """
@@ -43,6 +39,8 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.get(
             "", model=List[ConditionSetRead], params=pagination_params(page, per_page)
         )
@@ -50,8 +48,6 @@ class ConditionSetsApi(BasePermitApi):
     async def _get(self, condition_set_key: str) -> ConditionSetRead:
         return await self.__condition_sets.get(f"/{condition_set_key}", model=ConditionSetRead)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get(self, condition_set_key: str) -> ConditionSetRead:
         """
@@ -67,10 +63,10 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_key)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
         """
@@ -87,10 +83,10 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_key)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
         """
@@ -107,10 +103,10 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_id)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def create(self, condition_set_data: ConditionSetCreate) -> ConditionSetRead:
         """
@@ -126,10 +122,10 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.post("", model=ConditionSetRead, json=condition_set_data)
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def update(self, condition_set_key: str, condition_set_data: ConditionSetUpdate) -> ConditionSetRead:
         """
@@ -146,14 +142,14 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.patch(
             f"/{condition_set_key}",
             model=ConditionSetRead,
             json=condition_set_data,
         )
 
-    @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
-    @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
     async def delete(self, condition_set_key: str) -> None:
         """
@@ -166,4 +162,6 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.delete(f"/{condition_set_key}")
