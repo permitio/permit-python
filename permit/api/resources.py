@@ -136,9 +136,7 @@ class ResourcesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def update(
-        self, resource_key: str, resource_data: ResourceUpdate
-    ) -> ResourceRead:
+    async def update(self, resource_key: str, resource_data: ResourceUpdate) -> ResourceRead:
         """
         Updates a resource.
 
@@ -162,9 +160,7 @@ class ResourcesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def replace(
-        self, resource_key: str, resource_data: ResourceReplace
-    ) -> ResourceRead:
+    async def replace(self, resource_key: str, resource_data: ResourceReplace) -> ResourceRead:
         """
         Creates a resource if no such resource exists, otherwise completely replaces the resource in place.
 

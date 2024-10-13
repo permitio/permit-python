@@ -87,9 +87,7 @@ class ConditionSetRulesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__condition_set_rules.post(
-            "", model=List[ConditionSetRuleRead], json=rule
-        )
+        return await self.__condition_set_rules.post("", model=List[ConditionSetRuleRead], json=rule)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)

@@ -42,9 +42,7 @@ class ResourceInstancesApi(BasePermitApi):
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
-            return self._build_http_client(
-                "/facts/bulk/resource_instances", use_pdp=True
-            )
+            return self._build_http_client("/facts/bulk/resource_instances", use_pdp=True)
         else:
             return self._build_http_client(
                 "/v2/facts/{proj_id}/{env_id}/bulk/resource_instances".format(
@@ -96,9 +94,7 @@ class ResourceInstancesApi(BasePermitApi):
         )
 
     async def _get(self, instance_key: str) -> ResourceInstanceRead:
-        return await self.__resource_instances.get(
-            f"/{instance_key}", model=ResourceInstanceRead
-        )
+        return await self.__resource_instances.get(f"/{instance_key}", model=ResourceInstanceRead)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -162,9 +158,7 @@ class ResourceInstancesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def create(
-        self, instance_data: ResourceInstanceCreate
-    ) -> ResourceInstanceRead:
+    async def create(self, instance_data: ResourceInstanceCreate) -> ResourceInstanceRead:
         """
         Creates a new resource instance.
 
@@ -178,16 +172,12 @@ class ResourceInstancesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__resource_instances.post(
-            "", model=ResourceInstanceRead, json=instance_data
-        )
+        return await self.__resource_instances.post("", model=ResourceInstanceRead, json=instance_data)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def update(
-        self, instance_key: str, instance_data: ResourceInstanceUpdate
-    ) -> ResourceInstanceRead:
+    async def update(self, instance_key: str, instance_data: ResourceInstanceUpdate) -> ResourceInstanceRead:
         """
         Updates a resource instance.
 
@@ -258,9 +248,7 @@ class ResourceInstancesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_delete(
-        self, resource_instances: List[str]
-    ) -> ResourceInstanceDeleteBulkOperationResult:
+    async def bulk_delete(self, resource_instances: List[str]) -> ResourceInstanceDeleteBulkOperationResult:
         """
         Deletes resource instances in bulk.
 

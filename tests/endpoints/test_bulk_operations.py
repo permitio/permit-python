@@ -184,16 +184,11 @@ async def test_bulk_operations(permit: Permit):
         len_instances_original = len(instances)
 
         # create instances in bulk (keep one to create implicitly by role assignment)
-        await permit.api.resource_instances.bulk_replace(
-            CREATED_RESOURCE_INSTANCES[:-1]
-        )
+        await permit.api.resource_instances.bulk_replace(CREATED_RESOURCE_INSTANCES[:-1])
 
         # check increased number of instances
         instances = await permit.api.resource_instances.list()
-        assert (
-            len(instances)
-            == len_instances_original + len(CREATED_RESOURCE_INSTANCES) - 1
-        )
+        assert len(instances) == len_instances_original + len(CREATED_RESOURCE_INSTANCES) - 1
 
         ## bulk create role assignments ------------------------------------
 
@@ -210,9 +205,7 @@ async def test_bulk_operations(permit: Permit):
 
         # check that instance created implicitly
         instances = await permit.api.resource_instances.list()
-        assert len(instances) == len_instances_original + len(
-            CREATED_RESOURCE_INSTANCES
-        )
+        assert len(instances) == len_instances_original + len(CREATED_RESOURCE_INSTANCES)
 
         ## bulk delete resource instances -----------------------------------
         await permit.api.resource_instances.bulk_delete(

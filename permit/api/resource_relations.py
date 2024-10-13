@@ -31,9 +31,7 @@ class ResourceRelationsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def list(
-        self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[RelationRead]:
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[RelationRead]:
         """
         Retrieves a list of outgoing relations originating in a specific (object) resource.
 
@@ -56,9 +54,7 @@ class ResourceRelationsApi(BasePermitApi):
         )
 
     async def _get(self, resource_key: str, relation_key: str) -> RelationRead:
-        return await self.__relations.get(
-            f"/{resource_key}/relations/{relation_key}", model=RelationRead
-        )
+        return await self.__relations.get(f"/{resource_key}/relations/{relation_key}", model=RelationRead)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -125,9 +121,7 @@ class ResourceRelationsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def create(
-        self, resource_key: str, relation_data: RelationCreate
-    ) -> RelationRead:
+    async def create(self, resource_key: str, relation_data: RelationCreate) -> RelationRead:
         """
         Creates a new relation.
 
@@ -163,6 +157,4 @@ class ResourceRelationsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__relations.delete(
-            f"/{resource_key}/relations/{relation_key}"
-        )
+        return await self.__relations.delete(f"/{resource_key}/relations/{relation_key}")

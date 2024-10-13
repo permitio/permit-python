@@ -33,9 +33,7 @@ class EnvironmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
-    async def list(
-        self, project_key: str, page: int = 1, per_page: int = 100
-    ) -> List[EnvironmentRead]:
+    async def list(self, project_key: str, page: int = 1, per_page: int = 100) -> List[EnvironmentRead]:
         """
         Retrieves a list of environments.
 
@@ -83,9 +81,7 @@ class EnvironmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
-    async def get_by_key(
-        self, project_key: str, environment_key: str
-    ) -> EnvironmentRead:
+    async def get_by_key(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
         Gets an environment by project key and environment key.
         Alias for the get method.
@@ -127,9 +123,7 @@ class EnvironmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
-    async def get_stats(
-        self, project_key: str, environment_key: str
-    ) -> EnvironmentStats:
+    async def get_stats(self, project_key: str, environment_key: str) -> EnvironmentStats:
         """
         Retrieves statistics and metadata for an environment.
 
@@ -175,9 +169,7 @@ class EnvironmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
-    async def create(
-        self, project_key: str, environment_data: EnvironmentCreate
-    ) -> EnvironmentRead:
+    async def create(self, project_key: str, environment_data: EnvironmentCreate) -> EnvironmentRead:
         """
         Creates a new environment.
 
@@ -231,9 +223,7 @@ class EnvironmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
-    async def copy(
-        self, project_key: str, environment_key: str, copy_params: EnvironmentCopy
-    ) -> EnvironmentRead:
+    async def copy(self, project_key: str, environment_key: str, copy_params: EnvironmentCopy) -> EnvironmentRead:
         """
         Clones data from a source specified environment into a different target environment in the same project.
 
@@ -270,6 +260,4 @@ class EnvironmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__environments.delete(
-            f"/v2/projects/{project_key}/envs/{environment_key}"
-        )
+        return await self.__environments.delete(f"/v2/projects/{project_key}/envs/{environment_key}")

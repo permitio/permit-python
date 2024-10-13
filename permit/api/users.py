@@ -238,9 +238,7 @@ class UsersApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_create(
-        self, users: List[UserCreate]
-    ) -> UserCreateBulkOperationResult:
+    async def bulk_create(self, users: List[UserCreate]) -> UserCreateBulkOperationResult:
         """
         Creates users in bulk.
 
@@ -263,9 +261,7 @@ class UsersApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_replace(
-        self, users: List[UserCreate]
-    ) -> UserReplaceBulkOperationResult:
+    async def bulk_replace(self, users: List[UserCreate]) -> UserReplaceBulkOperationResult:
         """
         Replaces users in bulk.
 

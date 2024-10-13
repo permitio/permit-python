@@ -70,16 +70,12 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__tenants.get(
-            "", model=List[TenantRead], params=pagination_params(page, per_page)
-        )
+        return await self.__tenants.get("", model=List[TenantRead], params=pagination_params(page, per_page))
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def list_tenant_users(
-        self, tenant_key: str, page: int = 1, per_page: int = 100
-    ) -> PaginatedResultUserRead:
+    async def list_tenant_users(self, tenant_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """
         Retrieves a list of users for a given tenant.
 
@@ -200,9 +196,7 @@ class TenantsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__tenants.patch(
-            f"/{tenant_key}", model=TenantRead, json=tenant_data
-        )
+        return await self.__tenants.patch(f"/{tenant_key}", model=TenantRead, json=tenant_data)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -243,9 +237,7 @@ class TenantsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_create(
-        self, tenants: List[TenantCreate]
-    ) -> TenantCreateBulkOperationResult:
+    async def bulk_create(self, tenants: List[TenantCreate]) -> TenantCreateBulkOperationResult:
         """
         Creates tenants in bulk.
 

@@ -129,9 +129,7 @@ def handle_client_error(func):
         try:
             return await func(*args, **kwargs)
         except aiohttp.ClientError as err:
-            logger.error(
-                "got client error while sending an http request:\n{}".format(err)
-            )
+            logger.error("got client error while sending an http request:\n{}".format(err))
             raise PermitConnectionError(f"{err}", error=err)
 
     return wrapped

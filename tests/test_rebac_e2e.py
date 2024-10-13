@@ -570,16 +570,12 @@ async def cleanup(permit: Permit):
                 await permit.api.tenants.delete(tenant.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    logger.debug(
-                        f"SKIPPING delete, tenant does not exist: {tenant.key}"
-                    )
+                    logger.debug(f"SKIPPING delete, tenant does not exist: {tenant.key}")
         for rel_tuple in RELATIONSHIPS:
             subject, relation, object, tenant = rel_tuple
             try:
                 await permit.api.relationship_tuples.delete(
-                    RelationshipTupleDelete(
-                        subject=subject, relation=relation, object=object
-                    )
+                    RelationshipTupleDelete(subject=subject, relation=relation, object=object)
                 )
             except PermitApiError as error:
                 if error.status_code == 404:
@@ -607,9 +603,7 @@ async def cleanup(permit: Permit):
                 await permit.api.resources.delete(resource.key)
             except PermitApiError as error:
                 if error.status_code == 404:
-                    logger.debug(
-                        f"SKIPPING delete, resource does not exist: {resource.key}"
-                    )
+                    logger.debug(f"SKIPPING delete, resource does not exist: {resource.key}")
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
     except Exception as error:
@@ -619,16 +613,12 @@ async def cleanup(permit: Permit):
 
 
 async def assert_permit_check(permit: Permit, q: CheckAssertion):
-    logger.info(
-        f"asserting: permit.check({q.user}, {q.action}, {str(q.resource)}) === {str(q.expected_decision)}"
-    )
+    logger.info(f"asserting: permit.check({q.user}, {q.action}, {str(q.resource)}) === {str(q.expected_decision)}")
     decision = await permit.check(q.user, q.action, q.resource)
     assert q.expected_decision == decision
 
 
-async def assert_permit_authorized_users(
-    permit: Permit, q: CheckAssertion, assignments: list[RoleAssignmentCreate]
-):
+async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assignments: list[RoleAssignmentCreate]):
     logger.info(
         f"asserting: permit.authorized_users({q.action}, {q.resource}) === {q.expected_decision}",
     )
@@ -674,9 +664,7 @@ async def test_rebac_policy(permit: Permit):
         for resource_key, resource_roles in iter(RESOURCE_ROLES.items()):
             for role_data in resource_roles:
                 logger.debug(f"creating resource role: {resource_key}#{role_data.key}")
-                role = await permit.api.resource_roles.create(
-                    resource_key=resource_key, role_data=role_data
-                )
+                role = await permit.api.resource_roles.create(resource_key=resource_key, role_data=role_data)
                 assert role is not None
                 assert role.key == role_data.key
                 assert role.name == role_data.name
@@ -687,9 +675,7 @@ async def test_rebac_policy(permit: Permit):
         # create resource relations
         for resource_key, resource_relations in iter(RESOURCE_RELATIONS.items()):
             for relation_data in resource_relations:
-                logger.debug(
-                    f"creating resource relation: {resource_key}->{relation_data.key}"
-                )
+                logger.debug(f"creating resource relation: {resource_key}->{relation_data.key}")
                 relation = await permit.api.resource_relations.create(
                     resource_key=resource_key, relation_data=relation_data
                 )
@@ -743,13 +729,9 @@ async def test_rebac_policy(permit: Permit):
         # relationship tuples
         for tuple_data in RELATIONSHIPS:
             subject, relation, object, tenant = tuple_data
-            logger.debug(
-                f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})"
-            )
+            logger.debug(f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})")
             rel_tuple = await permit.api.relationship_tuples.create(
-                RelationshipTupleCreate(
-                    subject=subject, relation=relation, object=object, tenant=tenant
-                )
+                RelationshipTupleCreate(subject=subject, relation=relation, object=object, tenant=tenant)
             )
             assert rel_tuple is not None
             assert rel_tuple.subject == subject
@@ -759,15 +741,11 @@ async def test_rebac_policy(permit: Permit):
 
         tuples = await permit.api.relationship_tuples.list()
         len_tuples = len(tuples)
-        logger.debug(
-            f"there are currently {len_tuples} relationship tuples in the system"
-        )
+        logger.debug(f"there are currently {len_tuples} relationship tuples in the system")
 
         # bulk create relationship tuples
         bulk_relationships_to_create = [
-            RelationshipTupleCreate(
-                subject=subject, relation=relation, object=object, tenant=tenant
-            )
+            RelationshipTupleCreate(subject=subject, relation=relation, object=object, tenant=tenant)
             for (subject, relation, object, tenant) in BULK_RELATIONSHIPS
         ]
         bulk_relationships_to_delete = [
@@ -779,36 +757,24 @@ async def test_rebac_policy(permit: Permit):
             parts = instance_key.split(":")
             logger.debug(f"creating resource instance: {instance_key}")
             await permit.api.resource_instances.create(
-                ResourceInstanceCreate(
-                    key=parts[1], resource=parts[0], tenant=TENANT_PERMIT.key
-                )
+                ResourceInstanceCreate(key=parts[1], resource=parts[0], tenant=TENANT_PERMIT.key)
             )
 
         async def create_relationships_in_bulk():
-            await permit.api.relationship_tuples.bulk_create(
-                tuples=bulk_relationships_to_create
-            )
+            await permit.api.relationship_tuples.bulk_create(tuples=bulk_relationships_to_create)
 
             tuples = await permit.api.relationship_tuples.list()
             assert len(tuples) == len_tuples + len(BULK_RELATIONSHIPS)
-            logger.debug(
-                f"there are currently {len(tuples)} relationship tuples in the system"
-            )
+            logger.debug(f"there are currently {len(tuples)} relationship tuples in the system")
 
         async def remove_relationships_in_bulk():
-            await permit.api.relationship_tuples.bulk_delete(
-                tuples=bulk_relationships_to_delete
-            )
+            await permit.api.relationship_tuples.bulk_delete(tuples=bulk_relationships_to_delete)
 
             tuples = await permit.api.relationship_tuples.list()
             assert len(tuples) == len_tuples
-            logger.debug(
-                f"there are currently {len(tuples)} relationship tuples in the system"
-            )
+            logger.debug(f"there are currently {len(tuples)} relationship tuples in the system")
 
-        logger.debug(
-            f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {str(BULK_RELATIONSHIPS)}"
-        )
+        logger.debug(f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {str(BULK_RELATIONSHIPS)}")
         await create_relationships_in_bulk()
 
         logger.debug(
@@ -841,9 +807,7 @@ async def test_rebac_policy(permit: Permit):
                         await assertion.pre_assertion_hook(permit)
                         await asyncio.sleep(1)
                     await assert_permit_check(permit, assertion)
-                    await assert_permit_authorized_users(
-                        permit, assertion, test_step.assignments
-                    )
+                    await assert_permit_authorized_users(permit, assertion, test_step.assignments)
                     if assertion.post_assertion_hook is not None:
                         logger.debug("executing post assertion hook")
                         await assertion.post_assertion_hook(permit)

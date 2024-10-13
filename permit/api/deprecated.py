@@ -63,9 +63,7 @@ class DeprecatedApi(BasePermitApi):
         page: int = 1,
         per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
-        return await self.__users.get_assigned_roles(
-            user_key, tenant=tenant_key, page=page, per_page=per_page
-        )
+        return await self.__users.get_assigned_roles(user_key, tenant=tenant_key, page=page, per_page=per_page)
 
     @deprecated("use permit.api.resources.get() instead")
     async def get_resource(self, resource_key: str) -> ResourceRead:
@@ -84,25 +82,17 @@ class DeprecatedApi(BasePermitApi):
         return await self.__users.delete(user_key)
 
     @deprecated("use permit.api.tenants.list() instead")
-    async def list_tenants(
-        self, page: int = 1, per_page: int = 100
-    ) -> List[TenantRead]:
+    async def list_tenants(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
         return await self.__tenants.list(page=page, per_page=per_page)
 
     @deprecated("use permit.api.tenants.create() instead")
     async def create_tenant(self, tenant: Union[TenantCreate, dict]) -> TenantRead:
-        tenant_data = (
-            tenant if isinstance(tenant, TenantCreate) else TenantCreate(**tenant)
-        )
+        tenant_data = tenant if isinstance(tenant, TenantCreate) else TenantCreate(**tenant)
         return await self.__tenants.create(tenant_data)
 
     @deprecated("use permit.api.tenants.update() instead")
-    async def update_tenant(
-        self, tenant_key: str, tenant: Union[TenantUpdate, dict]
-    ) -> TenantRead:
-        tenant_data = (
-            tenant if isinstance(tenant, TenantUpdate) else TenantUpdate(**tenant)
-        )
+    async def update_tenant(self, tenant_key: str, tenant: Union[TenantUpdate, dict]) -> TenantRead:
+        tenant_data = tenant if isinstance(tenant, TenantUpdate) else TenantUpdate(**tenant)
         return await self.__tenants.update(tenant_key, tenant_data)
 
     @deprecated("use permit.api.tenants.delete() instead")
@@ -115,24 +105,18 @@ class DeprecatedApi(BasePermitApi):
         return await self.__roles.create(role_data)
 
     @deprecated("use permit.api.roles.update() instead")
-    async def update_role(
-        self, role_key: str, role: Union[RoleUpdate, dict]
-    ) -> RoleRead:
+    async def update_role(self, role_key: str, role: Union[RoleUpdate, dict]) -> RoleRead:
         role_data = role if isinstance(role, RoleUpdate) else RoleUpdate(**role)
         return await self.__roles.update(role_key, role_data)
 
     @deprecated("use permit.api.users.assign_role() instead")
-    async def assign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> RoleAssignmentRead:
+    async def assign_role(self, user_key: str, role_key: str, tenant_key: str) -> RoleAssignmentRead:
         return await self.__role_assignments.assign(
             RoleAssignmentCreate(user=user_key, role=role_key, tenant=tenant_key)
         )
 
     @deprecated("use permit.api.users.unassign_role() instead")
-    async def unassign_role(
-        self, user_key: str, role_key: str, tenant_key: str
-    ) -> None:
+    async def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
         return await self.__role_assignments.unassign(
             RoleAssignmentRemove(user=user_key, role=role_key, tenant=tenant_key)
         )
@@ -142,25 +126,13 @@ class DeprecatedApi(BasePermitApi):
         return await self.__roles.delete(role_key)
 
     @deprecated("use permit.api.resources.create() instead")
-    async def create_resource(
-        self, resource: Union[ResourceCreate, dict]
-    ) -> ResourceRead:
-        resource_data = (
-            resource
-            if isinstance(resource, ResourceCreate)
-            else ResourceCreate(**resource)
-        )
+    async def create_resource(self, resource: Union[ResourceCreate, dict]) -> ResourceRead:
+        resource_data = resource if isinstance(resource, ResourceCreate) else ResourceCreate(**resource)
         return await self.__resources.create(resource_data)
 
     @deprecated("use permit.api.resources.update() instead")
-    async def update_resource(
-        self, resource_key: str, resource: Union[ResourceUpdate, dict]
-    ) -> ResourceRead:
-        resource_data = (
-            resource
-            if isinstance(resource, ResourceUpdate)
-            else ResourceUpdate(**resource)
-        )
+    async def update_resource(self, resource_key: str, resource: Union[ResourceUpdate, dict]) -> ResourceRead:
+        resource_data = resource if isinstance(resource, ResourceUpdate) else ResourceUpdate(**resource)
         return await self.__resources.update(resource_key, resource_data)
 
     @deprecated("use permit.api.resources.delete() instead")

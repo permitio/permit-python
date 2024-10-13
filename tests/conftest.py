@@ -9,15 +9,9 @@ from permit.sync import Permit as SyncPermit
 @pytest.fixture
 def permit_config() -> PermitConfig:
     default_pdp_address = (
-        "https://cloudpdp.api.permit.io"
-        if os.getenv("CLOUD_PDP") == "true"
-        else "http://localhost:7766"
+        "https://cloudpdp.api.permit.io" if os.getenv("CLOUD_PDP") == "true" else "http://localhost:7766"
     )
-    default_api_address = (
-        "https://api.permit.io"
-        if os.getenv("API_TIER") == "prod"
-        else "http://localhost:8000"
-    )
+    default_api_address = "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
 
     token = os.getenv("PDP_API_KEY", "")
     pdp_address = os.getenv("PDP_URL", default_pdp_address)

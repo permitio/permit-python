@@ -116,9 +116,7 @@ class RoleAssignmentsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__role_assignments.post(
-            "", model=RoleAssignmentRead, json=assignment
-        )
+        return await self.__role_assignments.post("", model=RoleAssignmentRead, json=assignment)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -139,9 +137,7 @@ class RoleAssignmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_assign(
-        self, assignments: List[RoleAssignmentCreate]
-    ) -> BulkRoleAssignmentReport:
+    async def bulk_assign(self, assignments: List[RoleAssignmentCreate]) -> BulkRoleAssignmentReport:
         """
         Assigns multiple roles in bulk using the provided role assignments data.
         Each role assignment is a tuple of (user, role, tenant).
@@ -165,9 +161,7 @@ class RoleAssignmentsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_unassign(
-        self, unassignments: List[RoleAssignmentRemove]
-    ) -> BulkRoleUnAssignmentReport:
+    async def bulk_unassign(self, unassignments: List[RoleAssignmentRemove]) -> BulkRoleUnAssignmentReport:
         """
         Removes multiple role assignments in bulk using the provided unassignment data.
         Each role to unassign is a tuple of (user, role, tenant).

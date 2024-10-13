@@ -33,9 +33,7 @@ class ResourceActionsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def list(
-        self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceActionRead]:
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionRead]:
         """
         Retrieves a list of actions.
 
@@ -58,9 +56,7 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        return await self.__actions.get(
-            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
-        )
+        return await self.__actions.get(f"/{resource_key}/actions/{action_key}", model=ResourceActionRead)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -85,9 +81,7 @@ class ResourceActionsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_key(
-        self, resource_key: str, action_key: str
-    ) -> ResourceActionRead:
+    async def get_by_key(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
         Retrieves a action by its key.
         Alias for the get method.
@@ -129,9 +123,7 @@ class ResourceActionsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def create(
-        self, resource_key: str, action_data: ResourceActionCreate
-    ) -> ResourceActionRead:
+    async def create(self, resource_key: str, action_data: ResourceActionCreate) -> ResourceActionRead:
         """
         Creates a new action.
 
@@ -155,9 +147,7 @@ class ResourceActionsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def update(
-        self, resource_key: str, action_key: str, action_data: ResourceActionUpdate
-    ) -> ResourceActionRead:
+    async def update(self, resource_key: str, action_key: str, action_data: ResourceActionUpdate) -> ResourceActionRead:
         """
         Updates a action.
 

@@ -79,9 +79,7 @@ class SimpleHttpClient:
     wraps aiohttp client to reduce boilerplace
     """
 
-    def __init__(
-        self, client_config: dict, base_url: str = "", timeout: Optional[int] = None
-    ):
+    def __init__(self, client_config: dict, base_url: str = "", timeout: Optional[int] = None):
         self._client_config = client_config
         self._base_url = base_url
         if timeout is not None:
@@ -91,13 +89,9 @@ class SimpleHttpClient:
         logger.debug("Sending HTTP request: {} {}".format(method, url))
 
     def _log_response(self, url: str, method: str, status: int) -> None:
-        logger.debug(
-            "Received HTTP response: {} {}, status: {}".format(method, url, status)
-        )
+        logger.debug("Received HTTP response: {} {}, status: {}".format(method, url, status))
 
-    def _prepare_json(
-        self, json: Optional[Union[TData, dict, list]] = None
-    ) -> Optional[dict]:
+    def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[dict]:
         if json is None:
             return None
 
@@ -131,9 +125,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "POST")
-            async with client.post(
-                url, json=self._prepare_json(json), **kwargs
-            ) as response:
+            async with client.post(url, json=self._prepare_json(json), **kwargs) as response:
                 await handle_api_error(response)
                 self._log_response(url, "POST", response.status)
                 data = await response.json()
@@ -150,9 +142,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "PUT")
-            async with client.put(
-                url, json=self._prepare_json(json), **kwargs
-            ) as response:
+            async with client.put(url, json=self._prepare_json(json), **kwargs) as response:
                 await handle_api_error(response)
                 self._log_response(url, "PUT", response.status)
                 data = await response.json()
@@ -169,9 +159,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "PATCH")
-            async with client.patch(
-                url, json=self._prepare_json(json), **kwargs
-            ) as response:
+            async with client.patch(url, json=self._prepare_json(json), **kwargs) as response:
                 await handle_api_error(response)
                 self._log_response(url, "PATCH", response.status)
                 data = await response.json()
@@ -188,9 +176,7 @@ class SimpleHttpClient:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "DELETE")
-            async with client.delete(
-                url, json=self._prepare_json(json), **kwargs
-            ) as response:
+            async with client.delete(url, json=self._prepare_json(json), **kwargs) as response:
                 await handle_api_error(response)
                 self._log_response(url, "DELETE", response.status)
                 if model is None:
@@ -214,9 +200,7 @@ class BasePermitApi:
         self.config = config
         self.__api_keys = self._build_http_client("/v2/api-key")
 
-    def _build_http_client(
-        self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs
-    ):
+    def _build_http_client(self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs):
         optional_headers = {}
         if self.config.proxy_facts_via_pdp and self.config.facts_sync_timeout:
             optional_headers["X-Wait-Timeout"] = str(self.config.facts_sync_timeout)
@@ -247,14 +231,8 @@ class BasePermitApi:
             # saves the permitted access level by that api key
             self.config.api_context._save_api_key_accessible_scope(
                 org=str(scope.organization_id),
-                project=(
-                    str(scope.project_id) if scope.project_id is not None else None
-                ),
-                environment=(
-                    str(scope.environment_id)
-                    if scope.environment_id is not None
-                    else None
-                ),
+                project=(str(scope.project_id) if scope.project_id is not None else None),
+                environment=(str(scope.environment_id) if scope.environment_id is not None else None),
             )
 
             if scope.project_id is not None:
@@ -268,22 +246,16 @@ class BasePermitApi:
                     return
 
                 # Set project level context
-                self.config.api_context.set_project_level_context(
-                    str(scope.organization_id), str(scope.project_id)
-                )
+                self.config.api_context.set_project_level_context(str(scope.organization_id), str(scope.project_id))
                 return
 
             # Set org level context
-            self.config.api_context.set_organization_level_context(
-                str(scope.organization_id)
-            )
+            self.config.api_context.set_organization_level_context(str(scope.organization_id))
             return
 
         raise PermitContextError("Could not set API context level")
 
-    async def _ensure_access_level(
-        self, required_access_level: ApiKeyAccessLevel
-    ) -> None:
+    async def _ensure_access_level(self, required_access_level: ApiKeyAccessLevel) -> None:
         """
         Ensure that the API Key has the necessary permissions to successfully call the API endpoint.
 
@@ -298,8 +270,7 @@ class BasePermitApi:
         # should only happen once in the lifetime of the sdk
         if (
             self.config.api_context.level == ApiContextLevel.WAIT_FOR_INIT
-            or self.config.api_context.permitted_access_level
-            == ApiKeyAccessLevel.WAIT_FOR_INIT
+            or self.config.api_context.permitted_access_level == ApiKeyAccessLevel.WAIT_FOR_INIT
         ):
             await self._set_context_from_api_key()
 
@@ -313,10 +284,7 @@ class BasePermitApi:
                 )
             return
 
-        if (
-            self.config.api_context.permitted_access_level.value
-            < required_access_level.value
-        ):
+        if self.config.api_context.permitted_access_level.value < required_access_level.value:
             raise PermitContextError(
                 f"You're trying to use an SDK method that requires an api context of {required_context.name}, "
                 + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
@@ -335,8 +303,7 @@ class BasePermitApi:
         # should only happen once in the lifetime of the sdk
         if (
             self.config.api_context.level == ApiContextLevel.WAIT_FOR_INIT
-            or self.config.api_context.permitted_access_level
-            == ApiKeyAccessLevel.WAIT_FOR_INIT
+            or self.config.api_context.permitted_access_level == ApiKeyAccessLevel.WAIT_FOR_INIT
         ):
             await self._set_context_from_api_key()
 
