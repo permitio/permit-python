@@ -1,0 +1,31 @@
+[tool.ruff]
+line-length = 120
+src = ["permit"]
+exclude = ["permit/api/models.py"]
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "W", # pycodestyle
+    "F", # pyflakes
+    "N", # pep8
+    "I", # isort
+    "BLE", # flake8 blind except
+    "FBT", # flake8 boolean trap
+    "B", # flake8 bug bear
+    "C4", # flake8 comprehensions
+    "PIE", # flake8 pie
+    "T20", # flake8 print
+    "SIM", # flake8 simplify
+    "ARG", # flake8 unused arguments
+    "PTH", # flake8 pathlib
+    "ASYNC", # flake8 Asyncio rules
+#    "UP", # pyupgrade
+    "ERA", # comment out code
+    "RUF", # ruff rules
+    "FAST", # FastAPI rules
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"

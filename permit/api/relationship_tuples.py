@@ -89,9 +89,7 @@ class RelationshipTuplesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def create(
-        self, tuple_data: RelationshipTupleCreate
-    ) -> RelationshipTupleRead:
+    async def create(self, tuple_data: RelationshipTupleCreate) -> RelationshipTupleRead:
         """
         Creates a new relationship tuple, that states that a relationship (of type: relation)
         exists between two resource instances: the subject and the object.
@@ -106,9 +104,7 @@ class RelationshipTuplesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__relationship_tuples.post(
-            "", model=RelationshipTupleRead, json=tuple_data
-        )
+        return await self.__relationship_tuples.post("", model=RelationshipTupleRead, json=tuple_data)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -129,9 +125,7 @@ class RelationshipTuplesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_create(
-        self, tuples: List[RelationshipTupleCreate]
-    ) -> RelationshipTupleCreateBulkOperationResult:
+    async def bulk_create(self, tuples: List[RelationshipTupleCreate]) -> RelationshipTupleCreateBulkOperationResult:
         """
         Creates multiple relationship tuples at once using the provided tuple data.
 
@@ -164,9 +158,7 @@ class RelationshipTuplesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def bulk_delete(
-        self, tuples: List[RelationshipTupleDelete]
-    ) -> RelationshipTupleDeleteBulkOperationResult:
+    async def bulk_delete(self, tuples: List[RelationshipTupleDelete]) -> RelationshipTupleDeleteBulkOperationResult:
         """
         Deletes multiple relationship tuples at once using the provided tuple data.
 

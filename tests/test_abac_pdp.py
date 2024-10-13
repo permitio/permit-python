@@ -8,7 +8,6 @@ def abac_user(user: UserCreate):
 
 
 async def test_abac_pdp_cloud_error(permit_cloud: Permit):
-
     user_test = UserCreate(
         **dict(
             key="maya@permit.io",

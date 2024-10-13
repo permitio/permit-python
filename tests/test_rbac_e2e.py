@@ -184,9 +184,7 @@ async def setup_env(
         assert len(viewer.permissions) == 0
 
         # assign permissions to roles
-        assigned_viewer = await permit.api.roles.assign_permissions(
-            VIEWER_ROLE_KEY, VIEWER_ROLE_PERMISSIONS
-        )
+        assigned_viewer = await permit.api.roles.assign_permissions(VIEWER_ROLE_KEY, VIEWER_ROLE_PERMISSIONS)
 
         assert assigned_viewer.key == VIEWER_ROLE_KEY
         assert len(assigned_viewer.permissions or []) == len(VIEWER_ROLE_PERMISSIONS)
@@ -269,9 +267,7 @@ async def test_permission_check_e2e(
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
-        logger.info(
-            "sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP"
-        )
+        logger.info("sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP")
         time.sleep(2)
 
         # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
@@ -341,9 +337,7 @@ async def test_permission_check_e2e(
         print_break()
 
         logger.info("testing list role assignments")
-        assignments_returned: List[
-            RoleAssignment
-        ] = await permit.pdp_api.role_assignments.list()
+        assignments_returned: List[RoleAssignment] = await permit.pdp_api.role_assignments.list()
         assert len(assignments_returned) == 1
         assert assignments_returned[0].user == user.key
         assert assignments_returned[0].role == viewer.key
@@ -370,24 +364,18 @@ async def test_permission_check_e2e(
         )
 
         # list user roles in all tenants
-        assigned_roles: List[
-            RoleAssignmentRead
-        ] = await permit.api.users.get_assigned_roles(user=user.key)
+        assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(user=user.key)
 
         assert len(assigned_roles) == 1
         assert assigned_roles[0].user_id == user.id
         assert assigned_roles[0].role_id == admin.id
         assert assigned_roles[0].tenant_id == tenant.id
 
-        logger.info(
-            "sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP"
-        )
+        logger.info("sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP")
         time.sleep(2)
 
         # run the same negative permission check again, this time it's True
-        logger.info(
-            "testing previously negative permission check, should now be positive"
-        )
+        logger.info("testing previously negative permission check, should now be positive")
         assert await permit.check(
             user.dict(),
             RESOURCE_CREATE_ACTION,
@@ -579,9 +567,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             )
 
             # list user roles in all tenants
-            assigned_roles: List[
-                RoleAssignmentRead
-            ] = await permit.api.users.get_assigned_roles(user=user.key)
+            assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(user=user.key)
 
             assert len(assigned_roles) == 1
             assert assigned_roles[0].user_id == user.id
@@ -589,9 +575,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert assigned_roles[0].tenant_id == tenant.id
 
             # run the same negative permission check again, this time it's True
-            logger.info(
-                "testing previously negative permission check, should now be positive"
-            )
+            logger.info("testing previously negative permission check, should now be positive")
             assert await permit.check(
                 user.dict(),
                 RESOURCE_CREATE_ACTION,

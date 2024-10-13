@@ -51,9 +51,7 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     async def _get(self, condition_set_key: str) -> ConditionSetRead:
-        return await self.__condition_sets.get(
-            f"/{condition_set_key}", model=ConditionSetRead
-        )
+        return await self.__condition_sets.get(f"/{condition_set_key}", model=ConditionSetRead)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -131,16 +129,12 @@ class ConditionSetsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__condition_sets.post(
-            "", model=ConditionSetRead, json=condition_set_data
-        )
+        return await self.__condition_sets.post("", model=ConditionSetRead, json=condition_set_data)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def update(
-        self, condition_set_key: str, condition_set_data: ConditionSetUpdate
-    ) -> ConditionSetRead:
+    async def update(self, condition_set_key: str, condition_set_data: ConditionSetUpdate) -> ConditionSetRead:
         """
         Updates a condition set.
 

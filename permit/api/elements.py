@@ -27,9 +27,7 @@ class LoginAsSchema(BaseModel):
     Represents the schema for the loginAs request.
     """
 
-    user_id: str = Field(
-        ..., description="The key (or ID) of the user the element will log in as."
-    )
+    user_id: str = Field(..., description="The key (or ID) of the user the element will log in as.")
     tenant_id: str = Field(
         ...,
         description="The key (or ID) of the active tenant for the logged in user."
@@ -49,9 +47,7 @@ class ElementsApi(BasePermitApi):
         super().__init__(config)
         self.__auth = self._build_http_client("/v2/auth")
 
-    async def login_as(
-        self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]
-    ) -> UserLoginAsResponse:
+    async def login_as(self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]) -> UserLoginAsResponse:
         if isinstance(user_id, UUID):
             user_id = user_id.hex
         if isinstance(tenant_id, UUID):
@@ -61,9 +57,7 @@ class ElementsApi(BasePermitApi):
             model=EmbeddedLoginRequestOutput,
             json=LoginAsSchema(user_id=user_id, tenant_id=tenant_id),
         )
-        return UserLoginAsResponse(
-            **ticket.dict(), content={"url": ticket.redirect_url}
-        )
+        return UserLoginAsResponse(**ticket.dict(), content={"url": ticket.redirect_url})
 
 
 class SyncElementsApi(ElementsApi, metaclass=SyncClass):

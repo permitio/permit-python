@@ -96,18 +96,14 @@ async def test_roles(permit: Permit):
         assert len(roles) == len_roles_original + 2
 
         # assign permissions to roles
-        assigned_empty = await permit.api.roles.assign_permissions(
-            TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"]
-        )
+        assigned_empty = await permit.api.roles.assign_permissions(TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"])
 
         assert assigned_empty.key == empty.key
         assert len(assigned_empty.permissions) == 1
         assert f"{TEST_RESOURCE_KEY}:delete" in assigned_empty.permissions
 
         # remove permissions from role
-        await permit.api.roles.remove_permissions(
-            TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"]
-        )
+        await permit.api.roles.remove_permissions(TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"])
 
         # get
         admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)

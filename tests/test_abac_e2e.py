@@ -50,9 +50,7 @@ USER_C = UserCreate(
     attributes={"age": 25},
 )
 
-ADMIN = RoleCreate(
-    key="admin", name="Admin", permissions=["document:create", "document:read"]
-)
+ADMIN = RoleCreate(key="admin", name="Admin", permissions=["document:create", "document:read"])
 VIEWER = RoleCreate(key="viewer", name="Viewer", permissions=["document:read"])
 
 TESLA = TenantCreate(key="tesla", name="Tesla Inc")

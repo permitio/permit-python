@@ -71,9 +71,7 @@ async def cleanup(permit: Permit, project_key: str):
             await permit.api.environments.delete(project_key, env.key)
         except PermitApiError as error:
             if error.status_code == 404:
-                print(
-                    f"SKIPPING delete, env does not exist: {env.key}, project_key={project_key}"
-                )
+                print(f"SKIPPING delete, env does not exist: {env.key}, project_key={project_key}")
 
 
 async def test_environment_creation_with_org_level_api_key(
@@ -81,9 +79,7 @@ async def test_environment_creation_with_org_level_api_key(
 ):
     permit = permit_with_org_level_api_key
     try:
-        await permit.api._ensure_access_level(
-            ApiKeyAccessLevel.ORGANIZATION_LEVEL_API_KEY
-        )
+        await permit.api._ensure_access_level(ApiKeyAccessLevel.ORGANIZATION_LEVEL_API_KEY)
     except PermitContextError:
         logger.warning("this test must run with an org level api key")
         return
@@ -97,12 +93,8 @@ async def test_environment_creation_with_org_level_api_key(
                 project: ProjectRead = await permit.api.projects.create(project_data)
             except PermitApiError as error:
                 if error.status_code == 409:
-                    print(
-                        f"SKIPPING create, project already exists: {project_data.key}"
-                    )
-                project: ProjectRead = await permit.api.projects.get(
-                    project_key=project_data.key
-                )
+                    print(f"SKIPPING create, project already exists: {project_data.key}")
+                project: ProjectRead = await permit.api.projects.get(project_key=project_data.key)
             assert project is not None
             assert project.key == project_data.key
             assert project.name == project_data.name
@@ -128,9 +120,7 @@ async def test_environment_creation_with_org_level_api_key(
         )  # each project has 2 default `dev` and `prod` environments
 
         # create first item
-        test_environment = await permit.api.environments.get(
-            CREATED_PROJECTS[0].key, CREATED_ENVIRONMENTS[0].key
-        )
+        test_environment = await permit.api.environments.get(CREATED_PROJECTS[0].key, CREATED_ENVIRONMENTS[0].key)
 
         assert test_environment is not None
         assert test_environment.key == CREATED_ENVIRONMENTS[0].key

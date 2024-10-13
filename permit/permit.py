@@ -24,9 +24,7 @@ from .utils.context import Context
 
 class Permit:
     def __init__(self, config: Optional[PermitConfig] = None, **options):
-        self._config: PermitConfig = (
-            config if config is not None else PermitConfig(**options)
-        )
+        self._config: PermitConfig = config if config is not None else PermitConfig(**options)
 
         configure_logger(self._config)
         self._enforcer = Enforcer(self._config)
@@ -69,9 +67,7 @@ class Permit:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
         """
         if not self._config.proxy_facts_via_pdp:
-            logger.warning(
-                "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
-            )
+            logger.warning("Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring...")
             yield self
             return
         contextualized_config = self.config  # this copies the config

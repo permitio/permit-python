@@ -35,9 +35,7 @@ class ResourceActionGroupsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def list(
-        self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceActionGroupRead]:
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionGroupRead]:
         """
         Retrieves a list of action groups.
 
@@ -88,9 +86,7 @@ class ResourceActionGroupsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_key(
-        self, resource_key: str, group_key: str
-    ) -> ResourceActionGroupRead:
+    async def get_by_key(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its key.
         Alias for the get method.
@@ -111,9 +107,7 @@ class ResourceActionGroupsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_id(
-        self, resource_id: str, group_id: str
-    ) -> ResourceActionGroupRead:
+    async def get_by_id(self, resource_id: str, group_id: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its ID.
         Alias for the get method.
@@ -134,9 +128,7 @@ class ResourceActionGroupsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def create(
-        self, resource_key: str, group_data: ResourceActionGroupCreate
-    ) -> ResourceActionGroupRead:
+    async def create(self, resource_key: str, group_data: ResourceActionGroupCreate) -> ResourceActionGroupRead:
         """
         Creates a new action group.
 
@@ -199,6 +191,4 @@ class ResourceActionGroupsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__action_groups.delete(
-            f"/{resource_key}/action_groups/{group_key}"
-        )
+        return await self.__action_groups.delete(f"/{resource_key}/action_groups/{group_key}")

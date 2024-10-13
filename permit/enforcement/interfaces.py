@@ -43,9 +43,7 @@ class OpaResult(BaseModel):
 class AuthorizedUserAssignment(BaseModel):
     user: str = Field(..., description="The user that is authorized")
     tenant: str = Field(..., description="The tenant that the user is authorized for")
-    resource: str = Field(
-        ..., description="The resource that the user is authorized for"
-    )
+    resource: str = Field(..., description="The resource that the user is authorized for")
     role: str = Field(..., description="The role that the user is assigned to")
 
 

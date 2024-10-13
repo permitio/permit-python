@@ -98,9 +98,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         assert len(viewer.permissions) == 0
 
         # assign permissions to roles
-        assigned_viewer = permit.api.roles.assign_permissions(
-            "viewer", ["document:read"]
-        )
+        assigned_viewer = permit.api.roles.assign_permissions("viewer", ["document:read"])
 
         assert assigned_viewer.key == "viewer"
         assert len(assigned_viewer.permissions) == 1
@@ -159,9 +157,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
-        logger.info(
-            "sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP"
-        )
+        logger.info("sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP")
         time.sleep(2)
 
         # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
@@ -176,19 +172,13 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         print_break()
 
         logger.info("testing positive permission check with complete user object")
-        assert permit.check(
-            user.dict(), "read", {"type": document.key, "tenant": tenant.key}
-        )
+        assert permit.check(user.dict(), "read", {"type": document.key, "tenant": tenant.key})
 
         print_break()
 
         # negative permission check (will be False because a viewer cannot create a document)
         logger.info("testing negative permission check")
-        assert (
-            permit.check(
-                user.key, "create", {"type": document.key, "tenant": tenant.key}
-            )
-        ) == False
+        assert (permit.check(user.key, "create", {"type": document.key, "tenant": tenant.key})) == False
 
         print_break()
 
@@ -218,9 +208,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         ) == [True, True, False]
 
         logger.info("testing list role assignments")
-        assignments_returned: List[
-            RoleAssignment
-        ] = permit.pdp_api.role_assignments.list()
+        assignments_returned: List[RoleAssignment] = permit.pdp_api.role_assignments.list()
         assert len(assignments_returned) == 1
         assert assignments_returned[0].user == user.key
         assert assignments_returned[0].role == viewer.key
@@ -247,27 +235,19 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         )
 
         # list user roles in all tenants
-        assigned_roles: List[RoleAssignmentRead] = permit.api.users.get_assigned_roles(
-            user=user.key
-        )
+        assigned_roles: List[RoleAssignmentRead] = permit.api.users.get_assigned_roles(user=user.key)
 
         assert len(assigned_roles) == 1
         assert assigned_roles[0].user_id == user.id
         assert assigned_roles[0].role_id == admin.id
         assert assigned_roles[0].tenant_id == tenant.id
 
-        logger.info(
-            "sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP"
-        )
+        logger.info("sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP")
         time.sleep(2)
 
         # run the same negative permission check again, this time it's True
-        logger.info(
-            "testing previously negative permission check, should now be positive"
-        )
-        assert permit.check(
-            user.dict(), "create", {"type": document.key, "tenant": tenant.key}
-        )
+        logger.info("testing previously negative permission check, should now be positive")
+        assert permit.check(user.dict(), "create", {"type": document.key, "tenant": tenant.key})
 
         print_break()
 

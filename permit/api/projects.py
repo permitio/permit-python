@@ -41,9 +41,7 @@ class ProjectsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__projects.get(
-            "", model=List[ProjectRead], params=pagination_params(page, per_page)
-        )
+        return await self.__projects.get("", model=List[ProjectRead], params=pagination_params(page, per_page))
 
     async def _get(self, project_key: str) -> ProjectRead:
         return await self.__projects.get(f"/{project_key}", model=ProjectRead)
@@ -129,9 +127,7 @@ class ProjectsApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)
     @validate_arguments
-    async def update(
-        self, project_key: str, project_data: ProjectUpdate
-    ) -> ProjectRead:
+    async def update(self, project_key: str, project_data: ProjectUpdate) -> ProjectRead:
         """
         Updates a project.
 
@@ -146,9 +142,7 @@ class ProjectsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__projects.patch(
-            f"/{project_key}", model=ProjectRead, json=project_data
-        )
+        return await self.__projects.patch(f"/{project_key}", model=ProjectRead, json=project_data)
 
     @required_permissions(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ORGANIZATION)

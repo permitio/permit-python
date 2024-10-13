@@ -56,9 +56,7 @@ class RolesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__roles.get(
-            "", model=List[RoleRead], params=pagination_params(page, per_page)
-        )
+        return await self.__roles.get("", model=List[RoleRead], params=pagination_params(page, per_page))
 
     async def _get(self, role_key: str) -> RoleRead:
         return await self.__roles.get(f"/{role_key}", model=RoleRead)
@@ -180,9 +178,7 @@ class RolesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def assign_permissions(
-        self, role_key: str, permissions: List[str]
-    ) -> RoleRead:
+    async def assign_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
         """
         Assigns permissions to a role.
 
@@ -206,9 +202,7 @@ class RolesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def remove_permissions(
-        self, role_key: str, permissions: List[str]
-    ) -> RoleRead:
+    async def remove_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
         """
         Removes permissions from a role.
 

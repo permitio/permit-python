@@ -90,11 +90,7 @@ class Enforcer:
             await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
         """
         normalized_resource: ResourceInput = self._normalize_resource(
-            (
-                self._resource_from_string(resource)
-                if isinstance(resource, str)
-                else ResourceInput(**resource)
-            )
+            (self._resource_from_string(resource) if isinstance(resource, str) else ResourceInput(**resource))
         )
         query_context = self._context_store.get_derived_context(context)
         input = dict(
@@ -103,9 +99,7 @@ class Enforcer:
             context=query_context,
         )
 
-        async with aiohttp.ClientSession(
-            headers=self._headers, **self._timeout_config
-        ) as session:
+        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             check_url = f"{self._base_url}/authorized_users"
             try:
                 async with session.post(
@@ -141,9 +135,7 @@ class Enforcer:
                     logger.debug(
                         f"permit.authorized_users() response:\ninput: {pformat(input, indent=2)}\nresponse status: {response.status}\nresponse data: {pformat(content, indent=2)}"
                     )
-                    result: AuthorizedUsersResult = parse_obj_as(
-                        AuthorizedUsersResult, content
-                    )
+                    result: AuthorizedUsersResult = parse_obj_as(AuthorizedUsersResult, content)
                     return result
             except aiohttp.ClientError as err:
                 logger.error(
@@ -202,9 +194,7 @@ class Enforcer:
         input = []
         for check in checks:
             normalized_user: UserInput = (
-                UserInput(key=check["user"])
-                if isinstance(check["user"], str)
-                else UserInput(**check["user"])
+                UserInput(key=check["user"]) if isinstance(check["user"], str) else UserInput(**check["user"])
             )
             normalized_resource: ResourceInput = self._normalize_resource(
                 (
@@ -223,9 +213,7 @@ class Enforcer:
                 )
             )
 
-        async with aiohttp.ClientSession(
-            headers=self._headers, **self._timeout_config
-        ) as session:
+        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             check_url = f"{self._base_url}/allowed/bulk"
             try:
                 async with session.post(
@@ -255,12 +243,8 @@ class Enforcer:
                     logger.debug(
                         f"permit.check() response:\ninput: {pformat(input, indent=2)}\nresponse status: {response.status}\nresponse data: {pformat(content, indent=2)}"
                     )
-                    data = content.get(
-                        "allow", content.get("result", {}).get("allow", [])
-                    )
-                    decisions: list[bool] = [
-                        bool(item.get("allow", False)) for item in data
-                    ]
+                    data = content.get("allow", content.get("result", {}).get("allow", []))
+                    decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
             except aiohttp.ClientError as err:
                 logger.error(
                     "error in permit.check({}):\n{}".format(
@@ -315,15 +299,9 @@ class Enforcer:
             await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
 
-        normalized_user: UserInput = (
-            UserInput(key=user) if isinstance(user, str) else UserInput(**user)
-        )
+        normalized_user: UserInput = UserInput(key=user) if isinstance(user, str) else UserInput(**user)
         normalized_resource: ResourceInput = self._normalize_resource(
-            (
-                self._resource_from_string(resource)
-                if isinstance(resource, str)
-                else ResourceInput(**resource)
-            )
+            (self._resource_from_string(resource) if isinstance(resource, str) else ResourceInput(**resource))
         )
         query_context = self._context_store.get_derived_context(context)
         input = dict(
@@ -332,9 +310,7 @@ class Enforcer:
             resource=normalized_resource.dict(exclude_unset=True),
             context=query_context,
         )
-        async with aiohttp.ClientSession(
-            headers=self._headers, **self._timeout_config
-        ) as session:
+        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             check_url = f"{self._base_url}/allowed"
             try:
                 async with session.post(
@@ -403,17 +379,11 @@ class Enforcer:
             normalized_resource.context = {}
 
         # if tenant is empty, we migth auto-set the default tenant according to config
-        if (
-            normalized_resource.tenant is None
-            and self._config.multi_tenancy.use_default_tenant_if_empty
-        ):
+        if normalized_resource.tenant is None and self._config.multi_tenancy.use_default_tenant_if_empty:
             normalized_resource.tenant = self._config.multi_tenancy.default_tenant
 
         # copy tenant from resource.tenant to resource.context.tenant (until we change RBAC policy)
-        if (
-            normalized_resource.context.get("tenant", None) is None
-            and normalized_resource.tenant is not None
-        ):
+        if normalized_resource.context.get("tenant", None) is None and normalized_resource.tenant is not None:
             normalized_resource.context["tenant"] = normalized_resource.tenant
         return normalized_resource
 

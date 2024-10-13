@@ -41,9 +41,7 @@ async def test_resources(permit: Permit):
         assert test_resource.urn == "prn:gdrive:test"
         assert test_resource.actions is not None
         assert len(test_resource.actions) == 4
-        assert set(test_resource.actions.keys()) == set(
-            ["create", "read", "update", "delete"]
-        )
+        assert set(test_resource.actions.keys()) == set(["create", "read", "update", "delete"])
 
         # increased number of items by 1
         resources = await permit.api.resources.list()
@@ -58,9 +56,7 @@ async def test_resources(permit: Permit):
 
         # create existing -> 409
         with pytest.raises(PermitApiError) as e:
-            await permit.api.resources.create(
-                {"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}}
-            )
+            await permit.api.resources.create({"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}})
         assert e.value.status_code == 409
 
         # create empty item

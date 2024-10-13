@@ -35,9 +35,7 @@ class ResourceAttributesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def list(
-        self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceAttributeRead]:
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceAttributeRead]:
         """
         Retrieves a list of attributes.
 
@@ -59,12 +57,8 @@ class ResourceAttributesApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
-    async def _get(
-        self, resource_key: str, attribute_key: str
-    ) -> ResourceAttributeRead:
-        return await self.__attributes.get(
-            f"/{resource_key}/attributes/{attribute_key}", model=ResourceAttributeRead
-        )
+    async def _get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
+        return await self.__attributes.get(f"/{resource_key}/attributes/{attribute_key}", model=ResourceAttributeRead)
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
@@ -89,9 +83,7 @@ class ResourceAttributesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_key(
-        self, resource_key: str, attribute_key: str
-    ) -> ResourceAttributeRead:
+    async def get_by_key(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
         """
         Retrieves a attribute by its key.
         Alias for the get method.
@@ -112,9 +104,7 @@ class ResourceAttributesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def get_by_id(
-        self, resource_id: str, attribute_id: str
-    ) -> ResourceAttributeRead:
+    async def get_by_id(self, resource_id: str, attribute_id: str) -> ResourceAttributeRead:
         """
         Retrieves a attribute by its ID.
         Alias for the get method.
@@ -135,9 +125,7 @@ class ResourceAttributesApi(BasePermitApi):
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
     @required_context(ApiContextLevel.ENVIRONMENT)
     @validate_arguments
-    async def create(
-        self, resource_key: str, attribute_data: ResourceAttributeCreate
-    ) -> ResourceAttributeRead:
+    async def create(self, resource_key: str, attribute_data: ResourceAttributeCreate) -> ResourceAttributeRead:
         """
         Creates a new attribute.
 
@@ -203,6 +191,4 @@ class ResourceAttributesApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-        return await self.__attributes.delete(
-            f"/{resource_key}/attributes/{attribute_key}"
-        )
+        return await self.__attributes.delete(f"/{resource_key}/attributes/{attribute_key}")

@@ -143,12 +143,8 @@ async def test_users_tenants(permit: Permit):
         # bulk role assignment to tenant 1
         await permit.api.role_assignments.bulk_assign(
             [
-                RoleAssignmentCreate(
-                    user=USER_A.key, role=ADMIN.key, tenant=TENANT_1.key
-                ),
-                RoleAssignmentCreate(
-                    user=USER_B.key, role=VIEWER.key, tenant=TENANT_1.key
-                ),
+                RoleAssignmentCreate(user=USER_A.key, role=ADMIN.key, tenant=TENANT_1.key),
+                RoleAssignmentCreate(user=USER_B.key, role=VIEWER.key, tenant=TENANT_1.key),
             ]
         )
 
@@ -159,16 +155,12 @@ async def test_users_tenants(permit: Permit):
         assert len(users2.data) == 0
 
         # get assigned roles of user A
-        roles_a1 = await permit.api.users.get_assigned_roles(
-            USER_A.key, tenant=TENANT_1.key
-        )
+        roles_a1 = await permit.api.users.get_assigned_roles(USER_A.key, tenant=TENANT_1.key)
         assert len(roles_a1) == 1
         assert roles_a1[0].user == USER_A.key
         assert roles_a1[0].role == ADMIN.key
         assert roles_a1[0].tenant == TENANT_1.key
-        roles_a2 = await permit.api.users.get_assigned_roles(
-            USER_A.key, tenant=TENANT_2.key
-        )
+        roles_a2 = await permit.api.users.get_assigned_roles(USER_A.key, tenant=TENANT_2.key)
         assert len(roles_a2) == 0
 
         # assign role
@@ -194,9 +186,7 @@ async def test_users_tenants(permit: Permit):
         assert len(tenant2_users.data) == 2
         await permit.api.tenants.delete_tenant_user(TENANT_2.key, USER_A.key)
         tenant2_users = await permit.api.tenants.list_tenant_users(TENANT_2.key)
-        assert (
-            len(tenant2_users.data) == 2
-        )  # TODO: change to 1, fix bug in delete_tenant_user
+        assert len(tenant2_users.data) == 2  # TODO: change to 1, fix bug in delete_tenant_user
 
         # list role assignments
         ras = await permit.api.role_assignments.list()
@@ -214,12 +204,8 @@ async def test_users_tenants(permit: Permit):
         # bulk unassign
         await permit.api.role_assignments.bulk_unassign(
             [
-                RoleAssignmentRemove(
-                    user=USER_A.key, role=ADMIN.key, tenant=TENANT_1.key
-                ),
-                RoleAssignmentRemove(
-                    user=USER_B.key, role=VIEWER.key, tenant=TENANT_1.key
-                ),
+                RoleAssignmentRemove(user=USER_A.key, role=ADMIN.key, tenant=TENANT_1.key),
+                RoleAssignmentRemove(user=USER_B.key, role=VIEWER.key, tenant=TENANT_1.key),
             ]
         )
 
