@@ -52,7 +52,7 @@ class SimpleHttpClient:
     def _log_response(self, url: str, method: str, status: int) -> None:
         logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
-    def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[dict]:
+    def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[Union[dict, list]]:
         if json is None:
             return None
 
@@ -173,10 +173,10 @@ class BasePermitApi:
                 **optional_headers,
             },
         )
-        client_config = client_config.dict()
-        client_config.update(kwargs)
+        client_config_dict = client_config.dict()
+        client_config_dict.update(kwargs)
         return SimpleHttpClient(
-            client_config,
+            client_config_dict,
             base_url=endpoint_url,
             timeout=self.config.api_timeout,
         )
@@ -249,7 +249,7 @@ class BasePermitApi:
         if self.config.api_context.permitted_access_level.value < required_access_level.value:
             raise PermitContextError(
                 f"You're trying to use an SDK method that requires an api context of {required_access_level.name}, "
-                + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
+                f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )
 
     async def _ensure_context(self, required_context: ApiContextLevel) -> None:

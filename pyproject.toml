@@ -29,3 +29,22 @@ select = [
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.mypy]
+python_version = "3.8"
+packages = ["permit"]
+plugins = ["pydantic.mypy"]
+
+check_untyped_defs = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["permit.api.models"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["tests"]
+ignore_errors = true

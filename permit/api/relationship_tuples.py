@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
@@ -34,7 +34,7 @@ class RelationshipTuplesApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
             )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(
         self,
         page: int = 1,
@@ -81,7 +81,7 @@ class RelationshipTuplesApi(BasePermitApi):
             params=params,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, tuple_data: RelationshipTupleCreate) -> RelationshipTupleRead:
         """
         Creates a new relationship tuple, that states that a relationship (of type: relation)
@@ -101,7 +101,7 @@ class RelationshipTuplesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relationship_tuples.post("", model=RelationshipTupleRead, json=tuple_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, tuple_data: RelationshipTupleDelete) -> None:
         """
         Removes a relationship tuple.
@@ -117,7 +117,7 @@ class RelationshipTuplesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relationship_tuples.delete("", json=tuple_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_create(self, tuples: List[RelationshipTupleCreate]) -> RelationshipTupleCreateBulkOperationResult:
         """
         Creates multiple relationship tuples at once using the provided tuple data.
@@ -150,7 +150,7 @@ class RelationshipTuplesApi(BasePermitApi):
             json=RelationshipTupleCreateBulkOperation(operations=tuples),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_delete(self, tuples: List[RelationshipTupleDelete]) -> RelationshipTupleDeleteBulkOperationResult:
         """
         Deletes multiple relationship tuples at once using the provided tuple data.

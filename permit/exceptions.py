@@ -92,7 +92,7 @@ class PermitApiError(Exception):
         return self._response.status
 
     @property
-    def content_type(self) -> str:
+    def content_type(self) -> Optional[str]:
         """
         Get the HTTP content type header of the error response.
 

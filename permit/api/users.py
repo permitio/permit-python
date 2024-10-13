@@ -58,7 +58,7 @@ class UsersApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/bulk/users"
             )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """
         Retrieves a list of users.
@@ -85,7 +85,7 @@ class UsersApi(BasePermitApi):
     async def _get(self, user_key: str) -> UserRead:
         return await self.__users.get(f"/{user_key}", model=UserRead)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, user_key: str) -> UserRead:
         """
         Retrieves a user by its key.
@@ -104,7 +104,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(user_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, user_key: str) -> UserRead:
         """
         Retrieves a user by its key.
@@ -124,7 +124,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(user_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, user_id: str) -> UserRead:
         """
         Retrieves a user by its ID.
@@ -144,7 +144,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(user_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, user_data: UserCreate) -> UserRead:
         """
         Creates a new user.
@@ -163,7 +163,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__users.post("", model=UserRead, json=user_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(self, user_key: str, user_data: UserUpdate) -> UserRead:
         """
         Updates a user.
@@ -183,7 +183,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__users.patch(f"/{user_key}", model=UserRead, json=user_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def sync(self, user: Union[UserCreate, dict]) -> UserRead:
         """
         Synchronizes user data by creating or updating a user.
@@ -208,7 +208,7 @@ class UsersApi(BasePermitApi):
             user_key = user.key
         return await self.__users.put(f"/{user_key}", model=UserRead, json=user)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, user_key: str) -> None:
         """
         Deletes a user.
@@ -224,7 +224,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__users.delete(f"/{user_key}")
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_create(self, users: List[UserCreate]) -> UserCreateBulkOperationResult:
         """
         Creates users in bulk.
@@ -247,7 +247,7 @@ class UsersApi(BasePermitApi):
             json=UserCreateBulkOperation(operations=users),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_replace(self, users: List[UserCreate]) -> UserReplaceBulkOperationResult:
         """
         Replaces users in bulk.
@@ -273,7 +273,7 @@ class UsersApi(BasePermitApi):
             json=UserReplaceBulkOperation(operations=users),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_delete(self, users: List[str]) -> UserDeleteBulkOperationResult:
         """
         Deletes users in bulk.
@@ -296,7 +296,7 @@ class UsersApi(BasePermitApi):
             json=UserDeleteBulkOperation(idents=users),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def assign_role(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
         Assigns a role to a user in the scope of a given tenant.
@@ -319,7 +319,7 @@ class UsersApi(BasePermitApi):
             json=assignment.dict(exclude={"user"}),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def unassign_role(self, unassignment: RoleAssignmentRemove) -> None:
         """
         Unassigns a role from a user in the scope of a given tenant.
@@ -338,7 +338,7 @@ class UsersApi(BasePermitApi):
             json=unassignment.dict(exclude={"user"}),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_assigned_roles(
         self,
         user: str,

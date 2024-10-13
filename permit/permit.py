@@ -1,6 +1,6 @@
 import json
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Generator, List, Optional
 
 from loguru import logger
 from typing_extensions import Self
@@ -113,7 +113,7 @@ class Permit:
         self,
         action: Action,
         resource: Resource,
-        context: Context | None = None,
+        context: Optional[Context] = None,
     ) -> AuthorizedUsersResult:
         """
         Queries to get all the users that are authorized to perform an action on a resource within the specified context.
@@ -145,9 +145,9 @@ class Permit:
 
     async def bulk_check(
         self,
-        checks: list[CheckQuery],
-        context: Context | None = None,
-    ) -> list[bool]:
+        checks: List[CheckQuery],
+        context: Optional[Context] = None,
+    ) -> List[bool]:
         """
         Checks if a user is authorized to perform an action on a list of resources within the specified context.
 
@@ -189,7 +189,7 @@ class Permit:
         user: User,
         action: Action,
         resource: Resource,
-        context: Context | None = None,
+        context: Optional[Context] = None,
     ) -> bool:
         """
         Checks if a user is authorized to perform an action on a resource within the specified context.

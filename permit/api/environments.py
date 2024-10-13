@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from ..config import PermitConfig
 from .base import (
@@ -28,7 +28,7 @@ class EnvironmentsApi(BasePermitApi):
         super().__init__(config)
         self.__environments = self._build_http_client("")
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, project_key: str, page: int = 1, per_page: int = 100) -> List[EnvironmentRead]:
         """
         Retrieves a list of environments.
@@ -56,7 +56,7 @@ class EnvironmentsApi(BasePermitApi):
             f"/v2/projects/{project_key}/envs/{environment_key}", model=EnvironmentRead
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
         Gets an environment by project key and environment key.
@@ -76,7 +76,7 @@ class EnvironmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_key, environment_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """
         Gets an environment by project key and environment key.
@@ -97,7 +97,7 @@ class EnvironmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_key, environment_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, project_id: str, environment_id: str) -> EnvironmentRead:
         """
         Gets an environment by project ID and environment ID.
@@ -118,7 +118,7 @@ class EnvironmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_id, environment_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_stats(self, project_key: str, environment_key: str) -> EnvironmentStats:
         """
         Retrieves statistics and metadata for an environment.
@@ -141,7 +141,7 @@ class EnvironmentsApi(BasePermitApi):
             model=EnvironmentStats,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_api_key(self, project_key: str, environment_key: str) -> APIKeyRead:
         """
         Retrieves the API key that grants access for an environment.
@@ -164,7 +164,7 @@ class EnvironmentsApi(BasePermitApi):
             model=APIKeyRead,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, project_key: str, environment_data: EnvironmentCreate) -> EnvironmentRead:
         """
         Creates a new environment.
@@ -188,7 +188,7 @@ class EnvironmentsApi(BasePermitApi):
             json=environment_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(
         self,
         project_key: str,
@@ -218,7 +218,7 @@ class EnvironmentsApi(BasePermitApi):
             json=environment_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def copy(self, project_key: str, environment_key: str, copy_params: EnvironmentCopy) -> EnvironmentRead:
         """
         Clones data from a source specified environment into a different target environment in the same project.
@@ -243,7 +243,7 @@ class EnvironmentsApi(BasePermitApi):
             json=copy_params,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, project_key: str, environment_key: str) -> None:
         """
         Deletes an environment.

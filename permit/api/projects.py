@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from ..config import PermitConfig
 from .base import (
@@ -21,7 +21,7 @@ class ProjectsApi(BasePermitApi):
         super().__init__(config)
         self.__projects = self._build_http_client("/v2/projects")
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, page: int = 1, per_page: int = 100) -> List[ProjectRead]:
         """
         Retrieves a list of projects.
@@ -44,7 +44,7 @@ class ProjectsApi(BasePermitApi):
     async def _get(self, project_key: str) -> ProjectRead:
         return await self.__projects.get(f"/{project_key}", model=ProjectRead)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, project_key: str) -> ProjectRead:
         """
         Retrieves a project by its key.
@@ -63,7 +63,7 @@ class ProjectsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, project_key: str) -> ProjectRead:
         """
         Retrieves a project by its key.
@@ -83,7 +83,7 @@ class ProjectsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, project_id: str) -> ProjectRead:
         """
         Retrieves a project by its ID.
@@ -103,7 +103,7 @@ class ProjectsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self._get(project_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, project_data: ProjectCreate) -> ProjectRead:
         """
         Creates a new project.
@@ -122,7 +122,7 @@ class ProjectsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__projects.post("", model=ProjectRead, json=project_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(self, project_key: str, project_data: ProjectUpdate) -> ProjectRead:
         """
         Updates a project.
@@ -142,7 +142,7 @@ class ProjectsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__projects.patch(f"/{project_key}", model=ProjectRead, json=project_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, project_key: str) -> None:
         """
         Deletes a project.

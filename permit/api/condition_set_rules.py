@@ -23,7 +23,7 @@ class ConditionSetRulesApi(BasePermitApi):
             f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/set_rules"
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(
         self,
         user_set_key: Optional[str] = None,
@@ -65,7 +65,7 @@ class ConditionSetRulesApi(BasePermitApi):
             params=params,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, rule: ConditionSetRuleCreate) -> List[ConditionSetRuleRead]:
         """
         Creates a new condition set rule.
@@ -84,7 +84,7 @@ class ConditionSetRulesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_set_rules.post("", model=List[ConditionSetRuleRead], json=rule)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, rule: ConditionSetRuleRemove) -> None:
         """
         Deletes a condition set rule.

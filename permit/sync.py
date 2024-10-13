@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
@@ -13,12 +13,12 @@ class Permit(AsyncPermit):
     def __init__(self, config: Optional[PermitConfig] = None, **options):
         super().__init__(config, **options)
         self._enforcer = SyncEnforcer(self._config)
-        self._api = SyncPermitApiClient(self._config)
+        self._api = SyncPermitApiClient(self._config)  # type: ignore[assignment]
         self._elements = SyncElementsApi(self._config)
         self._pdp_api = SyncPDPApi(self._config)
 
     @property
-    def api(self) -> SyncPermitApiClient:
+    def api(self) -> SyncPermitApiClient:  # type: ignore[override]
         """
         Access the Permit REST API using this property.
 
@@ -27,7 +27,7 @@ class Permit(AsyncPermit):
             permit = Permit(token="<YOUR_API_KEY>")
             permit.api.roles.create(...)
         """
-        return self._api
+        return self._api  # type: ignore[return-value]
 
     @property
     def elements(self) -> SyncElementsApi:
@@ -39,7 +39,7 @@ class Permit(AsyncPermit):
             permit = Permit(token="<YOUR_API_KEY>")
             permit.elements.loginAs(user, tenant)
         """
-        return self._elements
+        return self._elements  # type: ignore[return-value]
 
     @property
     def pdp_api(self) -> SyncPDPApi:
@@ -50,13 +50,13 @@ class Permit(AsyncPermit):
         permit = Permit(token="<YOUR_API_KEY>")
         permit.pdp_api.role_assignments(...)
         """
-        return self._pdp_api
+        return self._pdp_api  # type: ignore[return-value]
 
-    def bulk_check(
+    def bulk_check(  # type: ignore[override]
         self,
-        checks: list[CheckQuery],
-        context: Context | None = None,
-    ) -> list[bool]:
+        checks: List[CheckQuery],
+        context: Optional[Context] = None,
+    ) -> List[bool]:
         """
         Checks if a user is authorized to perform an action on a list of resources within the specified context.
 
@@ -91,14 +91,14 @@ class Permit(AsyncPermit):
                 },
             ])
         """
-        return self._enforcer.bulk_check(checks, context)
+        return self._enforcer.bulk_check(checks, context)  # type: ignore[return-value]
 
-    def check(
+    def check(  # type: ignore[override]
         self,
         user: User,
         action: Action,
         resource: Resource,
-        context: Context | None = None,
+        context: Optional[Context] = None,
     ) -> bool:
         """
         Checks if a user is authorized to perform an action on a resource within the specified context.
@@ -127,4 +127,4 @@ class Permit(AsyncPermit):
             # (in a multi tenant application)
             permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
-        return self._enforcer.check(user, action, resource, context)
+        return self._enforcer.check(user, action, resource, context)  # type: ignore[return-value]

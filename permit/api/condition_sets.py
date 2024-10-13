@@ -23,7 +23,7 @@ class ConditionSetsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/condition_sets"
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, page: int = 1, per_page: int = 100) -> List[ConditionSetRead]:
         """
         Retrieves a list of condition sets.
@@ -48,7 +48,7 @@ class ConditionSetsApi(BasePermitApi):
     async def _get(self, condition_set_key: str) -> ConditionSetRead:
         return await self.__condition_sets.get(f"/{condition_set_key}", model=ConditionSetRead)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, condition_set_key: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its key.
@@ -67,7 +67,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its key.
@@ -87,7 +87,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its ID.
@@ -107,7 +107,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, condition_set_data: ConditionSetCreate) -> ConditionSetRead:
         """
         Creates a new condition set.
@@ -126,7 +126,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.post("", model=ConditionSetRead, json=condition_set_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(self, condition_set_key: str, condition_set_data: ConditionSetUpdate) -> ConditionSetRead:
         """
         Updates a condition set.
@@ -150,7 +150,7 @@ class ConditionSetsApi(BasePermitApi):
             json=condition_set_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, condition_set_key: str) -> None:
         """
         Deletes a condition set.
