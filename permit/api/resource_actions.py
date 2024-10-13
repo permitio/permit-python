@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
@@ -23,7 +23,7 @@ class ResourceActionsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionRead]:
         """
         Retrieves a list of actions.
@@ -51,7 +51,7 @@ class ResourceActionsApi(BasePermitApi):
     async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         return await self.__actions.get(f"/{resource_key}/actions/{action_key}", model=ResourceActionRead)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
         Retrieves a action by its key.
@@ -71,7 +71,7 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, action_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
         Retrieves a action by its key.
@@ -92,7 +92,7 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, action_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
         """
         Retrieves a action by its ID.
@@ -113,7 +113,7 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, action_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, resource_key: str, action_data: ResourceActionCreate) -> ResourceActionRead:
         """
         Creates a new action.
@@ -137,7 +137,7 @@ class ResourceActionsApi(BasePermitApi):
             json=action_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(self, resource_key: str, action_key: str, action_data: ResourceActionUpdate) -> ResourceActionRead:
         """
         Updates a action.
@@ -162,7 +162,7 @@ class ResourceActionsApi(BasePermitApi):
             json=action_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, resource_key: str, action_key: str) -> None:
         """
         Deletes a action.

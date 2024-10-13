@@ -8,7 +8,7 @@ from permit.pdp_api.models import RoleAssignment
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 
 class RoleAssignmentsApi(BasePdpPermitApi):
@@ -16,7 +16,7 @@ class RoleAssignmentsApi(BasePdpPermitApi):
     def __role_assignments(self) -> SimpleHttpClient:
         return self._build_http_client("/local/role_assignments")
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(
         self,
         user_key: Optional[str] = None,

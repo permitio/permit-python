@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
@@ -37,7 +37,7 @@ class ResourceRolesApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceRoleRead]:
         """
         Retrieves a list of resource roles.
@@ -65,7 +65,7 @@ class ResourceRolesApi(BasePermitApi):
     async def _get(self, resource_key: str, role_key: str) -> ResourceRoleRead:
         return await self.__resource_roles.get(f"/{resource_key}/roles/{role_key}", model=ResourceRoleRead)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, resource_key: str, role_key: str) -> ResourceRoleRead:
         """
         Retrieves a resource role by its key.
@@ -85,7 +85,7 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, role_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, resource_key: str, role_key: str) -> ResourceRoleRead:
         """
         Retrieves a resource role by its key.
@@ -106,7 +106,7 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, role_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, resource_id: str, role_id: str) -> ResourceRoleRead:
         """
         Retrieves a resource role by its ID.
@@ -127,7 +127,7 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, role_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, resource_key: str, role_data: ResourceRoleCreate) -> ResourceRoleRead:
         """
         Creates a new resource role.
@@ -147,7 +147,7 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_roles.post(f"/{resource_key}/roles", model=ResourceRoleRead, json=role_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(self, resource_key: str, role_key: str, role_data: ResourceRoleUpdate) -> ResourceRoleRead:
         """
         Updates a resource role.
@@ -170,7 +170,7 @@ class ResourceRolesApi(BasePermitApi):
             f"/{resource_key}/roles/{role_key}", model=ResourceRoleRead, json=role_data
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, resource_key: str, role_key: str) -> None:
         """
         Deletes a resource role.
@@ -187,7 +187,7 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_roles.delete(f"/{resource_key}/roles/{role_key}")
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def assign_permissions(self, resource_key: str, role_key: str, permissions: List[str]) -> ResourceRoleRead:
         """
         Assigns permissions to a resource role.
@@ -212,7 +212,7 @@ class ResourceRolesApi(BasePermitApi):
             json=AddRolePermissions(permissions=permissions),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def remove_permissions(self, resource_key: str, role_key: str, permissions: List[str]) -> ResourceRoleRead:
         """
         Removes permissions from a resource role.
@@ -237,7 +237,7 @@ class ResourceRolesApi(BasePermitApi):
             json=RemoveRolePermissions(permissions=permissions),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create_role_derivation(
         self, resource_key: str, role_key: str, derivation_rule: DerivedRoleRuleCreate
     ) -> DerivedRoleRuleRead:
@@ -266,7 +266,7 @@ class ResourceRolesApi(BasePermitApi):
             json=derivation_rule,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete_role_derivation(
         self, resource_key: str, role_key: str, derivation_rule: DerivedRoleRuleDelete
     ) -> None:
@@ -289,7 +289,7 @@ class ResourceRolesApi(BasePermitApi):
             json=derivation_rule,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update_role_derivation_conditions(
         self,
         resource_key: str,

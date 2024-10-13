@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
@@ -32,7 +32,7 @@ class RoleAssignmentsApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
             )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(
         self,
         user_key: Optional[Union[str, List[str]]] = None,
@@ -93,7 +93,7 @@ class RoleAssignmentsApi(BasePermitApi):
             params=params,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def assign(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
         """
         Assigns a role to a user in the scope of a given tenant.
@@ -112,7 +112,7 @@ class RoleAssignmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.post("", model=RoleAssignmentRead, json=assignment)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def unassign(self, unassignment: RoleAssignmentRemove) -> None:
         """
         Unassigns a role from a user in the scope of a given tenant.
@@ -128,7 +128,7 @@ class RoleAssignmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.delete("", json=unassignment)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_assign(self, assignments: List[RoleAssignmentCreate]) -> BulkRoleAssignmentReport:
         """
         Assigns multiple roles in bulk using the provided role assignments data.
@@ -152,7 +152,7 @@ class RoleAssignmentsApi(BasePermitApi):
             json=list(assignments),
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def bulk_unassign(self, unassignments: List[RoleAssignmentRemove]) -> BulkRoleUnAssignmentReport:
         """
         Removes multiple role assignments in bulk using the provided unassignment data.

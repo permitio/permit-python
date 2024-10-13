@@ -22,18 +22,18 @@ class AssignedRole(BaseModel):
 class UserInput(UserKey):
     first_name: Optional[str] = Field(None, alias="firstName")
     last_name: Optional[str] = Field(None, alias="lastName")
-    email: Optional[str]
-    roles: Optional[List[AssignedRole]]
-    attributes: Optional[Dict]
+    email: Optional[str] = None
+    roles: Optional[List[AssignedRole]] = None
+    attributes: Optional[Dict] = None
 
 
 class ResourceInput(BaseModel):
     type: str  # namespace/type of resources/objects
-    id: Optional[str]  # id of individual object
-    key: Optional[str]  # key of individual object
-    tenant: Optional[str]  # tenant the resource belongs to
-    attributes: Optional[Dict]  # extra resources attributes
-    context: Optional[Dict]  # extra context
+    id: Optional[str] = None  # id of individual object
+    key: Optional[str] = None  # key of individual object
+    tenant: Optional[str] = None  # tenant the resource belongs to
+    attributes: Optional[Dict] = None  # extra resources attributes
+    context: Optional[Dict] = None  # extra context
 
 
 class OpaResult(BaseModel):
@@ -47,7 +47,7 @@ class AuthorizedUserAssignment(BaseModel):
     role: str = Field(..., description="The role that the user is assigned to")
 
 
-AuthorizedUsersDict = dict[str, list[AuthorizedUserAssignment]]
+AuthorizedUsersDict = Dict[str, List[AuthorizedUserAssignment]]
 
 
 class AuthorizedUsersResult(BaseModel):

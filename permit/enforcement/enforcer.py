@@ -1,6 +1,6 @@
 import json
 from pprint import pformat
-from typing import Union
+from typing import List, Optional, TypedDict, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -25,11 +25,12 @@ User = Union[dict, str]
 Action = str
 Resource = Union[dict, str]
 
-CheckQuery = {
-    "user": User,
-    "action": Action,
-    "resource": Resource,
-}
+
+class CheckQuery(TypedDict):
+    user: User
+    action: Action
+    resource: Resource
+
 
 SETUP_PDP_DOCS_LINK = (
     "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
@@ -65,7 +66,7 @@ class Enforcer:
         self,
         action: Action,
         resource: Resource,
-        context: Context | None = None,
+        context: Optional[Context] = None,
     ) -> AuthorizedUsersResult:
         """
         Queries to get all the users that are authorized to perform an action on a resource within the specified context.
@@ -161,9 +162,9 @@ class Enforcer:
 
     async def bulk_check(
         self,
-        checks: list[CheckQuery],
-        context: Context | None = None,
-    ) -> list[bool]:
+        checks: List[CheckQuery],
+        context: Optional[Context] = None,
+    ) -> List[bool]:
         """
         Checks if a user is authorized to perform an action on a resource within the specified context.
 
@@ -252,7 +253,7 @@ class Enforcer:
                         f"response data: {pformat(content, indent=2)}"
                     )
                     data = content.get("allow", content.get("result", {}).get("allow", []))
-                    decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
+                    decisions: List[bool] = [bool(item.get("allow", False)) for item in data]
             except aiohttp.ClientError as err:
                 msg = "error in permit.check({}):\n{}".format(
                     (
@@ -276,7 +277,7 @@ class Enforcer:
         user: User,
         action: Action,
         resource: Resource,
-        context: Context | None = None,
+        context: Optional[Context] = None,
     ) -> bool:
         """
         Checks if a user is authorized to perform an action on a resource within the specified context.

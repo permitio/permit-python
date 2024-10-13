@@ -51,11 +51,11 @@ class PermitConfig(BaseModel):
         description="configuration of default tenant assignment for RBAC",
     )
     api_context: ApiContext = Field(ApiContext(), description="represents the current API key authorization level.")
-    api_timeout: int = Field(
+    api_timeout: Optional[int] = Field(
         default=None,
         description="The timeout in seconds for requests to the Permit REST API.",
     )
-    pdp_timeout: int = Field(
+    pdp_timeout: Optional[int] = Field(
         default=None,
         description="The timeout in seconds for requests to the PDP.",
     )

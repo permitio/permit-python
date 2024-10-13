@@ -36,4 +36,4 @@ class SyncPDPApi(PermitPdpApiClient):
 
     @property
     def role_assignments(self) -> SyncRoleAssignmentsApi:
-        return self._role_assignments
+        return self._role_assignments  # type: ignore[return-value]

@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
@@ -27,7 +27,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionGroupRead]:
         """
         Retrieves a list of action groups.
@@ -58,7 +58,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             model=ResourceActionGroupRead,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its key.
@@ -78,7 +78,7 @@ class ResourceActionGroupsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, group_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its key.
@@ -99,7 +99,7 @@ class ResourceActionGroupsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, group_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, resource_id: str, group_id: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its ID.
@@ -120,7 +120,7 @@ class ResourceActionGroupsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, group_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, resource_key: str, group_data: ResourceActionGroupCreate) -> ResourceActionGroupRead:
         """
         Creates a new action group.
@@ -144,7 +144,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             json=group_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(
         self, resource_key: str, group_key: str, group_data: ResourceActionGroupUpdate
     ) -> ResourceActionGroupRead:
@@ -171,7 +171,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             json=group_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, resource_key: str, group_key: str) -> None:
         """
         Deletes a action group.

@@ -5,7 +5,7 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
-    from pydantic.v1 import validate_arguments  # type: ignore
+    from pydantic.v1 import validate_arguments
 
 from .base import (
     BasePermitApi,
@@ -23,7 +23,7 @@ class ResourcesApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def list(self, page: int = 1, per_page: int = 100) -> List[ResourceRead]:
         """
         Retrieves a list of resources.
@@ -50,7 +50,7 @@ class ResourcesApi(BasePermitApi):
     async def _get(self, resource_key: str) -> ResourceRead:
         return await self.__resources.get(f"/{resource_key}", model=ResourceRead)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get(self, resource_key: str) -> ResourceRead:
         """
         Retrieves a resource by its key.
@@ -69,7 +69,7 @@ class ResourcesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, resource_key: str) -> ResourceRead:
         """
         Retrieves a resource by its key.
@@ -89,7 +89,7 @@ class ResourcesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def get_by_id(self, resource_id: str) -> ResourceRead:
         """
         Retrieves a resource by its ID.
@@ -109,7 +109,7 @@ class ResourcesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def create(self, resource_data: ResourceCreate) -> ResourceRead:
         """
         Creates a new resource.
@@ -128,7 +128,7 @@ class ResourcesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resources.post("", model=ResourceRead, json=resource_data)
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def update(self, resource_key: str, resource_data: ResourceUpdate) -> ResourceRead:
         """
         Updates a resource.
@@ -152,7 +152,7 @@ class ResourcesApi(BasePermitApi):
             json=resource_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def replace(self, resource_key: str, resource_data: ResourceReplace) -> ResourceRead:
         """
         Creates a resource if no such resource exists, otherwise completely replaces the resource in place.
@@ -176,7 +176,7 @@ class ResourcesApi(BasePermitApi):
             json=resource_data,
         )
 
-    @validate_arguments
+    @validate_arguments  # type: ignore[operator]
     async def delete(self, resource_key: str) -> None:
         """
         Deletes a resource.
