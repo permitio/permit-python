@@ -7,7 +7,6 @@ if PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments  # type: ignore
 
-from ..config import PermitConfig
 from .base import (
     BasePermitApi,
     SimpleHttpClient,
@@ -32,10 +31,7 @@ class RoleAssignmentsApi(BasePermitApi):
             return self._build_http_client("/facts/role_assignments", use_pdp=True)
         else:
             return self._build_http_client(
-                "/v2/facts/{proj_id}/{env_id}/role_assignments".format(
-                    proj_id=self.config.api_context.project,
-                    env_id=self.config.api_context.environment,
-                )
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
             )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -69,7 +65,7 @@ class RoleAssignmentsApi(BasePermitApi):
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """
+        """  # noqa: E501
         params = list(pagination_params(page, per_page).items())
         if user_key is not None:
             if isinstance(user_key, list):
@@ -155,7 +151,7 @@ class RoleAssignmentsApi(BasePermitApi):
         return await self.__role_assignments.post(
             "/bulk",
             model=BulkRoleAssignmentReport,
-            json=[assignment for assignment in assignments],
+            json=list(assignments),
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -179,5 +175,5 @@ class RoleAssignmentsApi(BasePermitApi):
         return await self.__role_assignments.delete(
             "/bulk",
             model=BulkRoleUnAssignmentReport,
-            json=[unassignment for unassignment in unassignments],
+            json=list(unassignments),
         )

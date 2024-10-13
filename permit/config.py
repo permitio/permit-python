@@ -10,14 +10,14 @@ else:
 
 
 class LoggerConfig(BaseModel):
-    enable: bool = Field(False, description="Whether or not to enable logging from the Permit library")
-    level: str = Field("info", description="Sets the log level configured for the Permit SDK Logger.")
+    enable: bool = Field(default=False, description="Whether or not to enable logging from the Permit library")
+    level: str = Field(default="info", description="Sets the log level configured for the Permit SDK Logger.")
     label: str = Field(
-        "Permit",
+        default="Permit",
         description="Sets the label configured for logs emitted by the Permit SDK Logger.",
     )
     log_as_json: bool = Field(
-        False,
+        default=False,
         alias="json",
         description="Sets whether the SDK log output should be in JSON format.",
     )
@@ -25,11 +25,11 @@ class LoggerConfig(BaseModel):
 
 class MultiTenancyConfig(BaseModel):
     default_tenant: str = Field(
-        "default",
+        default="default",
         description="the key of the default tenant to be used if use_default_tenant_if_empty == True",
     )
     use_default_tenant_if_empty: bool = Field(
-        True,
+        default=True,
         description="whether or not the SDK should automatically associate a resource with the defaultTenant "
         + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
     )
@@ -37,14 +37,14 @@ class MultiTenancyConfig(BaseModel):
 
 class PermitConfig(BaseModel):
     token: str = Field(
-        ...,
+        default=...,
         description="The token (API Key) used for authorization against the PDP and the Permit REST API.",
     )
     pdp: str = Field(
-        "http://localhost:7766",
+        default="http://localhost:7766",
         description="Configures the Policy Decision Point (PDP) url.",
     )
-    api_url: str = Field("https://api.permit.io", description="The url of Permit REST API")
+    api_url: str = Field(default="https://api.permit.io", description="The url of Permit REST API")
     log: LoggerConfig = Field(LoggerConfig(), description="the logger configuration used by the SDK")
     multi_tenancy: MultiTenancyConfig = Field(
         MultiTenancyConfig(),
@@ -52,19 +52,19 @@ class PermitConfig(BaseModel):
     )
     api_context: ApiContext = Field(ApiContext(), description="represents the current API key authorization level.")
     api_timeout: int = Field(
-        None,
+        default=None,
         description="The timeout in seconds for requests to the Permit REST API.",
     )
     pdp_timeout: int = Field(
-        None,
+        default=None,
         description="The timeout in seconds for requests to the PDP.",
     )
     proxy_facts_via_pdp: bool = Field(
-        False,
+        default=False,
         description="Create facts via the PDP API instead of using the default Permit REST API.",
     )
     facts_sync_timeout: Optional[float] = Field(
-        None,
+        default=None,
         description="The amount of time in seconds to wait for facts to be available "
         "in the PDP cache before returning the response.",
     )

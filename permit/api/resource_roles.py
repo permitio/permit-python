@@ -36,10 +36,7 @@ class ResourceRolesApi(BasePermitApi):
     @property
     def __resource_roles(self) -> SimpleHttpClient:
         return self._build_http_client(
-            "/v2/schema/{proj_id}/{env_id}/resources".format(
-                proj_id=self.config.api_context.project,
-                env_id=self.config.api_context.environment,
-            )
+            f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
     @required_permissions(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
@@ -264,7 +261,7 @@ class ResourceRolesApi(BasePermitApi):
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """
+        """  # noqa: E501
         return await self.__resource_roles.post(
             f"/{resource_key}/roles/{role_key}/implicit_grants",
             model=DerivedRoleRuleRead,

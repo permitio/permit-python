@@ -4,9 +4,9 @@ from permit import PYDANTIC_VERSION, PermitConfig
 from permit.api.base import SimpleHttpClient
 
 if PYDANTIC_VERSION < (2, 0):
-    from pydantic import BaseModel, Extra, Field, parse_obj_as
+    from pydantic import BaseModel, Extra, Field
 else:
-    from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as  # type: ignore
+    from pydantic.v1 import BaseModel, Extra, Field  # type: ignore
 
 
 T = TypeVar("T", bound=Callable)

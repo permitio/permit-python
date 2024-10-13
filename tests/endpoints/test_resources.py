@@ -1,9 +1,9 @@
 import pytest
 from loguru import logger
+from tests.utils import handle_api_error
 
 from permit import Permit
 from permit.exceptions import PermitApiError, PermitConnectionError
-from tests.utils import handle_api_error
 
 TEST_RESOURCE_DOC_KEY = "documento"
 TEST_RESOURCE_FOLDER_KEY = "foldero"
@@ -41,7 +41,7 @@ async def test_resources(permit: Permit):
         assert test_resource.urn == "prn:gdrive:test"
         assert test_resource.actions is not None
         assert len(test_resource.actions) == 4
-        assert set(test_resource.actions.keys()) == set(["create", "read", "update", "delete"])
+        assert set(test_resource.actions.keys()) == {"create", "read", "update", "delete"}
 
         # increased number of items by 1
         resources = await permit.api.resources.list()
@@ -99,9 +99,9 @@ async def test_resources(permit: Permit):
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -112,8 +112,8 @@ async def test_resources(permit: Permit):
             assert len(await permit.api.resources.list()) == len_original
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

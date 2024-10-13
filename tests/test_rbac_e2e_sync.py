@@ -13,7 +13,7 @@ from .utils import handle_api_error
 
 
 def print_break():
-    print("\n\n ----------- \n\n")
+    print("\n\n ----------- \n\n")  # noqa: T201
 
 
 def test_permission_check_e2e(sync_permit: SyncPermit):
@@ -178,7 +178,8 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
 
         # negative permission check (will be False because a viewer cannot create a document)
         logger.info("testing negative permission check")
-        assert (permit.check(user.key, "create", {"type": document.key, "tenant": tenant.key})) == False
+        check = permit.check(user.key, "create", {"type": document.key, "tenant": tenant.key})
+        assert not check
 
         print_break()
 
@@ -253,9 +254,9 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -272,8 +273,8 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
             assert len((permit.api.users.list()).data) == 0
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

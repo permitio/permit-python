@@ -5,7 +5,7 @@ import aiohttp
 from loguru import logger
 
 
-class PermitException(Exception):
+class PermitException(Exception):  # noqa: N818
     """Permit base exception"""
 
 
@@ -27,17 +27,13 @@ class PermitContextError(Exception):
     If the context is missing some data required for a method - the api call will fail.
     """
 
-    pass
-
 
 class PermitContextChangeError(Exception):
     """
     The `PermitContextChangeError` will be thrown when the user is trying to set the
     SDK context to an object that the current API Key cannot access (and if allowed,
-    such api calls will result is 401). Instead the SDK throws this exception.
+    such api calls will result is 401). Instead, the SDK throws this exception.
     """
-
-    pass
 
 
 class PermitApiError(Exception):
@@ -129,7 +125,7 @@ def handle_client_error(func):
         try:
             return await func(*args, **kwargs)
         except aiohttp.ClientError as err:
-            logger.error("got client error while sending an http request:\n{}".format(err))
-            raise PermitConnectionError(f"{err}", error=err)
+            logger.error(f"got client error while sending an http request:\n{err}")
+            raise PermitConnectionError(f"{err}", error=err) from err
 
     return wrapped

@@ -1,11 +1,10 @@
 import asyncio
 import time
-from typing import AsyncIterable, List
+from typing import AsyncIterable, Final, List
 
 import pytest
 from loguru import logger
 from pytest_httpserver import HTTPServer
-from typing_extensions import Final
 from werkzeug import Request, Response
 
 from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
@@ -16,7 +15,7 @@ from .utils import handle_api_error
 
 
 def print_break():
-    print("\n\n ----------- \n\n")
+    print("\n\n ----------- \n\n")  # noqa: T201
 
 
 TEST_TIMEOUT = 1
@@ -44,7 +43,7 @@ TENANT_KEY: Final[str] = "tesla"
 USER_KEY: Final[str] = "auth0|elon"
 
 
-def sleeping(request: Request):
+def sleeping(request: Request):  # noqa: ARG001
     time.sleep(TEST_TIMEOUT + 1)
     return Response("OK", status=200)
 
@@ -104,9 +103,6 @@ async def setup_env(
     permit: Permit,
 ) -> AsyncIterable[tuple[ResourceRead, RoleRead, RoleRead]]:
     logger.info("initial setup of objects")
-    is_document_created = False
-    is_admin_created = False
-    is_viewer_created = False
     try:
         document = await permit.api.resources.create(
             {
@@ -128,7 +124,6 @@ async def setup_env(
                 },
             }
         )
-        is_document_created = True
         # verify create output
         assert document is not None
         assert document.id is not None
@@ -158,7 +153,6 @@ async def setup_env(
                 "permissions": ADMIN_ROLE_PERMISSIONS,
             }
         )
-        is_admin_created = True
         assert admin is not None
         assert admin.key == ADMIN_ROLE_KEY
         assert admin.name == "Admin"
@@ -175,7 +169,6 @@ async def setup_env(
                 "description": "an viewer role",
             }
         )
-        is_viewer_created = True
         assert viewer is not None
         assert viewer.key == VIEWER_ROLE_KEY
         assert viewer.name == "Viewer"
@@ -202,9 +195,9 @@ async def setup_env(
             assert len(await permit.api.roles.list()) == 0
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")
 
@@ -268,7 +261,7 @@ async def test_permission_check_e2e(
         assert ra.tenant == tenant.key
 
         logger.info("sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP")
-        time.sleep(2)
+        await asyncio.sleep(2)
 
         # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
         logger.info("testing positive permission check")
@@ -296,13 +289,11 @@ async def test_permission_check_e2e(
 
         # negative permission check (will be False because a viewer cannot create a document)
         logger.info("testing negative permission check")
-        assert (
-            await permit.check(
-                user.key,
-                RESOURCE_CREATE_ACTION,
-                {"type": document.key, "tenant": tenant.key},
-            )
-        ) == False
+        assert not await permit.check(
+            user.key,
+            RESOURCE_CREATE_ACTION,
+            {"type": document.key, "tenant": tenant.key},
+        )
 
         print_break()
 
@@ -372,7 +363,7 @@ async def test_permission_check_e2e(
         assert assigned_roles[0].tenant_id == tenant.id
 
         logger.info("sleeping 2 seconds before permit.check() to make sure all writes propagated from cloud to PDP")
-        time.sleep(2)
+        await asyncio.sleep(2)
 
         # run the same negative permission check again, this time it's True
         logger.info("testing previously negative permission check, should now be positive")
@@ -390,7 +381,7 @@ async def test_permission_check_e2e(
         assert authorized_users.tenant == tenant.key
         assert authorized_users.resource == f"{document.key}:*"
         assert len(authorized_users.users) == 1
-        assert user.key in authorized_users.users.keys()
+        assert user.key in authorized_users.users
         assignments_authorized = authorized_users.users[user.key]
         assert len(assignments_authorized) == 1
         assert assignments_authorized[0].user == user.key
@@ -400,9 +391,9 @@ async def test_permission_check_e2e(
         print_break()
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -414,9 +405,9 @@ async def test_permission_check_e2e(
             assert len((await permit.api.users.list()).data) == 0
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")
 
@@ -507,13 +498,11 @@ async def test_local_facts_uploader_permission_check_e2e(
 
             # negative permission check (will be False because a viewer cannot create a document)
             logger.info("testing negative permission check")
-            assert (
-                await permit.check(
-                    user.key,
-                    RESOURCE_CREATE_ACTION,
-                    {"type": document.key, "tenant": tenant.key},
-                )
-            ) == False
+            assert not await permit.check(
+                user.key,
+                RESOURCE_CREATE_ACTION,
+                {"type": document.key, "tenant": tenant.key},
+            )
 
             print_break()
 
@@ -590,7 +579,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert authorized_users.tenant == tenant.key
             assert authorized_users.resource == f"{document.key}:*"
             assert len(authorized_users.users) == 1
-            assert user.key in authorized_users.users.keys()
+            assert user.key in authorized_users.users
             assignments_authorized = authorized_users.users[user.key]
             assert len(assignments_authorized) == 1
             assert assignments_authorized[0].user == user.key
@@ -600,7 +589,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             print_break()
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except PermitConnectionError as error:
+    except PermitConnectionError:
         raise
     except Exception as error:
         logger.error(f"Got error: {error}")
@@ -614,8 +603,8 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert len((await permit.api.users.list()).data) == 0
         except PermitApiError as error:
             handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError as error:
+        except PermitConnectionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             logger.error(f"Got error during cleanup: {error}")
             pytest.fail(f"Got error during cleanup: {error}")

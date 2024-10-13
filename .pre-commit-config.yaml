@@ -18,6 +18,9 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:
+      - id: ruff
+        files: \.py$
+        types: [ file ]
       - id: ruff-format
         files: \.py$
         types: [ file ]

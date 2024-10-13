@@ -1,11 +1,9 @@
 import functools
-from contextlib import contextmanager
-from typing import Callable, Iterable, Optional, Type, TypeVar, Union
+from typing import Callable, Optional, Type, TypeVar, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
-from typing_extensions import Self
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -86,10 +84,10 @@ class SimpleHttpClient:
             self._client_config["timeout"] = ClientTimeout(total=timeout)
 
     def _log_request(self, url: str, method: str) -> None:
-        logger.debug("Sending HTTP request: {} {}".format(method, url))
+        logger.debug(f"Sending HTTP request: {method} {url}")
 
     def _log_response(self, url: str, method: str, status: int) -> None:
-        logger.debug("Received HTTP response: {} {}, status: {}".format(method, url, status))
+        logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
     def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[dict]:
         if json is None:
@@ -279,8 +277,9 @@ class BasePermitApi:
                 self.config.api_context.permitted_access_level
             ):
                 raise PermitContextError(
-                    f"You're trying to use an SDK method that requires an API Key with access level: {required_access_level}, "
-                    + f"however the SDK is running with an API key with level {self.config.api_context.permitted_access_level}."
+                    f"You're trying to use an SDK method that requires an API Key "
+                    f"with access level: {required_access_level}, however the SDK is running "
+                    f"with an API key with level {self.config.api_context.permitted_access_level}."
                 )
             return
 

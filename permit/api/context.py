@@ -203,7 +203,8 @@ class ApiContext:
         self.__verify_can_access_project(org, project)
         if self._permitted_environment is not None and environment != self._permitted_environment:
             raise PermitContextChangeError(
-                f"You cannot set an SDK context with environment '{environment}' due to insufficient API Key permissions"
+                f"You cannot set an SDK context with environment '{environment}' "
+                f"due to insufficient API Key permissions"
             )
 
     def set_organization_level_context(self, org: str):
