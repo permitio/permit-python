@@ -18,7 +18,7 @@ from .models import (
     DerivedRoleRuleCreate,
     DerivedRoleRuleDelete,
     DerivedRoleRuleRead,
-    PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
+    PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings,
     RemoveRolePermissions,
     ResourceRoleCreate,
     ResourceRoleRead,
@@ -294,8 +294,8 @@ class ResourceRolesApi(BasePermitApi):
         self,
         resource_key: str,
         role_key: str,
-        conditions: PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
-    ) -> PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings:
+        conditions: PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings,
+    ) -> PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings:
         """
         Update the optional (ABAC) conditions when to derive this role from other roles.
 
@@ -312,6 +312,6 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_roles.put(
             f"/{resource_key}/roles/{role_key}/implicit_grants/conditions",
-            model=PermitBackendSchemasSchemaDerivedRoleDerivedRoleSettings,
+            model=PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings,
             json=conditions,
         )
