@@ -3,14 +3,20 @@ from typing import Optional
 
 import aiohttp
 from loguru import logger
+from typing_extensions import deprecated
 
 from permit import ErrorDetails, HTTPValidationError
 
 DEFAULT_SUPPORT_LINK = "https://permit-io.slack.com/ssb/redirect"
 
 
-class PermitException(Exception):  # noqa: N818
+class PermitError(Exception):
     """Permit base exception"""
+
+
+@deprecated("Use PermitError instead")
+class PermitException(PermitError):  # noqa: N818
+    """Permit base exception (deprecated, use PermitError instead)"""
 
 
 class PermitConnectionError(PermitException):
@@ -21,7 +27,7 @@ class PermitConnectionError(PermitException):
         self.original_error = error
 
 
-class PermitContextError(Exception):
+class PermitContextError(PermitError):
     """
     The `PermitContextError` class represents an error that occurs when an API method
     is called with insufficient context (not knowing in what environment, project or
@@ -32,7 +38,7 @@ class PermitContextError(Exception):
     """
 
 
-class PermitContextChangeError(Exception):
+class PermitContextChangeError(PermitError):
     """
     The `PermitContextChangeError` will be thrown when the user is trying to set the
     SDK context to an object that the current API Key cannot access (and if allowed,
@@ -40,7 +46,7 @@ class PermitContextChangeError(Exception):
     """
 
 
-class PermitApiError(Exception):
+class PermitApiError(PermitError):
     """
     Wraps an error HTTP Response that occurred during a Permit REST API request.
     """
