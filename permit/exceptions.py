@@ -4,6 +4,10 @@ from typing import Optional
 import aiohttp
 from loguru import logger
 
+from permit import ErrorDetails, HTTPValidationError
+
+DEFAULT_SUPPORT_LINK = "https://permit-io.slack.com/ssb/redirect"
+
 
 class PermitException(Exception):  # noqa: N818
     """Permit base exception"""
@@ -38,18 +42,27 @@ class PermitContextChangeError(Exception):
 
 class PermitApiError(Exception):
     """
-    Wraps an error HTTP Response that occured during a Permit REST API request.
+    Wraps an error HTTP Response that occurred during a Permit REST API request.
     """
 
     def __init__(
         self,
-        message: str,
         response: aiohttp.ClientResponse,
-        response_json: Optional[dict] = None,
+        body: Optional[dict] = None,
     ):
-        super().__init__(message)
+        super().__init__()
         self._response = response
-        self._response_json = response_json
+        self._body = body
+
+    def _get_message(self) -> str:
+        return f"{self.status_code} API Error: {self.details}"
+
+    def __str__(self):
+        return self._get_message()
+
+    @property
+    def message(self) -> str:
+        return self._get_message()
 
     @property
     def response(self) -> aiohttp.ClientResponse:
@@ -69,7 +82,7 @@ class PermitApiError(Exception):
         Returns:
             The HTTP response json. If no content will return None.
         """
-        return self._response_json
+        return self._body
 
     @property
     def request_url(self) -> str:
@@ -102,21 +115,110 @@ class PermitApiError(Exception):
         return self._response.headers.get("content-type")
 
 
-async def handle_api_error(response: aiohttp.ClientResponse):
-    if response.status < 200 or response.status >= 400:
-        # handle non-json errors (can be returned by load balancer)
-        content_type = response.headers.get("content-type")
-        if content_type is not None and content_type.lower() != "application/json":
-            error_string = await response.text()
-            raise PermitApiError(
-                f"{response.status} API Error",
-                response,
-                {"status_code": response.status, "error": error_string},
-            )
+class PermitValidationError(PermitApiError):
+    """
+    Validation error response from the Permit API.
+    """
 
-        # fallback to handle json errors
+    def __init__(self, response: aiohttp.ClientResponse, body: dict):
+        self._content = HTTPValidationError.parse_obj(body)
+        super().__init__(response, body)
+
+    def _get_message(self) -> str:
+        message = "Validation error\n"
+        for error in self.content.detail or []:
+            location = " -> ".join(str(loc) for loc in error.loc)
+            message += f"{location}\n\t{error.msg} ({error.type})\n"
+
+        return message
+
+    @property
+    def content(self) -> HTTPValidationError:
+        return self._content
+
+
+class PermitApiDetailedError(PermitApiError):
+    """
+    Detailed error response from the Permit API.
+    """
+
+    def __init__(self, response: aiohttp.ClientResponse, body: dict):
+        self._content = ErrorDetails.parse_obj(body)
+        super().__init__(response, body)
+
+    def _get_message(self) -> str:
+        message = f"{self.content.title} ({self.content.error_code})\n"
+        if self.content.message:
+            split_message = self.content.message.replace(". ", ".\n")
+            message += f"{split_message}\n"
+        message += f"For more information: {self.support_link} (Request ID: {self.id})"
+        return message
+
+    @property
+    def content(self) -> ErrorDetails:
+        return self._content
+
+    @property
+    def id(self) -> str:
+        return self.content.id
+
+    @property
+    def code(self) -> str:
+        return self.content.error_code.value
+
+    @property
+    def title(self) -> str:
+        return self.content.title
+
+    @property
+    def explanation(self) -> str:
+        return self.content.message or "No further explanation provided"
+
+    @property
+    def support_link(self) -> str:
+        return str(self.content.support_link or DEFAULT_SUPPORT_LINK)
+
+    @property
+    def additional_info(self):
+        return self.content.additional_info
+
+
+class PermitAlreadyExistsError(PermitApiDetailedError):
+    """
+    Object already exists response from the Permit API.
+    """
+
+
+class PermitNotFoundError(PermitApiDetailedError):
+    """
+    Object not found response from the Permit API.
+    """
+
+
+async def handle_api_error(response: aiohttp.ClientResponse):
+    if 200 <= response.status < 400:
+        return
+
+    try:
         json = await response.json()
-        raise PermitApiError(f"{response.status} API error", response, json)
+    except aiohttp.ContentTypeError as e:
+        text = await response.text()
+        raise PermitApiError(response, {"details": text}) from e
+
+    try:
+        if response.status == 422:
+            raise PermitValidationError(response, json)
+        elif response.status == 409:
+            raise PermitAlreadyExistsError(response, json)
+        elif response.status == 404:
+            raise PermitNotFoundError(response, json)
+        else:
+            raise PermitApiDetailedError(response, json)
+    except PermitApiError as e:
+        raise e
+    except Exception as e:
+        logger.exception(f"Failed to create specific error class for status {response.status}: {e}")
+        raise PermitApiError(response, json) from e
 
 
 def handle_client_error(func):
