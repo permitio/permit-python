@@ -211,20 +211,14 @@ async def handle_api_error(response: aiohttp.ClientResponse):
         text = await response.text()
         raise PermitApiError(response, {"details": text}) from e
 
-    try:
-        if response.status == 422:
-            raise PermitValidationError(response, json)
-        elif response.status == 409:
-            raise PermitAlreadyExistsError(response, json)
-        elif response.status == 404:
-            raise PermitNotFoundError(response, json)
-        else:
-            raise PermitApiDetailedError(response, json)
-    except PermitApiError as e:
-        raise e
-    except Exception as e:
-        logger.exception(f"Failed to create specific error class for status {response.status}: {e}")
-        raise PermitApiError(response, json) from e
+    if response.status == 422:
+        raise PermitValidationError(response, json)
+    elif response.status == 409:
+        raise PermitAlreadyExistsError(response, json)
+    elif response.status == 404:
+        raise PermitNotFoundError(response, json)
+    else:
+        raise PermitApiDetailedError(response, json)
 
 
 def handle_client_error(func):

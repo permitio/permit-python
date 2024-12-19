@@ -1,6 +1,6 @@
-import pytest
+import uuid
+
 from loguru import logger
-from tests.utils import handle_api_error
 
 from permit import Permit, RoleCreate, TenantCreate, UserCreate
 from permit.api.models import (
@@ -8,7 +8,7 @@ from permit.api.models import (
     ResourceInstanceCreate,
     RoleAssignmentCreate,
 )
-from permit.exceptions import PermitApiError, PermitConnectionError
+from permit.exceptions import PermitAlreadyExistsError
 
 # Schema ----------------------------------------------------------------
 EDITOR = "editor"
@@ -45,31 +45,30 @@ ACCOUNT = ResourceCreate(
     },
 )
 
-
 USER_A = UserCreate(
-    key="auth0|asaf",
+    key=str(uuid.uuid4()),
     email="asaf@permit.io",
     first_name="Asaf",
     last_name="Cohen",
     attributes={"age": 35},
 )
 USER_B = UserCreate(
-    key="auth0|john",
+    key=str(uuid.uuid4()),
     email="john@permit.io",
     first_name="John",
     last_name="Doe",
     attributes={"age": 27},
 )
 USER_C = UserCreate(
-    key="auth0|jane",
+    key=str(uuid.uuid4()),
     email="jane@permit.io",
     first_name="Jane",
     last_name="Doe",
     attributes={"age": 25},
 )
 
-TENANT_1 = TenantCreate(key="ten1", name="Tenant 1")
-TENANT_2 = TenantCreate(key="ten2", name="Tenant 2")
+TENANT_1 = TenantCreate(key=str(uuid.uuid4()), name="Tenant 1")
+TENANT_2 = TenantCreate(key=str(uuid.uuid4()), name="Tenant 2")
 
 ADMIN = RoleCreate(
     key="admin",
@@ -88,19 +87,19 @@ CREATED_TENANTS = [TENANT_1, TENANT_2]
 
 ACC1 = ResourceInstanceCreate(
     resource=ACCOUNT.key,
-    key="acc1",
+    key=str(uuid.uuid4()),
     tenant=TENANT_1.key,
 )
 
 ACC2 = ResourceInstanceCreate(
     resource=ACCOUNT.key,
-    key="acc2",
+    key=str(uuid.uuid4()),
     tenant=TENANT_1.key,
 )
 
 ACC3 = ResourceInstanceCreate(
     resource=ACCOUNT.key,
-    key="acc3",
+    key=str(uuid.uuid4()),
     tenant=TENANT_2.key,
 )
 
@@ -137,101 +136,98 @@ CREATED_ASSIGNMENTS = [
 
 
 async def test_bulk_operations(permit: Permit):
+    ## create resource  and global role ------------------------------------
     try:
-        ## create resource  and global role ------------------------------------
         resource = await permit.api.resources.create(ACCOUNT)
         assert resource is not None
         assert resource.key == ACCOUNT.key
+    except PermitAlreadyExistsError:
+        logger.info("Account resource already exists...")
 
+    try:
         role = await permit.api.roles.create(ADMIN)
         assert role is not None
         assert role.key == ADMIN.key
+    except PermitAlreadyExistsError:
+        logger.info("Admin role already exists...")
 
-        ## bulk create tenants ------------------------------------
+    ## bulk create tenants ------------------------------------
 
-        # initial number of tenants
-        tenants = await permit.api.tenants.list()
-        len_tenants_original = len(tenants)
+    # initial number of tenants
+    tenants = await permit.api.tenants.list()
+    len_tenants_original = len(tenants)
 
-        # create tenants in bulk
-        await permit.api.tenants.bulk_create(CREATED_TENANTS)
+    # create tenants in bulk
+    await permit.api.tenants.bulk_create(CREATED_TENANTS)
 
-        # check increased number of tenants
-        tenants = await permit.api.tenants.list()
-        assert len(tenants) == len_tenants_original + len(CREATED_TENANTS)
+    # check increased number of tenants
+    tenants = await permit.api.tenants.list()
+    assert len(tenants) == len_tenants_original + len(CREATED_TENANTS)
 
-        ## bulk create users ------------------------------------
+    ## bulk create users ------------------------------------
 
-        # initial number of users
-        users = (await permit.api.users.list()).data
-        len_users_original = len(users)
+    # initial number of users
+    users = (await permit.api.users.list()).data
+    len_users_original = len(users)
 
-        # create users in bulk
-        await permit.api.users.bulk_create(CREATED_USERS)
+    # create users in bulk
+    await permit.api.users.bulk_create(CREATED_USERS)
 
-        # check increased number of users
-        users = (await permit.api.users.list()).data
-        assert len(users) == len_users_original + len(CREATED_USERS)
+    # check increased number of users
+    users = (await permit.api.users.list()).data
+    assert len(users) == len_users_original + len(CREATED_USERS)
 
-        ## bulk create resource instances ------------------------------------
-        # initial number of users
-        instances = await permit.api.resource_instances.list()
-        len_instances_original = len(instances)
+    ## bulk create resource instances ------------------------------------
+    # initial number of users
+    instances = await permit.api.resource_instances.list()
+    len_instances_original = len(instances)
 
-        # create instances in bulk (keep one to create implicitly by role assignment)
-        await permit.api.resource_instances.bulk_replace(CREATED_RESOURCE_INSTANCES[:-1])
+    # create instances in bulk (keep one to create implicitly by role assignment)
+    await permit.api.resource_instances.bulk_replace(CREATED_RESOURCE_INSTANCES[:-1])
 
-        # check increased number of instances
-        instances = await permit.api.resource_instances.list()
-        assert len(instances) == len_instances_original + len(CREATED_RESOURCE_INSTANCES) - 1
+    # check increased number of instances
+    instances = await permit.api.resource_instances.list()
+    assert len(instances) == len_instances_original + len(CREATED_RESOURCE_INSTANCES) - 1
 
-        ## bulk create role assignments ------------------------------------
+    ## bulk create role assignments ------------------------------------
 
-        # initial number of role assignments
-        assignments = await permit.api.role_assignments.list()
-        len_assignments_original = len(assignments)
+    # initial number of role assignments
+    assignments = await permit.api.role_assignments.list()
+    len_assignments_original = len(assignments)
 
-        # create role assignments in bulk
-        await permit.api.role_assignments.bulk_assign(CREATED_ASSIGNMENTS)
+    # create role assignments in bulk
+    await permit.api.role_assignments.bulk_assign(CREATED_ASSIGNMENTS)
 
-        # check increased number of role assignments
-        assignments = await permit.api.role_assignments.list()
-        assert len(assignments) == len_assignments_original + len(CREATED_ASSIGNMENTS)
+    # check increased number of role assignments
+    assignments = await permit.api.role_assignments.list()
+    assert len(assignments) == len_assignments_original + len(CREATED_ASSIGNMENTS)
 
-        # check that instance created implicitly
-        instances = await permit.api.resource_instances.list()
-        assert len(instances) == len_instances_original + len(CREATED_RESOURCE_INSTANCES)
+    # check that instance created implicitly
+    instances = await permit.api.resource_instances.list()
+    assert len(instances) == len_instances_original + len(CREATED_RESOURCE_INSTANCES)
 
-        ## bulk delete resource instances -----------------------------------
-        await permit.api.resource_instances.bulk_delete(
-            [f"{inst.resource}:{inst.key}" for inst in CREATED_RESOURCE_INSTANCES]
-        )
+    ## bulk delete resource instances -----------------------------------
+    await permit.api.resource_instances.bulk_delete(
+        [f"{inst.resource}:{inst.key}" for inst in CREATED_RESOURCE_INSTANCES]
+    )
 
-        instances = await permit.api.resource_instances.list()
-        assert len(instances) == len_instances_original
+    instances = await permit.api.resource_instances.list()
+    assert len(instances) == len_instances_original
 
-        assignments = await permit.api.role_assignments.list()
-        assert len(assignments) == len_assignments_original + 1  # (tenant role)
+    assignments = await permit.api.role_assignments.list()
+    assert len(assignments) == len_assignments_original + 1  # (tenant role)
 
-        ## bulk delete users -----------------------------------
-        await permit.api.users.bulk_delete([user.key for user in CREATED_USERS])
+    ## bulk delete users -----------------------------------
+    await permit.api.users.bulk_delete([user.key for user in CREATED_USERS])
 
-        users = (await permit.api.users.list()).data
-        assert len(users) == len_users_original
+    users = (await permit.api.users.list()).data
+    assert len(users) == len_users_original
 
-        assignments = await permit.api.role_assignments.list()
-        assert len(assignments) == len_assignments_original
+    assignments = await permit.api.role_assignments.list()
+    assert len(assignments) == len_assignments_original + 1  # (tenant role)
 
-        ## bulk delete tenants -----------------------------------
-        await permit.api.tenants.bulk_delete([tenant.key for tenant in CREATED_TENANTS])
+    ## bulk delete tenants -----------------------------------
+    await permit.api.tenants.bulk_delete([tenant.key for tenant in CREATED_TENANTS])
 
-        tenants = await permit.api.tenants.list()
-        assert len(tenants) == len_tenants_original
-
-    except PermitApiError as error:
-        handle_api_error(error, "Got API Error")
-    except PermitConnectionError:
-        raise
-    except Exception as error:  # noqa: BLE001
-        logger.error(f"Got error: {error}")
-        pytest.fail(f"Got error: {error}")
+    tenants = await permit.api.tenants.list()
+    assert len(tenants) == len_tenants_original
