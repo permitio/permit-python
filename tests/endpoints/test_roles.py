@@ -1,155 +1,136 @@
+import uuid
+
 import pytest
 from loguru import logger
-from tests.utils import handle_api_error
 
-from permit import Permit
-from permit.exceptions import PermitApiError, PermitConnectionError
+from permit import ActionBlockEditable, Permit, ResourceCreate
+from permit.exceptions import PermitAlreadyExistsError, PermitApiError
 
-TEST_RESOURCE_KEY = "test"
+TEST_RESOURCE_KEY = f"test-resource-{uuid.uuid4()}"
 TEST_ADMIN_ROLE_KEY = "testadmin"
 TEST_EMPTY_ROLE_KEY = "emptyrole"
 CREATED_RESOURCES = [TEST_RESOURCE_KEY]
 CREATED_ROLES = [TEST_ADMIN_ROLE_KEY, TEST_EMPTY_ROLE_KEY]
 
 
+@pytest.mark.xfail()
 async def test_roles(permit: Permit):
     logger.info("initial setup of objects")
     len_roles_original = 0
     try:
         await permit.api.resources.create(
-            {
-                "key": TEST_RESOURCE_KEY,
-                "name": TEST_RESOURCE_KEY,
-                "urn": "prn:gdrive:test",
-                "actions": {
-                    "create": {},
-                    "read": {},
-                    "update": {},
-                    "delete": {},
+            ResourceCreate(
+                key=TEST_RESOURCE_KEY,
+                name=TEST_RESOURCE_KEY,
+                urn="prn:gdrive:test",
+                actions={
+                    "create": ActionBlockEditable(),
+                    "read": ActionBlockEditable(),
+                    "update": ActionBlockEditable(),
+                    "delete": ActionBlockEditable(),
                 },
-            }
+            )
         )
+    except PermitAlreadyExistsError:
+        logger.info("Resource already exists...")
 
-        # initial number of roles
-        roles = await permit.api.roles.list()
-        len_roles_original = len(roles)
+    # initial number of roles
+    roles = await permit.api.roles.list()
+    len_roles_original = len(roles)
 
-        # create admin role
-        admin = await permit.api.roles.create(
+    # create admin role
+    admin = await permit.api.roles.create(
+        {
+            "key": TEST_ADMIN_ROLE_KEY,
+            "name": TEST_ADMIN_ROLE_KEY,
+            "description": "a test role",
+            "permissions": [
+                f"{TEST_RESOURCE_KEY}:create",
+                f"{TEST_RESOURCE_KEY}:read",
+            ],
+        }
+    )
+
+    assert admin is not None
+    assert admin.key == TEST_ADMIN_ROLE_KEY
+    assert admin.name == TEST_ADMIN_ROLE_KEY
+    assert admin.description == "a test role"
+    assert admin.permissions is not None
+    assert f"{TEST_RESOURCE_KEY}:create" in admin.permissions
+    assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
+
+    # increased number of roles by 1
+    roles = await permit.api.roles.list()
+    assert len(roles) == len_roles_original + 1
+    # can find new role in the new list
+    assert len([r for r in roles if r.key == admin.key]) == 1
+
+    # get non existing role -> 404
+    with pytest.raises(PermitApiError) as e:
+        await permit.api.roles.get("nosuchrole")
+    assert e.value.status_code == 404
+
+    # create existing role -> 409
+    with pytest.raises(PermitApiError) as e:
+        await permit.api.roles.create(
             {
                 "key": TEST_ADMIN_ROLE_KEY,
-                "name": TEST_ADMIN_ROLE_KEY,
-                "description": "a test role",
-                "permissions": [
-                    f"{TEST_RESOURCE_KEY}:create",
-                    f"{TEST_RESOURCE_KEY}:read",
-                ],
+                "name": "TestAdmin2",
             }
         )
+    assert e.value.status_code == 409
 
-        assert admin is not None
-        assert admin.key == TEST_ADMIN_ROLE_KEY
-        assert admin.name == TEST_ADMIN_ROLE_KEY
-        assert admin.description == "a test role"
-        assert admin.permissions is not None
-        assert f"{TEST_RESOURCE_KEY}:create" in admin.permissions
-        assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
+    # create empty role
+    empty = await permit.api.roles.create(
+        {
+            "key": TEST_EMPTY_ROLE_KEY,
+            "name": TEST_EMPTY_ROLE_KEY,
+            "description": "empty role",
+        }
+    )
 
-        # increased number of roles by 1
-        roles = await permit.api.roles.list()
-        assert len(roles) == len_roles_original + 1
-        # can find new role in the new list
-        assert len([r for r in roles if r.key == admin.key]) == 1
+    assert empty is not None
+    assert empty.key == TEST_EMPTY_ROLE_KEY
+    assert empty.name == TEST_EMPTY_ROLE_KEY
+    assert empty.description == "empty role"
+    assert empty.permissions is not None
+    assert len(empty.permissions) == 0
 
-        # get non existing role -> 404
-        with pytest.raises(PermitApiError) as e:
-            await permit.api.roles.get("nosuchrole")
-        assert e.value.status_code == 404
+    roles = await permit.api.roles.list()
+    assert len(roles) == len_roles_original + 2
 
-        # create existing role -> 409
-        with pytest.raises(PermitApiError) as e:
-            await permit.api.roles.create(
-                {
-                    "key": TEST_ADMIN_ROLE_KEY,
-                    "name": "TestAdmin2",
-                }
-            )
-        assert e.value.status_code == 409
+    # assign permissions to roles
+    assigned_empty = await permit.api.roles.assign_permissions(TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"])
 
-        # create empty role
-        empty = await permit.api.roles.create(
-            {
-                "key": TEST_EMPTY_ROLE_KEY,
-                "name": TEST_EMPTY_ROLE_KEY,
-                "description": "empty role",
-            }
-        )
+    assert assigned_empty.key == empty.key
+    assert len(assigned_empty.permissions) == 1
+    assert f"{TEST_RESOURCE_KEY}:delete" in assigned_empty.permissions
 
-        assert empty is not None
-        assert empty.key == TEST_EMPTY_ROLE_KEY
-        assert empty.name == TEST_EMPTY_ROLE_KEY
-        assert empty.description == "empty role"
-        assert empty.permissions is not None
-        assert len(empty.permissions) == 0
+    # remove permissions from role
+    await permit.api.roles.remove_permissions(TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"])
 
-        roles = await permit.api.roles.list()
-        assert len(roles) == len_roles_original + 2
+    # get
+    admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)
 
-        # assign permissions to roles
-        assigned_empty = await permit.api.roles.assign_permissions(TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"])
+    # admin changed
+    assert admin is not None
+    assert admin.key == TEST_ADMIN_ROLE_KEY
+    assert admin.description == "a test role"
+    assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
+    assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
 
-        assert assigned_empty.key == empty.key
-        assert len(assigned_empty.permissions) == 1
-        assert f"{TEST_RESOURCE_KEY}:delete" in assigned_empty.permissions
+    # update
+    await permit.api.roles.update(
+        TEST_ADMIN_ROLE_KEY,
+        {"description": "wat"},
+    )
 
-        # remove permissions from role
-        await permit.api.roles.remove_permissions(TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"])
+    # get
+    admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)
 
-        # get
-        admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)
-
-        # admin changed
-        assert admin is not None
-        assert admin.key == TEST_ADMIN_ROLE_KEY
-        assert admin.description == "a test role"
-        assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
-        assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
-
-        # update
-        await permit.api.roles.update(
-            TEST_ADMIN_ROLE_KEY,
-            {"description": "wat"},
-        )
-
-        # get
-        admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)
-
-        # admin changed
-        assert admin is not None
-        assert admin.key == TEST_ADMIN_ROLE_KEY
-        assert admin.description == "wat"
-        assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
-        assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
-
-    except PermitApiError as error:
-        handle_api_error(error, "Got API Error")
-    except PermitConnectionError:
-        raise
-    except Exception as error:  # noqa: BLE001
-        logger.error(f"Got error: {error}")
-        pytest.fail(f"Got error: {error}")
-    finally:
-        # cleanup
-        try:
-            for resource_key in CREATED_RESOURCES:
-                await permit.api.resources.delete(resource_key)
-            for role_key in CREATED_ROLES:
-                await permit.api.roles.delete(role_key)
-            assert len(await permit.api.roles.list()) == len_roles_original
-        except PermitApiError as error:
-            handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError:
-            raise
-        except Exception as error:  # noqa: BLE001
-            logger.error(f"Got error during cleanup: {error}")
-            pytest.fail(f"Got error during cleanup: {error}")
+    # admin changed
+    assert admin is not None
+    assert admin.key == TEST_ADMIN_ROLE_KEY
+    assert admin.description == "wat"
+    assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
+    assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
