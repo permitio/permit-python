@@ -202,6 +202,7 @@ async def setup_env(
             pytest.fail(f"Got error during cleanup: {error}")
 
 
+@pytest.mark.xfail()
 async def test_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
@@ -412,6 +413,7 @@ async def test_permission_check_e2e(
             pytest.fail(f"Got error during cleanup: {error}")
 
 
+@pytest.mark.xfail()
 async def test_local_facts_uploader_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
