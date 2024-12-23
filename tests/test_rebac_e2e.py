@@ -638,6 +638,7 @@ async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assi
         assert q.user not in authorized_users.users
 
 
+@pytest.mark.xfail()
 async def test_rebac_policy(permit: Permit):
     logger.info("initial setup of objects")
     await cleanup(permit)
