@@ -17,6 +17,14 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     name: pytest
+    services:
+      pdp:
+        image: permitio/pdp-v2:latest
+        ports:
+          - 7766:7000
+        env:
+          PDP_API_KEY: ${{ secrets.PROJECT_API_KEY }}
+          PDP_DEBUG: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,9 +33,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11.8'
-
-      - name: Install Docker
-        uses: docker-practice/actions-setup-docker@master
 
       - name: Creation env ${{ env.ENV_NAME }} under 'Permit.io Tests' workspace
         run: |
@@ -55,12 +60,6 @@ jobs:
           echo "ENV_API_KEY=$(echo "$response" | jq -r '.secret')" >> $GITHUB_ENV
 
           echo "New env api key: $ENV_API_KEY"
-
-      - name: local PDP runnning
-        env:
-          PDP_API_KEY: ${{ env.ENV_API_KEY }}
-          PERMIT_API_KEY: ${{ env.ENV_API_KEY }}
-        run: docker run -d -p 7766:7000 --env PDP_API_KEY=${{ env.ENV_API_KEY }} --env PDP_DEBUG=true permitio/pdp-v2:latest
 
       - name: Test with pytest
         env:

@@ -3,6 +3,7 @@ from typing import Optional
 
 import aiohttp
 from loguru import logger
+from pydantic.v1 import ValidationError
 from typing_extensions import deprecated
 
 from permit import ErrorDetails, HTTPValidationError
@@ -126,8 +127,8 @@ class PermitValidationError(PermitApiError):
     Validation error response from the Permit API.
     """
 
-    def __init__(self, response: aiohttp.ClientResponse, body: dict):
-        self._content = HTTPValidationError.parse_obj(body)
+    def __init__(self, response: aiohttp.ClientResponse, content: HTTPValidationError, body: dict):
+        self._content = content
         super().__init__(response, body)
 
     def _get_message(self) -> str:
@@ -148,8 +149,8 @@ class PermitApiDetailedError(PermitApiError):
     Detailed error response from the Permit API.
     """
 
-    def __init__(self, response: aiohttp.ClientResponse, body: dict):
-        self._content = ErrorDetails.parse_obj(body)
+    def __init__(self, response: aiohttp.ClientResponse, content: ErrorDetails, body: dict):
+        self._content = content
         super().__init__(response, body)
 
     def _get_message(self) -> str:
@@ -211,20 +212,25 @@ async def handle_api_error(response: aiohttp.ClientResponse):
         text = await response.text()
         raise PermitApiError(response, {"details": text}) from e
 
-    try:
-        if response.status == 422:
-            raise PermitValidationError(response, json)
-        elif response.status == 409:
-            raise PermitAlreadyExistsError(response, json)
-        elif response.status == 404:
-            raise PermitNotFoundError(response, json)
+    if response.status == 422:
+        try:
+            validation_content = HTTPValidationError.parse_obj(json)
+        except ValidationError as e:
+            raise PermitApiError(response, json) from e
         else:
-            raise PermitApiDetailedError(response, json)
-    except PermitApiError as e:
-        raise e
-    except Exception as e:
-        logger.exception(f"Failed to create specific error class for status {response.status}: {e}")
+            raise PermitValidationError(response, validation_content, json)
+
+    try:
+        content = ErrorDetails.parse_obj(json)
+    except ValidationError as e:
         raise PermitApiError(response, json) from e
+
+    if response.status == 409:
+        raise PermitAlreadyExistsError(response, content, json)
+    elif response.status == 404:
+        raise PermitNotFoundError(response, content, json)
+    else:
+        raise PermitApiDetailedError(response, content, json)
 
 
 def handle_client_error(func):
