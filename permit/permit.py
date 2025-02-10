@@ -245,9 +245,7 @@ class Permit:
         """
         return await self._enforcer.get_user_permissions(user, tenants, resources, resource_types)
 
-    async def filter_objects(
-        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    async def filter_objects(self, user: User, action: Action, resources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Get all permissions for a user.
 
@@ -264,4 +262,4 @@ class Permit:
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP
         """
-        return await self._enforcer.filter_objects(user, action, context, resources)
+        return await self._enforcer.filter_objects(user, action, resources)

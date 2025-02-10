@@ -423,9 +423,7 @@ class Enforcer:
                     error=err,
                 ) from err
 
-    async def filter_objects(
-        self, user: User, action: Action, _context: Dict[str, str], resources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    async def filter_objects(self, user: User, action: Action, resources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Filter objects based on permissions using bulk check.
         Port of Go's FilterObjects function.
@@ -482,12 +480,6 @@ class Enforcer:
         if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
         return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
-
-    @staticmethod
-    def _user_repr(user: dict) -> str:
-        if user.get("attributes") or user.get("email"):
-            return json.dumps(user)
-        return user["key"]
 
 
 class SyncEnforcer(Enforcer, metaclass=SyncClass):
