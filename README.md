@@ -6,7 +6,7 @@ Python SDK for interacting with the Permit.io full-stack permissions platform.
 ## Installation
 
 ```py
-pip install permit
+pip install permit 
 ```
 
 ## Documentation
