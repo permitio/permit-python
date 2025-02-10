@@ -1,6 +1,6 @@
 import json
 from contextlib import contextmanager
-from typing import Generator, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from loguru import logger
 from typing_extensions import Self
@@ -219,14 +219,13 @@ class Permit:
             await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
         return await self._enforcer.check(user, action, resource, context)
-       
+
     async def get_user_permissions(
         self,
         user: User,
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-        config: dict = {}
     ) -> dict:
         """
         Get all permissions for a user.
@@ -244,28 +243,23 @@ class Permit:
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP
         """
-        return await self._enforcer.get_user_permissions(
-            user, tenants, resources, resource_types, config
-        )
+        return await self._enforcer.get_user_permissions(user, tenants, resources, resource_types)
 
     async def filter_objects(
-        self,
-        user: User,
-        action: Action,
-        context: Context,
-        resources: List[Resource]
-    ) -> List[Resource]:
+        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
-        Filter objects based on user permissions.
+        Get all permissions for a user.
 
         Args:
             user: The user object or user key
-            action: The action to check
-            context: Context for the check
-            resources: List of resources to filter
+            tenants: Optional list of tenants to filter permissions
+            resources: Optional list of resources to filter
+            resource_types: Optional list of resource types to filter
+            config: Optional configuration dictionary
 
         Returns:
-            List[Resource]: Filtered list of resources user has permission to access
+            dict: User permissions per tenant
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP

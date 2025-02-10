@@ -1,6 +1,6 @@
 import json
 from pprint import pformat
-from typing import Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -374,16 +374,14 @@ class Enforcer:
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
                     error=err,
                 ) from err
-    
+
     async def get_user_permissions(
         self,
         user: Union[dict, str],
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-        config: dict = {}
     ) -> dict:
-        """Get all permissions for a user from PDP."""
         input_data = {
             "user": {"key": user} if isinstance(user, str) else user,
             "tenants": tenants,
@@ -406,8 +404,8 @@ class Enforcer:
                         )
 
                     content = await response.json()
-                    permissions = content.get('result', {}).get('permissions', {}) if 'result' in content else content
-                    
+                    permissions = content.get("result", {}).get("permissions", {}) if "result" in content else content
+
                     logger.debug(
                         f"permit.get_user_permissions() response:\n"
                         f"input: {pformat(input_data, indent=2)}\n"
@@ -424,46 +422,37 @@ class Enforcer:
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
                     error=err,
                 ) from err
-   
+
     async def filter_objects(
-        self,
-        user: User,
-        action: Action,
-        context: Dict[str, str],
-        resources: List[Dict]
-    ) -> List[Dict]:
+        self, user: User, action: Action, _context: Dict[str, str], resources: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Filter objects based on permissions using bulk check.
         Port of Go's FilterObjects function.
         """
-        # Create check requests for each resource
-        requests = []
+        requests: List[CheckQuery] = []
         for resource in resources:
-            permit_resource = {
+            permit_resource: Dict[str, Any] = {
                 "type": resource.get("type"),
                 "key": resource.get("key"),
                 "context": resource.get("context", {}),
                 "attributes": resource.get("attributes", {}),
-                "tenant": resource.get("tenant")
+                "tenant": resource.get("tenant"),
             }
-            requests.append({
+            check_query: CheckQuery = {
                 "user": user,
                 "action": action,
                 "resource": permit_resource,
-                "context": context
-            })
+            }
+            requests.append(check_query)
 
-        # Use existing bulk_check
         results = await self.bulk_check(requests)
-
-        # Filter resources based on results
-        filtered_resources = []
+        filtered_resources: List[Dict[str, Any]] = []
         for i, result in enumerate(results):
             if result:
                 filtered_resources.append(resources[i])
-
         return filtered_resources
-    
+
     def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
         normalized_resource: ResourceInput = resource.copy()
         if normalized_resource.context is None:
@@ -493,13 +482,13 @@ class Enforcer:
         if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
         return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
-    
 
     @staticmethod
     def _user_repr(user: dict) -> str:
-        if user.get('attributes') or user.get('email'):
+        if user.get("attributes") or user.get("email"):
             return json.dumps(user)
-        return user['key']
+        return user["key"]
+
 
 class SyncEnforcer(Enforcer, metaclass=SyncClass):
     pass
