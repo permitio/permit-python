@@ -1,6 +1,6 @@
 import json
 from pprint import pformat
-from typing import List, Optional, TypedDict, Union
+from typing import Dict, List, Optional, TypedDict, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -374,7 +374,96 @@ class Enforcer:
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
                     error=err,
                 ) from err
+    
+    async def get_user_permissions(
+        self,
+        user: Union[dict, str],
+        tenants: Optional[List[str]] = None,
+        resources: Optional[List[str]] = None,
+        resource_types: Optional[List[str]] = None,
+        config: dict = {}
+    ) -> dict:
+        """Get all permissions for a user from PDP."""
+        input_data = {
+            "user": {"key": user} if isinstance(user, str) else user,
+            "tenants": tenants,
+            "resources": resources,
+            "resource_types": resource_types,
+        }
 
+        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
+            url = f"{self._base_url}/user-permissions"
+            try:
+                async with session.post(
+                    url,
+                    data=json.dumps(input_data),
+                ) as response:
+                    if response.status != 200:
+                        raise PermitConnectionError(
+                            f"Permit.getUserPermissions() got an unexpected status code: {response.status}, "
+                            f"please check your SDK init and make sure the PDP sidecar is configured correctly.\n"
+                            f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                        )
+
+                    content = await response.json()
+                    permissions = content.get('result', {}).get('permissions', {}) if 'result' in content else content
+                    
+                    logger.debug(
+                        f"permit.get_user_permissions() response:\n"
+                        f"input: {pformat(input_data, indent=2)}\n"
+                        f"response data: {pformat(permissions, indent=2)}"
+                    )
+                    return permissions
+
+            except aiohttp.ClientError as err:
+                logger.error(f"Error in permit.get_user_permissions(): {err}")
+                raise PermitConnectionError(
+                    f"Permit SDK got error: {err}, \n"
+                    f"and cannot connect to the PDP container, please check your configuration and make sure it's "
+                    f"running at {self._base_url} and accepting requests. \n"
+                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
+                    error=err,
+                ) from err
+   
+    async def filter_objects(
+        self,
+        user: User,
+        action: Action,
+        context: Dict[str, str],
+        resources: List[Dict]
+    ) -> List[Dict]:
+        """
+        Filter objects based on permissions using bulk check.
+        Port of Go's FilterObjects function.
+        """
+        # Create check requests for each resource
+        requests = []
+        for resource in resources:
+            permit_resource = {
+                "type": resource.get("type"),
+                "key": resource.get("key"),
+                "context": resource.get("context", {}),
+                "attributes": resource.get("attributes", {}),
+                "tenant": resource.get("tenant")
+            }
+            requests.append({
+                "user": user,
+                "action": action,
+                "resource": permit_resource,
+                "context": context
+            })
+
+        # Use existing bulk_check
+        results = await self.bulk_check(requests)
+
+        # Filter resources based on results
+        filtered_resources = []
+        for i, result in enumerate(results):
+            if result:
+                filtered_resources.append(resources[i])
+
+        return filtered_resources
+    
     def _normalize_resource(self, resource: ResourceInput) -> ResourceInput:
         normalized_resource: ResourceInput = resource.copy()
         if normalized_resource.context is None:
@@ -404,7 +493,13 @@ class Enforcer:
         if len(parts) < 1 or len(parts) > 2:
             raise ValueError(f"permit.check() got invalid resource string: {resource}")
         return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
+    
 
+    @staticmethod
+    def _user_repr(user: dict) -> str:
+        if user.get('attributes') or user.get('email'):
+            return json.dumps(user)
+        return user['key']
 
 class SyncEnforcer(Enforcer, metaclass=SyncClass):
     pass

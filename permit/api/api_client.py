@@ -16,7 +16,6 @@ from .role_assignments import RoleAssignmentsApi
 from .roles import RolesApi
 from .tenants import TenantsApi
 from .users import UsersApi
-from .permissions import PermissionsApi
 
 
 class PermitApiClient(DeprecatedApi):
@@ -45,8 +44,6 @@ class PermitApiClient(DeprecatedApi):
         self._roles = RolesApi(config)
         self._tenants = TenantsApi(config)
         self._users = UsersApi(config)
-        self._permissions = PermissionsApi(config)
-
 
     @property
     def condition_set_rules(self) -> ConditionSetRulesApi:
@@ -175,8 +172,3 @@ class PermitApiClient(DeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Users
         """
         return self._users
-
-    @property
-    def permissions(self) -> PermissionsApi:
-        """API for managing user permissions."""
-        return self._permissions
