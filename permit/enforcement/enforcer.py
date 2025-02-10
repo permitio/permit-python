@@ -30,6 +30,7 @@ class CheckQuery(TypedDict):
     user: User
     action: Action
     resource: Resource
+    context: Optional[Context]
 
 
 SETUP_PDP_DOCS_LINK = (
@@ -423,7 +424,9 @@ class Enforcer:
                     error=err,
                 ) from err
 
-    async def filter_objects(self, user: User, action: Action, resources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def filter_objects(
+        self, user: User, action: Action, context: Dict[str, str], resources: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Filter objects based on permissions using bulk check.
         Port of Go's FilterObjects function.
@@ -437,11 +440,7 @@ class Enforcer:
                 "attributes": resource.get("attributes", {}),
                 "tenant": resource.get("tenant"),
             }
-            check_query: CheckQuery = {
-                "user": user,
-                "action": action,
-                "resource": permit_resource,
-            }
+            check_query: CheckQuery = {"user": user, "action": action, "resource": permit_resource, "context": context}
             requests.append(check_query)
 
         results = await self.bulk_check(requests)
