@@ -1,6 +1,6 @@
 import json
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, List, Literal, Optional
 
 from loguru import logger
 from typing_extensions import Self
@@ -49,7 +49,9 @@ class Permit:
         return self._config.copy()
 
     @contextmanager
-    def wait_for_sync(self, timeout: float = 10.0) -> Generator[Self, None, None]:
+    def wait_for_sync(
+        self, timeout: float = 10.0, policy: Optional[Literal["ignore", "fail"]] = None
+    ) -> Generator[Self, None, None]:
         """
         Context manager that returns a client that is configured
         to wait for facts to be synced before proceeding.
@@ -58,6 +60,9 @@ class Permit:
         Args:
             timeout: The amount of time in seconds to wait for facts to be available in the PDP
             cache before returning the response.
+            policy: Weather to fail the request when the timeout is reached or ignore.
+
+            Set None to keep the default policy set in the instance config or the default value of PDP.
 
         Yields:
             Permit: A Permit instance that is configured to wait for facts to be synced.
@@ -71,6 +76,8 @@ class Permit:
             return
         contextualized_config = self.config  # this copies the config
         contextualized_config.facts_sync_timeout = timeout
+        if policy is not None:
+            contextualized_config.facts_sync_timeout_policy = policy
         yield self.__class__(contextualized_config)
 
     @property
