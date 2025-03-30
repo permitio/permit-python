@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
@@ -67,6 +67,10 @@ class PermitConfig(BaseModel):
         default=None,
         description="The amount of time in seconds to wait for facts to be available "
         "in the PDP cache before returning the response.",
+    )
+    facts_sync_timeout_policy: Optional[Literal["ignore", "fail"]] = Field(
+        default=None,
+        description="The policy to apply when the facts sync timeout is reached.",
     )
 
     class Config:
