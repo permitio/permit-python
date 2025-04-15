@@ -3,10 +3,16 @@ from typing import Optional
 
 import aiohttp
 from loguru import logger
-from pydantic.v1 import ValidationError
 from typing_extensions import deprecated
 
-from permit import ErrorDetails, HTTPValidationError
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic.v1 import ValidationError
+else:
+    from pydantic import ValidationError  # type: ignore
+
+from permit.api.models import ErrorDetails, HTTPValidationError
 
 DEFAULT_SUPPORT_LINK = "https://permit-io.slack.com/ssb/redirect"
 
