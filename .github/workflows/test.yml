@@ -75,6 +75,8 @@ jobs:
           pip install flake8 pytest pytest-cov
           # Pin pydantic version according to matrix
           pip install "${{ matrix.pydantic-version }}"
+          # Explicitly install email-validator which is required for Pydantic email validation
+          pip install email-validator
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt --no-deps; fi
 
