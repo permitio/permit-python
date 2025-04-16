@@ -16,7 +16,11 @@ env:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    name: pytest
+    strategy:
+      fail-fast: false
+      matrix:
+        pydantic-version: ['pydantic<2.0.0', 'pydantic>=2.0.0']
+    name: pytest (Pydantic ${{ matrix.pydantic-version }})
     services:
       pdp:
         image: permitio/pdp-v2:latest
@@ -34,23 +38,27 @@ jobs:
         with:
           python-version: '3.11.8'
 
-      - name: Creation env ${{ env.ENV_NAME }} under 'Permit.io Tests' workspace
+      - name: Creation env ${{ env.ENV_NAME }}-${{ github.run_id }}-${{ matrix.pydantic-version }}
+        id: create_env
         run: |
+          ENV_KEY="${{ env.ENV_NAME }}-${{ github.run_id }}-${{ matrix.pydantic-version == 'pydantic<2.0.0' && 'v1' || 'v2' }}"
+          echo "ENV_KEY=$ENV_KEY" >> $GITHUB_ENV
+
           response=$(curl -X POST \
             https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs \
             -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}' \
             -H 'Content-Type: application/json' \
             -d '{
-            "key": "${{ env.ENV_NAME }}",
-            "name": "${{ env.ENV_NAME }}"
+            "key": "'"$ENV_KEY"'",
+            "name": "'"$ENV_KEY"'"
           }')
 
           # Extract the new env id
           echo "ENV_ID=$(echo "$response" | jq -r '.id')" >> $GITHUB_ENV
 
-          echo "New env ID: $ENV_ID"
+          echo "New env ID: $ENV_ID with key: $ENV_KEY"
 
-      - name: Fetch API_KEY of ${{ env.ENV_NAME }}
+      - name: Fetch API_KEY of ${{ env.ENV_KEY }}
         run: |
           response=$(curl -X GET \
             https://api.permit.io/v2/api-key/${{ env.PROJECT_ID }}/${{ env.ENV_ID }} \
@@ -61,6 +69,20 @@ jobs:
 
           echo "New env api key: $ENV_API_KEY"
 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest pytest-cov
+          # Pin pydantic version according to matrix
+          pip install "${{ matrix.pydantic-version }}"
+          # Explicitly install email-validator which is required for Pydantic email validation
+          pip install email-validator
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt --no-deps; fi
+
+      - name: Show installed packages
+        run: pip list
+
       - name: Test with pytest
         env:
           PDP_URL: http://localhost:7766
@@ -69,13 +91,9 @@ jobs:
           PROJECT_PDP_API_KEY: ${{ env.ENV_API_KEY }}
           PDP_API_KEY: ${{ env.ENV_API_KEY }}
         run: |
-          python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-cov
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pytest -s --cache-clear tests/
 
-      - name: Delete env ${{ env.ENV_NAME }}
+      - name: Delete env ${{ env.ENV_KEY }}
         if: always()
         run: |
           curl -X DELETE \
