@@ -8,9 +8,9 @@ from typing_extensions import deprecated
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
-    from pydantic.v1 import ValidationError
+    from pydantic import ValidationError
 else:
-    from pydantic import ValidationError  # type: ignore
+    from pydantic.v1 import ValidationError  # type: ignore[assignment]
 
 from permit.api.models import ErrorDetails, HTTPValidationError
 
