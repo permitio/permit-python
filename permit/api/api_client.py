@@ -15,6 +15,7 @@ from .resources import ResourcesApi
 from .role_assignments import RoleAssignmentsApi
 from .roles import RolesApi
 from .tenants import TenantsApi
+from .user_invites import UserInvitesApi
 from .users import UsersApi
 
 
@@ -43,6 +44,7 @@ class PermitApiClient(DeprecatedApi):
         self._relationship_tuples = RelationshipTuplesApi(config)
         self._roles = RolesApi(config)
         self._tenants = TenantsApi(config)
+        self._user_invites = UserInvitesApi(config)
         self._users = UsersApi(config)
 
     @property
@@ -164,6 +166,14 @@ class PermitApiClient(DeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Tenants
         """
         return self._tenants
+
+    @property
+    def user_invites(self) -> UserInvitesApi:
+        """
+        API for managing user invites.
+        See: https://api.permit.io/v2/redoc#tag/User-Invites
+        """
+        return self._user_invites
 
     @property
     def users(self) -> UsersApi:
