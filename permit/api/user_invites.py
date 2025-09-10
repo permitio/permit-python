@@ -1,5 +1,3 @@
-from typing import List, Optional, Union
-
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
@@ -10,7 +8,6 @@ else:
 from .base import (
     BasePermitApi,
     SimpleHttpClient,
-    pagination_params,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
@@ -48,4 +45,4 @@ class UserInvitesApi(BasePermitApi):
             f"/{user_invite_id}/approve",
             model=ElementsUserInviteRead,
             json=approve_data,
-        ) 
+        )
