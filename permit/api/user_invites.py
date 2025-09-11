@@ -12,7 +12,7 @@ from .base import (
 from .context import ApiContextLevel, ApiKeyAccessLevel
 from .models import (
     ElementsUserInviteApprove,
-    ElementsUserInviteRead,
+    UserRead,
 )
 
 
@@ -24,7 +24,7 @@ class UserInvitesApi(BasePermitApi):
         )
 
     @validate_arguments  # type: ignore[operator]
-    async def approve(self, user_invite_id: str, approve_data: ElementsUserInviteApprove) -> ElementsUserInviteRead:
+    async def approve(self, user_invite_id: str, approve_data: ElementsUserInviteApprove) -> UserRead:
         """
         Approves a user invite.
 
@@ -43,6 +43,6 @@ class UserInvitesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__user_invites.post(
             f"/{user_invite_id}/approve",
-            model=ElementsUserInviteRead,
+            model=UserRead,
             json=approve_data,
         )
