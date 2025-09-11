@@ -16,6 +16,7 @@ from .resources import ResourcesApi
 from .role_assignments import RoleAssignmentsApi
 from .roles import RolesApi
 from .tenants import TenantsApi
+from .user_invites import UserInvitesApi
 from .users import UsersApi
 
 
@@ -83,6 +84,10 @@ class SyncTenantsApi(TenantsApi, metaclass=SyncClass):
     pass
 
 
+class SyncUserInvitesApi(UserInvitesApi, metaclass=SyncClass):
+    pass
+
+
 class SyncUsersApi(UsersApi, metaclass=SyncClass):
     pass
 
@@ -112,6 +117,7 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         self._role_assignments = SyncRoleAssignmentsApi(config)
         self._roles = SyncRolesApi(config)
         self._tenants = SyncTenantsApi(config)
+        self._user_invites = SyncUserInvitesApi(config)
         self._users = SyncUsersApi(config)
 
     @property
@@ -233,6 +239,14 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Tenants
         """
         return self._tenants
+
+    @property
+    def user_invites(self) -> SyncUserInvitesApi:
+        """
+        API for managing user invites.
+        See: https://api.permit.io/v2/redoc#tag/User-Invites
+        """
+        return self._user_invites
 
     @property
     def users(self) -> SyncUsersApi:
