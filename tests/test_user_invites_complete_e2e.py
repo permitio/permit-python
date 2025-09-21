@@ -1,5 +1,9 @@
+import uuid
+from typing import List, Optional, cast
+
 import pytest
 from loguru import logger
+from typing_extensions import NamedTuple
 
 from permit import Permit
 from permit.api.models import (
@@ -8,64 +12,56 @@ from permit.api.models import (
     ElementsUserInviteCreate,
     ResourceCreate,
     ResourceInstanceCreate,
+    ResourceInstanceRead,
+    ResourceRead,
     RoleCreate,
+    RoleRead,
     TenantCreate,
+    TenantRead,
     UserInviteStatus,
 )
-from permit.exceptions import PermitApiError, PermitConnectionError
-
-from .utils import handle_api_error
+from permit.exceptions import PermitApiError
 
 
 def print_break():
     print("\n\n ----------- \n\n")  # noqa: T201
 
 
-# Test data
-TEST_TENANT = TenantCreate(key="test_tenant_invites", name="Test Tenant for Invites")
-
-# Test user invites data (will be populated with actual IDs in the test)
-TEST_INVITE_DATA_1 = {
-    "key": "testuser1_complete@example.com",
-    "status": UserInviteStatus.pending,
-    "email": "testuser1_complete@example.com",
-    "first_name": "Test",
-    "last_name": "User1",
-}
-
-TEST_INVITE_DATA_2 = {
-    "key": "testuser2_complete@example.com",
-    "status": UserInviteStatus.pending,
-    "email": "testuser2_complete@example.com",
-    "first_name": "Test",
-    "last_name": "User2",
-}
-
-# Store created objects for cleanup
-created_invites = []
-created_tenant = None
-created_role = None
-created_resource = None
-created_resource_instance = None
+class SetupUserInvites(NamedTuple):
+    created_resource: ResourceRead
+    created_resource_instance: ResourceInstanceRead
+    created_role: RoleRead
+    created_tenant: TenantRead
+    to_create_invites: List[ElementsUserInviteCreate]
 
 
-@pytest.mark.asyncio
-async def test_user_invites_complete_e2e(permit: Permit):
-    """
-    Complete end-to-end test for User Invites API functionality.
+@pytest.fixture(scope="function")
+async def setup_user_invites(permit: Permit):
+    run_id = uuid.uuid4()
+    # Test data
+    test_tenant = TenantCreate(key=f"test_tenant_invites_{run_id.hex}", name="Test Tenant for Invites")
 
-    Tests the complete lifecycle:
-    1. Setup (create resource, tenant, resource instance, role)
-    2. Create user invites
-    3. List user invites
-    4. Get single user invite
-    5. Approve user invite
-    6. Delete user invite
-    7. Cleanup
-    """
-    global created_invites, created_tenant, created_role, created_resource, created_resource_instance
+    # Test user invites data (will be populated with actual IDs in the test)
+    test_invite_data_1 = {
+        "key": f"testuser1_complete_{run_id.hex}@example.com",
+        "status": UserInviteStatus.pending,
+        "email": f"testuser1_complete_{run_id.hex}@example.com",
+        "first_name": "Test",
+        "last_name": "User1",
+    }
 
-    logger.info("Starting User Invites Complete E2E test")
+    test_invite_data_2 = {
+        "key": f"testuser2_complete_{run_id.hex}@example.com",
+        "status": UserInviteStatus.pending,
+        "email": f"testuser2_complete_{run_id.hex}@example.com",
+        "first_name": "Test",
+        "last_name": "User2",
+    }
+    created_role: Optional[RoleRead] = None
+    created_tenant: Optional[TenantRead] = None
+    created_resource: Optional[ResourceRead] = None
+    created_resource_instance: Optional[ResourceInstanceRead] = None
+    to_create_invites: List[ElementsUserInviteCreate] = []
 
     try:
         # ==========================================
@@ -75,7 +71,7 @@ async def test_user_invites_complete_e2e(permit: Permit):
 
         # Create test resource with proper actions format
         test_resource = ResourceCreate(
-            key="test_resource_invites",
+            key=f"test_resource_invites-{run_id.hex}",
             name="Test Resource for Invites",
             description="Resource for testing user invites",
             actions={
@@ -89,15 +85,15 @@ async def test_user_invites_complete_e2e(permit: Permit):
         logger.info(f"Created test resource: {created_resource.key}")
 
         # Create test tenant
-        created_tenant = await permit.api.tenants.create(TEST_TENANT)
+        created_tenant = await permit.api.tenants.create(test_tenant)
         assert created_tenant is not None
-        assert created_tenant.key == TEST_TENANT.key
-        assert created_tenant.name == TEST_TENANT.name
+        assert created_tenant.key == test_tenant.key
+        assert created_tenant.name == test_tenant.name
         logger.info(f"Created test tenant: {created_tenant.key}")
 
         # Create test resource instance
         test_resource_instance = ResourceInstanceCreate(
-            key="test_instance_invites",
+            key=f"test_instance_invites-{run_id.hex}",
             resource=created_resource.key,
             tenant=created_tenant.key,
             attributes={"test": "invites"},
@@ -109,7 +105,7 @@ async def test_user_invites_complete_e2e(permit: Permit):
 
         # Create test role with permissions that match our resource actions
         test_role = RoleCreate(
-            key="test_role_invites",
+            key=f"test_role_invites-{run_id.hex}",
             name="Test Role for Invites",
             permissions=[f"{created_resource.key}:read", f"{created_resource.key}:write"],  # Use our resource actions
         )
@@ -121,21 +117,103 @@ async def test_user_invites_complete_e2e(permit: Permit):
 
         # Create invite objects with actual IDs - CONVERT UUIDs TO STRINGS
         test_invite_1 = ElementsUserInviteCreate(
-            **TEST_INVITE_DATA_1,
+            **test_invite_data_1,
             role_id=str(created_role.id),  # Convert UUID to string
             tenant_id=str(created_tenant.id),  # Convert UUID to string
             resource_instance_id=str(created_resource_instance.id),  # Convert UUID to string
         )
 
         test_invite_2 = ElementsUserInviteCreate(
-            **TEST_INVITE_DATA_2,
+            **test_invite_data_2,
             role_id=str(created_role.id),  # Convert UUID to string
             tenant_id=str(created_tenant.id),  # Convert UUID to string
             resource_instance_id=str(created_resource_instance.id),  # Convert UUID to string
         )
+        to_create_invites = [test_invite_1, test_invite_2]
 
         print_break()
+        yield SetupUserInvites(
+            created_resource=cast(ResourceRead, created_resource),
+            created_resource_instance=cast(ResourceInstanceRead, created_resource_instance),
+            created_role=cast(RoleRead, created_role),
+            created_tenant=cast(TenantRead, created_tenant),
+            to_create_invites=to_create_invites,
+        )
+    finally:
+        # ==========================================
+        # CLEANUP
+        # ==========================================
+        logger.info("Starting cleanup")
+        try:
+            # Delete test role
+            if created_role:
+                try:
+                    await permit.api.roles.delete(created_role.key)
+                    logger.info(f"Cleaned up role: {created_role.key}")
+                except PermitApiError as e:
+                    if e.status_code != 404:  # Ignore if already deleted
+                        logger.warning(f"Failed to delete role {created_role.key}: {e}")
 
+            # Delete test tenant
+            if created_tenant:
+                try:
+                    await permit.api.tenants.delete(created_tenant.key)
+                    logger.info(f"Cleaned up tenant: {created_tenant.key}")
+                except PermitApiError as e:
+                    if e.status_code != 404:  # Ignore if already deleted
+                        logger.warning(f"Failed to delete tenant {created_tenant.key}: {e}")
+
+            # Delete test resource instance
+            if created_resource_instance:
+                try:
+                    await permit.api.resource_instances.delete(created_resource_instance.key)
+                    logger.info(f"Cleaned up resource instance: {created_resource_instance.key}")
+                except PermitApiError as e:
+                    if e.status_code != 404:  # Ignore if already deleted
+                        logger.warning(f"Failed to delete resource instance {created_resource_instance.key}: {e}")
+
+            # Delete test resource
+            if created_resource:
+                try:
+                    await permit.api.resources.delete(created_resource.key)
+                    logger.info(f"Cleaned up resource: {created_resource.key}")
+                except PermitApiError as e:
+                    if e.status_code != 404:  # Ignore if already deleted
+                        logger.warning(f"Failed to delete resource {created_resource.key}: {e}")
+
+            logger.info("✅ Cleanup completed")
+        except Exception as e:
+            logger.error(f"Got error during cleanup: {e}")
+            logger.warning("Cleanup failed, but test results are still valid")
+            raise
+
+
+@pytest.mark.asyncio
+async def test_user_invites_complete_e2e(
+    permit: Permit,
+    setup_user_invites: SetupUserInvites,
+):
+    """
+    Complete end-to-end test for User Invites API functionality.
+
+    Tests the complete lifecycle:
+    1. Setup (create resource, tenant, resource instance, role)
+    2. Create user invites
+    3. List user invites
+    4. Get single user invite
+    5. Approve user invite
+    6. Delete user invite
+    7. Cleanup
+    """
+
+    logger.info("Starting User Invites Complete E2E test")
+
+    created_role = setup_user_invites.created_role
+    created_tenant = setup_user_invites.created_tenant
+    test_invite_1 = setup_user_invites.to_create_invites[0]
+    test_invite_2 = setup_user_invites.to_create_invites[1]
+    created_invites = []
+    try:
         # ==========================================
         # TEST 1: Create User Invites
         # ==========================================
@@ -260,88 +338,20 @@ async def test_user_invites_complete_e2e(permit: Permit):
 
         # List invites again to verify our changes
         final_invites_list = await permit.api.user_invites.list(page=1, per_page=50)
-        our_remaining_invites = [
-            invite
-            for invite in final_invites_list.data
-            if invite.id == invite_1.id  # Only invite_1 should remain
-        ]
+        assert len(final_invites_list.data) == 1
+        assert final_invites_list.data[0].id == invite_1.id
 
         # Should have 1 invite remaining (invite_1 which was approved)
         # Note: approved invites might still be in the list or might be removed depending on API behavior
-        logger.info(f"✅ Final verification: {len(our_remaining_invites)} of our test invites remain in the list")
-
-        logger.info("🎉 All User Invites Complete E2E tests passed successfully!")
-
-    except PermitApiError as error:
-        handle_api_error(error, "Got API Error during User Invites Complete E2E test")
-    except PermitConnectionError:
-        raise
-    except Exception as error:  # noqa: BLE001
-        logger.error(f"Got error during User Invites Complete E2E test: {error}")
-        pytest.fail(f"Got error during User Invites Complete E2E test: {error}")
+        logger.info(f"✅ Final verification: {len(final_invites_list.data)} of our test invites remain in the list")
     finally:
-        # ==========================================
-        # CLEANUP
-        # ==========================================
-        logger.info("Starting cleanup")
-        try:
-            # Delete remaining user invites
-            for invite in created_invites:
-                try:
-                    await permit.api.user_invites.delete(str(invite.id))
-                    logger.info(f"Cleaned up invite: {invite.email}")
-                except PermitApiError as e:
-                    if e.status_code not in [404, 403]:  # Ignore if already deleted
-                        logger.warning(f"Failed to delete invite {invite.email}: {e}")
+        # Delete remaining user invites
+        for invite in created_invites:
+            try:
+                await permit.api.user_invites.delete(str(invite.id))
+                logger.info(f"Cleaned up invite: {invite.email}")
+            except PermitApiError as e:
+                if e.status_code not in [404, 403]:  # Ignore if already deleted
+                    logger.warning(f"Failed to delete invite {invite.email}: {e}")
 
-            # Delete test role
-            if created_role:
-                try:
-                    await permit.api.roles.delete(created_role.key)
-                    logger.info(f"Cleaned up role: {created_role.key}")
-                except PermitApiError as e:
-                    if e.status_code != 404:  # Ignore if already deleted
-                        logger.warning(f"Failed to delete role {created_role.key}: {e}")
-
-            # Delete test tenant
-            if created_tenant:
-                try:
-                    await permit.api.tenants.delete(created_tenant.key)
-                    logger.info(f"Cleaned up tenant: {created_tenant.key}")
-                except PermitApiError as e:
-                    if e.status_code != 404:  # Ignore if already deleted
-                        logger.warning(f"Failed to delete tenant {created_tenant.key}: {e}")
-
-            # Delete test resource instance
-            if created_resource_instance:
-                try:
-                    await permit.api.resource_instances.delete(created_resource_instance.key)
-                    logger.info(f"Cleaned up resource instance: {created_resource_instance.key}")
-                except PermitApiError as e:
-                    if e.status_code != 404:  # Ignore if already deleted
-                        logger.warning(f"Failed to delete resource instance {created_resource_instance.key}: {e}")
-
-            # Delete test resource
-            if created_resource:
-                try:
-                    await permit.api.resources.delete(created_resource.key)
-                    logger.info(f"Cleaned up resource: {created_resource.key}")
-                except PermitApiError as e:
-                    if e.status_code != 404:  # Ignore if already deleted
-                        logger.warning(f"Failed to delete resource {created_resource.key}: {e}")
-
-            logger.info("✅ Cleanup completed")
-
-        except PermitApiError as error:
-            handle_api_error(error, "Got API Error during cleanup")
-        except PermitConnectionError:
-            raise
-        except Exception as error:  # noqa: BLE001
-            logger.error(f"Got error during cleanup: {error}")
-            # Don't fail the test due to cleanup errors, just log them
-            logger.warning("Cleanup failed, but test results are still valid")
-
-
-if __name__ == "__main__":
-    # For running the test directly
-    pytest.main([__file__, "-v", "-s"])
+    logger.info("🎉 All User Invites Complete E2E tests passed successfully!")
