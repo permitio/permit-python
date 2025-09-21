@@ -1,19 +1,16 @@
-import asyncio
-from uuid import uuid4
-
 import pytest
 from loguru import logger
 
 from permit import Permit
 from permit.api.models import (
+    ActionBlockEditable,
     ElementsUserInviteApprove,
     ElementsUserInviteCreate,
-    TenantCreate,
-    RoleCreate,
-    UserInviteStatus,
     ResourceCreate,
     ResourceInstanceCreate,
-    ActionBlockEditable,
+    RoleCreate,
+    TenantCreate,
+    UserInviteStatus,
 )
 from permit.exceptions import PermitApiError, PermitConnectionError
 
@@ -82,15 +79,9 @@ async def test_user_invites_complete_e2e(permit: Permit):
             name="Test Resource for Invites",
             description="Resource for testing user invites",
             actions={
-                "read": ActionBlockEditable(
-                    name="Read Access",
-                    description="Read access to the resource"
-                ),
-                "write": ActionBlockEditable(
-                    name="Write Access",
-                    description="Write access to the resource"
-                )
-            }
+                "read": ActionBlockEditable(name="Read Access", description="Read access to the resource"),
+                "write": ActionBlockEditable(name="Write Access", description="Write access to the resource"),
+            },
         )
         created_resource = await permit.api.resources.create(test_resource)
         assert created_resource is not None
@@ -109,7 +100,7 @@ async def test_user_invites_complete_e2e(permit: Permit):
             key="test_instance_invites",
             resource=created_resource.key,
             tenant=created_tenant.key,
-            attributes={"test": "invites"}
+            attributes={"test": "invites"},
         )
         created_resource_instance = await permit.api.resource_instances.create(test_resource_instance)
         assert created_resource_instance is not None
@@ -120,7 +111,7 @@ async def test_user_invites_complete_e2e(permit: Permit):
         test_role = RoleCreate(
             key="test_role_invites",
             name="Test Role for Invites",
-            permissions=[f"{created_resource.key}:read", f"{created_resource.key}:write"]  # Use our resource actions
+            permissions=[f"{created_resource.key}:read", f"{created_resource.key}:write"],  # Use our resource actions
         )
         created_role = await permit.api.roles.create(test_role)
         assert created_role is not None
@@ -129,14 +120,14 @@ async def test_user_invites_complete_e2e(permit: Permit):
         logger.info(f"Created test role: {created_role.key}")
 
         # Create invite objects with actual IDs - CONVERT UUIDs TO STRINGS
-        TEST_INVITE_1 = ElementsUserInviteCreate(
+        test_invite_1 = ElementsUserInviteCreate(
             **TEST_INVITE_DATA_1,
             role_id=str(created_role.id),  # Convert UUID to string
             tenant_id=str(created_tenant.id),  # Convert UUID to string
             resource_instance_id=str(created_resource_instance.id),  # Convert UUID to string
         )
 
-        TEST_INVITE_2 = ElementsUserInviteCreate(
+        test_invite_2 = ElementsUserInviteCreate(
             **TEST_INVITE_DATA_2,
             role_id=str(created_role.id),  # Convert UUID to string
             tenant_id=str(created_tenant.id),  # Convert UUID to string
@@ -151,30 +142,30 @@ async def test_user_invites_complete_e2e(permit: Permit):
         logger.info("Testing user invite creation")
 
         # Create first invite
-        invite_1 = await permit.api.user_invites.create(TEST_INVITE_1)
+        invite_1 = await permit.api.user_invites.create(test_invite_1)
         created_invites.append(invite_1)
 
         # Verify create output
         assert invite_1 is not None
         assert invite_1.id is not None
-        assert invite_1.key == TEST_INVITE_1.key
-        assert invite_1.email == TEST_INVITE_1.email
-        assert invite_1.first_name == TEST_INVITE_1.first_name
-        assert invite_1.last_name == TEST_INVITE_1.last_name
+        assert invite_1.key == test_invite_1.key
+        assert invite_1.email == test_invite_1.email
+        assert invite_1.first_name == test_invite_1.first_name
+        assert invite_1.last_name == test_invite_1.last_name
         assert invite_1.status == UserInviteStatus.pending
         assert invite_1.role_id == created_role.id
         assert invite_1.tenant_id == created_tenant.id
         logger.info(f"✅ Created invite 1: {invite_1.email} (ID: {invite_1.id})")
 
         # Create second invite
-        invite_2 = await permit.api.user_invites.create(TEST_INVITE_2)
+        invite_2 = await permit.api.user_invites.create(test_invite_2)
         created_invites.append(invite_2)
 
         # Verify second invite
         assert invite_2 is not None
         assert invite_2.id is not None
-        assert invite_2.key == TEST_INVITE_2.key
-        assert invite_2.email == TEST_INVITE_2.email
+        assert invite_2.key == test_invite_2.key
+        assert invite_2.email == test_invite_2.email
         assert invite_2.status == UserInviteStatus.pending
         logger.info(f"✅ Created invite 2: {invite_2.email} (ID: {invite_2.id})")
 
@@ -191,10 +182,7 @@ async def test_user_invites_complete_e2e(permit: Permit):
         assert invites_list.total_count >= 2  # At least our 2 invites
 
         # Find our created invites in the list
-        our_invites = [
-            invite for invite in invites_list.data
-            if invite.id in [invite_1.id, invite_2.id]
-        ]
+        our_invites = [invite for invite in invites_list.data if invite.id in [invite_1.id, invite_2.id]]
         assert len(our_invites) == 2
         logger.info(f"✅ Listed invites: found {invites_list.total_count} total, including our 2 test invites")
 
@@ -223,12 +211,11 @@ async def test_user_invites_complete_e2e(permit: Permit):
         approve_data = ElementsUserInviteApprove(
             email=invite_1.email,
             key=invite_1.key,
-            attributes={"department": "Engineering", "role": "Developer", "test": "complete_e2e_test"}
+            attributes={"department": "Engineering", "role": "Developer", "test": "complete_e2e_test"},
         )
 
         approved_user = await permit.api.user_invites.approve(
-            user_invite_id=str(invite_1.id),
-            approve_data=approve_data
+            user_invite_id=str(invite_1.id), approve_data=approve_data
         )
 
         # Verify approval
@@ -274,7 +261,8 @@ async def test_user_invites_complete_e2e(permit: Permit):
         # List invites again to verify our changes
         final_invites_list = await permit.api.user_invites.list(page=1, per_page=50)
         our_remaining_invites = [
-            invite for invite in final_invites_list.data
+            invite
+            for invite in final_invites_list.data
             if invite.id == invite_1.id  # Only invite_1 should remain
         ]
 
