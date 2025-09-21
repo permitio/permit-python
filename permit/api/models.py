@@ -9,7 +9,12 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
-from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
+from ..utils.pydantic_version import PYDANTIC_VERSION
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
+else:
+    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr  # type: ignore
 
 
 class APIHistoryEventFullRead(BaseModel):
@@ -3974,20 +3979,20 @@ class ElementsUserInviteRead(BaseModel):
         description='Date and time when the elements_user_invite was last updated/modified (ISO_8601 format).',
         title='Updated At',
     )
-    key: constr(regex=r'^[A-Za-z0-9|@+\-\._]+$') = Field(
-        ..., description='The key of the user that is being invited', title='Key'
+    key: Optional[constr(regex=r'^[A-Za-z0-9|@+\-\._]+$')] = Field(
+        None, description='The key of the user that is being invited', title='Key'
     )
     status: UserInviteStatus = Field(..., description='The status of the user invite')
     email: EmailStr = Field(
         ..., description='The email of the user that being invited', title='Email'
     )
-    first_name: str = Field(
-        ...,
+    first_name: Optional[str] = Field(
+        None,
         description='The first name of the user that is being invited',
         title='First Name',
     )
-    last_name: str = Field(
-        ...,
+    last_name: Optional[str] = Field(
+        None,
         description='The last name of the user that is being invited',
         title='Last Name',
     )
@@ -3999,8 +4004,8 @@ class ElementsUserInviteRead(BaseModel):
         description='The tenant id of the user that is being invited',
         title='Tenant Id',
     )
-    resource_instance_id: UUID = Field(
-        ...,
+    resource_instance_id: Optional[UUID] = Field(
+        None,
         description='The resource instance id of the user that is being invited',
         title='Resource Instance Id',
     )

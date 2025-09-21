@@ -62,7 +62,11 @@ class SimpleHttpClient:
         if isinstance(json, list):
             return [self._prepare_json(item) for item in json]
 
-        return json.dict(exclude_unset=True, exclude_none=True)
+        # Use json() method which properly handles UUID serialization
+        # Then parse it back to dict to avoid double JSON encoding
+        import json as json_module
+        json_str = json.json(exclude_unset=True, exclude_none=True)
+        return json_module.loads(json_str)
 
     @handle_client_error
     async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
