@@ -26,8 +26,8 @@ if PYDANTIC_VERSION < (2, 0):
     from pydantic.networks import AnyUrl, NameEmail
     from pydantic.types import SecretBytes, SecretStr
 
-    def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:
-        return model.model_dump(mode=mode, **kwargs)
+    def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
+        return model.dict(**kwargs)
 else:
     from pydantic.v1 import BaseModel  # type: ignore[assignment]
     from pydantic.v1.color import Color  # type: ignore[assignment]
