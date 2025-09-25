@@ -8,6 +8,6 @@ pytest_httpserver
 # to solve snyk issue
 werkzeug>=2.3.8
 zipp>=3.19.1
-aiohttp>=3.8.4,<4
+aiohttp>=3.12.14,<4
 ruff
 mypy
