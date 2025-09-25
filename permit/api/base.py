@@ -5,6 +5,7 @@ from aiohttp import ClientTimeout
 from loguru import logger
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
+from .encoders import jsonable_encoder
 
 if PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Extra, Field, parse_obj_as
@@ -62,7 +63,7 @@ class SimpleHttpClient:
         if isinstance(json, list):
             return [self._prepare_json(item) for item in json]
 
-        return json.dict(exclude_unset=True, exclude_none=True)
+        return jsonable_encoder(json, exclude_unset=True, exclude_none=True)
 
     @handle_client_error
     async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
