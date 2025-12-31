@@ -48,7 +48,7 @@ class BasePdpPermitApi:
             base_url=f"{self.config.pdp}",
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"bearer {self.config.token}",
+                "Authorization": f"Bearer {self.config.token}",
             },
         )
         client_config_dict = client_config.dict()
