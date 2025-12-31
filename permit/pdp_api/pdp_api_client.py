@@ -19,7 +19,7 @@ class PermitPdpApiClient:
         self._config = config
         self._headers = {
             "Content-Type": "application/json",
-            "Authorization": f"bearer {self._config.token}",
+            "Authorization": f"Bearer {self._config.token}",
         }
         self._base_url = self._config.pdp
 
