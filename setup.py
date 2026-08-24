@@ -28,7 +28,7 @@ setup(
     install_requires=get_requirements(),
     long_description=get_readme(),
     long_description_content_type="text/markdown",
-    package_data={"permit":["py.typed"]},
+    package_data={"permit": ["py.typed"]},
     classifiers=[
         "Operating System :: OS Independent",
         "Programming Language :: Python",
