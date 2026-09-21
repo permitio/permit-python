@@ -2,7 +2,7 @@
 line-length = 120
 src = ["permit"]
 exclude = ["permit/api/models.py"]
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -30,8 +30,13 @@ select = [
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.per-file-ignores]
+# These are standalone CLI programs, not library code: writing the rendered
+# report to stdout IS their interface, so the "no print" rule does not apply.
+".github/scripts/*.py" = ["T201"]
+
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 packages = ["permit"]
 plugins = ["pydantic.mypy"]
 

@@ -132,3 +132,6 @@ dmypy.json
 .vscode/
 .DS_Store  # macOS
 .idea/
+
+# local SDK test harness (developer tool, never committed, never run in CI)
+harness/

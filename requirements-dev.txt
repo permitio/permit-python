@@ -1,13 +1,36 @@
-pytest
-pytest-asyncio
-pytest-cov
-pytest-mock
-aioresponses
-# datamodel-code-generator>=0.19.0,<1
-pytest_httpserver
-# to solve snyk issue
-werkzeug>=2.3.8
-zipp>=3.19.1
-aiohttp>=3.12.14,<4
-ruff
-mypy
+# Every dev dependency carries a lower bound on purpose. Without one, a
+# resolver is free to pick any version ever published -- `uv pip compile
+# --resolution lowest-direct` on the previous, unbounded file selected
+# pytest 2.0.0 (2011) and died building it. More importantly, a spec with no
+# floor has nothing for a CVE scanner to evaluate, so these packages were
+# simply absent from every audit.
+# aioresponses was removed rather than bounded. It is imported by no test in
+# this repo, and its latest release (0.7.9) is incompatible with the aiohttp
+# 3.14.3 floor above -- every mocked request raises
+# "ClientResponse.__init__() missing 1 required keyword-only argument:
+# 'stream_writer'". Keeping an unused, broken mocking library would only send
+# the next person down a dead end. Offline HTTP tests use pytest_httpserver,
+# which is version-independent and asserts on real request bodies.
+mypy>=1.11.0
+# 9.0.3 rather than 8.x: the 8.3.0 floor is affected by CVE-2025-71176
+# (insecure temporary directory handling). Caught by this repo's own audit gate.
+pytest>=9.0.3
+pytest-asyncio>=1.0.0
+pytest-cov>=5.0.0
+pytest-mock>=3.14.0
+pytest_httpserver>=1.1.0
+ruff>=0.6.0
+
+# Werkzeug reaches the test run only as a dependency of pytest_httpserver, but
+# it is bounded here so it shows up in the audit. 3.1.6 is the highest fixed
+# version across the six advisories that affected the previous >=2.3.8 floor
+# (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
+# CVE-2026-21860, CVE-2026-27199).
+werkzeug>=3.1.6
+
+# Deliberately duplicated from requirements.txt: CI installs requirements.txt
+# with --no-deps, so this is the line that actually pulls aiohttp's transitive
+# tree (yarl, multidict, frozenlist, ...) into the test environment. Keep the
+# spec identical to requirements.txt or the two will drift and CI will resolve
+# an aiohttp the audit never saw.
+aiohttp>=3.14.3,<4

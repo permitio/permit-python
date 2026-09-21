@@ -9,6 +9,11 @@ on:
       - main
       - master
 
+# Least privilege. Nothing in this workflow writes to the repository; the
+# Permit API calls authenticate with their own secret, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 env:
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
@@ -20,10 +25,19 @@ jobs:
       fail-fast: false
       matrix:
         pydantic-version: ['pydantic<2.0.0', 'pydantic>=2.0.0']
+    # NOTE: this name and the matrix shape are load-bearing. Branch protection
+    # on main requires the contexts "pytest (Pydantic pydantic<2.0.0)" and
+    # "pytest (Pydantic pydantic>=2.0.0)" by exact string. Renaming the job or
+    # changing the matrix silently makes those contexts unsatisfiable, which
+    # blocks every PR from merging until branch protection is updated to match.
     name: pytest (Pydantic ${{ matrix.pydantic-version }})
     services:
       pdp:
-        image: permitio/pdp-v2:latest
+        # Deliberately :latest. This job's purpose includes catching breakage
+        # between the SDK and the current PDP release, so pinning a digest
+        # would defeat the test rather than harden it. The PDP is a
+        # first-party Permit image, not third-party supply chain.
+        image: permitio/pdp-v2:latest # zizmor: ignore[unpinned-images]
         ports:
           - 7766:7000
         env:
@@ -31,50 +45,74 @@ jobs:
           PDP_DEBUG: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Python setup
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11.8'
 
+      # Values reach the shell through env: rather than ${{ }} interpolation
+      # into the script body. zizmor flags the interpolated form as
+      # template-injection; env-passing is the canonical fix.
       - name: Creation env ${{ env.ENV_NAME }}-${{ github.run_id }}-${{ matrix.pydantic-version }}
         id: create_env
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_NAME: ${{ env.ENV_NAME }}
+          RUN_ID: ${{ github.run_id }}
+          PYDANTIC_SUFFIX: ${{ matrix.pydantic-version == 'pydantic<2.0.0' && 'v1' || 'v2' }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
         run: |
-          ENV_KEY="${{ env.ENV_NAME }}-${{ github.run_id }}-${{ matrix.pydantic-version == 'pydantic<2.0.0' && 'v1' || 'v2' }}"
-          echo "ENV_KEY=$ENV_KEY" >> $GITHUB_ENV
+          set -euo pipefail
+          ENV_KEY="${ENV_NAME}-${RUN_ID}-${PYDANTIC_SUFFIX}"
+          echo "ENV_KEY=$ENV_KEY" >> "$GITHUB_ENV"
 
-          response=$(curl -X POST \
-            https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs \
-            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}' \
+          response=$(curl -sS -X POST \
+            "https://api.permit.io/v2/projects/${PROJECT_ID}/envs" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}" \
             -H 'Content-Type: application/json' \
-            -d '{
-            "key": "'"$ENV_KEY"'",
-            "name": "'"$ENV_KEY"'"
-          }')
+            -d "{\"key\": \"${ENV_KEY}\", \"name\": \"${ENV_KEY}\"}")
 
-          # Extract the new env id
-          echo "ENV_ID=$(echo "$response" | jq -r '.id')" >> $GITHUB_ENV
-
-          echo "New env ID: $ENV_ID with key: $ENV_KEY"
+          ENV_ID=$(echo "$response" | jq -r '.id')
+          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
+            echo "::error title=Env creation failed::Could not create the scratch environment."
+            exit 1
+          fi
+          echo "ENV_ID=$ENV_ID" >> "$GITHUB_ENV"
+          echo "New env created with key: $ENV_KEY"
 
       - name: Fetch API_KEY of ${{ env.ENV_KEY }}
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_ID: ${{ env.ENV_ID }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
         run: |
-          response=$(curl -X GET \
-            https://api.permit.io/v2/api-key/${{ env.PROJECT_ID }}/${{ env.ENV_ID }} \
-            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}')
+          set -euo pipefail
+          response=$(curl -sS -X GET \
+            "https://api.permit.io/v2/api-key/${PROJECT_ID}/${ENV_ID}" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}")
 
-          # Extract the secret from the response which is the API_KEY of the new env
-          echo "ENV_API_KEY=$(echo "$response" | jq -r '.secret')" >> $GITHUB_ENV
-
-          echo "New env api key: $ENV_API_KEY"
+          ENV_API_KEY=$(echo "$response" | jq -r '.secret')
+          if [ -z "$ENV_API_KEY" ] || [ "$ENV_API_KEY" = "null" ]; then
+            echo "::error title=API key fetch failed::Could not read the scratch environment's key."
+            exit 1
+          fi
+          # Mask before export so the key can never surface in the job log.
+          echo "::add-mask::$ENV_API_KEY"
+          echo "ENV_API_KEY=$ENV_API_KEY" >> "$GITHUB_ENV"
 
       - name: Install dependencies
+        env:
+          PYDANTIC_VERSION: ${{ matrix.pydantic-version }}
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-cov
+          pip install pytest pytest-cov
           # Pin pydantic version according to matrix
-          pip install "${{ matrix.pydantic-version }}"
+          pip install "${PYDANTIC_VERSION}"
           # Explicitly install email-validator which is required for Pydantic email validation
           pip install email-validator
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
@@ -95,7 +133,20 @@ jobs:
 
       - name: Delete env ${{ env.ENV_KEY }}
         if: always()
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_ID: ${{ env.ENV_ID }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
         run: |
-          curl -X DELETE \
-            https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs/${{ env.ENV_ID }} \
-            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}'
+          set -uo pipefail
+          # Best effort: a failed cleanup must not mask a test failure, but it
+          # must still be visible rather than silently leaking an environment.
+          if [ -z "${ENV_ID:-}" ] || [ "${ENV_ID}" = "null" ]; then
+            echo "::warning::No ENV_ID recorded; nothing to delete."
+            exit 0
+          fi
+          if ! curl -sS -f -X DELETE \
+            "https://api.permit.io/v2/projects/${PROJECT_ID}/envs/${ENV_ID}" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}"; then
+            echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
+          fi

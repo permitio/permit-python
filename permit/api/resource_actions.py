@@ -99,7 +99,7 @@ class ResourceActionsApi(BasePermitApi):
         Alias for the get method.
 
         Args:
-            resource_key: The ID of the resource the action belongs to.
+            resource_id: The ID of the resource the action belongs to.
             action_id: The ID of the action.
 
         Returns:
