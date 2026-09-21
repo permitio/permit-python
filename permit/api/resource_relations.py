@@ -100,7 +100,7 @@ class ResourceRelationsApi(BasePermitApi):
         Alias for the get method.
 
         Args:
-            resource_key: The ID of the resource the relation belongs to.
+            resource_id: The ID of the resource the relation belongs to.
             relation_id: The ID of the relation.
 
         Returns:

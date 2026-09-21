@@ -75,7 +75,8 @@ class ResourceInstancesApi(BasePermitApi):
         if resource_key is not None:
             params.update(resource=resource_key)
         if detailed_key is not None:
-            params.update(detailed=detailed_key)
+            # yarl rejects bool query values, and the API parses these as booleans
+            params.update(detailed="true" if detailed_key else "false")
         if search_key is not None:
             params.update(search=search_key)
 
