@@ -254,6 +254,8 @@ class TenantsApi(BasePermitApi):
         """
         Deletes tenants in bulk.
 
+        If the tenant exists - replaces it. Otherwise creates a non-existing tenant.
+
         Args:
             tenants: The tenants identities to delete. Each identity can be either the tenant key or the tenant id.
 

@@ -27,15 +27,7 @@ class PermitException(PermitError):  # noqa: N818
 
 
 class PermitConnectionError(PermitException):
-    """Permit connection exception
-
-    Note: this deliberately still inherits from the deprecated `PermitException`
-    rather than from `PermitError`. Re-parenting it looks like tidying, but it
-    silently breaks every consumer whose handler is `except PermitException` --
-    a connection blip would stop being caught and become an unhandled crash.
-    That is a breaking change worth making, but it belongs in a major version
-    with a changelog entry, not in a dependency-security patch.
-    """
+    """Permit connection exception"""
 
     def __init__(self, message: str, *, error: Optional[aiohttp.ClientError] = None):
         super().__init__(message)
@@ -217,7 +209,7 @@ class PermitNotFoundError(PermitApiDetailedError):
 
 
 async def handle_api_error(response: aiohttp.ClientResponse):
-    if 200 <= response.status < 300:
+    if 200 <= response.status < 400:
         return
 
     try:

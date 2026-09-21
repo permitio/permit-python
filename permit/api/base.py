@@ -240,14 +240,21 @@ class BasePermitApi:
         ):
             await self._set_context_from_api_key()
 
-        permitted_access_level = self.config.api_context.permitted_access_level
-        if required_access_level != permitted_access_level and API_ACCESS_LEVELS.index(
-            required_access_level
-        ) < API_ACCESS_LEVELS.index(permitted_access_level):
+        if required_access_level != self.config.api_context.permitted_access_level:
+            if API_ACCESS_LEVELS.index(required_access_level) < API_ACCESS_LEVELS.index(
+                self.config.api_context.permitted_access_level
+            ):
+                raise PermitContextError(
+                    f"You're trying to use an SDK method that requires an API Key "
+                    f"with access level: {required_access_level}, however the SDK is running "
+                    f"with an API key with level {self.config.api_context.permitted_access_level}."
+                )
+            return
+
+        if self.config.api_context.permitted_access_level.value < required_access_level.value:
             raise PermitContextError(
-                f"You're trying to use an SDK method that requires an API Key "
-                f"with access level: {required_access_level}, however the SDK is running "
-                f"with an API key with level {permitted_access_level}."
+                f"You're trying to use an SDK method that requires an api context of {required_access_level.name}, "
+                f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )
 
     async def _ensure_context(self, required_context: ApiContextLevel) -> None:

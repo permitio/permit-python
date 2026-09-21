@@ -103,7 +103,7 @@ class ResourceAttributesApi(BasePermitApi):
         Alias for the get method.
 
         Args:
-            resource_id: The ID of the resource the attribute belongs to.
+            resource_key: The ID of the resource the attribute belongs to.
             attribute_id: The ID of the attribute.
 
         Returns:

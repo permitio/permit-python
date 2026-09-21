@@ -106,7 +106,7 @@ class ResourceActionGroupsApi(BasePermitApi):
         Alias for the get method.
 
         Args:
-            resource_id: The ID of the resource the action group belongs to.
+            resource_key: The ID of the resource the action group belongs to.
             group_id: The ID of the action group.
 
         Returns:

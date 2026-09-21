@@ -242,6 +242,7 @@ class Permit:
             tenants: Optional list of tenants to filter permissions
             resources: Optional list of resources to filter
             resource_types: Optional list of resource types to filter
+            config: Optional configuration dictionary
 
         Returns:
             dict: User permissions per tenant
@@ -255,17 +256,17 @@ class Permit:
         self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        Filter a list of resources, keeping only those the user is permitted to act on.
+        Get all permissions for a user.
 
         Args:
             user: The user object or user key
-            action: The action to check against every resource
-            context: The context in which the action is performed
-            resources: The resources to filter. Each entry may carry the keys
-                `type`, `key`, `context`, `attributes` and `tenant`.
+            tenants: Optional list of tenants to filter permissions
+            resources: Optional list of resources to filter
+            resource_types: Optional list of resource types to filter
+            config: Optional configuration dictionary
 
         Returns:
-            List[Dict[str, Any]]: The permitted subset of `resources`, in their original order
+            dict: User permissions per tenant
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP

@@ -32,7 +32,6 @@ class PermitPdpApiClient:
 
 class SyncPDPApi(PermitPdpApiClient):
     def __init__(self, config: PermitConfig):
-        super().__init__(config)
         self._role_assignments = SyncRoleAssignmentsApi(config)
 
     @property

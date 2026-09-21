@@ -79,9 +79,9 @@ class ElementsApi(BasePermitApi):
 
     async def login_as(self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]) -> UserLoginAsResponse:
         if isinstance(user_id, UUID):
-            user_id = str(user_id)
+            user_id = user_id.hex
         if isinstance(tenant_id, UUID):
-            tenant_id = str(tenant_id)
+            tenant_id = tenant_id.hex
         ticket = await self.__auth.post(
             "/elements_login_as",
             model=EmbeddedLoginRequestOutput,

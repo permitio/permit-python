@@ -201,7 +201,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         if isinstance(user, dict):
-            user_key = user.get("key")
+            user_key = user.pop("key", None)
             if user_key is None:
                 raise KeyError("required 'key' in input dictionary")
         else:
@@ -316,7 +316,7 @@ class UsersApi(BasePermitApi):
         return await self.__users.post(
             f"/{assignment.user}/roles",
             model=RoleAssignmentRead,
-            json=assignment.copy(exclude={"user"}),
+            json=assignment.dict(exclude={"user"}),
         )
 
     @validate_arguments  # type: ignore[operator]
@@ -335,7 +335,7 @@ class UsersApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__users.delete(
             f"/{unassignment.user}/roles",
-            json=unassignment.copy(exclude={"user"}),
+            json=unassignment.dict(exclude={"user"}),
         )
 
     @validate_arguments  # type: ignore[operator]
