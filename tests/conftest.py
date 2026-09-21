@@ -5,6 +5,23 @@ import pytest
 from permit import Permit, PermitConfig
 from permit.sync import Permit as SyncPermit
 
+# pytest_httpserver's `httpserver` fixture is SESSION-scoped: the first test
+# that asks for it binds the one shared server for the whole run. This address
+# override therefore has to live in conftest.py, not in an individual test
+# module -- a module-local override only applies if that module happens to be
+# the first to touch the fixture, which makes the port silently depend on
+# collection order.
+#
+# test_rbac_e2e.py's timeout tests connect to a hardcoded localhost:9999, so if
+# any other module claims the server first the server binds elsewhere and those
+# tests fail with "Cannot connect to host localhost:9999".
+MOCKED_PORT = 9999
+
+
+@pytest.fixture(scope="session")
+def httpserver_listen_address() -> tuple:
+    return "localhost", MOCKED_PORT
+
 
 @pytest.fixture
 def permit_config() -> PermitConfig:

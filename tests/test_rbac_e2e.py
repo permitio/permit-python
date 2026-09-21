@@ -11,6 +11,7 @@ from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
 from permit.exceptions import PermitApiError, PermitConnectionError
 from permit.pdp_api.models import RoleAssignment
 
+from .conftest import MOCKED_PORT
 from .utils import handle_api_error
 
 
@@ -20,7 +21,9 @@ def print_break():
 
 TEST_TIMEOUT = 1
 MOCKED_URL = "http://localhost"
-MOCKED_PORT = 9999
+# MOCKED_PORT and the httpserver_listen_address fixture that binds it live in
+# conftest.py -- see the note there on why a module-local override is
+# order-dependent and therefore unsafe.
 RESOURCE_KEY: Final[str] = "document"
 RESOURCE_CREATE_ACTION: Final[str] = "create"
 RESOURCE_READ_ACTION: Final[str] = "read"
@@ -46,11 +49,6 @@ USER_KEY: Final[str] = "auth0|elon"
 def sleeping(request: Request):  # noqa: ARG001
     time.sleep(TEST_TIMEOUT + 1)
     return Response("OK", status=200)
-
-
-@pytest.fixture(scope="session")
-def httpserver_listen_address():
-    return "localhost", MOCKED_PORT
 
 
 async def test_api_timeout(httpserver: HTTPServer):
