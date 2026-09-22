@@ -1,4 +1,5 @@
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, List, Optional
 
@@ -22,7 +23,7 @@ from permit.api.models import (
     UserCreate,
 )
 from permit.exceptions import PermitApiError
-from tests.utils import handle_api_error
+from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
 
 @dataclass
@@ -73,10 +74,18 @@ ADMIN = "admin"
 MEMBER = "member"
 WATCHER = "watcher"
 
+# Every key this module creates is derived from unique_key(). The whole e2e
+# suite runs against a single shared environment, so a fixed key ("Account",
+# "Document", "permit") is shared mutable state: whichever test tears it down
+# first breaks every other test that assumed it was still there.
+ACCOUNT_KEY = unique_key("Account")
+FOLDER_KEY = unique_key("Folder")
+DOCUMENT_KEY = unique_key("Document")
+
 ACCOUNT = ResourceCreate(
-    key="Account",
-    name="Account",
-    urn="prn:gdrive:account",
+    key=ACCOUNT_KEY,
+    name=ACCOUNT_KEY,
+    urn=f"prn:gdrive:{ACCOUNT_KEY}",
     description="a google drive account",
     actions={
         "create": {},
@@ -111,9 +120,9 @@ ACCOUNT = ResourceCreate(
 )
 
 FOLDER = ResourceCreate(
-    key="Folder",
-    name="Folder",
-    urn="prn:gdrive:folder",
+    key=FOLDER_KEY,
+    name=FOLDER_KEY,
+    urn=f"prn:gdrive:{FOLDER_KEY}",
     description="a folder",
     actions={
         "read": {},
@@ -128,9 +137,9 @@ FOLDER = ResourceCreate(
 )
 
 DOCUMENT = ResourceCreate(
-    key="Document",
-    name="Document",
-    urn="prn:gdrive:document",
+    key=DOCUMENT_KEY,
+    name=DOCUMENT_KEY,
+    urn=f"prn:gdrive:{DOCUMENT_KEY}",
     description="a document",
     actions={
         "read": {},
@@ -155,7 +164,7 @@ RESOURCE_ROLES = {
                 users_with_role=[
                     DerivedRoleRuleCreate(
                         role=MEMBER,
-                        on_resource="Account",
+                        on_resource=ACCOUNT_KEY,
                         linked_by_relation="account",
                         when=PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings(
                             no_direct_roles_on_object=True,
@@ -182,7 +191,7 @@ RESOURCE_ROLES = {
                 users_with_role=[
                     DerivedRoleRuleCreate(
                         role=ADMIN,
-                        on_resource="Account",
+                        on_resource=ACCOUNT_KEY,
                         linked_by_relation="account",
                     )
                 ],
@@ -238,16 +247,20 @@ ROLE_DERIVATIONS = [
 ]
 
 # Data ------------------------------------------------------------------------
+USER_PERMIT_KEY = unique_key("asaf")
 USER_PERMIT = UserCreate(
-    key="asaf@permit.io",
-    email="asaf@permit.io",
+    key=USER_PERMIT_KEY,
+    email=f"{USER_PERMIT_KEY}@permit.io",
     first_name="Asaf",
     last_name="Cohen",
     attributes={"age": 35},
 )
+# The "auth0|" prefix is deliberate: it keeps the test covering keys that
+# contain a pipe, which is what an identity provider hands the SDK.
+USER_CC_ID = unique_key("john")
 USER_CC = UserCreate(
-    key="auth0|john",
-    email="john@cocacola.com",
+    key=f"auth0|{USER_CC_ID}",
+    email=f"{USER_CC_ID}@cocacola.com",
     first_name="John",
     last_name="Doe",
     attributes={"age": 27},
@@ -255,8 +268,8 @@ USER_CC = UserCreate(
 
 CREATED_USERS = [USER_PERMIT, USER_CC]
 
-TENANT_PERMIT = TenantCreate(key="permit", name="Permit.io")
-TENANT_CC = TenantCreate(key="cocacola", name="Coca Cola")
+TENANT_PERMIT = TenantCreate(key=unique_key("permit"), name="Permit.io")
+TENANT_CC = TenantCreate(key=unique_key("cocacola"), name="Coca Cola")
 
 CREATED_TENANTS = [TENANT_PERMIT, TENANT_CC]
 
@@ -553,20 +566,25 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
 
 
 async def cleanup(permit: Permit):
+    """Remove everything this module created.
+
+    Every delete tolerates a 404 (the object is already gone, which is the
+    state teardown wants) and fails on anything else, so a partially completed
+    test still tears down the rest instead of leaking it into the shared
+    environment.
+    """
     logger.debug("Running cleanup...")
     try:
         for user in CREATED_USERS:
             try:
                 await permit.api.users.delete(user.key)
             except PermitApiError as error:
-                if error.status_code == 404:
-                    logger.debug(f"SKIPPING delete, user does not exist: {user.key}")
+                handle_cleanup_error(error, f"Could not delete user {user.key}")
         for tenant in CREATED_TENANTS:
             try:
                 await permit.api.tenants.delete(tenant.key)
             except PermitApiError as error:
-                if error.status_code == 404:
-                    logger.debug(f"SKIPPING delete, tenant does not exist: {tenant.key}")
+                handle_cleanup_error(error, f"Could not delete tenant {tenant.key}")
         for rel_tuple in RELATIONSHIPS:
             subject, relation, object, tenant = rel_tuple
             try:
@@ -574,10 +592,10 @@ async def cleanup(permit: Permit):
                     RelationshipTupleDelete(subject=subject, relation=relation, object=object)
                 )
             except PermitApiError as error:
-                if error.status_code == 404:
-                    logger.debug(
-                        f"SKIPPING delete, rel tuple does not exist: ({subject}, {relation}, {object}, {tenant})"
-                    )
+                handle_cleanup_error(
+                    error,
+                    f"Could not delete rel tuple ({subject}, {relation}, {object}, {tenant})",
+                )
         for assertion in ASSIGNMENTS_AND_ASSERTIONS:
             for assignment in assertion.assignments:
                 try:
@@ -590,17 +608,16 @@ async def cleanup(permit: Permit):
                         )
                     )
                 except PermitApiError as error:
-                    if error.status_code == 404:
-                        logger.debug(
-                            f"SKIPPING delete, role assignment does not exist: ({assignment.user}, {assignment.role}, "
-                            f"{assignment.resource_instance}, {assignment.tenant})"
-                        )
+                    handle_cleanup_error(
+                        error,
+                        f"Could not unassign ({assignment.user}, {assignment.role}, "
+                        f"{assignment.resource_instance}, {assignment.tenant})",
+                    )
         for resource in CREATED_RESOURCES:
             try:
                 await permit.api.resources.delete(resource.key)
             except PermitApiError as error:
-                if error.status_code == 404:
-                    logger.debug(f"SKIPPING delete, resource does not exist: {resource.key}")
+                handle_cleanup_error(error, f"Could not delete resource {resource.key}")
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
     except Exception as error:  # noqa: BLE001
@@ -609,9 +626,33 @@ async def cleanup(permit: Permit):
     logger.debug("Cleanup finished.")
 
 
+# Writes go to the control plane and reach the PDP asynchronously, so a query
+# issued immediately after a write can legitimately still see the old state.
+# These bounds replace the fixed sleeps this test used to carry: polling costs
+# only what it needs, and a decision that never converges still fails the
+# assertion below rather than being retried forever.
+PROPAGATION_TIMEOUT_SECONDS = 30
+PROPAGATION_POLL_INTERVAL_SECONDS = 0.5
+
+
+async def wait_for_decision(permit: Permit, q: CheckAssertion) -> bool:
+    """Poll permit.check until it matches the expectation, or the bound expires.
+
+    Returns the last decision seen either way -- the caller asserts on it, so a
+    decision that is simply wrong is reported as a failed assertion and never
+    silently tolerated.
+    """
+    deadline = time.monotonic() + PROPAGATION_TIMEOUT_SECONDS
+    decision = await permit.check(q.user, q.action, q.resource)
+    while decision != q.expected_decision and time.monotonic() < deadline:
+        await asyncio.sleep(PROPAGATION_POLL_INTERVAL_SECONDS)
+        decision = await permit.check(q.user, q.action, q.resource)
+    return decision
+
+
 async def assert_permit_check(permit: Permit, q: CheckAssertion):
     logger.info(f"asserting: permit.check({q.user}, {q.action}, {q.resource!s}) === {q.expected_decision!s}")
-    decision = await permit.check(q.user, q.action, q.resource)
+    decision = await wait_for_decision(permit, q)
     assert q.expected_decision == decision
 
 
@@ -619,7 +660,11 @@ async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assi
     logger.info(
         f"asserting: permit.authorized_users({q.action}, {q.resource}) === {q.expected_decision}",
     )
+    deadline = time.monotonic() + PROPAGATION_TIMEOUT_SECONDS
     authorized_users = await permit.authorized_users(q.action, q.resource)
+    while (q.user in authorized_users.users) != q.expected_decision and time.monotonic() < deadline:
+        await asyncio.sleep(PROPAGATION_POLL_INTERVAL_SECONDS)
+        authorized_users = await permit.authorized_users(q.action, q.resource)
     assert authorized_users.tenant == q.resource["tenant"]
     assert authorized_users.resource == f"{q.resource['type']}:{q.resource['key']}"
     if q.expected_decision is True:
@@ -638,9 +683,30 @@ async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assi
         assert q.user not in authorized_users.users
 
 
+async def own_relationship_tuples(permit: Permit, tenant_key: str) -> List[Any]:
+    """The relationship tuples this test created inside one of its own tenants.
+
+    relationship_tuples.list() is environment-wide and paginated, so counting
+    everything in the environment is both order-dependent (any other test that
+    adds a tuple moves the number) and, past the first page, simply wrong.
+    Scoping to this run's tenant and resource types keeps the assertion about
+    what this test itself did.
+    """
+    own_resource_keys = {ACCOUNT.key, FOLDER.key, DOCUMENT.key}
+    tuples = await permit.api.relationship_tuples.list(per_page=100, tenant_key=tenant_key)
+    return [
+        rel_tuple
+        for rel_tuple in tuples
+        if rel_tuple.subject.split(":")[0] in own_resource_keys and rel_tuple.object.split(":")[0] in own_resource_keys
+    ]
+
+
 async def test_rebac_policy(permit: Permit):
+    # No pre-test cleanup: every key this module uses is unique per run, so
+    # there is nothing left over from an earlier run to collide with, and
+    # deleting fixed keys here is what used to break the tests running
+    # alongside this one.
     logger.info("initial setup of objects")
-    await cleanup(permit)
     try:
         # schema --------------------------------------------------------------
 
@@ -737,9 +803,9 @@ async def test_rebac_policy(permit: Permit):
             assert rel_tuple.object == object
             assert rel_tuple.tenant == tenant
 
-        tuples = await permit.api.relationship_tuples.list()
-        len_tuples = len(tuples)
-        logger.debug(f"there are currently {len_tuples} relationship tuples in the system")
+        own_tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
+        len_tuples = len(own_tuples)
+        logger.debug(f"this test currently owns {len_tuples} relationship tuples in {TENANT_PERMIT.key}")
 
         # bulk create relationship tuples
         bulk_relationships_to_create = [
@@ -761,16 +827,20 @@ async def test_rebac_policy(permit: Permit):
         async def create_relationships_in_bulk():
             await permit.api.relationship_tuples.bulk_create(tuples=bulk_relationships_to_create)
 
-            tuples = await permit.api.relationship_tuples.list()
+            tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
             assert len(tuples) == len_tuples + len(BULK_RELATIONSHIPS)
-            logger.debug(f"there are currently {len(tuples)} relationship tuples in the system")
+            created = {(rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples}
+            for subject, relation, object, _tenant in BULK_RELATIONSHIPS:
+                assert (subject, relation, object) in created
 
         async def remove_relationships_in_bulk():
             await permit.api.relationship_tuples.bulk_delete(tuples=bulk_relationships_to_delete)
 
-            tuples = await permit.api.relationship_tuples.list()
+            tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
             assert len(tuples) == len_tuples
-            logger.debug(f"there are currently {len(tuples)} relationship tuples in the system")
+            remaining = {(rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples}
+            for subject, relation, object, _tenant in BULK_RELATIONSHIPS:
+                assert (subject, relation, object) not in remaining
 
         logger.debug(f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}")
         await create_relationships_in_bulk()
@@ -793,22 +863,19 @@ async def test_rebac_policy(permit: Permit):
                     assert ra.resource_instance == assignment.resource_instance
                     assert ra.tenant == assignment.tenant
 
-                logger.info(
-                    "sleeping 10 seconds before permit checks to make sure all writes propagated from cloud to PDP"
-                )
-                await asyncio.sleep(10)
-
+                # No sleep before the checks: assert_permit_check polls the PDP
+                # up to PROPAGATION_TIMEOUT_SECONDS for the write to land, which
+                # is both faster when propagation is quick and more tolerant
+                # when it is not.
                 for assertion in test_step.assertions:
                     if assertion.pre_assertion_hook is not None:
                         logger.debug("executing pre assertion hook")
                         await assertion.pre_assertion_hook(permit)
-                        await asyncio.sleep(1)
                     await assert_permit_check(permit, assertion)
                     await assert_permit_authorized_users(permit, assertion, test_step.assignments)
                     if assertion.post_assertion_hook is not None:
                         logger.debug("executing post assertion hook")
                         await assertion.post_assertion_hook(permit)
-                        await asyncio.sleep(1)
             finally:
                 for assignment in test_step.assignments:
                     try:
@@ -825,14 +892,11 @@ async def test_rebac_policy(permit: Permit):
                             )
                         )
                     except PermitApiError as error:
-                        if error.status_code == 404:
-                            logger.debug(
-                                f"SKIPPING delete, role assignment does not exist: "
-                                f"({assignment.user}, {assignment.role}, "
-                                f"{assignment.resource_instance}, {assignment.tenant})"
-                            )
-                        else:
-                            raise
+                        handle_cleanup_error(
+                            error,
+                            f"Could not unassign ({assignment.user}, {assignment.role}, "
+                            f"{assignment.resource_instance}, {assignment.tenant})",
+                        )
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
     except Exception as error:  # noqa: BLE001

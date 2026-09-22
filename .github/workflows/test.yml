@@ -31,18 +31,6 @@ jobs:
     # changing the matrix silently makes those contexts unsatisfiable, which
     # blocks every PR from merging until branch protection is updated to match.
     name: pytest (Pydantic ${{ matrix.pydantic-version }})
-    services:
-      pdp:
-        # Deliberately :latest. This job's purpose includes catching breakage
-        # between the SDK and the current PDP release, so pinning a digest
-        # would defeat the test rather than harden it. The PDP is a
-        # first-party Permit image, not third-party supply chain.
-        image: permitio/pdp-v2:latest # zizmor: ignore[unpinned-images]
-        ports:
-          - 7766:7000
-        env:
-          PDP_API_KEY: ${{ secrets.PROJECT_API_KEY }}
-          PDP_DEBUG: true
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,6 +92,39 @@ jobs:
           echo "::add-mask::$ENV_API_KEY"
           echo "ENV_API_KEY=$ENV_API_KEY" >> "$GITHUB_ENV"
 
+      # Started here, NOT as a `services:` container. A service container is
+      # created before the first step runs, so the only key available to it is
+      # the long-lived PROJECT_API_KEY -- while the tests authenticate with the
+      # per-run scratch environment key minted above. The PDP then rejects
+      # every decision request with a 403 whose body is plain text, which the
+      # SDK surfaces as "cannot connect to the PDP container". That mismatch is
+      # why the ReBAC and RBAC decision tests could never pass.
+      - name: Start the PDP
+        env:
+          ENV_API_KEY: ${{ env.ENV_API_KEY }}
+        run: |
+          set -euo pipefail
+          docker run -d --name permit-pdp \
+            -p 7766:7000 \
+            -e PDP_API_KEY="${ENV_API_KEY}" \
+            -e PDP_DEBUG=true \
+            permitio/pdp-v2:latest
+
+          # Bounded readiness poll: the PDP has to fetch its config and pull a
+          # policy bundle before it can decide anything, and a check issued
+          # against a not-yet-ready PDP fails in a way that looks like a policy
+          # bug rather than a timing one.
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
+              echo "PDP ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 60s"
+          docker logs permit-pdp 2>&1 | tail -50
+          exit 1
+
       - name: Install dependencies
         env:
           PYDANTIC_VERSION: ${{ matrix.pydantic-version }}
@@ -130,6 +151,14 @@ jobs:
           PDP_API_KEY: ${{ env.ENV_API_KEY }}
         run: |
           pytest -s --cache-clear tests/
+
+      - name: PDP logs
+        if: failure()
+        run: docker logs permit-pdp 2>&1 | tail -200 || true
+
+      - name: Stop the PDP
+        if: always()
+        run: docker rm -f permit-pdp || true
 
       - name: Delete env ${{ env.ENV_KEY }}
         if: always()

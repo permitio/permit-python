@@ -32,6 +32,27 @@ Action = str
 Resource = Union[dict, str]
 
 
+async def read_error_body(response: aiohttp.ClientResponse) -> str:
+    """Read an error response body without assuming it is JSON.
+
+    The PDP returns its auth rejections as plain text with no content-type
+    header, so calling ``.json()`` on them raises ``aiohttp.ContentTypeError``
+    -- which is an ``aiohttp.ClientError``, and is therefore swallowed by the
+    surrounding handler and re-reported as "cannot connect to the PDP
+    container". A 403 for a wrong API key was indistinguishable from the PDP
+    being down, which is a genuinely misleading error to hand a user.
+    """
+    try:
+        return repr(await response.json())
+    except (aiohttp.ClientError, ValueError):
+        pass
+    try:
+        text = (await response.text()).strip()
+    except aiohttp.ClientError:
+        return "<error body could not be read>"
+    return text or "<empty error body>"
+
+
 class CheckQuery(TypedDict):
     user: User
     action: Action
@@ -131,18 +152,21 @@ class Enforcer:
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
 
-                        error_json: dict = await response.json()
+                        error_body = await read_error_body(response)
                         logger.error(
                             "error in permit.authorized_users({}, {}):\n{}\n{}".format(
                                 action,
                                 self._resource_repr(normalized_resource),
                                 f"status code: {response.status}",
-                                repr(error_json),
+                                error_body,
                             )
                         )
                         raise PermitConnectionError(
-                            f"Permit SDK got unexpected status code: {response.status}, "
-                            f"please check your Permit SDK class init and PDP container are configured correctly. \n"
+                            f"Permit SDK got unexpected status code: {response.status} "
+                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                            f"The PDP is reachable, so this is a rejected request rather than a "
+                            f"connectivity problem -- a 401/403 usually means the PDP was started "
+                            f"with a different API key than the SDK is using.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
 
@@ -238,7 +262,7 @@ class Enforcer:
                     data=json.dumps(input),
                 ) as response:
                     if response.status != 200:
-                        error_json: dict = await response.json()
+                        error_body = await read_error_body(response)
                         msg = "error in permit.check({}):\n{}\n{}".format(
                             (
                                 [
@@ -251,7 +275,7 @@ class Enforcer:
                                 ]
                             ),
                             f"status code: {response.status}",
-                            repr(error_json),
+                            error_body,
                         )
                         logger.error(msg)
                         raise PermitConnectionError(msg)
@@ -347,19 +371,22 @@ class Enforcer:
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
 
-                        error_json: dict = await response.json()
+                        error_body = await read_error_body(response)
                         logger.error(
                             "error in permit.check({}, {}, {}):\n{}\n{}".format(
                                 normalized_user,
                                 action,
                                 self._resource_repr(normalized_resource),
                                 f"status code: {response.status}",
-                                repr(error_json),
+                                error_body,
                             )
                         )
                         raise PermitConnectionError(
-                            f"Permit SDK got unexpected status code: {response.status}, "
-                            f"please check your Permit SDK class init and PDP container are configured correctly. \n"
+                            f"Permit SDK got unexpected status code: {response.status} "
+                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                            f"The PDP is reachable, so this is a rejected request rather than a "
+                            f"connectivity problem -- a 401/403 usually means the PDP was started "
+                            f"with a different API key than the SDK is using.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
 
