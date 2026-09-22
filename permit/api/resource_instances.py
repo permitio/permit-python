@@ -92,10 +92,12 @@ class ResourceInstancesApi(BasePermitApi):
     @validate_arguments  # type: ignore[operator]
     async def get(self, instance_key: str) -> ResourceInstanceRead:
         """
-        Retrieves a resource instance by its key.
+        Retrieves a resource instance by its identity.
 
         Args:
-            instance_key: The key of the resource instance.
+            instance_key: The resource instance identity. Either `resource_type:instance_key`
+                (like Repository:react) or the resource instance uuid. A bare instance key
+                is rejected by the API with a 422.
 
         Returns:
             the resource instance.
@@ -111,11 +113,13 @@ class ResourceInstancesApi(BasePermitApi):
     @validate_arguments  # type: ignore[operator]
     async def get_by_key(self, instance_key: str) -> ResourceInstanceRead:
         """
-        Retrieves a resource instance by its key.
+        Retrieves a resource instance by its identity.
         Alias for the get method.
 
         Args:
-            instance_key: The key of the resource instance.
+            instance_key: The resource instance identity. Either `resource_type:instance_key`
+                (like Repository:react) or the resource instance uuid. A bare instance key
+                is rejected by the API with a 422.
 
         Returns:
             the resource instance.
@@ -173,7 +177,9 @@ class ResourceInstancesApi(BasePermitApi):
         Updates a resource instance.
 
         Args:
-            instance_key: The key of the resource instance.
+            instance_key: The resource instance identity. Either `resource_type:instance_key`
+                (like Repository:react) or the resource instance uuid. A bare instance key
+                is rejected by the API with a 422.
             instance_data: The updated data for the resource instance.
 
         Returns:
@@ -197,7 +203,9 @@ class ResourceInstancesApi(BasePermitApi):
         Deletes a resource instance.
 
         Args:
-            instance_key: The key of the resource instance to delete.
+            instance_key: The identity of the resource instance to delete. Either `resource_type:instance_key`
+                (like Repository:react) or the resource instance uuid. A bare instance key
+                is rejected by the API with a 422.
 
         Returns:
             A promise that resolves when the resource instance is deleted.
