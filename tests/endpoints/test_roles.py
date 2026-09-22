@@ -13,7 +13,6 @@ CREATED_RESOURCES = [TEST_RESOURCE_KEY]
 CREATED_ROLES = [TEST_ADMIN_ROLE_KEY, TEST_EMPTY_ROLE_KEY]
 
 
-@pytest.mark.xfail()
 async def test_roles(permit: Permit):
     logger.info("initial setup of objects")
     len_roles_original = 0

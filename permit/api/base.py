@@ -54,16 +54,25 @@ class SimpleHttpClient:
         logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
     def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[Union[dict, list]]:
+        """Normalize a request body into JSON-serializable primitives.
+
+        Models, dicts and lists all go through the same encoder so that nested
+        ``datetime``/``UUID``/``Enum``/``Decimal`` values are encoded wherever they appear.
+
+        Only ``exclude_unset`` is applied: a model field that was never set is omitted,
+        while a field explicitly set to ``None`` is transmitted as JSON ``null`` so the
+        API can distinguish "leave this alone" from "clear this value".
+
+        Args:
+            json: The request body, as a pydantic model, a dict, a list or ``None``.
+
+        Returns:
+            The encoded body, or ``None`` when no body was given.
+        """
         if json is None:
             return None
 
-        if isinstance(json, dict):
-            return json
-
-        if isinstance(json, list):
-            return [self._prepare_json(item) for item in json]
-
-        return jsonable_encoder(json, exclude_unset=True, exclude_none=True)
+        return jsonable_encoder(json, exclude_unset=True)
 
     @handle_client_error
     async def get(self, url, model: Type[TModel], **kwargs) -> TModel:

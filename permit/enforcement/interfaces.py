@@ -20,6 +20,16 @@ class AssignedRole(BaseModel):
 
 
 class UserInput(UserKey):
+    """A user as sent to the PDP on an authorization query.
+
+    Both the python field name (``first_name``) and the wire alias (``firstName``)
+    populate the field. Serialization always uses the field name, which is the
+    spelling the PDP reads.
+    """
+
+    class Config:
+        allow_population_by_field_name = True
+
     first_name: Optional[str] = Field(None, alias="firstName")
     last_name: Optional[str] = Field(None, alias="lastName")
     email: Optional[str] = None

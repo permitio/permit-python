@@ -16,7 +16,6 @@ def print_break():
     print("\n\n ----------- \n\n")  # noqa: T201
 
 
-@pytest.mark.xfail()
 def test_permission_check_e2e(sync_permit: SyncPermit):
     permit = sync_permit
     logger.info("initial setup of objects")

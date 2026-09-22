@@ -11,7 +11,6 @@ TEST_RESOURCE_FOLDER_KEY = f"folder-{uuid.uuid4()}"
 CREATED_RESOURCES = [TEST_RESOURCE_DOC_KEY, TEST_RESOURCE_FOLDER_KEY]
 
 
-@pytest.mark.xfail()
 async def test_resources(permit: Permit):
     logger.info("initial setup of objects")
     len_original = 0

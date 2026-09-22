@@ -5,13 +5,19 @@ from typing import Any, Dict, List, Optional, TypedDict, Union
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
-from pydantic import parse_obj_as
 
 from ..config import PermitConfig
 from ..exceptions import PermitConnectionError
 from ..utils.context import Context, ContextStore
+from ..utils.dicts import deep_merge
+from ..utils.pydantic_version import PYDANTIC_VERSION
 from ..utils.sync import SyncClass
 from .interfaces import AuthorizedUsersResult, ResourceInput, UserInput
+
+if PYDANTIC_VERSION < (2, 0):
+    from pydantic import parse_obj_as
+else:
+    from pydantic.v1 import parse_obj_as  # type: ignore
 
 
 def set_if_not_none(d: dict, k: str, v):
@@ -171,6 +177,8 @@ class Enforcer:
 
         Args:
             checks: A list of CheckQuery objects representing the authorization queries to be performed.
+                Each check may carry its own ``context``, which is merged over the method-level
+                ``context`` for that check only.
             context: The context object representing the context in which the action is performed. Defaults to None.
 
         Returns:
@@ -211,7 +219,8 @@ class Enforcer:
                 if isinstance(check["resource"], str)
                 else ResourceInput(**check["resource"])
             )
-            query_context = self._context_store.get_derived_context(context)
+            check_context: Context = check.get("context") or {}
+            query_context = self._context_store.get_derived_context(deep_merge(context, check_context))
             input.append(
                 {
                     "user": normalized_user.dict(exclude_unset=True),
@@ -425,11 +434,19 @@ class Enforcer:
                 ) from err
 
     async def filter_objects(
-        self, user: User, action: Action, context: Dict[str, str], resources: List[Dict[str, Any]]
+        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """
-        Filter objects based on permissions using bulk check.
-        Port of Go's FilterObjects function.
+        """Filter the given resources down to the ones the user is allowed to act on.
+
+        Args:
+            user: The user object representing the user.
+            action: The action to be performed on each resource.
+            context: The context every check is evaluated against.
+            resources: The resources to filter. Each resource may carry its own ``context``
+                key, which is sent as the resource context of that check.
+
+        Returns:
+            list[dict]: The subset of ``resources`` the user is authorized for, in input order.
         """
         requests: List[CheckQuery] = []
         for resource in resources:
@@ -443,7 +460,7 @@ class Enforcer:
             check_query: CheckQuery = {"user": user, "action": action, "resource": permit_resource, "context": context}
             requests.append(check_query)
 
-        results = await self.bulk_check(requests)
+        results = await self.bulk_check(requests, context=context)
         filtered_resources: List[Dict[str, Any]] = []
         for i, result in enumerate(results):
             if result:

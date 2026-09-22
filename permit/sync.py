@@ -1,9 +1,16 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from .api.elements import SyncElementsApi
 from .api.sync_api_client import SyncPermitApiClient
 from .config import PermitConfig
-from .enforcement.enforcer import Action, CheckQuery, Resource, SyncEnforcer, User
+from .enforcement.enforcer import (
+    Action,
+    AuthorizedUsersResult,
+    CheckQuery,
+    Resource,
+    SyncEnforcer,
+    User,
+)
 from .pdp_api.pdp_api_client import SyncPDPApi
 from .permit import Permit as AsyncPermit
 from .utils.context import Context
@@ -128,3 +135,84 @@ class Permit(AsyncPermit):
             permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
         """
         return self._enforcer.check(user, action, resource, context)  # type: ignore[return-value]
+
+    def authorized_users(  # type: ignore[override]
+        self,
+        action: Action,
+        resource: Resource,
+        context: Optional[Context] = None,
+    ) -> AuthorizedUsersResult:
+        """
+        Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+
+        Args:
+            action: The action to be performed on the resource.
+            resource: The resource object representing the resource.
+            context: The context object representing the context in which the action is performed. Defaults to None.
+
+        Returns:
+            AuthorizedUsersResult: Contains all the authorized users and the role assignments that granted the permission.
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+
+        Examples:
+
+            # all the users that can close any issue?
+            permit.authorized_users('close', 'issue')
+
+            # all the users that can close an issue who's id is 1234?
+            permit.authorized_users('close', 'issue:1234')
+
+            # all the users that can close (any) issues belonging to the 't1' tenant?
+            # (in a multi tenant application)
+            permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+        """  # noqa: E501
+        return self._enforcer.authorized_users(action, resource, context)  # type: ignore[return-value]
+
+    def get_user_permissions(  # type: ignore[override]
+        self,
+        user: User,
+        tenants: Optional[List[str]] = None,
+        resources: Optional[List[str]] = None,
+        resource_types: Optional[List[str]] = None,
+    ) -> dict:
+        """
+        Get all permissions for a user.
+
+        Args:
+            user: The user object or user key
+            tenants: Optional list of tenants to filter permissions
+            resources: Optional list of resources to filter
+            resource_types: Optional list of resource types to filter
+
+        Returns:
+            dict: User permissions per tenant
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the request to the PDP
+        """
+        return self._enforcer.get_user_permissions(  # type: ignore[return-value]
+            user, tenants, resources, resource_types
+        )
+
+    def filter_objects(  # type: ignore[override]
+        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter a list of resources, keeping only those the user is permitted to act on.
+
+        Args:
+            user: The user object or user key
+            action: The action to check against every resource
+            context: The context in which the action is performed
+            resources: The resources to filter. Each entry may carry the keys
+                `type`, `key`, `context`, `attributes` and `tenant`.
+
+        Returns:
+            List[Dict[str, Any]]: The permitted subset of `resources`, in their original order
+
+        Raises:
+            PermitConnectionError: If an error occurs while sending the request to the PDP
+        """
+        return self._enforcer.filter_objects(user, action, context, resources)  # type: ignore[return-value]

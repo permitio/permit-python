@@ -224,7 +224,9 @@ async def test_bulk_operations(permit: Permit):
     assert len(users) == len_users_original
 
     assignments = await permit.api.role_assignments.list()
-    assert len(assignments) == len_assignments_original + 1  # (tenant role)
+    # Not +1: the surviving tenant-level assignment (USER_A/admin/TENANT_1) belongs to USER_A,
+    # and deleting a user cascades away their role assignments, so we are back to the original count.
+    assert len(assignments) == len_assignments_original
 
     ## bulk delete tenants -----------------------------------
     await permit.api.tenants.bulk_delete([tenant.key for tenant in CREATED_TENANTS])
