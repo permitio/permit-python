@@ -21,6 +21,7 @@ from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
 from permit.api.resource_instances import ResourceInstancesApi
 from permit.api.users import UsersApi
 from permit.config import PermitConfig
+from permit.enforcement.enforcer import CheckQuery
 from permit.exceptions import (
     PermitApiError,
     PermitConnectionError,
@@ -317,3 +318,10 @@ def test_permit_connection_error_is_still_a_permit_error():
 
     assert isinstance(error, PermitError)
     assert error.original_error is None
+
+
+def test_check_query_context_is_optional():
+    # bulk_check reads each check's context with .get(), so a query without one
+    # is valid and the TypedDict must not make type checkers demand it.
+    assert CheckQuery.__required_keys__ == {"user", "action", "resource"}
+    assert CheckQuery.__optional_keys__ == {"context"}

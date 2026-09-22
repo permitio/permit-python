@@ -1,10 +1,11 @@
 import json
 from pprint import pformat
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
+from typing_extensions import NotRequired, TypedDict
 
 from ..config import PermitConfig
 from ..exceptions import PermitConnectionError
@@ -52,7 +53,7 @@ class CheckQuery(TypedDict):
     user: User
     action: Action
     resource: Resource
-    context: Optional[Context]
+    context: NotRequired[Optional[Context]]
 
 
 SETUP_PDP_DOCS_LINK = (
