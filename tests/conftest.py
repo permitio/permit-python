@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import os
+import random
 
 import pytest
 from loguru import logger
@@ -109,8 +110,26 @@ def permit_cloud(permit_config_cloud: PermitConfig) -> Permit:
 # --------------------------------------------------------------------------
 
 _RATE_LIMIT_STATUS = 429
-_MAX_RETRIES = 6
+# Six attempts (~63s of backoff) was not always enough: a teardown still
+# exhausted them. Nine caps a single call at ~two minutes of waiting, which is
+# cheap next to a red build, and the loop exits the moment the call succeeds.
+_MAX_RETRIES = 9
 _BASE_BACKOFF_S = 1.0
+_MAX_BACKOFF_S = 30.0
+
+
+def _retry_after_seconds(err: PermitApiError) -> float | None:
+    """The server's own Retry-After, when it sends one."""
+    try:
+        raw = err.response.headers.get("Retry-After")
+    except Exception:  # noqa: BLE001 - a missing/odd header must never mask the 429
+        return None
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return None
 
 
 def _retry_on_rate_limit(method):
@@ -122,7 +141,13 @@ def _retry_on_rate_limit(method):
             except PermitApiError as err:
                 if err.status_code != _RATE_LIMIT_STATUS or attempt == _MAX_RETRIES - 1:
                     raise
-                delay = _BASE_BACKOFF_S * (2**attempt)
+                # Prefer what the server asked for; otherwise exponential
+                # backoff with jitter, so parallel callers do not retry in
+                # lockstep and re-trip the limit together.
+                delay = _retry_after_seconds(err)
+                if delay is None:
+                    delay = min(_BASE_BACKOFF_S * (2**attempt), _MAX_BACKOFF_S)
+                    delay *= 0.5 + random.random() / 2
                 logger.warning(f"rate limited (429); retrying in {delay:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
                 await asyncio.sleep(delay)
         raise AssertionError("unreachable")  # pragma: no cover
