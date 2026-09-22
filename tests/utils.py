@@ -15,14 +15,14 @@ def handle_api_error(error: PermitApiError, message: str):
     pytest.fail(err)
 
 
-# Statuses that mean "teardown did not leave a mess, and retrying here would
-# not help either".
-#   404 - the object is already gone, which is the state teardown wanted.
-#   429 - the API throttled us. The whole suite runs in one environment and
-#         tears a lot down at the end, so cleanup is exactly where the rate
-#         limit bites. It leaks an object, which the scratch environment's
-#         deletion reclaims anyway.
-_CLEANUP_TOLERATED_STATUSES = frozenset({404, 429})
+# Only 404: the object is already gone, which is the state teardown wanted.
+#
+# 429 is deliberately NOT tolerated. Swallowing a throttled DELETE leaves the
+# object alive, and the assert-it-is-gone check that follows then fails with
+# "DID NOT RAISE" -- the tolerance manufactures a worse failure than the one it
+# hides. Throttling is handled where it belongs, by the retry-with-backoff
+# fixture in conftest.py, which makes the delete actually succeed.
+_CLEANUP_TOLERATED_STATUSES = frozenset({404})
 
 
 def handle_cleanup_error(error: PermitApiError, message: str):
