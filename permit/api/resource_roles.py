@@ -195,7 +195,11 @@ class ResourceRolesApi(BasePermitApi):
         Args:
             resource_key: The key of the resource the role belongs to.
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be assigned to the role.
+            permissions: An array of action keys of `resource_key` (or resource action uuids)
+                to be assigned to the role. A resource role is scoped to its own resource, so
+                each entry is a bare action key such as `read` - the `<resourceKey:actionKey>`
+                form used by top level roles is read as an action key here and is rejected
+                with a 404 (MISSING_PERMISSIONS) naming `<resourceKey>:<resourceKey>:<actionKey>`.
 
         Returns:
             A ResourceRoleRead object representing the updated role.
@@ -220,7 +224,9 @@ class ResourceRolesApi(BasePermitApi):
         Args:
             resource_key: The key of the resource the role belongs to.
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be removed from the role.
+            permissions: An array of action keys of `resource_key` (or resource action uuids)
+                to be removed from the role, in the same bare `read` form `assign_permissions`
+                takes.
 
         Returns:
             A ResourceRoleRead object representing the updated role.

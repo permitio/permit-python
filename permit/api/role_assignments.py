@@ -51,7 +51,7 @@ class RoleAssignmentsApi(BasePermitApi):
             role_key: if specified, only assignments of this role will be fetched.
             tenant_key: (for roles) if specified, only role granted within this tenant will be fetched.
             resource_key: (for resource roles) if specified, only roles granted on instances of this resource type will be fetched.
-            resource_instance_key: (for resource roles) if specified, only roles granted with this instance as the object will be fetched.
+            resource_instance_key: (for resource roles) if specified, only roles granted with this instance as the object will be fetched. The instance identity, either `resource_type:instance_key` (like Repository:react) or the instance uuid; a bare instance key is rejected by the API with a 400.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
