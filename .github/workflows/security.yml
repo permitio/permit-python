@@ -23,7 +23,6 @@ on:
       - "requirements-dev.txt"
       - "setup.py"
       - "pyproject.toml"
-      - ".trivyignore"
       - ".github/workflows/security.yml"
       - ".github/scripts/audit-deps.sh"
       - ".github/scripts/format_audit.py"

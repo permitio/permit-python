@@ -16,13 +16,12 @@ mypy>=1.11.0
 # (insecure temporary directory handling). Caught by this repo's own audit gate.
 pytest>=9.0.3
 pytest-asyncio>=1.0.0
-pytest-cov>=5.0.0
-pytest-mock>=3.14.0
 pytest_httpserver>=1.1.0
 ruff>=0.6.0
 
-# Werkzeug reaches the test run only as a dependency of pytest_httpserver, but
-# it is bounded here so it shows up in the audit. 3.1.6 is the highest fixed
+# Imported directly by the offline tests (Request/Response are used to assert
+# on what the SDK actually put on the wire), as well as backing
+# pytest_httpserver. 3.1.6 is the highest fixed
 # version across the six advisories that affected the previous >=2.3.8 floor
 # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
 # CVE-2026-21860, CVE-2026-27199).

@@ -1,6 +1,13 @@
-.PHONY: help
+.PHONY: help generate-models clean
 
 .DEFAULT_GOAL := help
+
+help:
+	@echo "generate-models  regenerate permit/api/models.py from the Permit OpenAPI spec"
+	@echo "clean            remove build artifacts"
+	@echo ""
+	@echo "Releasing is done by publishing a GitHub release, which runs"
+	@echo ".github/workflows/python-sdk-publish.yml (build -> security scan -> PyPI)."
 
 generate-models:
 	datamodel-codegen --url https://api.permit.io/v2/openapi.json \
@@ -12,11 +19,5 @@ generate-models:
 		--use-one-literal-as-default \
 		--use-subclass-enum
 
-# python packages (pypi)
 clean:
 	rm -rf *.egg-info build/ dist/
-
-publish:
-	$(MAKE) clean
-	python setup.py sdist bdist_wheel
-	python -m twine upload dist/*

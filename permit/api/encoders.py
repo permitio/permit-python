@@ -26,16 +26,27 @@ if PYDANTIC_VERSION < (2, 0):
     from pydantic.networks import AnyUrl, NameEmail
     from pydantic.types import SecretBytes, SecretStr
 
-    def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
-        return model.dict(**kwargs)
 else:
     from pydantic.v1 import BaseModel  # type: ignore[assignment]
     from pydantic.v1.color import Color  # type: ignore[assignment]
     from pydantic.v1.networks import AnyUrl, NameEmail  # type: ignore[assignment]
     from pydantic.v1.types import SecretBytes, SecretStr  # type: ignore[assignment]
 
-    def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
-        return model.dict(**kwargs)
+
+def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
+    """Serialize a model to a dict.
+
+    Both pydantic majors take the same path: the SDK's models are always v1
+    models (under pydantic 2.x they come from the pydantic.v1 shim), so
+    ``.dict()`` is correct either way. This used to be defined identically in
+    both arms of the version split.
+
+    ``mode`` is accepted and deliberately ignored. It exists to ABSORB the
+    argument callers pass in pydantic-v2 style: v1's ``.dict()`` has no such
+    keyword, so letting ``mode`` fall through into ``**kwargs`` raises
+    ``TypeError: BaseModel.dict() got an unexpected keyword argument 'mode'``.
+    """
+    return model.dict(**kwargs)
 
 
 def isoformat(o: Union[datetime.date, datetime.time]) -> str:

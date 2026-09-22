@@ -20,11 +20,6 @@ else:
     from pydantic.v1 import parse_obj_as  # type: ignore
 
 
-def set_if_not_none(d: dict, k: str, v):
-    if v is not None:
-        d[k] = v
-
-
 RESOURCE_DELIMITER = ":"
 
 User = Union[dict, str]

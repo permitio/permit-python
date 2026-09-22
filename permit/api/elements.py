@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Optional, Union
 from uuid import UUID
 
@@ -43,13 +42,6 @@ class EmbeddedLoginRequestOutput(BaseModel):
         description="The full URL to which the user should be redirected in order to complete the login process",
         title="Redirect Url",
     )
-
-
-class LoginAsErrorMessages(str, Enum):
-    USER_NOT_FOUND = "User not found"
-    TENANT_NOT_FOUND = "Tenant not found"
-    INVALID_PERMISSION_LEVEL = "Invalid user permission level"
-    FORBIDDEN_ACCESS = "Forbidden access"
 
 
 class LoginAsSchema(BaseModel):

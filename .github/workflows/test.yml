@@ -117,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov
+          pip install pytest
           # Pin pydantic version according to matrix
           pip install "${PYDANTIC_VERSION}"
           # Explicitly install email-validator which is required for Pydantic email validation

@@ -7,8 +7,6 @@ if PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import BaseModel, Field  # type: ignore
 
-JWT = str
-
 
 class UserKey(BaseModel):
     key: str
@@ -44,10 +42,6 @@ class ResourceInput(BaseModel):
     tenant: Optional[str] = None  # tenant the resource belongs to
     attributes: Optional[Dict] = None  # extra resources attributes
     context: Optional[Dict] = None  # extra context
-
-
-class OpaResult(BaseModel):
-    allow: bool
 
 
 class AuthorizedUserAssignment(BaseModel):

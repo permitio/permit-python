@@ -429,8 +429,10 @@ def render(
     )
     out.append("")
     out.append(
-        "If an advisory has no fix available, or genuinely does not apply to this SDK, add "
-        "it to `.trivyignore` **with an expiry date and a one-line reason**."
+        "An advisory with no fix available does not block the build -- it is reported "
+        "here so it can be tracked, but no version bump can resolve it. Suppression "
+        "files are deliberately not honoured: the scan runs with `--ignorefile "
+        "/dev/null` so nothing can disappear from this report silently."
     )
 
     return "\n".join(out) + "\n"

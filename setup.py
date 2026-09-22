@@ -3,23 +3,30 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 
-def get_requirements(env=""):
-    if env:
-        env = f"-{env}"
-    with Path(f"requirements{env}.txt").open() as fp:
-        return [x.strip() for x in fp.read().split("\n") if not x.startswith("#")]
+def get_requirements() -> list:
+    """Read the runtime requirements, ignoring comments and blank lines.
+
+    The blank-line filter matters: requirements.txt ends with a newline, so a
+    naive split produced a trailing empty-string "requirement".
+    """
+    with Path("requirements.txt").open() as fp:
+        return [line.strip() for line in fp if line.strip() and not line.startswith("#")]
 
 
 def get_readme() -> str:
     this_directory = Path(__file__).parent
-    long_description = (this_directory / "README.md").read_text()
-    return long_description
+    return (this_directory / "README.md").read_text()
 
 
 setup(
     name="permit",
     version="3.0.0",
-    packages=find_packages(),
+    # `tests` must be excluded explicitly. A bare find_packages() picks it up and
+    # installs it as a TOP-LEVEL `tests` package in the consumer's
+    # site-packages, where it shadows their own `tests` module -- verified
+    # against the published permit==2.8.3, which does exactly that. `harness` is
+    # excluded for the same reason: it is a local developer tool.
+    packages=find_packages(exclude=["tests", "tests.*", "harness", "harness.*"]),
     author="Asaf Cohen",
     author_email="asaf@permit.io",
     license="Apache 2.0",
