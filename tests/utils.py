@@ -15,19 +15,29 @@ def handle_api_error(error: PermitApiError, message: str):
     pytest.fail(err)
 
 
+# Statuses that mean "teardown did not leave a mess, and retrying here would
+# not help either".
+#   404 - the object is already gone, which is the state teardown wanted.
+#   429 - the API throttled us. The whole suite runs in one environment and
+#         tears a lot down at the end, so cleanup is exactly where the rate
+#         limit bites. It leaks an object, which the scratch environment's
+#         deletion reclaims anyway.
+_CLEANUP_TOLERATED_STATUSES = frozenset({404, 429})
+
+
 def handle_cleanup_error(error: PermitApiError, message: str):
     """Report a teardown failure without failing an otherwise-passing test.
 
-    A 404 during cleanup means the object is already gone, which is the state
-    teardown was trying to reach. Failing the test for it turns every ordering
-    difference between tests that share an environment into a red build, and
-    hides whatever the test was actually asserting.
+    Failing a test for a teardown hiccup hides whatever it was actually
+    asserting, and makes every ordering difference or rate-limit spike look
+    like a product defect. Tolerated statuses are logged loudly and skipped.
 
-    Anything other than a 404 still fails: that is a real teardown problem and
-    it leaks objects into the shared environment.
+    Every other status still fails the test: that is a real teardown problem.
     """
-    if error.status_code == 404:
-        logger.warning(f"{message}: already absent (404), continuing. url={error.request_url}")
+    if error.status_code in _CLEANUP_TOLERATED_STATUSES:
+        logger.warning(
+            f"{message}: tolerated during cleanup (status={error.status_code}), continuing. " f"url={error.request_url}"
+        )
         return
     handle_api_error(error, message)
 
