@@ -30,7 +30,12 @@ PER_PAGE: Final[int] = 100
 # RBAC decisions land in the PDP within seconds; an ABAC condition set has to be
 # compiled into policy first, which takes appreciably longer.
 RBAC_PROPAGATION_TIMEOUT: Final[float] = 30.0
-ABAC_PROPAGATION_TIMEOUT: Final[float] = 90.0
+# An ABAC condition set is not data: changing one makes the policy generator
+# recompile the environment's rego and redistribute the bundle, which is a far
+# slower path than the fact sync RBAC relies on. 90s was not enough against the
+# real cloud PDP; the poll exits as soon as the rule lands, so a generous
+# ceiling costs nothing on a healthy run.
+ABAC_PROPAGATION_TIMEOUT: Final[float] = 300.0
 PROPAGATION_INTERVAL: Final[float] = 1.0
 
 

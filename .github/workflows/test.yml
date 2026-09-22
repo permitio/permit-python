@@ -109,21 +109,7 @@ jobs:
             -e PDP_API_KEY="${ENV_API_KEY}" \
             -e PDP_DEBUG=true \
             permitio/pdp-v2:latest
-
-          # Bounded readiness poll: the PDP has to fetch its config and pull a
-          # policy bundle before it can decide anything, and a check issued
-          # against a not-yet-ready PDP fails in a way that looks like a policy
-          # bug rather than a timing one.
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
-              echo "PDP ready after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 60s"
-          docker logs permit-pdp 2>&1 | tail -50
-          exit 1
+          echo "PDP container started; it warms up while dependencies install."
 
       - name: Install dependencies
         env:
@@ -141,6 +127,27 @@ jobs:
 
       - name: Show installed packages
         run: pip list
+
+      # Waited for here rather than immediately after `docker run`, so the
+      # PDP's bootstrap (fetch config, pull the policy bundle, start OPA)
+      # overlaps with dependency installation instead of running after it.
+      # The PDP reports 503 on /healthy until its horizon component is up;
+      # issuing a check before that fails in a way that looks like a policy
+      # bug rather than a timing one.
+      - name: Wait for the PDP
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 180); do
+            if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
+              echo "PDP healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 180s"
+          docker logs permit-pdp 2>&1 | tail -80
+          exit 1
+
 
       - name: Test with pytest
         env:
