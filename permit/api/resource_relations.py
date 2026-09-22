@@ -1,5 +1,3 @@
-from typing import List
-
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
 if PYDANTIC_VERSION < (2, 0):
@@ -13,7 +11,7 @@ from .base import (
     pagination_params,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import RelationCreate, RelationRead
+from .models import PaginatedResultRelationRead, RelationCreate, RelationRead
 
 
 class ResourceRelationsApi(BasePermitApi):
@@ -24,7 +22,7 @@ class ResourceRelationsApi(BasePermitApi):
         )
 
     @validate_arguments  # type: ignore[operator]
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[RelationRead]:
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultRelationRead:
         """
         Retrieves a list of outgoing relations originating in a specific (object) resource.
 
@@ -34,7 +32,8 @@ class ResourceRelationsApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
 
         Returns:
-            an array of relations.
+            a PaginatedResultRelationRead holding the relations in ``.data`` and the
+            total number of relations on the resource in ``.total_count``.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -44,7 +43,7 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relations.get(
             f"/{resource_key}/relations",
-            model=List[RelationRead],
+            model=PaginatedResultRelationRead,
             params=pagination_params(page, per_page),
         )
 
