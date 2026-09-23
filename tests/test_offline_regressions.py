@@ -10,20 +10,21 @@ import inspect
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Union, get_type_hints
 from uuid import UUID, uuid4
 
 import aiohttp
 import pydantic
 import pytest
 from packaging.requirements import Requirement
+from pydantic.v1 import ValidationError
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
-from permit import Permit
+from permit import Permit, Resource, User
 from permit.api.context import ApiContext, ApiKeyAccessLevel
 from permit.api.elements import ElementsApi
-from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
+from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove, UserCreate
 from permit.api.resource_instances import ResourceInstancesApi
 from permit.api.users import UsersApi
 from permit.config import PermitConfig
@@ -175,6 +176,59 @@ async def test_users_unassign_role_strips_unset_optional_fields(httpserver: HTTP
     await UsersApi(config).unassign_role(RoleAssignmentRemove(user="user-1", role="admin", tenant="tenant-1"))
 
     assert single_request(httpserver).get_json() == {"role": "admin", "tenant": "tenant-1"}
+
+
+async def test_users_assign_role_sends_the_same_body_for_a_dict(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="POST").respond_with_json(
+        role_assignment_read_payload()
+    )
+
+    await UsersApi(config).assign_role({"user": "user-1", "role": "admin", "tenant": "tenant-1"})
+
+    assert single_request(httpserver).get_json() == {"role": "admin", "tenant": "tenant-1"}
+
+
+async def test_users_unassign_role_sends_the_same_body_for_a_dict(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="DELETE").respond_with_data("", status=204)
+
+    await UsersApi(config).unassign_role({"user": "user-1", "role": "admin", "tenant": "tenant-1"})
+
+    assert single_request(httpserver).get_json() == {"role": "admin", "tenant": "tenant-1"}
+
+
+def test_model_input_parameters_are_the_bare_model_at_runtime():
+    # ModelInput and ModelListInput widen these annotations for type checkers only.
+    # validate_arguments reads the runtime annotation and must still see the model.
+    assert get_type_hints(UsersApi.create.raw_function)["user_data"] is UserCreate
+    assert get_type_hints(UsersApi.bulk_create.raw_function)["users"] == List[UserCreate]
+    # sync() passes an invalid dict through as it is, which a bare dict keeps doing.
+    assert get_type_hints(UsersApi.sync.raw_function)["user"] == Union[UserCreate, dict]
+
+
+def test_user_and_resource_aliases_work_with_isinstance():
+    # Type checkers see Dict[str, Any] in these aliases. At runtime they keep the
+    # bare dict, because isinstance rejects a parameterized one.
+    assert isinstance({"key": "user-1"}, User)
+    assert isinstance("user-1", User)
+    assert isinstance({"type": "document"}, Resource)
+    assert isinstance("document", Resource)
+
+
+async def test_users_create_rejects_an_invalid_dict_before_sending_anything(
+    httpserver: HTTPServer, config: PermitConfig
+):
+    with pytest.raises(ValidationError, match="email"):
+        await UsersApi(config).create({"key": "user-1", "email": "not-an-email"})
+
+    assert httpserver.log == []
+
+
+async def test_users_create_validates_a_dict_into_the_model(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users", method="POST").respond_with_json(user_read_payload("user-1"))
+
+    await UsersApi(config).create({"key": "user-1", "email": "user@example.com"})
+
+    assert single_request(httpserver).get_json() == {"key": "user-1", "email": "user@example.com"}
 
 
 async def test_users_assign_role_keeps_explicitly_provided_resource_instance(
@@ -383,9 +437,18 @@ def runtime_requirement(name: str, python_version: str) -> Requirement:
 def test_pydantic_requirement_before_py314_accepts_both_majors(python_version: str):
     specifier = runtime_requirement("pydantic", python_version).specifier
 
-    assert specifier.contains("1.10.17")
+    assert specifier.contains("1.10.18")
     assert specifier.contains("2.0.1")
     assert specifier.contains("2.12.5")
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13"])
+@pytest.mark.parametrize("version", ["1.10.13", "1.10.17"])
+def test_pydantic_requirement_before_py314_rejects_1_10_17_and_older(python_version: str, version: str):
+    # Up to 1.10.16 there is no pydantic.v1 package for type checkers to resolve
+    # permit's model imports against, and up to 1.10.17 `import permit` emits
+    # thousands of DeprecationWarnings on Python 3.13.
+    assert not runtime_requirement("pydantic", python_version).specifier.contains(version)
 
 
 @pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13", "3.14"])

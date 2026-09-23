@@ -27,6 +27,10 @@ setup(
     # against the published permit==2.8.3, which does exactly that. `harness` is
     # excluded for the same reason: it is a local developer tool.
     packages=find_packages(exclude=["tests", "tests.*", "harness", "harness.*"]),
+    # py.typed tells type checkers to read permit's annotations (PEP 561), and
+    # _sync_types.pyi is how they see the blocking client. Neither is a .py
+    # file, so neither ships unless listed here.
+    package_data={"permit": ["py.typed", "_sync_types.pyi"]},
     author="Asaf Cohen",
     author_email="asaf@permit.io",
     license="Apache 2.0",
@@ -44,5 +48,6 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Typing :: Typed",
     ],
 )

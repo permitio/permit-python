@@ -1,11 +1,16 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput, ModelListInput
 
 from .base import (
     BasePermitApi,
@@ -43,7 +48,7 @@ class ResourceInstancesApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/bulk/resource_instances"
             )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(
         self,
         page: int = 1,
@@ -89,7 +94,7 @@ class ResourceInstancesApi(BasePermitApi):
     async def _get(self, instance_key: str) -> ResourceInstanceRead:
         return await self.__resource_instances.get(f"/{instance_key}", model=ResourceInstanceRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, instance_key: str) -> ResourceInstanceRead:
         """
         Retrieves a resource instance by its identity.
@@ -110,7 +115,7 @@ class ResourceInstancesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(instance_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, instance_key: str) -> ResourceInstanceRead:
         """
         Retrieves a resource instance by its identity.
@@ -132,7 +137,7 @@ class ResourceInstancesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(instance_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, instance_id: str) -> ResourceInstanceRead:
         """
         Retrieves a resource instance by its ID.
@@ -152,8 +157,8 @@ class ResourceInstancesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(instance_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, instance_data: ResourceInstanceCreate) -> ResourceInstanceRead:
+    @validate_arguments
+    async def create(self, instance_data: ModelInput[ResourceInstanceCreate]) -> ResourceInstanceRead:
         """
         Creates a new resource instance.
 
@@ -171,8 +176,10 @@ class ResourceInstancesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_instances.post("", model=ResourceInstanceRead, json=instance_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def update(self, instance_key: str, instance_data: ResourceInstanceUpdate) -> ResourceInstanceRead:
+    @validate_arguments
+    async def update(
+        self, instance_key: str, instance_data: ModelInput[ResourceInstanceUpdate]
+    ) -> ResourceInstanceRead:
         """
         Updates a resource instance.
 
@@ -197,7 +204,7 @@ class ResourceInstancesApi(BasePermitApi):
             json=instance_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, instance_key: str) -> None:
         """
         Deletes a resource instance.
@@ -218,9 +225,9 @@ class ResourceInstancesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_instances.delete(f"/{instance_key}")
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def bulk_replace(
-        self, resource_instances: List[ResourceInstanceCreate]
+        self, resource_instances: ModelListInput[ResourceInstanceCreate]
     ) -> ResourceInstanceCreateBulkOperationResult:
         """
         Creates (and if need replaces) resource instances in bulk.
@@ -246,7 +253,7 @@ class ResourceInstancesApi(BasePermitApi):
             json=ResourceInstanceCreateBulkOperation(operations=resource_instances),
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def bulk_delete(self, resource_instances: List[str]) -> ResourceInstanceDeleteBulkOperationResult:
         """
         Deletes resource instances in bulk.

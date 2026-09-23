@@ -72,6 +72,26 @@ jobs:
           python -m pip install --disable-pip-version-check build
           python -m build
 
+      # Type checkers read permit's annotations only when py.typed is in the
+      # installed package, and see the blocking client as blocking only through
+      # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
+      # them without any import failing. Check the artifact that gets published.
+      - name: Check the wheel ships its type information
+        run: |
+          set -euo pipefail
+          python - dist/*.whl <<'PY'
+          import sys
+          import zipfile
+
+          wheels = sys.argv[1:]
+          if len(wheels) != 1:
+              sys.exit(f"expected one wheel, found {wheels}")
+          missing = {"permit/py.typed", "permit/_sync_types.pyi"} - set(zipfile.ZipFile(wheels[0]).namelist())
+          if missing:
+              sys.exit(f"{wheels[0]} is missing {sorted(missing)}")
+          print(f"{wheels[0]} ships permit/py.typed and permit/_sync_types.pyi")
+          PY
+
       - name: Upload distribution
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:

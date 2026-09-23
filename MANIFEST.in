@@ -1,1 +1,2 @@
 include *.md requirements.txt
+include permit/py.typed permit/_sync_types.pyi

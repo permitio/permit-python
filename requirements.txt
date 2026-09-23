@@ -8,7 +8,11 @@ loguru>=0.7.3,<1
 # On Python 3.14, pydantic 1.x before 1.10.25 and 2.x before 2.13 (whose
 # pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to infer
 # type for attribute". pydantic 2.0-2.11 also have no Python 3.14 builds.
-pydantic[email]>=1.10.13,!=2.0; python_version < "3.14"
+# Below Python 3.14 the floor is 1.10.18. Type checkers read permit's models
+# from the pydantic.v1 package, which pydantic 1 first ships in 1.10.17, and
+# 1.10.13-1.10.17 emit about 2,400 DeprecationWarnings on `import permit`
+# under Python 3.13 (typing._eval_type called without type_params).
+pydantic[email]>=1.10.18,!=2.0; python_version < "3.14"
 pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"
 # 4.14.0 is the lowest release that works on every supported Python: releases
 # before 4.6 break `import permit` on 3.12+, before 4.12 on 3.13+, and 4.12-4.13

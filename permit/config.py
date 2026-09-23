@@ -1,12 +1,15 @@
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel, Field
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Field
 else:
-    from pydantic.v1 import BaseModel, Field  # type: ignore
+    from pydantic.v1 import BaseModel, Field
 
 
 class LoggerConfig(BaseModel):
@@ -36,8 +39,10 @@ class MultiTenancyConfig(BaseModel):
 
 
 class PermitConfig(BaseModel):
+    # A positional `...`, not `default=...`: type checkers take any `default=`
+    # keyword as a default, so `PermitConfig()` without a token would pass them.
     token: str = Field(
-        default=...,
+        ...,
         description="The token (API Key) used for authorization against the PDP and the Permit REST API.",
     )
     pdp: str = Field(
@@ -45,12 +50,14 @@ class PermitConfig(BaseModel):
         description="Configures the Policy Decision Point (PDP) url.",
     )
     api_url: str = Field(default="https://api.permit.io", description="The url of Permit REST API")
-    log: LoggerConfig = Field(LoggerConfig(), description="the logger configuration used by the SDK")
+    log: LoggerConfig = Field(default=LoggerConfig(), description="the logger configuration used by the SDK")
     multi_tenancy: MultiTenancyConfig = Field(
-        MultiTenancyConfig(),
+        default=MultiTenancyConfig(),
         description="configuration of default tenant assignment for RBAC",
     )
-    api_context: ApiContext = Field(ApiContext(), description="represents the current API key authorization level.")
+    api_context: ApiContext = Field(
+        default=ApiContext(), description="represents the current API key authorization level."
+    )
     api_timeout: Optional[int] = Field(
         default=None,
         description="The timeout in seconds for requests to the Permit REST API.",

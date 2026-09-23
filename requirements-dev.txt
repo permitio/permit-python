@@ -11,6 +11,8 @@
 # 'stream_writer'". Keeping an unused, broken mocking library would only send
 # the next person down a dead end. Offline HTTP tests use pytest_httpserver,
 # which is version-independent and asserts on real request bodies.
+# tests/test_typing_surface.py runs mypy on tests/type_check/consumer.py; the
+# 1.11.0 floor passes it on Python 3.10-3.14 with either pydantic major.
 mypy>=1.11.0
 # Imported directly by the offline tests, which evaluate requirements.txt's
 # version markers the way an installer does. The floor is pytest's own.

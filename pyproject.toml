@@ -38,7 +38,10 @@ ban-relative-imports = "all"
 [tool.mypy]
 python_version = "3.10"
 packages = ["permit"]
-plugins = ["pydantic.mypy"]
+# The SDK's models are pydantic v1 models under both pydantic majors, and type
+# checkers see them through pydantic.v1. pydantic.mypy is the v2 plugin under
+# pydantic 2 and does not recognise v1 models, so use the v1 plugin.
+plugins = ["pydantic.v1.mypy"]
 
 check_untyped_defs = true
 warn_unused_configs = true

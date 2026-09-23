@@ -1,11 +1,16 @@
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput, ModelListInput
 
 from .base import (
     BasePermitApi,
@@ -32,7 +37,7 @@ class RoleAssignmentsApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
             )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(
         self,
         user_key: Optional[Union[str, List[str]]] = None,
@@ -93,8 +98,8 @@ class RoleAssignmentsApi(BasePermitApi):
             params=params,
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def assign(self, assignment: RoleAssignmentCreate) -> RoleAssignmentRead:
+    @validate_arguments
+    async def assign(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """
         Assigns a role to a user in the scope of a given tenant.
 
@@ -112,8 +117,8 @@ class RoleAssignmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.post("", model=RoleAssignmentRead, json=assignment)
 
-    @validate_arguments  # type: ignore[operator]
-    async def unassign(self, unassignment: RoleAssignmentRemove) -> None:
+    @validate_arguments
+    async def unassign(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """
         Unassigns a role from a user in the scope of a given tenant.
 
@@ -128,8 +133,8 @@ class RoleAssignmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__role_assignments.delete("", json=unassignment)
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_assign(self, assignments: List[RoleAssignmentCreate]) -> BulkRoleAssignmentReport:
+    @validate_arguments
+    async def bulk_assign(self, assignments: ModelListInput[RoleAssignmentCreate]) -> BulkRoleAssignmentReport:
         """
         Assigns multiple roles in bulk using the provided role assignments data.
         Each role assignment is a tuple of (user, role, tenant).
@@ -152,8 +157,8 @@ class RoleAssignmentsApi(BasePermitApi):
             json=list(assignments),
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_unassign(self, unassignments: List[RoleAssignmentRemove]) -> BulkRoleUnAssignmentReport:
+    @validate_arguments
+    async def bulk_unassign(self, unassignments: ModelListInput[RoleAssignmentRemove]) -> BulkRoleUnAssignmentReport:
         """
         Removes multiple role assignments in bulk using the provided unassignment data.
         Each role to unassign is a tuple of (user, role, tenant).

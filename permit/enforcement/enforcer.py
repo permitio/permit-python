@@ -1,6 +1,6 @@
 import json
 from pprint import pformat
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -15,17 +15,28 @@ from ..utils.pydantic_version import PYDANTIC_VERSION
 from ..utils.sync import SyncClass
 from .interfaces import AuthorizedUsersResult, ResourceInput, UserInput
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import parse_obj_as
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import parse_obj_as
 else:
-    from pydantic.v1 import parse_obj_as  # type: ignore
+    from pydantic.v1 import parse_obj_as
 
 
 RESOURCE_DELIMITER = ":"
 
-User = Union[dict, str]
+# At runtime the aliases keep the bare `dict`, so `isinstance(value, User)` still
+# works, which it does not with a parameterized dict. Type checkers get
+# `Dict[str, Any]`, since pyright's strict mode reports a bare `dict` in a
+# signature as partially unknown.
+if TYPE_CHECKING:
+    User = Union[Dict[str, Any], str]
+    Resource = Union[Dict[str, Any], str]
+else:
+    User = Union[dict, str]
+    Resource = Union[dict, str]
 Action = str
-Resource = Union[dict, str]
 
 
 async def read_error_body(response: aiohttp.ClientResponse) -> str:
@@ -72,7 +83,7 @@ class Enforcer:
         self._base_url = self._config.pdp
 
     @property
-    def context_store(self):
+    def context_store(self) -> ContextStore:
         """
         we let context store be accessed from the outside so that the
         using app can setup a flexible contextual behavior for authorization queries
@@ -410,11 +421,11 @@ class Enforcer:
 
     async def get_user_permissions(
         self,
-        user: Union[dict, str],
+        user: Union[Dict[str, Any], str],
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         input_data = {
             "user": {"key": user} if isinstance(user, str) else user,
             "tenants": tenants,
@@ -521,5 +532,11 @@ class Enforcer:
         return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
 
 
-class SyncEnforcer(Enforcer, metaclass=SyncClass):
-    pass
+# Type checkers read this class from a generated stub: the SyncClass metaclass
+# makes its methods blocking at runtime, which they cannot see.
+if TYPE_CHECKING:
+    from permit._sync_types import SyncEnforcer as SyncEnforcer
+else:
+
+    class SyncEnforcer(Enforcer, metaclass=SyncClass):
+        pass

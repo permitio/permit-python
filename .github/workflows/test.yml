@@ -252,6 +252,29 @@ jobs:
       - name: Show installed packages
         run: python -m pip list
 
+      # Type checkers read permit's annotations only when py.typed is in the
+      # installed package, and see the blocking client as blocking only through
+      # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
+      # them without any import failing. The wheel is the same on every leg, so
+      # one leg checks it.
+      - name: Check the wheel ships its type information
+        if: matrix.python-version == '3.14' && matrix.deps == 'pydantic-v2'
+        run: |
+          set -euo pipefail
+          python -m pip wheel --no-deps --wheel-dir "${RUNNER_TEMP}/wheel" .
+          python - "${RUNNER_TEMP}"/wheel/*.whl <<'PY'
+          import sys
+          import zipfile
+
+          wheels = sys.argv[1:]
+          if len(wheels) != 1:
+              sys.exit(f"expected one wheel, found {wheels}")
+          missing = {"permit/py.typed", "permit/_sync_types.pyi"} - set(zipfile.ZipFile(wheels[0]).namelist())
+          if missing:
+              sys.exit(f"{wheels[0]} is missing {sorted(missing)}")
+          print(f"{wheels[0]} ships permit/py.typed and permit/_sync_types.pyi")
+          PY
+
       # The filter fails the run on Python 3.14's deprecation of
       # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
       # It is deliberately narrow: a blanket error::DeprecationWarning would
@@ -261,4 +284,4 @@ jobs:
         run: |
           python -m pytest -q \
             -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning" \
-            tests/test_offline_regressions.py tests/test_fix_*.py
+            tests/test_offline_regressions.py tests/test_fix_*.py tests/test_typing_surface.py
