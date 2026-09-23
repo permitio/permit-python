@@ -350,10 +350,7 @@ async def test_abac_e2e(permit: Permit):
         # PER-16209. Skipped rather than xfailed so it reports honestly instead
         # of looking covered. pytest.Skipped derives from BaseException, so it
         # escapes the `except Exception` below and the `finally` teardown runs.
-        pytest.skip(
-            "ABAC decision assertions are pending PER-16209; "
-            "the control-plane assertions above still run."
-        )
+        pytest.skip("ABAC decision assertions are pending PER-16209; " "the control-plane assertions above still run.")
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
