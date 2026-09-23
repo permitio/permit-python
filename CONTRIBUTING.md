@@ -13,6 +13,25 @@ uv sync                      # .venv with the SDK and the dev tools, exactly as 
 uv run pre-commit install    # lint, format, type-check and uv.lock checks on every commit
 ```
 
+The ruff, mypy and typos hooks run through `uv run --locked`, which syncs `.venv` to `uv.lock`
+before running the tool, so the versions in `uv.lock` are the only ones in play; the hooks fail
+if `uv.lock` is out of date with `pyproject.toml`. The same checks by hand:
+
+```sh
+uv run ruff check              # lint (the rule set is `select = ["ALL"]` minus justified ignores)
+uv run ruff format             # format
+uv run mypy                    # strict type check of permit/, tests/ and .github/scripts/
+uv run typos                   # spelling
+```
+
+The SDK is type-checked against both pydantic majors, because it imports pydantic differently
+per major. CI runs mypy once more under pydantic 1; do the same locally when touching a pydantic
+import (see [Both pydantic majors](#both-pydantic-majors) for why `--no-sync`):
+
+```sh
+uv sync --group pydantic-v1 && uv run --no-sync mypy
+```
+
 `.python-version` selects Python 3.11, the version CI runs on. The SDK itself supports
 Python 3.10 and later.
 
@@ -69,7 +88,9 @@ uv sync --group pydantic-v1   # pydantic 1.x
 uv sync --group pydantic-v2   # pydantic 2.x
 ```
 
-A plain `uv sync` afterwards returns to the default resolution (pydantic 2.x).
+Run commands in a lane with `uv run --no-sync` (as CI does): a plain `uv run`, and so every
+pre-commit hook, syncs `.venv` back to the default resolution (pydantic 2.x) first, as does a
+plain `uv sync`.
 
 ## Building
 
@@ -111,22 +132,30 @@ has to be restored by hand.
    from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
    ```
 
-   Replace it with the block below, keeping exactly the names the generator imported in both
-   branches:
+   Replace it with the block below, keeping exactly the names the generator imported in all
+   three branches, and add `import typing as _typing` above the generated `from datetime import
+   datetime` line:
 
    ```py
-   from ..utils.pydantic_version import PYDANTIC_VERSION
+   from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-   if PYDANTIC_VERSION < (2, 0):
+   if _typing.TYPE_CHECKING:
+       # The v1 API is what runs under either pydantic major, so type-check against it.
+       from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
+   elif PYDANTIC_VERSION < (2, 0):
        from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
    else:
-       from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr  # type: ignore
+       from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
    ```
 
-   Without it, the v1-style models do not load under pydantic 2.
+   Without it, the v1-style models do not load under pydantic 2. The `TYPE_CHECKING` branch
+   makes mypy see them as the v1 models they are on both majors; otherwise mypy takes the
+   first import it finds and, under pydantic 2, checks every model against the v2 API.
+   `typing` is imported under a private alias because `permit/__init__.py` star-imports this
+   module: a public `TYPE_CHECKING` or `typing` name would become part of the `permit` namespace.
 
-3. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff in
-   `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
+3. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff and typos
+   in `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
 
 4. Run the offline tests under both pydantic majors (see above) and `uv run pre-commit run
    --all-files`.

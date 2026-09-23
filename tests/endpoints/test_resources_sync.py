@@ -1,11 +1,9 @@
-from typing import List
-
 import pytest
 from loguru import logger
-from tests.utils import handle_cleanup_error, unique_key
 
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
+from tests.utils import handle_cleanup_error, unique_key
 
 # The whole e2e suite shares a single Permit environment, so every object this
 # module creates is namespaced under one prefix. That keeps the keys collision
@@ -20,7 +18,7 @@ TEST_RESOURCE_FOLDER_KEY = f"{TEST_PREFIX}-folder"
 TEST_RESOURCE_DOC_URN = f"prn:gdrive:{TEST_PREFIX}"
 
 
-def list_own_resource_keys(permit: SyncPermit) -> List[str]:
+def list_own_resource_keys(permit: SyncPermit) -> list[str]:
     """The keys of resources created by this test, sorted, across all pages.
 
     The shared environment can easily hold more resources than fit on a single
@@ -29,7 +27,7 @@ def list_own_resource_keys(permit: SyncPermit) -> List[str]:
     """
     per_page = 100
     page = 1
-    keys: List[str] = []
+    keys: list[str] = []
     while True:
         resources = permit.api.resources.list(page=page, per_page=per_page)
         keys.extend(resource.key for resource in resources if resource.key.startswith(TEST_PREFIX))
@@ -38,7 +36,7 @@ def list_own_resource_keys(permit: SyncPermit) -> List[str]:
         page += 1
 
 
-def test_resources_sync(sync_permit: SyncPermit):
+def test_resources_sync(sync_permit: SyncPermit) -> None:
     permit = sync_permit
     logger.info("initial setup of objects")
     # none of this test's resources exist yet
@@ -80,7 +78,9 @@ def test_resources_sync(sync_permit: SyncPermit):
 
         # create existing -> 409
         with pytest.raises(PermitApiError) as e:
-            permit.api.resources.create({"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}})
+            permit.api.resources.create(
+                {"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}}
+            )
         assert e.value.status_code == 409
 
         # create empty item

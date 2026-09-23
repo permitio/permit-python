@@ -1,45 +1,69 @@
+# `language: unsupported` (the pre-commit 4.4 name for `system`) runs a command
+# from the environment pre-commit was started in.
+minimum_pre_commit_version: "4.4.0"
+
 repos:
+  # Pinned to a commit rather than a tag, which can be moved; the `# frozen:`
+  # comment names the release, and Dependabot updates both.
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-added-large-files
       - id: check-case-conflict
       - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
       - id: check-json
       - id: check-toml
       - id: check-yaml
       - id: check-xml
       - id: check-merge-conflict
       - id: mixed-line-ending
-        args: [ --fix=lf ]
+        args: [--fix=lf]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+  # ruff, mypy and typos run from the project environment, so the versions in
+  # uv.lock (the `dev` dependency group) are the only ones there are, and mypy
+  # sees the SDK's real dependencies. `uv run --locked` first syncs .venv to
+  # uv.lock (default groups, so the tools are always installed there and a copy
+  # elsewhere on PATH is never picked up) and fails if uv.lock is stale.
+  - repo: local
     hooks:
-      - id: ruff
-        args: [--fix]
-        files: \.py$
-        types: [ file ]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --locked ruff check --fix
+        language: unsupported
+        # pyproject.toml too: ruff validates its [project] table (RUF200).
+        files: (\.pyi?|(^|/)pyproject\.toml)$
+        require_serial: true
       - id: ruff-format
-        files: \.py$
-        types: [ file ]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
-    hooks:
+        name: ruff format
+        entry: uv run --locked ruff format
+        language: unsupported
+        types_or: [python, pyi]
+        require_serial: true
       - id: mypy
+        name: mypy
+        # No file names: mypy checks the `files` set in pyproject.toml as a whole,
+        # which is what makes cross-module errors visible.
+        entry: uv run --locked mypy
+        language: unsupported
+        # pyproject.toml and uv.lock too: they hold mypy's config and the
+        # dependency versions it checks against.
+        files: (\.pyi?|^pyproject\.toml|^uv\.lock)$
         pass_filenames: false
-        additional_dependencies:
-          - pydantic
-        files: \.py$
-        types: [ file ]
+        require_serial: true
+      - id: typos
+        name: typos
+        entry: uv run --locked typos --force-exclude
+        language: unsupported
+        types: [text]
+        require_serial: true
 
-  # Fails when pyproject.toml and uv.lock disagree. Keep rev equal to
-  # [tool.uv] required-version in pyproject.toml, the uv version's source of
-  # truth.
+  # Fails when pyproject.toml and uv.lock disagree. Its version must equal
+  # [tool.uv] required-version in pyproject.toml, which is why Dependabot is
+  # told to leave it alone (.github/dependabot.yml).
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.18
+    rev: 9b16a472943852b803af3785c45041dcf10b9f12  # frozen: 0.12.18
     hooks:
       - id: uv-lock

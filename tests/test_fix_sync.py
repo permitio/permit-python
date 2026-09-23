@@ -7,9 +7,10 @@ so no API key and no ``/v2/api-key/scope`` lookup are needed.
 
 import asyncio
 import inspect
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -47,19 +48,20 @@ def config(httpserver: HTTPServer) -> PermitConfig:
     return offline_config(httpserver.url_for("").rstrip("/"))
 
 
-def sync_wrapper_depth(func: Callable) -> int:
+def sync_wrapper_depth(func: Callable[..., object]) -> int:
     """Count how many ``async_to_sync`` wrappers a callable is nested in."""
     depth = 0
-    seen = set()
-    while func is not None and id(func) not in seen:
-        seen.add(id(func))
-        if getattr(func, SYNC_WRAPPER_MARKER, False):
+    seen: set[int] = set()
+    candidate: object = func
+    while candidate is not None and id(candidate) not in seen:
+        seen.add(id(candidate))
+        if getattr(candidate, SYNC_WRAPPER_MARKER, False):
             depth += 1
-        func = getattr(func, "__wrapped__", None)
+        candidate = getattr(candidate, "__wrapped__", None)
     return depth
 
 
-def user_payload(key: str) -> dict:
+def user_payload(key: str) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     return {
         "key": key,
@@ -76,7 +78,7 @@ def user_payload(key: str) -> dict:
 # --- the metaclass itself -------------------------------------------------
 
 
-def test_async_method_is_wrapped_exactly_once():
+def test_async_method_is_wrapped_exactly_once() -> None:
     class Base(metaclass=SyncClass):
         async def fetch(self) -> str:
             return "fetched"
@@ -85,7 +87,7 @@ def test_async_method_is_wrapped_exactly_once():
     assert Base().fetch() == "fetched"
 
 
-def test_subclass_does_not_rewrap_inherited_methods():
+def test_subclass_does_not_rewrap_inherited_methods() -> None:
     class Base(metaclass=SyncClass):
         async def fetch(self) -> str:
             return "fetched"
@@ -100,7 +102,7 @@ def test_subclass_does_not_rewrap_inherited_methods():
     assert Child().other() == "other"
 
 
-def test_genuinely_sync_method_is_left_untouched():
+def test_genuinely_sync_method_is_left_untouched() -> None:
     class Mixed(metaclass=SyncClass):
         def ping(self) -> str:
             return "pong"
@@ -114,12 +116,14 @@ def test_genuinely_sync_method_is_left_untouched():
     assert Mixed().fetch() == "fetched"
 
 
-def test_method_wrapped_by_a_plain_decorator_is_still_converted():
-    """A sync decorator that returns the inner coroutine (e.g. pydantic's
-    ``validate_arguments``) must not hide the fact that the method is async."""
+def test_method_wrapped_by_a_plain_decorator_is_still_converted() -> None:
+    """A sync decorator returning the inner coroutine must not hide that it is async.
 
-    def passthrough(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs):
+    pydantic's ``validate_arguments`` is such a decorator.
+    """
+
+    def passthrough(func: Callable[..., object]) -> Callable[..., object]:
+        def wrapper(*args: Any, **kwargs: Any) -> object:
             return func(*args, **kwargs)
 
         wrapper.__wrapped__ = func  # what functools.wraps records
@@ -134,14 +138,14 @@ def test_method_wrapped_by_a_plain_decorator_is_still_converted():
     assert Decorated().fetch() == "fetched"
 
 
-def test_real_sdk_classes_are_wrapped_exactly_once():
+def test_real_sdk_classes_are_wrapped_exactly_once() -> None:
     assert sync_wrapper_depth(SyncPermitApiClient.get_user) == 1
     assert sync_wrapper_depth(SyncUsersApi.get) == 1
     assert sync_wrapper_depth(SyncEnforcer.check) == 1
     assert sync_wrapper_depth(SyncEnforcer.filter_objects) == 1
 
 
-def test_every_public_method_of_the_api_client_is_synchronous():
+def test_every_public_method_of_the_api_client_is_synchronous() -> None:
     for name in dir(SyncPermitApiClient):
         if name.startswith("_"):
             continue
@@ -155,23 +159,31 @@ def test_every_public_method_of_the_api_client_is_synchronous():
 # --- the deprecated facade ------------------------------------------------
 
 
-def test_deprecated_facade_get_user_issues_a_request(httpserver: HTTPServer, config: PermitConfig):
+def test_deprecated_facade_get_user_issues_a_request(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     payload = user_payload("user-1")
-    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(payload)
+    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        payload
+    )
 
     client = SyncPermitApiClient(config)
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match=r"permit\.api\.users\.get\(\)"):
         user = client.get_user("user-1")
 
     assert user.key == "user-1"
     httpserver.check_assertions()
 
 
-def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, config: PermitConfig):
-    httpserver.expect_oneshot_request(f"/v2/schema/{PROJECT}/{ENVIRONMENT}/roles", method="GET").respond_with_json([])
+def test_deprecated_facade_list_roles_issues_a_request(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    httpserver.expect_oneshot_request(
+        f"/v2/schema/{PROJECT}/{ENVIRONMENT}/roles", method="GET"
+    ).respond_with_json([])
 
     client = SyncPermitApiClient(config)
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match=r"permit\.api\.roles\.list\(\)"):
         roles = client.list_roles()
 
     assert roles == []
@@ -181,7 +193,7 @@ def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, c
 # --- the sync Permit facade ------------------------------------------------
 
 
-def test_sync_permit_check(httpserver: HTTPServer, config: PermitConfig):
+def test_sync_permit_check(httpserver: HTTPServer, config: PermitConfig) -> None:
     httpserver.expect_oneshot_request("/allowed", method="POST").respond_with_json({"allow": True})
 
     result = SyncPermit(config).check("user-1", "read", "document")
@@ -190,7 +202,7 @@ def test_sync_permit_check(httpserver: HTTPServer, config: PermitConfig):
     httpserver.check_assertions()
 
 
-def test_sync_permit_authorized_users(httpserver: HTTPServer, config: PermitConfig):
+def test_sync_permit_authorized_users(httpserver: HTTPServer, config: PermitConfig) -> None:
     httpserver.expect_oneshot_request("/authorized_users", method="POST").respond_with_json(
         {
             "resource": "document:*",
@@ -216,7 +228,7 @@ def test_sync_permit_authorized_users(httpserver: HTTPServer, config: PermitConf
     httpserver.check_assertions()
 
 
-def test_sync_permit_get_user_permissions(httpserver: HTTPServer, config: PermitConfig):
+def test_sync_permit_get_user_permissions(httpserver: HTTPServer, config: PermitConfig) -> None:
     httpserver.expect_oneshot_request(
         "/user-permissions",
         method="POST",
@@ -226,7 +238,9 @@ def test_sync_permit_get_user_permissions(httpserver: HTTPServer, config: Permit
             "resources": None,
             "resource_types": None,
         },
-    ).respond_with_json({"default": {"tenant": {"key": "default"}, "permissions": ["document:read"]}})
+    ).respond_with_json(
+        {"default": {"tenant": {"key": "default"}, "permissions": ["document:read"]}}
+    )
 
     result = SyncPermit(config).get_user_permissions("user-1")
 
@@ -235,9 +249,12 @@ def test_sync_permit_get_user_permissions(httpserver: HTTPServer, config: Permit
     httpserver.check_assertions()
 
 
-def test_sync_permit_filter_objects(httpserver: HTTPServer, config: PermitConfig):
-    """``Enforcer.filter_objects`` awaits ``self.bulk_check``, which the sync
-    client has already converted - the re-entrant call has to keep working."""
+def test_sync_permit_filter_objects(httpserver: HTTPServer, config: PermitConfig) -> None:
+    """The re-entrant call from ``filter_objects`` to ``bulk_check`` has to keep working.
+
+    ``Enforcer.filter_objects`` awaits ``self.bulk_check``, which the sync client
+    has already converted.
+    """
     httpserver.expect_oneshot_request("/allowed/bulk", method="POST").respond_with_json(
         {"allow": [{"allow": True}, {"allow": False}, {"allow": True}]}
     )
@@ -254,7 +271,7 @@ def test_sync_permit_filter_objects(httpserver: HTTPServer, config: PermitConfig
     httpserver.check_assertions()
 
 
-def test_sync_permit_bulk_check(httpserver: HTTPServer, config: PermitConfig):
+def test_sync_permit_bulk_check(httpserver: HTTPServer, config: PermitConfig) -> None:
     httpserver.expect_oneshot_request("/allowed/bulk", method="POST").respond_with_json(
         {"allow": [{"allow": True}, {"allow": False}]}
     )
@@ -270,20 +287,29 @@ def test_sync_permit_bulk_check(httpserver: HTTPServer, config: PermitConfig):
     httpserver.check_assertions()
 
 
-def test_sync_permit_check_from_a_worker_thread(httpserver: HTTPServer, config: PermitConfig):
+def test_sync_permit_check_from_a_worker_thread(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
 
     permit = SyncPermit(config)
     with ThreadPoolExecutor(max_workers=2) as executor:
-        results = [future.result() for future in [executor.submit(permit.check, "u", "read", "document")] * 2]
+        results = [
+            future.result()
+            for future in [executor.submit(permit.check, "u", "read", "document")] * 2
+        ]
 
     assert results == [True, True]
     httpserver.check_assertions()
 
 
-def test_sync_permit_check_from_inside_a_running_event_loop(httpserver: HTTPServer, config: PermitConfig):
-    """Calling the sync client from async code used to raise
-    ``RuntimeError: This event loop is already running``."""
+def test_sync_permit_check_from_inside_a_running_event_loop(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    """The sync client can be called from async code.
+
+    It used to raise ``RuntimeError: This event loop is already running``.
+    """
     httpserver.expect_oneshot_request("/allowed", method="POST").respond_with_json({"allow": True})
 
     permit = SyncPermit(config)
@@ -295,9 +321,12 @@ def test_sync_permit_check_from_inside_a_running_event_loop(httpserver: HTTPServ
     httpserver.check_assertions()
 
 
-def test_sync_pdp_api_role_assignments_list(httpserver: HTTPServer, config: PermitConfig):
-    """``RoleAssignmentsApi.list`` is decorated with pydantic's ``validate_arguments``,
-    which hides the ``async def`` behind a plain function."""
+def test_sync_pdp_api_role_assignments_list(httpserver: HTTPServer, config: PermitConfig) -> None:
+    """The PDP role assignments list works through the sync client.
+
+    ``RoleAssignmentsApi.list`` is decorated with pydantic's ``validate_arguments``,
+    which hides the ``async def`` behind a plain function.
+    """
     httpserver.expect_oneshot_request(
         "/local/role_assignments",
         method="GET",
@@ -310,7 +339,15 @@ def test_sync_pdp_api_role_assignments_list(httpserver: HTTPServer, config: Perm
     httpserver.check_assertions()
 
 
-def test_sync_permit_public_methods_are_not_coroutines():
-    for name in ("check", "bulk_check", "authorized_users", "get_user_permissions", "filter_objects"):
+def test_sync_permit_public_methods_are_not_coroutines() -> None:
+    for name in (
+        "check",
+        "bulk_check",
+        "authorized_users",
+        "get_user_permissions",
+        "filter_objects",
+    ):
         attr = getattr(SyncPermit, name)
-        assert not inspect.iscoroutinefunction(attr), f"SyncPermit.{name} is still a coroutine function"
+        assert not inspect.iscoroutinefunction(attr), (
+            f"SyncPermit.{name} is still a coroutine function"
+        )

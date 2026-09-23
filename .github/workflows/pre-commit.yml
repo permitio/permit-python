@@ -34,9 +34,22 @@ jobs:
             pre-commit-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
             hashFiles('.pre-commit-config.yaml') }}
 
-      # pre-commit itself comes from the locked dev group; --only-dev skips
-      # installing the project, which no hook needs.
+      # The ruff, mypy and typos hooks run from this environment (they are
+      # `repo: local`), and mypy needs the SDK's dependencies to check against,
+      # so the whole locked project is installed, pydantic 2 included.
+      - name: Install dependencies
+        run: uv sync --locked
+
       - name: Run pre-commit
         run: >-
-          uv run --locked --only-dev
+          uv run --no-sync
           pre-commit run --all-files --show-diff-on-failure --color=always
+
+      # The SDK imports pydantic differently per major, so its types are checked
+      # against pydantic 1 as well (the hook above ran against pydantic 2). mypy
+      # is called directly with --no-sync, not through the hook: the hook's
+      # `uv run --locked` would sync .venv back to the default groups (pydantic 2).
+      - name: Type-check against pydantic 1
+        run: |
+          uv sync --locked --group pydantic-v1
+          uv run --no-sync mypy

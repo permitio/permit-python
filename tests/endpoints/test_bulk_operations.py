@@ -135,7 +135,7 @@ CREATED_ASSIGNMENTS = [
 ]
 
 
-async def test_bulk_operations(permit: Permit):
+async def test_bulk_operations(permit: Permit) -> None:
     ## create resource  and global role ------------------------------------
     try:
         resource = await permit.api.resources.create(ACCOUNT)
@@ -225,7 +225,8 @@ async def test_bulk_operations(permit: Permit):
 
     assignments = await permit.api.role_assignments.list()
     # Not +1: the surviving tenant-level assignment (USER_A/admin/TENANT_1) belongs to USER_A,
-    # and deleting a user cascades away their role assignments, so we are back to the original count.
+    # and deleting a user cascades away their role assignments, so we are back to the
+    # original count.
     assert len(assignments) == len_assignments_original
 
     ## bulk delete tenants -----------------------------------

@@ -4,17 +4,21 @@
 
 from __future__ import annotations
 
+import typing as _typing
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if _typing.TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
 else:
-    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr  # type: ignore
+    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
 
 
 class APIHistoryEventFullRead(BaseModel):

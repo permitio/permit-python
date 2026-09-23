@@ -1,17 +1,26 @@
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal
 
-from .api.context import ApiContext
-from .utils.pydantic_version import PYDANTIC_VERSION
+from permit.api.context import ApiContext
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel, Field
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Field
 else:
-    from pydantic.v1 import BaseModel, Field  # type: ignore
+    from pydantic.v1 import BaseModel, Field
 
 
 class LoggerConfig(BaseModel):
-    enable: bool = Field(default=False, description="Whether or not to enable logging from the Permit library")
-    level: str = Field(default="info", description="Sets the log level configured for the Permit SDK Logger.")
+    """Logging settings of the SDK."""
+
+    enable: bool = Field(
+        default=False, description="Whether or not to enable logging from the Permit library"
+    )
+    level: str = Field(
+        default="info", description="Sets the log level configured for the Permit SDK Logger."
+    )
     label: str = Field(
         default="Permit",
         description="Sets the label configured for logs emitted by the Permit SDK Logger.",
@@ -24,38 +33,50 @@ class LoggerConfig(BaseModel):
 
 
 class MultiTenancyConfig(BaseModel):
+    """How resources without a tenant are assigned one."""
+
     default_tenant: str = Field(
         default="default",
-        description="the key of the default tenant to be used if use_default_tenant_if_empty == True",
+        description="the key of the default tenant to be used "
+        "if use_default_tenant_if_empty == True",
     )
     use_default_tenant_if_empty: bool = Field(
         default=True,
-        description="whether or not the SDK should automatically associate a resource with the defaultTenant "
-        + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
+        description="whether or not the SDK should automatically associate a resource "
+        "with the defaultTenant "
+        "if the resource provided in permit.check() was not associated with a tenant "
+        "(i.e: undefined tenant).",
     )
 
 
 class PermitConfig(BaseModel):
+    """Configuration of the Permit SDK."""
+
     token: str = Field(
         default=...,
-        description="The token (API Key) used for authorization against the PDP and the Permit REST API.",
+        description="The token (API Key) used for authorization against the PDP "
+        "and the Permit REST API.",
     )
     pdp: str = Field(
         default="http://localhost:7766",
         description="Configures the Policy Decision Point (PDP) url.",
     )
     api_url: str = Field(default="https://api.permit.io", description="The url of Permit REST API")
-    log: LoggerConfig = Field(LoggerConfig(), description="the logger configuration used by the SDK")
+    log: LoggerConfig = Field(
+        default=LoggerConfig(), description="the logger configuration used by the SDK"
+    )
     multi_tenancy: MultiTenancyConfig = Field(
-        MultiTenancyConfig(),
+        default=MultiTenancyConfig(),
         description="configuration of default tenant assignment for RBAC",
     )
-    api_context: ApiContext = Field(ApiContext(), description="represents the current API key authorization level.")
-    api_timeout: Optional[int] = Field(
+    api_context: ApiContext = Field(
+        default=ApiContext(), description="represents the current API key authorization level."
+    )
+    api_timeout: int | None = Field(
         default=None,
         description="The timeout in seconds for requests to the Permit REST API.",
     )
-    pdp_timeout: Optional[int] = Field(
+    pdp_timeout: int | None = Field(
         default=None,
         description="The timeout in seconds for requests to the PDP.",
     )
@@ -63,12 +84,12 @@ class PermitConfig(BaseModel):
         default=False,
         description="Create facts via the PDP API instead of using the default Permit REST API.",
     )
-    facts_sync_timeout: Optional[float] = Field(
+    facts_sync_timeout: float | None = Field(
         default=None,
         description="The amount of time in seconds to wait for facts to be available "
         "in the PDP cache before returning the response.",
     )
-    facts_sync_timeout_policy: Optional[Literal["ignore", "fail"]] = Field(
+    facts_sync_timeout_policy: Literal["ignore", "fail"] | None = Field(
         default=None,
         description="The policy to apply when the facts sync timeout is reached.",
     )

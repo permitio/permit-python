@@ -31,6 +31,11 @@ updates:
       default-days: 7
       semver-major-days: 14
     groups:
+      # Listed first, since a dependency joins the first group it matches. A new
+      # lint rule or type-check error in one of these must not hold up the
+      # runtime floor bumps grouped below, so they get a PR of their own.
+      lint-tools:
+        patterns: ["ruff", "mypy", "typos"]
       minor-and-patch:
         update-types: ["minor", "patch"]
     ignore:
@@ -46,6 +51,31 @@ updates:
     commit-message:
       prefix: "deps"
       prefix-development: "deps-dev"
+    labels:
+      - "dependencies"
+
+  # pre-commit hook revisions in .pre-commit-config.yaml. Dependabot follows the
+  # `# frozen: vX` comment on SHA-pinned revs and rewrites the SHA and the
+  # comment together. `repo: local` hooks (ruff, mypy, typos) are skipped:
+  # their versions come from uv.lock, which the "uv" entry above maintains.
+  # Only `default-days` cooldown is supported for this ecosystem.
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # The uv-lock hook's version must equal [tool.uv] required-version in
+      # pyproject.toml; uv is upgraded by hand, all three places at once.
+      - dependency-name: "*astral-sh/uv-pre-commit"
+    commit-message:
+      prefix: "deps"
     labels:
       - "dependencies"
 

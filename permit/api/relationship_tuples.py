@@ -1,19 +1,24 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
 
-from .base import (
+import builtins
+
+from permit.api.base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
 )
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import (
     RelationshipTupleCreate,
     RelationshipTupleCreateBulkOperation,
     RelationshipTupleCreateBulkOperationResult,
@@ -25,27 +30,27 @@ from .models import (
 
 
 class RelationshipTuplesApi(BasePermitApi):
+    """Manage relationship tuples between resource instances (ReBAC)."""
+
     @property
     def __relationship_tuples(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/relationship_tuples", use_pdp=True)
-        else:
-            return self._build_http_client(
-                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
-            )
+        return self._build_http_client(
+            f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
+        )
 
-    @validate_arguments  # type: ignore[operator]
-    async def list(
+    @validate_arguments
+    async def list(  # noqa: PLR0917 - public signature; callers may pass these positionally
         self,
         page: int = 1,
         per_page: int = 100,
-        subject_key: Optional[str] = None,
-        relation_key: Optional[str] = None,
-        object_key: Optional[str] = None,
-        tenant_key: Optional[str] = None,
-    ) -> List[RelationshipTupleRead]:
-        """
-        Retrieves a list of relationship tuples based on the specified filters.
+        subject_key: str | None = None,
+        relation_key: str | None = None,
+        object_key: str | None = None,
+        tenant_key: str | None = None,
+    ) -> list[RelationshipTupleRead]:
+        """Retrieves a list of relationship tuples based on the specified filters.
 
         Args:
             page: The page number to fetch (default: 1).
@@ -60,7 +65,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -77,15 +83,16 @@ class RelationshipTuplesApi(BasePermitApi):
 
         return await self.__relationship_tuples.get(
             "",
-            model=List[RelationshipTupleRead],
+            model=list[RelationshipTupleRead],
             params=params,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def create(self, tuple_data: RelationshipTupleCreate) -> RelationshipTupleRead:
-        """
-        Creates a new relationship tuple, that states that a relationship (of type: relation)
-        exists between two resource instances: the subject and the object.
+        """Creates a new relationship tuple.
+
+        The tuple states that a relationship (of type: relation) exists between two
+        resource instances: the subject and the object.
 
         Args:
             tuple_data: The relationship tuple to create.
@@ -95,32 +102,36 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__relationship_tuples.post("", model=RelationshipTupleRead, json=tuple_data)
+        return await self.__relationship_tuples.post(
+            "", model=RelationshipTupleRead, json=tuple_data
+        )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, tuple_data: RelationshipTupleDelete) -> None:
-        """
-        Removes a relationship tuple.
+        """Removes a relationship tuple.
 
         Args:
             tuple_data: The relationship tuple to delete.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relationship_tuples.delete("", json=tuple_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_create(self, tuples: List[RelationshipTupleCreate]) -> RelationshipTupleCreateBulkOperationResult:
-        """
-        Creates multiple relationship tuples at once using the provided tuple data.
+    @validate_arguments
+    async def bulk_create(
+        self, tuples: builtins.list[RelationshipTupleCreate]
+    ) -> RelationshipTupleCreateBulkOperationResult:
+        """Creates multiple relationship tuples at once using the provided tuple data.
 
         Args:
             tuples: The relationship tuples to create.
@@ -140,7 +151,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -150,10 +162,11 @@ class RelationshipTuplesApi(BasePermitApi):
             json=RelationshipTupleCreateBulkOperation(operations=tuples),
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_delete(self, tuples: List[RelationshipTupleDelete]) -> RelationshipTupleDeleteBulkOperationResult:
-        """
-        Deletes multiple relationship tuples at once using the provided tuple data.
+    @validate_arguments
+    async def bulk_delete(
+        self, tuples: builtins.list[RelationshipTupleDelete]
+    ) -> RelationshipTupleDeleteBulkOperationResult:
+        """Deletes multiple relationship tuples at once using the provided tuple data.
 
         Args:
             tuples: The relationship tuples to delete.
@@ -169,7 +182,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
