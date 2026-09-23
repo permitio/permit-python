@@ -183,7 +183,7 @@ class BasePermitApi:
             base_url=self.config.pdp if use_pdp else self.config.api_url,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"bearer {self.config.token}",
+                "Authorization": f"Bearer {self.config.token}",
                 **optional_headers,
             },
         )

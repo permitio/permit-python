@@ -15,6 +15,7 @@ import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
+from permit import Permit
 from permit.api.context import ApiContext, ApiKeyAccessLevel
 from permit.api.elements import ElementsApi
 from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
@@ -231,8 +232,31 @@ def test_sync_pdp_api_initializes_the_base_client_state(config: PermitConfig):
 
     assert client._config is config
     assert client._base_url == config.pdp
-    assert client._headers["Authorization"] == "bearer test-token"
+    assert client._headers["Authorization"] == "Bearer test-token"
     assert client._headers["Content-Type"] == "application/json"
+
+
+async def test_every_sdk_client_sends_the_standard_bearer_scheme(httpserver: HTTPServer, config: PermitConfig) -> None:
+    """The enforcer, REST API client and PDP API client must all send "Bearer <token>"."""
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    httpserver.expect_request(f"{FACTS}/users", method="GET").respond_with_json(
+        {"data": [], "total_count": 0, "page_count": 0}
+    )
+    httpserver.expect_request("/local/role_assignments", method="GET").respond_with_json([])
+    permit = Permit(config)
+
+    await permit.check("user-1", "read", "document")
+    await permit.api.users.list()
+    await permit.pdp_api.role_assignments.list()
+
+    # Read the raw header from the log: expect_request(headers=...) matches the
+    # Authorization scheme case-insensitively, so it would also accept "bearer".
+    sent = {request.path: request.headers.get("Authorization") for request, _ in httpserver.log}
+    assert sent == {
+        "/allowed": "Bearer test-token",
+        f"{FACTS}/users": "Bearer test-token",
+        "/local/role_assignments": "Bearer test-token",
+    }
 
 
 async def test_elements_login_as_sends_canonical_uuid_strings(httpserver: HTTPServer, config: PermitConfig):
