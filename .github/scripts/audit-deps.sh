@@ -8,19 +8,25 @@
 # file literally named requirements.txt, plus one Trivy report per tree:
 #
 #   runtime-ceiling/  + trivy-runtime-ceiling.json
-#       requirements.txt alone, current resolution. What a fresh
-#       `pip install permit` gets today.
+#       pyproject.toml [project].dependencies alone, current resolution. What
+#       a fresh `pip install permit` gets today.
 #   runtime-floor/    + trivy-runtime-floor.json
-#       requirements.txt alone, lowest-direct. The lowest versions the
-#       PUBLISHED specs permit -- i.e. real consumer exposure. This is the
-#       tree that matters most for a library with open `>=` ranges.
+#       pyproject.toml [project].dependencies alone, lowest-direct. The lowest
+#       versions the PUBLISHED specs permit -- i.e. real consumer exposure.
+#       This is the tree that matters most for a library with open `>=`
+#       ranges.
 #   dev-ceiling/      + trivy-dev-ceiling.json
-#       requirements.txt + requirements-dev.txt, current resolution. Test
-#       tooling only; never ships to a user.
+#       [project].dependencies + the `dev` dependency group, current
+#       resolution. Test tooling only; never ships to a user.
+#
+# These are compiled from pyproject.toml, NOT exported from uv.lock: the lock
+# pins one resolution for this repo's own CI, while the audit has to see what a
+# consumer can resolve from the published ranges -- today's ceiling and the
+# floor.
 #
 # Plus pip-audit.json (advisory only) for the runtime ceiling.
 #
-# WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev files together
+# WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev deps together
 # lets a dev tool drag a runtime dependency's floor upward and hide the real
 # exposure: with mypy in the mix the floor resolves typing-extensions==4.12.0,
 # because mypy requires >=4.6 -- but a consumer installing only `permit` can
@@ -28,7 +34,7 @@
 # exactly the versions users can actually get.
 #
 # WHY COMPILE AT ALL. Trivy's pip analyzer only understands `==`. Pointed at
-# this repo's raw requirements.txt it reports zero findings and exits 0 -- a
+# a list of open ranges it reports zero findings and exits 0 -- a
 # silently green gate. It also keys on the FILENAME, which is why each tree is
 # written to its own directory as `requirements.txt` rather than scanned as a
 # loose file (a loose file reports "Not scanned" and, again, exits 0).
@@ -50,7 +56,17 @@ compile_tree() {
   local name="$1" resolution="$2"
   shift 2
   mkdir -p "${OUT}/${name}"
-  local args=(--python-version "${PYTHON_VERSION}" --quiet -o "${OUT}/${name}/requirements.txt")
+  # --no-sources: the published build ignores [tool.uv.sources] (uv build
+  # --no-sources), so the audit must too. --exclude-newer false: the publish-age
+  # cooldown in pyproject.toml applies to this repo's `uv lock` only; consumers
+  # resolve against the index as it is today.
+  local args=(
+    --no-sources
+    --exclude-newer false
+    --python-version "${PYTHON_VERSION}"
+    --quiet
+    -o "${OUT}/${name}/requirements.txt"
+  )
   if [ -n "${resolution}" ]; then
     args+=(--resolution "${resolution}")
   fi
@@ -71,9 +87,23 @@ echo "::group::Resolving dependency trees (python ${PYTHON_VERSION})"
 # lowest-direct, not lowest: pin the declared bounds to their floor but let
 # transitives resolve normally. Plain `lowest` would drag every transitive back
 # to its first ever release and drown the report in irrelevant history.
-compile_tree runtime-ceiling "" "${REPO_ROOT}/requirements.txt"
-compile_tree runtime-floor "lowest-direct" "${REPO_ROOT}/requirements.txt"
-compile_tree dev-ceiling "" "${REPO_ROOT}/requirements.txt" "${REPO_ROOT}/requirements-dev.txt"
+# Passing pyproject.toml compiles [project].dependencies only; dependency
+# groups are added solely by an explicit --group.
+compile_tree runtime-ceiling "" "${REPO_ROOT}/pyproject.toml"
+compile_tree runtime-floor "lowest-direct" "${REPO_ROOT}/pyproject.toml"
+compile_tree dev-ceiling "" "${REPO_ROOT}/pyproject.toml" \
+  --group "${REPO_ROOT}/pyproject.toml:dev"
+
+# The package-count check above cannot tell a dev tree from a runtime one, so a
+# --group that silently matched nothing would scan the runtime tree twice and
+# report the dev tooling as clean.
+if ! grep -q '^pytest==' "${OUT}/dev-ceiling/requirements.txt"; then
+  message="Tree 'dev-ceiling' does not contain pytest, so the 'dev' dependency group"
+  message+=" was not resolved. Refusing to scan a runtime-only tree and report the dev"
+  message+=" tooling as clean."
+  echo "::error title=Dependency resolution failed::${message}"
+  exit 1
+fi
 echo "::endgroup::"
 
 # Trivy exits non-zero on findings when --exit-code is set. We do not set it:

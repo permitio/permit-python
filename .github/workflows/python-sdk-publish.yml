@@ -26,10 +26,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Python setup
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          # This uv binary is the build backend for the published artifacts,
+          # so pin its archive (uv-x86_64-unknown-linux-gnu.tar.gz, per the
+          # uv release's .sha256 asset). The version comes from [tool.uv]
+          # required-version in pyproject.toml; bumping that without updating
+          # this hash fails the download instead of building with another uv.
+          checksum: "89eadd7c76fc063887959510d5ba0ab1264dfd5f1143b925ddb73021a40acf16"
+          # No cache on a job whose output is published: a poisoned cache
+          # entry would flow straight into the release artifacts.
+          enable-cache: false
 
       # The release tag is attacker-influenceable text, so it is passed through
       # the environment rather than interpolated into the shell body. zizmor
@@ -42,35 +51,22 @@ jobs:
         run: |
           set -euo pipefail
           # Strip a leading v and validate, so a crafted tag cannot smuggle
-          # anything into setup.py.
+          # anything into pyproject.toml.
           version="${RELEASE_TAG#v}"
           # A whole-string bash match, NOT grep: grep is line-oriented, so a
           # multi-line tag would pass on the strength of its first line and
-          # the remainder would still reach setup.py.
+          # the remainder would still reach pyproject.toml.
           if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([a-z0-9.]*)$ ]]; then
             echo "::error title=Invalid release tag::'${RELEASE_TAG}' is not a valid PEP 440 version."
             exit 1
           fi
-          python - "$version" <<'PY'
-          import pathlib
-          import re
-          import sys
+          # --frozen: rewrite [project].version only. Re-locking here would
+          # resolve against the live index during a release build.
+          uv version --frozen "${version}"
 
-          version = sys.argv[1]
-          path = pathlib.Path("setup.py")
-          source = path.read_text()
-          patched, count = re.subn(r'version="[^"]*"', f'version="{version}"', source, count=1)
-          if count != 1:
-              sys.exit("could not find a version= field to patch in setup.py")
-          path.write_text(patched)
-          print(f"setup.py version set to {version}")
-          PY
-
+      # --no-sources: build as a consumer's resolver sees it.
       - name: Build Python package
-        run: |
-          set -euo pipefail
-          python -m pip install --disable-pip-version-check build
-          python -m build
+        run: uv build --no-sources
 
       - name: Upload distribution
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0

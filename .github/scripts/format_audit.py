@@ -422,8 +422,9 @@ def render(
     out.append("### How to fix")
     out.append("")
     out.append(
-        "Raise the affected lower bound in `requirements.txt` (or `requirements-dev.txt`) "
-        "to at least the *Fixed in* version above. Because this package publishes open "
+        "Raise the affected lower bound in `pyproject.toml` (`[project].dependencies`, or the "
+        "pin in the `dev` dependency group) to at least the *Fixed in* version above, then "
+        "run `uv lock`. Because this package publishes open "
         "`>=` ranges, the floor is what consumers can actually install -- bumping only the "
         "resolved version does not close the hole."
     )
