@@ -1,3 +1,79 @@
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "permit"
+version = "3.0.0"
+description = "Permit.io python sdk"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Asaf Cohen", email = "asaf@permit.io" }]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+# Open ranges on purpose: this is a library, and consumers resolve these
+# against their own tree. The floors are the real exposure, which is why
+# .github/scripts/audit-deps.sh scans them with --resolution lowest-direct.
+dependencies = [
+    "aiohttp>=3.14.3,<4",
+    "loguru>=0.7.0,<1",
+    "pydantic[email]>=1.10.13",
+    "typing-extensions>=4.5.0,<5",
+]
+
+[project.urls]
+Homepage = "https://permit.io"
+Documentation = "https://docs.permit.io/sdk/python/quickstart-python"
+Repository = "https://github.com/permitio/permit-python"
+
+[dependency-groups]
+# Exact pins, so every developer, CI lane and the dev-ceiling audit tree
+# resolve the same versions. Dependabot raises them. ruff and mypy match the
+# hook revs in .pre-commit-config.yaml; the hooks install their own copies,
+# and those are what CI lints and type-checks with.
+dev = [
+    "mypy==1.11.2",
+    "pre-commit==4.6.2",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-httpserver==1.1.5",
+    "ruff==0.6.9",
+    # Imported directly by the offline tests to assert on what the SDK put on
+    # the wire, as well as backing pytest-httpserver.
+    "werkzeug==3.1.8",
+]
+# The SDK supports both pydantic majors (permit/utils/pydantic_version.py), and
+# CI runs the suite once per major. Each lane is a group so both resolutions
+# live in uv.lock: `uv sync --group pydantic-v1` / `--group pydantic-v2`.
+pydantic-v1 = ["pydantic<2"]
+pydantic-v2 = ["pydantic>=2"]
+
+[tool.uv]
+# The one place the uv version is set: setup-uv reads it in CI. The uv-lock
+# hook rev and the uv_build bound in [build-system] must agree with it.
+required-version = "==0.12.18"
+# Publish-age cooldown for `uv lock`, matching Dependabot's 7-day cooldown: a
+# release is most likely to be a compromised upload in its first days.
+exclude-newer = "7 days"
+conflicts = [[{ group = "pydantic-v1" }, { group = "pydantic-v2" }]]
+
+[tool.uv.build-backend]
+# Flat layout: the package lives at ./permit, not ./src/permit.
+module-root = ""
+
+[tool.pytest]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 120
 src = ["permit"]

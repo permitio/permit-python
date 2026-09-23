@@ -25,6 +25,17 @@ jobs:
       fail-fast: false
       matrix:
         pydantic-version: ['pydantic<2.0.0', 'pydantic>=2.0.0']
+        # `include` only attaches extra keys to the two existing entries; it
+        # adds no new jobs and leaves the job names below untouched. Each
+        # lane installs the matching dependency group from pyproject.toml, so
+        # both pydantic resolutions come from uv.lock.
+        include:
+          - pydantic-version: 'pydantic<2.0.0'
+            dependency-group: pydantic-v1
+            pydantic-major: '1'
+          - pydantic-version: 'pydantic>=2.0.0'
+            dependency-group: pydantic-v2
+            pydantic-major: '2'
     # NOTE: this name and the matrix shape are load-bearing. Branch protection
     # on main requires the contexts "pytest (Pydantic pydantic<2.0.0)" and
     # "pytest (Pydantic pydantic>=2.0.0)" by exact string. Renaming the job or
@@ -37,10 +48,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Python setup
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          python-version: '3.11.8'
+          # Sets UV_PYTHON, so every uv command below runs on exactly this
+          # interpreter (downloaded by uv if the runner does not have it).
+          python-version: "3.11.8"
+          enable-cache: true
+          # The two lanes share uv.lock but install different pydantic
+          # majors, so they need separate cache entries.
+          cache-suffix: ${{ matrix.dependency-group }}
 
       # Values reach the shell through env: rather than ${{ }} interpolation
       # into the script body. zizmor flags the interpolated form as
@@ -111,22 +128,34 @@ jobs:
             permitio/pdp-v2:latest
           echo "PDP container started; it warms up while dependencies install."
 
+      # --locked fails the job if uv.lock is out of date with pyproject.toml
+      # instead of silently re-resolving.
       - name: Install dependencies
         env:
-          PYDANTIC_VERSION: ${{ matrix.pydantic-version }}
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          pip install pytest
-          # Pin pydantic version according to matrix
-          pip install "${PYDANTIC_VERSION}"
-          # Explicitly install email-validator which is required for Pydantic email validation
-          pip install email-validator
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          if [ -f requirements.txt ]; then pip install -r requirements.txt --no-deps; fi
+          DEPENDENCY_GROUP: ${{ matrix.dependency-group }}
+        run: uv sync --locked --group "${DEPENDENCY_GROUP}"
 
       - name: Show installed packages
-        run: pip list
+        run: uv pip list
+
+      # Proves the lane runs the pydantic major its name claims. Without it a
+      # resolution change could quietly run both lanes on the same major.
+      - name: Verify pydantic major
+        env:
+          EXPECTED_MAJOR: ${{ matrix.pydantic-major }}
+        run: |
+          set -euo pipefail
+          uv run --no-sync python - <<'PY'
+          import os
+          import sys
+
+          import pydantic
+
+          expected = os.environ["EXPECTED_MAJOR"]
+          print(f"python {sys.version.split()[0]}, pydantic {pydantic.VERSION}")
+          if str(pydantic.VERSION).split(".")[0] != expected:
+              sys.exit(f"expected pydantic {expected}.x, got {pydantic.VERSION}")
+          PY
 
       # Waited for here rather than immediately after `docker run`, so the
       # PDP's bootstrap (fetch config, pull the policy bundle, start OPA)
@@ -156,8 +185,7 @@ jobs:
           ORG_PDP_API_KEY: ${{ env.ENV_API_KEY }}
           PROJECT_PDP_API_KEY: ${{ env.ENV_API_KEY }}
           PDP_API_KEY: ${{ env.ENV_API_KEY }}
-        run: |
-          pytest -s --cache-clear tests/
+        run: uv run --no-sync pytest -s --cache-clear tests/
 
       - name: PDP logs
         if: failure()

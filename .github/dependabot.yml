@@ -1,23 +1,25 @@
 version: 2
 updates:
-  # Python dependencies (requirements.txt + requirements-dev.txt).
+  # Python dependencies: pyproject.toml ([project].dependencies and the
+  # dependency groups) plus uv.lock, which Dependabot re-locks in the same PR.
   #
-  # This package publishes open `>=` ranges rather than a lockfile, so a
-  # Dependabot PR here raises the *floor* consumers are allowed to install on,
-  # not just the version CI happens to resolve. That is the whole point: the
-  # floor is the exposure, and the audit gate in security.yml scans it
+  # Consumers never see uv.lock -- this package publishes open `>=` ranges --
+  # so a Dependabot PR here raises the *floor* consumers are allowed to install
+  # on, not just the version CI happens to resolve. That is the whole point:
+  # the floor is the exposure, and the audit gate in security.yml scans it
   # explicitly.
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    # REQUIRED, not cosmetic. With a setup.py present Dependabot classifies
-    # this project as a library and defaults to `widen`, which only relaxes
-    # upper bounds and would never raise a `>=` floor -- so the automation
-    # would silently never do the one thing this file exists to do.
-    # `increase` raises the lower bound instead.
+    # REQUIRED, not cosmetic. Left at `auto`, Dependabot may classify this
+    # published package as a library and default to `widen`, which only
+    # relaxes upper bounds and would never raise a `>=` floor -- so the
+    # automation would silently never do the one thing this file exists to
+    # do. `increase` raises the lower bound instead (and moves the exact `==`
+    # pins in the dev group).
     versioning-strategy: increase
     # Matches the agent-security policy: wait 7 days before proposing a
     # release, 14 for a major. A brand-new version is the window in which a
@@ -49,7 +51,7 @@ updates:
 
   # GitHub Actions versions.
   # Note: cooldown.semver-major-days is not supported for github-actions --
-  # Dependabot only honours it on semver-strict ecosystems like pip and npm.
+  # Dependabot only honours it on semver-strict ecosystems like uv and npm.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
