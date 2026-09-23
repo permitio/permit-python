@@ -26,7 +26,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 MARKER = "<!-- permit-python:audit:deps -->"
 
@@ -49,11 +49,17 @@ SEVERITY_EMOJI = {
 # the string render as markdown/HTML in the comment and the job summary.
 FENCE = "~~~~~~"
 
+# GitHub truncates annotation text; cut it ourselves so the ellipsis is visible.
+_ANNOTATION_MAX_CHARS = 200
+# The Slack message is two header lines, then one line per package.
+_SLACK_HEADER_LINES = 2
+_SLACK_MAX_PACKAGES = 10
+
 
 class Finding:
     """One vulnerability, normalized across scanners."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - one field per scanner column; built positionally
         self,
         vuln_id: str,
         package: str,
@@ -63,7 +69,7 @@ class Finding:
         title: str,
         url: str,
         source: str,
-    ):
+    ) -> None:
         self.id = vuln_id
         self.package = package
         self.installed = installed
@@ -75,6 +81,7 @@ class Finding:
 
     @property
     def key(self) -> tuple[str, str]:
+        """Identity used to merge the same advisory reported by several scanners."""
         return (self.package, self.id)
 
     @property
@@ -99,7 +106,7 @@ def _md_cell(text: str) -> str:
     return _truncate(text, 140).replace("|", "\\|").replace("`", "'")
 
 
-def _load(path: Optional[str], label: str) -> tuple[Optional[Any], Optional[str]]:
+def _load(path: str | None, label: str) -> tuple[Any | None, str | None]:
     """Return (parsed, error). Never raises -- a bad report must not kill the run."""
     if not path:
         return None, None
@@ -115,7 +122,7 @@ def _load(path: Optional[str], label: str) -> tuple[Optional[Any], Optional[str]
         return None, f"{label}: {path} is not valid JSON: {exc}"
 
 
-def trivy_scanned_nothing(doc: Any) -> bool:
+def trivy_scanned_nothing(doc: object) -> bool:
     """True when Trivy produced no package Result at all.
 
     Trivy writes {"Results": null} and exits 0 when it recognises no package
@@ -132,7 +139,8 @@ def trivy_scanned_nothing(doc: Any) -> bool:
     return not any(isinstance(r, dict) and r.get("Target") for r in results)
 
 
-def parse_trivy(doc: Any, source: str = "trivy") -> list[Finding]:
+def parse_trivy(doc: object, source: str = "trivy") -> list[Finding]:
+    """Extract the findings of a Trivy JSON report; malformed entries are skipped."""
     findings: list[Finding] = []
     if not isinstance(doc, dict):
         return findings
@@ -158,7 +166,7 @@ def parse_trivy(doc: Any, source: str = "trivy") -> list[Finding]:
     return findings
 
 
-def parse_pip_audit(doc: Any) -> list[Finding]:
+def parse_pip_audit(doc: object) -> list[Finding]:
     """pip-audit carries no severity at all, so everything lands in UNKNOWN.
 
     That is why pip-audit is advisory-only here and never gates the build: it
@@ -179,7 +187,9 @@ def parse_pip_audit(doc: Any) -> list[Finding]:
             if not isinstance(vuln, dict):
                 continue
             fixes = vuln.get("fix_versions") or []
-            fixed = ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
+            fixed = (
+                ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
+            )
             aliases = vuln.get("aliases") or []
             alias_str = ""
             if isinstance(aliases, list) and aliases:
@@ -232,17 +242,20 @@ def _annotation_escape(text: str) -> str:
     later replacements introduce.
     """
     text = str(text)
-    text = text if len(text) <= 200 else text[:199] + "…"
+    text = text if len(text) <= _ANNOTATION_MAX_CHARS else text[: _ANNOTATION_MAX_CHARS - 1] + "…"
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
 def render_annotations(findings: list[Finding]) -> str:
+    """Render one GitHub `::error` workflow command per blocking finding."""
     lines = []
     for finding in findings:
         if not finding.blocking:
             continue
         title = _annotation_escape(f"{finding.severity}: {finding.id} in {finding.package}")
-        body = _annotation_escape(f"{finding.package} {finding.installed} -- fixed in {finding.fixed}. {finding.title}")
+        body = _annotation_escape(
+            f"{finding.package} {finding.installed} -- fixed in {finding.fixed}. {finding.title}"
+        )
         lines.append(f"::error title={title}::{body}")
     return "\n".join(lines)
 
@@ -299,7 +312,9 @@ def render_slack(findings: list[Finding], errors: list[str], run_url: str, repo:
         # Highest fix target across the group -- upgrading to anything lower
         # would leave part of the group unresolved.
         targets = sorted({f.fixed for f in group if f.fixed != NO_FIX})
-        target = f" — upgrade to `{_slack_escape(targets[-1])}`" if targets else " — no fix available"
+        target = (
+            f" — upgrade to `{_slack_escape(targets[-1])}`" if targets else " — no fix available"
+        )
         installed = _slack_escape(worst.installed)
         lines.append(
             f">• `{_slack_escape(package)}` {installed} — "
@@ -308,21 +323,31 @@ def render_slack(findings: list[Finding], errors: list[str], run_url: str, repo:
         )
 
     # Slack truncates long messages; keep it to something a human will read.
-    if len(lines) > 12:
-        lines = lines[:12] + [f">…and {len(by_package) - 10} more packages."]
+    if len(lines) > _SLACK_HEADER_LINES + _SLACK_MAX_PACKAGES:
+        lines = [
+            *lines[: _SLACK_HEADER_LINES + _SLACK_MAX_PACKAGES],
+            f">…and {len(by_package) - _SLACK_MAX_PACKAGES} more packages.",
+        ]
 
     lines.append(f">{link}")
     return "\n".join(lines)
 
 
-def render(
+def _advisory_link(finding: Finding) -> str:
+    if finding.url.startswith("http"):
+        return f"[{_md_cell(finding.id)}]({finding.url})"
+    return _md_cell(finding.id)
+
+
+def render(  # noqa: C901, PLR0915 - one linear pass appending each report section
     findings: list[Finding],
     errors: list[str],
     context: str,
     *,
     blocking: bool,
-    warnings: Optional[list[str]] = None,
+    warnings: list[str] | None = None,
 ) -> str:
+    """Render the markdown PR comment body."""
     out: list[str] = [MARKER, "", "## Dependency Security Audit", ""]
 
     if context:
@@ -370,7 +395,10 @@ def render(
         out.append(f":x: **{len(blockers)} fixable HIGH/CRITICAL {noun}** -- {verb}.")
         if unfixable:
             out.append("")
-            out.append(f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet and do not block.")
+            out.append(
+                f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet "
+                "and do not block."
+            )
     elif severe:
         # Do not say "none at HIGH or CRITICAL" here: there are some, they
         # just cannot be fixed by bumping a bound. Saying otherwise would
@@ -381,33 +409,39 @@ def render(
             "but they are real exposure and need a decision."
         )
     else:
-        out.append(":warning: Advisories found, but none at HIGH or CRITICAL. This does not block the build.")
+        out.append(
+            ":warning: Advisories found, but none at HIGH or CRITICAL. "
+            "This does not block the build."
+        )
     out.append("")
 
     out.append("| Severity | Count |")
     out.append("| --- | --- |")
-    for severity in SEVERITY_ORDER:
-        if counts.get(severity):
-            out.append(f"| {SEVERITY_EMOJI[severity]} {severity} | {counts[severity]} |")
+    out.extend(
+        f"| {SEVERITY_EMOJI[severity]} {severity} | {counts[severity]} |"
+        for severity in SEVERITY_ORDER
+        if counts.get(severity)
+    )
     out.append("")
 
     out.append("| Severity | Package | Installed | Fixed in | Advisory |")
     out.append("| --- | --- | --- | --- | --- |")
-    for finding in findings:
-        link = f"[{_md_cell(finding.id)}]({finding.url})" if finding.url.startswith("http") else _md_cell(finding.id)
-        out.append(
-            f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
-            f"| `{_md_cell(finding.package)}` "
-            f"| `{_md_cell(finding.installed)}` "
-            f"| `{_md_cell(finding.fixed)}` "
-            f"| {link} |"
-        )
+    out.extend(
+        f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
+        f"| `{_md_cell(finding.package)}` "
+        f"| `{_md_cell(finding.installed)}` "
+        f"| `{_md_cell(finding.fixed)}` "
+        f"| {_advisory_link(finding)} |"
+        for finding in findings
+    )
     out.append("")
 
     out.append("<details><summary>Advisory details</summary>")
     out.append("")
     for finding in findings:
-        out.append(f"**{finding.severity} -- {finding.id}** (`{finding.package}` {finding.installed})")
+        out.append(
+            f"**{finding.severity} -- {finding.id}** (`{finding.package}` {finding.installed})"
+        )
         out.append("")
         out.append(f"Found by: {', '.join(sorted(finding.sources))}")
         out.append("")
@@ -439,7 +473,8 @@ def render(
     return "\n".join(out) + "\n"
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per output mode
+    """Parse the scanner reports and print the requested output; return the exit status."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "trivy_json",
@@ -468,8 +503,12 @@ def main() -> int:
         action="store_true",
         help="emit a single-line Slack message body carrying the findings",
     )
-    parser.add_argument("--run-url", default="", help="workflow run URL to link from the Slack message")
-    parser.add_argument("--repo", default="permit-python", help="repository name for the Slack message")
+    parser.add_argument(
+        "--run-url", default="", help="workflow run URL to link from the Slack message"
+    )
+    parser.add_argument(
+        "--repo", default="permit-python", help="repository name for the Slack message"
+    )
     parser.add_argument(
         "--gate",
         action="store_true",
@@ -523,7 +562,8 @@ def main() -> int:
         blockers = [f for f in findings if f.blocking]
         for finding in blockers:
             print(
-                f"{finding.severity} {finding.id} {finding.package} " f"{finding.installed} -> {finding.fixed}",
+                f"{finding.severity} {finding.id} {finding.package} "
+                f"{finding.installed} -> {finding.fixed}",
                 file=sys.stderr,
             )
         if errors:
@@ -537,7 +577,9 @@ def main() -> int:
             print(rendered)
         return 0
 
-    sys.stdout.write(render(findings, errors, args.context, blocking=args.blocking, warnings=warnings))
+    sys.stdout.write(
+        render(findings, errors, args.context, blocking=args.blocking, warnings=warnings)
+    )
     return 0
 
 

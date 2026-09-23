@@ -1,8 +1,8 @@
 import asyncio
-from typing import Awaitable, Callable, List, Sequence, TypeVar, Union
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TypeVar
 
 from loguru import logger
-from tests.utils import handle_cleanup_error, unique_key
 
 from permit import (
     Permit,
@@ -13,6 +13,7 @@ from permit import (
     UserCreate,
 )
 from permit.exceptions import PermitApiDetailedError
+from tests.utils import handle_cleanup_error, unique_key
 
 TPropagated = TypeVar("TPropagated")
 
@@ -24,7 +25,7 @@ PROPAGATION_TIMEOUT_SECONDS = 30.0
 PROPAGATION_POLL_INTERVAL_SECONDS = 0.5
 
 
-def user_keys(prefix: str, count: int = USER_COUNT) -> List[str]:
+def user_keys(prefix: str, count: int = USER_COUNT) -> list[str]:
     return [f"{prefix}-user-{index}" for index in range(count)]
 
 
@@ -71,9 +72,9 @@ async def create_role_assignments(permit: Permit, role_key: str, users: Sequence
 
 async def list_assignments(
     permit: Permit,
-    role_key: Union[str, List[str]],
+    role_key: str | list[str],
     expected_count: int,
-) -> List[RoleAssignmentRead]:
+) -> list[RoleAssignmentRead]:
     """List the assignments of the given role(s), polling until they are all visible.
 
     Returns whatever the last call reported once the count matches or the
@@ -103,7 +104,7 @@ async def cleanup(permit: Permit, role_keys: Sequence[str], users: Sequence[str]
             handle_cleanup_error(error, f"could not delete user {user}")
 
 
-async def test_list_filter_by_role(permit: Permit):
+async def test_list_filter_by_role(permit: Permit) -> None:
     prefix = unique_key("ra-single")
     role_1 = f"{prefix}-role-1"
     role_2 = f"{prefix}-role-2"
@@ -126,7 +127,7 @@ async def test_list_filter_by_role(permit: Permit):
         await cleanup(permit, [role_1, role_2], [*users_1, *users_2])
 
 
-async def test_list_filter_by_role_multiple(permit: Permit):
+async def test_list_filter_by_role_multiple(permit: Permit) -> None:
     prefix = unique_key("ra-multi")
     role_1 = f"{prefix}-role-1"
     role_2 = f"{prefix}-role-2"
@@ -140,7 +141,9 @@ async def test_list_filter_by_role_multiple(permit: Permit):
         await create_role_assignments(permit, role_2, users_2)
         await create_role_assignments(permit, role_3, users_3)
 
-        role_assignments = await list_assignments(permit, [role_1, role_2], expected_count=len(users_1) + len(users_2))
+        role_assignments = await list_assignments(
+            permit, [role_1, role_2], expected_count=len(users_1) + len(users_2)
+        )
 
         # a multi-valued role filter is a union of the roles asked for, and
         # excludes role_3 which was created in the same environment

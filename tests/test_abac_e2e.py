@@ -1,6 +1,8 @@
 import asyncio
+import functools
 import time
-from typing import Any, Awaitable, Callable, Final, List, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any, Final, Protocol, TypeVar
 
 import pytest
 from loguru import logger
@@ -18,12 +20,11 @@ from permit.api.models import (
     UserCreate,
 )
 from permit.exceptions import PermitApiError, PermitConnectionError
+from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
-from .utils import handle_api_error, handle_cleanup_error, unique_key
 
-
-def print_break():
-    print("\n\n ----------- \n\n")  # noqa: T201
+def print_break() -> None:
+    print("\n\n ----------- \n\n")
 
 
 PER_PAGE: Final[int] = 100
@@ -64,7 +65,17 @@ async def wait_until(
         await asyncio.sleep(interval)
 
 
-async def find_by_key(list_page: Callable[[int], Awaitable[List[Any]]], key: str) -> Optional[Any]:
+class _Keyed(Protocol):
+    @property
+    def key(self) -> str: ...
+
+
+KeyedT = TypeVar("KeyedT", bound=_Keyed)
+
+
+async def find_by_key(
+    list_page: Callable[[int], Awaitable[list[KeyedT]]], key: str
+) -> KeyedT | None:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -89,7 +100,7 @@ async def cleanup_step(action: Callable[[], Awaitable[Any]], description: str) -
         handle_cleanup_error(error, f"Got API Error during cleanup of {description}")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error during cleanup of {description}: {error}")
         pytest.fail(f"Got error during cleanup of {description}: {error}")
 
@@ -101,7 +112,7 @@ async def assert_gone(get: Callable[[str], Awaitable[Any]], key: str, descriptio
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
-async def test_abac_e2e(permit: Permit):
+async def test_abac_e2e(permit: Permit) -> None:
     logger.info("initial setup of objects")
     # Every key is unique to this run: the e2e suite shares a single environment,
     # so fixed keys ("document", "admin", "viewer", "tesla") are objects other
@@ -113,7 +124,9 @@ async def test_abac_e2e(permit: Permit):
         name="Admin",
         permissions=[f"{resource_key}:create", f"{resource_key}:read"],
     )
-    viewer = RoleCreate(key=unique_ident("viewer"), name="Viewer", permissions=[f"{resource_key}:read"])
+    viewer = RoleCreate(
+        key=unique_ident("viewer"), name="Viewer", permissions=[f"{resource_key}:read"]
+    )
     tesla = TenantCreate(key=unique_ident("tesla"), name="Tesla Inc")
     user_a = UserCreate(
         key=unique_ident("asaf"),
@@ -156,7 +169,7 @@ async def test_abac_e2e(permit: Permit):
     sign_permission = f"{resource_key}:sign"
     try:
         document = await permit.api.resources.create(
-            {
+            {  # type: ignore[arg-type] # dict input, coerced by the SDK
                 "key": resource_key,
                 "name": "Document",
                 "urn": f"prn:gdrive:{resource_key}",
@@ -199,7 +212,9 @@ async def test_abac_e2e(permit: Permit):
         listed_document = await find_by_key(
             lambda page: permit.api.resources.list(page=page, per_page=PER_PAGE), resource_key
         )
-        assert listed_document is not None, f"resource '{resource_key}' is missing from the resource list"
+        assert listed_document is not None, (
+            f"resource '{resource_key}' is missing from the resource list"
+        )
         assert listed_document.id == document.id
         assert listed_document.key == document.key
         assert listed_document.name == document.name
@@ -227,6 +242,8 @@ async def test_abac_e2e(permit: Permit):
             assert user.email == user_data.email
             assert user.first_name == user_data.first_name
             assert user.last_name == user_data.last_name
+            assert user.attributes is not None
+            assert user_data.attributes is not None
             assert set(user.attributes.keys()) == set(user_data.attributes.keys())
 
         # create role
@@ -235,7 +252,7 @@ async def test_abac_e2e(permit: Permit):
 
         # assign role to user in tenant
         await permit.api.users.assign_role(
-            {
+            {  # type: ignore[arg-type] # dict input, coerced by the SDK
                 "user": user_a.key,
                 "role": admin.key,
                 "tenant": tesla.key,
@@ -243,7 +260,7 @@ async def test_abac_e2e(permit: Permit):
         )
 
         await permit.api.users.assign_role(
-            {
+            {  # type: ignore[arg-type] # dict input, coerced by the SDK
                 "user": user_b.key,
                 "role": admin.key,
                 "tenant": tesla.key,
@@ -318,7 +335,9 @@ async def test_abac_e2e(permit: Permit):
                 lambda page: permit.api.condition_sets.list(page=page, per_page=PER_PAGE),
                 condition_set_data.key,
             )
-            assert listed_set is not None, f"condition set '{condition_set_data.key}' is missing from the list"
+            assert listed_set is not None, (
+                f"condition set '{condition_set_data.key}' is missing from the list"
+            )
             assert listed_set.type == condition_set_data.type
 
         await permit.api.condition_set_rules.create(
@@ -376,7 +395,7 @@ async def test_abac_e2e(permit: Permit):
         handle_api_error(error, "Got API Error")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -393,29 +412,39 @@ async def test_abac_e2e(permit: Permit):
             "condition set rule",
         )
         for role in created_roles:
-            await cleanup_step(lambda key=role.key: permit.api.roles.delete(key), f"role '{role.key}'")
-        for user in created_users:
-            await cleanup_step(lambda key=user.key: permit.api.users.delete(key), f"user '{user.key}'")
+            await cleanup_step(
+                functools.partial(permit.api.roles.delete, role.key), f"role '{role.key}'"
+            )
+        for created_user in created_users:
+            await cleanup_step(
+                functools.partial(permit.api.users.delete, created_user.key),
+                f"user '{created_user.key}'",
+            )
         for tenant_data in created_tenants:
             await cleanup_step(
-                lambda key=tenant_data.key: permit.api.tenants.delete(key), f"tenant '{tenant_data.key}'"
+                functools.partial(permit.api.tenants.delete, tenant_data.key),
+                f"tenant '{tenant_data.key}'",
             )
         for condition_set_data in condition_sets:
             await cleanup_step(
-                lambda key=condition_set_data.key: permit.api.condition_sets.delete(key),
+                functools.partial(permit.api.condition_sets.delete, condition_set_data.key),
                 f"condition set '{condition_set_data.key}'",
             )
-        await cleanup_step(lambda: permit.api.resources.delete(resource_key), f"resource '{resource_key}'")
+        await cleanup_step(
+            lambda: permit.api.resources.delete(resource_key), f"resource '{resource_key}'"
+        )
         await cleanup_step(
             lambda: permit.api.resource_attributes.delete("__user", age_attribute),
             f"user attribute '{age_attribute}'",
         )
         for role in created_roles:
             await assert_gone(permit.api.roles.get, role.key, "role")
-        for user in created_users:
-            await assert_gone(permit.api.users.get, user.key, "user")
+        for created_user in created_users:
+            await assert_gone(permit.api.users.get, created_user.key, "user")
         for tenant_data in created_tenants:
             await assert_gone(permit.api.tenants.get, tenant_data.key, "tenant")
         for condition_set_data in condition_sets:
-            await assert_gone(permit.api.condition_sets.get, condition_set_data.key, "condition set")
+            await assert_gone(
+                permit.api.condition_sets.get, condition_set_data.key, "condition set"
+            )
         await assert_gone(permit.api.resources.get, resource_key, "resource")

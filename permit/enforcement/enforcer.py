@@ -1,31 +1,40 @@
 import json
+from http import HTTPStatus
 from pprint import pformat
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
 from typing_extensions import NotRequired, TypedDict
 
-from ..config import PermitConfig
-from ..exceptions import PermitConnectionError
-from ..utils.context import Context, ContextStore
-from ..utils.dicts import deep_merge
-from ..utils.pydantic_version import PYDANTIC_VERSION
-from ..utils.sync import SyncClass
-from .interfaces import AuthorizedUsersResult, ResourceInput, UserInput
+from permit.config import PermitConfig
+from permit.enforcement.interfaces import AuthorizedUsersResult, ResourceInput, UserInput
+from permit.exceptions import PermitConnectionError
+from permit.utils.context import Context, ContextStore
+from permit.utils.dicts import deep_merge
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.sync import SyncClass
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import parse_obj_as
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import parse_obj_as
 else:
-    from pydantic.v1 import parse_obj_as  # type: ignore
+    from pydantic.v1 import parse_obj_as
 
 
 RESOURCE_DELIMITER = ":"
 
-User = Union[dict, str]
+# Public aliases kept exactly as they were (bare `dict`, `typing.Union`): unlike a
+# parameterized form, they still work in `isinstance(value, User)`.
+User = Union[dict, str]  # type: ignore[type-arg]  # noqa: UP007
 Action = str
-Resource = Union[dict, str]
+Resource = Union[dict, str]  # type: ignore[type-arg]  # noqa: UP007
+
+# A resource string is "type" or "type:key".
+_MAX_RESOURCE_STRING_PARTS = 2
 
 
 async def read_error_body(response: aiohttp.ClientResponse) -> str:
@@ -50,19 +59,25 @@ async def read_error_body(response: aiohttp.ClientResponse) -> str:
 
 
 class CheckQuery(TypedDict):
+    """One authorization query of a `bulk_check()` call."""
+
     user: User
     action: Action
     resource: Resource
-    context: NotRequired[Optional[Context]]
+    context: NotRequired[Context | None]
 
 
-SETUP_PDP_DOCS_LINK = (
-    "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
-)
+SETUP_PDP_DOCS_LINK = "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+
+
+class _TimeoutConfig(TypedDict, total=False):
+    timeout: ClientTimeout
 
 
 class Enforcer:
-    def __init__(self, config: PermitConfig):
+    """Sends authorization queries to the PDP."""
+
+    def __init__(self, config: PermitConfig) -> None:
         self._config = config
         self._context_store = ContextStore()
         self._headers = {
@@ -72,16 +87,17 @@ class Enforcer:
         self._base_url = self._config.pdp
 
     @property
-    def context_store(self):
-        """
-        we let context store be accessed from the outside so that the
-        using app can setup a flexible contextual behavior for authorization queries
+    def context_store(self) -> ContextStore:
+        """The base context merged into every query.
+
+        It is exposed so the application can set up flexible contextual behavior for
+        authorization queries.
         """
         return self._context_store
 
     @property
-    def _timeout_config(self):
-        timeout_config = {}
+    def _timeout_config(self) -> _TimeoutConfig:
+        timeout_config: _TimeoutConfig = {}
         if self._config.pdp_timeout is not None:
             timeout_config["timeout"] = ClientTimeout(total=self._config.pdp_timeout)
         return timeout_config
@@ -90,24 +106,25 @@ class Enforcer:
         self,
         action: Action,
         resource: Resource,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> AuthorizedUsersResult:
-        """
-        Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+        """Get all the users authorized to perform an action on a resource in a context.
 
         Args:
             action: The action to be performed on the resource.
             resource: The resource object representing the resource.
-            context: The context object representing the context in which the action is performed. Defaults to None.
+            context: The context object representing the context in which the action is performed.
+                Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that granted the permission.
+            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+                granted the permission.
 
         Raises:
-            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+            PermitConnectionError: If an error occurs while sending the authorization request to the
+                PDP.
 
         Examples:
-
             # all the users that can close any issue?
             await permit.authorized_users('close', 'issue')
 
@@ -117,14 +134,16 @@ class Enforcer:
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
             await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
-        """  # noqa: E501
+        """
         context = context or {}
 
         normalized_resource: ResourceInput = self._normalize_resource(
-            self._resource_from_string(resource) if isinstance(resource, str) else ResourceInput(**resource)
+            self._resource_from_string(resource)
+            if isinstance(resource, str)
+            else ResourceInput(**resource)
         )
         query_context = self._context_store.get_derived_context(context)
-        input = {
+        request_body = {
             "action": action,
             "resource": normalized_resource.dict(exclude_unset=True),
             "context": query_context,
@@ -135,18 +154,22 @@ class Enforcer:
             try:
                 async with session.post(
                     check_url,
-                    data=json.dumps(input),
+                    data=json.dumps(request_body),
                 ) as response:
-                    if response.status != 200:
-                        if response.status == 501:
-                            raise PermitConnectionError(
-                                f"Permit SDK got an error: {response.status}, and cannot connect to the PDP container."
+                    if response.status != HTTPStatus.OK:
+                        if response.status == HTTPStatus.NOT_IMPLEMENTED:
+                            msg = (
+                                f"Permit SDK got an error: {response.status}, "
+                                f"and cannot connect to the PDP container."
                                 f"\nPlease ensure you are not using ABAC/ReBAC policies,"
-                                f"as the cloud PDP is not compatible with these kinds of policies.\n"
+                                f"as the cloud PDP is not compatible with these kinds "
+                                f"of policies.\n"
                                 f"Also, please check your configuration and "
-                                f"make sure it's running at {self._base_url} and accepting requests.\n"
+                                f"make sure it's running at {self._base_url} "
+                                f"and accepting requests.\n"
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
+                            raise PermitConnectionError(msg)
 
                         error_body = await read_error_body(response)
                         logger.error(
@@ -157,7 +180,7 @@ class Enforcer:
                                 error_body,
                             )
                         )
-                        raise PermitConnectionError(
+                        msg = (
                             f"Permit SDK got unexpected status code: {response.status} "
                             f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
                             f"The PDP is reachable, so this is a rejected request rather than a "
@@ -165,11 +188,12 @@ class Enforcer:
                             f"with a different API key than the SDK is using.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
+                        raise PermitConnectionError(msg)
 
-                    content: dict = await response.json()
+                    content: dict[str, Any] = await response.json()
                     logger.debug(
                         f"permit.authorized_users() response:"
-                        f"\ninput: {pformat(input, indent=2)}"
+                        f"\ninput: {pformat(request_body, indent=2)}"
                         f"\nresponse status: {response.status}"
                         f"\nresponse data: {pformat(content, indent=2)}"
                     )
@@ -177,38 +201,44 @@ class Enforcer:
                     return result
             except aiohttp.ClientError as err:
                 logger.error(
-                    f"error in permit.authorized_users({action}, {self._resource_repr(normalized_resource)}):\n{err}"
+                    f"error in permit.authorized_users({action}, "
+                    f"{self._resource_repr(normalized_resource)}):\n{err}"
                 )
-                raise PermitConnectionError(
+                msg = (
                     f"Permit SDK got error: {err}, and cannot connect to the PDP container.\n"
                     f"Please check your configuration and make sure it's running at "
                     f"{self._base_url} and accepting requests.\n "
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
+                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                )
+                raise PermitConnectionError(
+                    msg,
                     error=err,
                 ) from err
 
     async def bulk_check(
         self,
-        checks: List[CheckQuery],
-        context: Optional[Context] = None,
-    ) -> List[bool]:
-        """
-        Checks if a user is authorized to perform an action on a resource within the specified context.
+        checks: list[CheckQuery],
+        context: Context | None = None,
+    ) -> list[bool]:
+        """Checks if a user is authorized to perform an action on a resource in a context.
 
         Args:
-            checks: A list of CheckQuery objects representing the authorization queries to be performed.
+            checks: A list of CheckQuery objects representing the authorization queries to be
+                performed.
                 Each check may carry its own ``context``, which is merged over the method-level
                 ``context`` for that check only.
-            context: The context object representing the context in which the action is performed. Defaults to None.
+            context: The context object representing the context in which the action is performed.
+                Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each resource.
+            list[bool]: A list of booleans indicating whether the user is authorized for each
+                resource.
 
         Raises:
-            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+            PermitConnectionError: If an error occurs while sending the authorization request to the
+                PDP.
 
         Examples:
-
             # Bulk query of multiple check conventions
             await permit.bulk_check([
                 {
@@ -229,10 +259,12 @@ class Enforcer:
             ])
         """
         context = context or {}
-        input = []
+        request_body = []
         for check in checks:
             normalized_user: UserInput = (
-                UserInput(key=check["user"]) if isinstance(check["user"], str) else UserInput(**check["user"])
+                UserInput(key=check["user"])
+                if isinstance(check["user"], str)
+                else UserInput(**check["user"])
             )
             normalized_resource: ResourceInput = self._normalize_resource(
                 self._resource_from_string(check["resource"])
@@ -240,8 +272,10 @@ class Enforcer:
                 else ResourceInput(**check["resource"])
             )
             check_context: Context = check.get("context") or {}
-            query_context = self._context_store.get_derived_context(deep_merge(context, check_context))
-            input.append(
+            query_context = self._context_store.get_derived_context(
+                deep_merge(context, check_context)
+            )
+            request_body.append(
                 {
                     "user": normalized_user.dict(exclude_unset=True),
                     "action": check["action"],
@@ -255,9 +289,9 @@ class Enforcer:
             try:
                 async with session.post(
                     check_url,
-                    data=json.dumps(input),
+                    data=json.dumps(request_body),
                 ) as response:
-                    if response.status != 200:
+                    if response.status != HTTPStatus.OK:
                         error_body = await read_error_body(response)
                         msg = "error in permit.check({}):\n{}\n{}".format(
                             (
@@ -267,7 +301,7 @@ class Enforcer:
                                         check.get("action"),
                                         check.get("resource"),
                                     ]
-                                    for check in input
+                                    for check in request_body
                                 ]
                             ),
                             f"status code: {response.status}",
@@ -275,15 +309,15 @@ class Enforcer:
                         )
                         logger.error(msg)
                         raise PermitConnectionError(msg)
-                    content: dict = await response.json()
+                    content: dict[str, Any] = await response.json()
                     logger.debug(
                         f"permit.check() response:\n"
-                        f"input: {pformat(input, indent=2)}\n"
+                        f"input: {pformat(request_body, indent=2)}\n"
                         f"response status: {response.status}\n"
                         f"response data: {pformat(content, indent=2)}"
                     )
                     data = content.get("allow", content.get("result", {}).get("allow", []))
-                    decisions: List[bool] = [bool(item.get("allow", False)) for item in data]
+                    decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
             except aiohttp.ClientError as err:
                 msg = "error in permit.check({}):\n{}".format(
                     (
@@ -293,7 +327,7 @@ class Enforcer:
                                 check.get("action"),
                                 check.get("resource"),
                             ]
-                            for check in input
+                            for check in request_body
                         ]
                     ),
                     err,
@@ -307,25 +341,25 @@ class Enforcer:
         user: User,
         action: Action,
         resource: Resource,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> bool:
-        """
-        Checks if a user is authorized to perform an action on a resource within the specified context.
+        """Checks if a user is authorized to perform an action on a resource in a context.
 
         Args:
             user: The user object representing the user.
             action: The action to be performed on the resource.
             resource: The resource object representing the resource.
-            context: The context object representing the context in which the action is performed. Defaults to None.
+            context: The context object representing the context in which the action is performed.
+                Defaults to None.
 
         Returns:
             bool: True if the user is authorized, False otherwise.
 
         Raises:
-            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+            PermitConnectionError: If an error occurs while sending the authorization request to the
+                PDP.
 
         Examples:
-
             # can the user close any issue?
             await permit.check(user, 'close', 'issue')
 
@@ -338,9 +372,13 @@ class Enforcer:
         """
         context = context or {}
 
-        normalized_user: UserInput = UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        normalized_user: UserInput = (
+            UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        )
         normalized_resource: ResourceInput = self._normalize_resource(
-            self._resource_from_string(resource) if isinstance(resource, str) else ResourceInput(**resource)
+            self._resource_from_string(resource)
+            if isinstance(resource, str)
+            else ResourceInput(**resource)
         )
         query_context = self._context_store.get_derived_context(context)
         body = {
@@ -356,16 +394,19 @@ class Enforcer:
                     check_url,
                     data=json.dumps(body),
                 ) as response:
-                    if response.status != 200:
-                        if response.status == 501:
-                            raise PermitConnectionError(
-                                f"Permit SDK got an error: {response.status}, and cannot connect to the PDP container."
+                    if response.status != HTTPStatus.OK:
+                        if response.status == HTTPStatus.NOT_IMPLEMENTED:
+                            msg = (
+                                f"Permit SDK got an error: {response.status}, "
+                                f"and cannot connect to the PDP container."
                                 f"\nPlease ensure you are not using ABAC/ReBAC policies,\n"
-                                f"as the cloud PDP is not compatible with these kinds of policies.\n"
+                                f"as the cloud PDP is not compatible with these kinds "
+                                f"of policies.\n"
                                 f"Also, please check your configuration and make sure it's running "
                                 f"at {self._base_url} and accepting requests.\n"
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
+                            raise PermitConnectionError(msg)
 
                         error_body = await read_error_body(response)
                         logger.error(
@@ -377,7 +418,7 @@ class Enforcer:
                                 error_body,
                             )
                         )
-                        raise PermitConnectionError(
+                        msg = (
                             f"Permit SDK got unexpected status code: {response.status} "
                             f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
                             f"The PDP is reachable, so this is a rejected request rather than a "
@@ -385,8 +426,9 @@ class Enforcer:
                             f"with a different API key than the SDK is using.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
+                        raise PermitConnectionError(msg)
 
-                    content: dict = await response.json()
+                    content: dict[str, Any] = await response.json()
                     logger.debug(
                         f"permit.check() response:\n"
                         f"body: {pformat(body, indent=2)}\n"
@@ -397,24 +439,43 @@ class Enforcer:
                     return decision
             except aiohttp.ClientError as err:
                 logger.error(
-                    f"error in permit.check({normalized_user}, {action}, {self._resource_repr(normalized_resource)}):"
+                    f"error in permit.check({normalized_user}, {action}, "
+                    f"{self._resource_repr(normalized_resource)}):"
                     f"\n{err}"
                 )
-                raise PermitConnectionError(
+                msg = (
                     f"Permit SDK got error: {err}, \n"
-                    f"and cannot connect to the PDP container, please check your configuration and make sure it's "
+                    f"and cannot connect to the PDP container, please check your configuration "
+                    f"and make sure it's "
                     f"running at {self._base_url} and accepting requests. \n"
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
+                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                )
+                raise PermitConnectionError(
+                    msg,
                     error=err,
                 ) from err
 
     async def get_user_permissions(
         self,
-        user: Union[dict, str],
-        tenants: Optional[List[str]] = None,
-        resources: Optional[List[str]] = None,
-        resource_types: Optional[List[str]] = None,
-    ) -> dict:
+        user: dict[str, Any] | str,
+        tenants: list[str] | None = None,
+        resources: list[str] | None = None,
+        resource_types: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Get all permissions of a user.
+
+        Args:
+            user: The user object or user key.
+            tenants: Only return permissions in these tenants.
+            resources: Only return permissions on these resources.
+            resource_types: Only return permissions on these resource types.
+
+        Returns:
+            The user's permissions per tenant and resource.
+
+        Raises:
+            PermitConnectionError: If the PDP rejects the request or cannot be reached.
+        """
         input_data = {
             "user": {"key": user} if isinstance(user, str) else user,
             "tenants": tenants,
@@ -429,15 +490,22 @@ class Enforcer:
                     url,
                     data=json.dumps(input_data),
                 ) as response:
-                    if response.status != 200:
-                        raise PermitConnectionError(
-                            f"Permit.getUserPermissions() got an unexpected status code: {response.status}, "
-                            f"please check your SDK init and make sure the PDP sidecar is configured correctly.\n"
+                    if response.status != HTTPStatus.OK:
+                        msg = (
+                            f"Permit.getUserPermissions() got an unexpected status code: "
+                            f"{response.status}, "
+                            f"please check your SDK init and make sure the PDP sidecar "
+                            f"is configured correctly.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
+                        raise PermitConnectionError(msg)
 
                     content = await response.json()
-                    permissions = content.get("result", {}).get("permissions", {}) if "result" in content else content
+                    permissions: dict[str, Any] = (
+                        content.get("result", {}).get("permissions", {})
+                        if "result" in content
+                        else content
+                    )
 
                     logger.debug(
                         f"permit.get_user_permissions() response:\n"
@@ -448,17 +516,21 @@ class Enforcer:
 
             except aiohttp.ClientError as err:
                 logger.error(f"Error in permit.get_user_permissions(): {err}")
-                raise PermitConnectionError(
+                msg = (
                     f"Permit SDK got error: {err}, \n"
-                    f"and cannot connect to the PDP container, please check your configuration and make sure it's "
+                    f"and cannot connect to the PDP container, please check your configuration "
+                    f"and make sure it's "
                     f"running at {self._base_url} and accepting requests. \n"
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}",
+                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                )
+                raise PermitConnectionError(
+                    msg,
                     error=err,
                 ) from err
 
     async def filter_objects(
-        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Filter the given resources down to the ones the user is allowed to act on.
 
         Args:
@@ -471,20 +543,25 @@ class Enforcer:
         Returns:
             list[dict]: The subset of ``resources`` the user is authorized for, in input order.
         """
-        requests: List[CheckQuery] = []
+        requests: list[CheckQuery] = []
         for resource in resources:
-            permit_resource: Dict[str, Any] = {
+            permit_resource: dict[str, Any] = {
                 "type": resource.get("type"),
                 "key": resource.get("key"),
                 "context": resource.get("context", {}),
                 "attributes": resource.get("attributes", {}),
                 "tenant": resource.get("tenant"),
             }
-            check_query: CheckQuery = {"user": user, "action": action, "resource": permit_resource, "context": context}
+            check_query: CheckQuery = {
+                "user": user,
+                "action": action,
+                "resource": permit_resource,
+                "context": context,
+            }
             requests.append(check_query)
 
         results = await self.bulk_check(requests, context=context)
-        filtered_resources: List[Dict[str, Any]] = []
+        filtered_resources: list[dict[str, Any]] = []
         for i, result in enumerate(results):
             if result:
                 filtered_resources.append(resources[i])
@@ -495,12 +572,18 @@ class Enforcer:
         if normalized_resource.context is None:
             normalized_resource.context = {}
 
-        # if tenant is empty, we migth auto-set the default tenant according to config
-        if normalized_resource.tenant is None and self._config.multi_tenancy.use_default_tenant_if_empty:
+        # if tenant is empty, we might auto-set the default tenant according to config
+        if (
+            normalized_resource.tenant is None
+            and self._config.multi_tenancy.use_default_tenant_if_empty
+        ):
             normalized_resource.tenant = self._config.multi_tenancy.default_tenant
 
         # copy tenant from resource.tenant to resource.context.tenant (until we change RBAC policy)
-        if normalized_resource.context.get("tenant", None) is None and normalized_resource.tenant is not None:
+        if (
+            normalized_resource.context.get("tenant", None) is None
+            and normalized_resource.tenant is not None
+        ):
             normalized_resource.context["tenant"] = normalized_resource.tenant
         return normalized_resource
 
@@ -516,10 +599,11 @@ class Enforcer:
     @staticmethod
     def _resource_from_string(resource: str) -> ResourceInput:
         parts = resource.split(RESOURCE_DELIMITER)
-        if len(parts) < 1 or len(parts) > 2:
-            raise ValueError(f"permit.check() got invalid resource string: {resource}")
+        if len(parts) < 1 or len(parts) > _MAX_RESOURCE_STRING_PARTS:
+            msg = f"permit.check() got invalid resource string: {resource}"
+            raise ValueError(msg)
         return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
 
 
 class SyncEnforcer(Enforcer, metaclass=SyncClass):
-    pass
+    """Blocking variant of `Enforcer`."""

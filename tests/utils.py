@@ -6,9 +6,10 @@ from loguru import logger
 from permit.exceptions import PermitApiError
 
 
-def handle_api_error(error: PermitApiError, message: str):
+def handle_api_error(error: PermitApiError, message: str) -> None:
     err = (
-        f"{message}: status={error.status_code}, url={error.request_url}, method={error.response.method}, "
+        f"{message}: status={error.status_code}, url={error.request_url}, "
+        f"method={error.response.method}, "
         f"details={error.details}, content-type={error.content_type}"
     )
     logger.error(err)
@@ -25,7 +26,7 @@ def handle_api_error(error: PermitApiError, message: str):
 _CLEANUP_TOLERATED_STATUSES = frozenset({404})
 
 
-def handle_cleanup_error(error: PermitApiError, message: str):
+def handle_cleanup_error(error: PermitApiError, message: str) -> None:
     """Report a teardown failure without failing an otherwise-passing test.
 
     Failing a test for a teardown hiccup hides whatever it was actually
@@ -36,7 +37,8 @@ def handle_cleanup_error(error: PermitApiError, message: str):
     """
     if error.status_code in _CLEANUP_TOLERATED_STATUSES:
         logger.warning(
-            f"{message}: tolerated during cleanup (status={error.status_code}), continuing. " f"url={error.request_url}"
+            f"{message}: tolerated during cleanup (status={error.status_code}), "
+            f"continuing. url={error.request_url}"
         )
         return
     handle_api_error(error, message)

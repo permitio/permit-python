@@ -1,17 +1,17 @@
+from permit.config import PermitConfig
+from permit.pdp_api.role_assignments import RoleAssignmentsApi
 from permit.utils.sync import SyncClass
-
-from ..config import PermitConfig
-from .role_assignments import RoleAssignmentsApi
 
 
 class SyncRoleAssignmentsApi(RoleAssignmentsApi, metaclass=SyncClass):
-    pass
+    """Blocking variant of `RoleAssignmentsApi`."""
 
 
 class PermitPdpApiClient:
-    def __init__(self, config: PermitConfig):
-        """
-        Constructs a new instance of the PdpApiClient class with the specified SDK configuration.
+    """Entry point to the APIs served by the PDP itself."""
+
+    def __init__(self, config: PermitConfig) -> None:
+        """Constructs a new instance of the PdpApiClient class with the specified SDK configuration.
 
         Args:
             config: The configuration for the Permit SDK.
@@ -27,14 +27,18 @@ class PermitPdpApiClient:
 
     @property
     def role_assignments(self) -> RoleAssignmentsApi:
+        """Role assignments as the PDP currently sees them."""
         return self._role_assignments
 
 
 class SyncPDPApi(PermitPdpApiClient):
-    def __init__(self, config: PermitConfig):
+    """Blocking variant of `PermitPdpApiClient`."""
+
+    def __init__(self, config: PermitConfig) -> None:
         super().__init__(config)
         self._role_assignments = SyncRoleAssignmentsApi(config)
 
     @property
     def role_assignments(self) -> SyncRoleAssignmentsApi:
-        return self._role_assignments  # type: ignore[return-value]
+        """Role assignments as the PDP currently sees them."""
+        return self._role_assignments  # type: ignore[return-value] # set to the sync type

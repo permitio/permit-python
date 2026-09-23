@@ -47,7 +47,7 @@ CREATED_TENANTS = [TENANT_1, TENANT_2]
 CREATED_ROLES = [ADMIN, VIEWER]
 
 
-async def test_users_tenants(permit: Permit):
+async def test_users_tenants(permit: Permit) -> None:
     logger.info("initial setup of objects")
     # initial number of tenants
     tenants = await permit.api.tenants.list()
@@ -91,6 +91,8 @@ async def test_users_tenants(permit: Permit):
         assert user.email == user_data.email
         assert user.first_name == user_data.first_name
         assert user.last_name == user_data.last_name
+        assert user.attributes is not None
+        assert user_data.attributes is not None
         assert set(user.attributes.keys()) == set(user_data.attributes.keys())
 
     # get non existing user -> 404
@@ -115,6 +117,8 @@ async def test_users_tenants(permit: Permit):
     assert user.email == USER_BB.email
     assert user.first_name == USER_BB.first_name
     assert user.last_name == USER_BB.last_name
+    assert user.attributes is not None
+    assert USER_BB.attributes is not None
     assert set(user.attributes.keys()) == set(USER_BB.attributes.keys())
 
     # get user after sync/update
@@ -124,7 +128,12 @@ async def test_users_tenants(permit: Permit):
     assert ub.email == USER_BB.email
 
     # update tenant
-    t2 = await permit.api.tenants.update(TENANT_2.key, {"description": "t2 update"})
+    t2 = await permit.api.tenants.update(
+        TENANT_2.key,
+        {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            "description": "t2 update",
+        },
+    )
     assert t2.key == TENANT_2.key
     assert t2.description != TENANT_2.description
     assert t2.description == "t2 update"
@@ -161,13 +170,18 @@ async def test_users_tenants(permit: Permit):
     assert len(roles_a2) == 0
 
     # assign role
-    ra = await permit.api.users.assign_role(RoleAssignmentCreate(user=USER_C.key, role=ADMIN.key, tenant=TENANT_2.key))
-    assert ra.user == USER_C.key or ra.user == USER_C.email  # TODO: fix bug in api
+    ra = await permit.api.users.assign_role(
+        RoleAssignmentCreate(user=USER_C.key, role=ADMIN.key, tenant=TENANT_2.key)
+    )
+    # The API may report the user by email rather than by key.
+    assert ra.user in (USER_C.key, USER_C.email)
     assert ra.role == ADMIN.key
     assert ra.tenant == TENANT_2.key
 
     # add user a to another tenant
-    ra = await permit.api.users.assign_role(RoleAssignmentCreate(user=USER_A.key, role=ADMIN.key, tenant=TENANT_2.key))
+    ra = await permit.api.users.assign_role(
+        RoleAssignmentCreate(user=USER_A.key, role=ADMIN.key, tenant=TENANT_2.key)
+    )
 
     # get assigned roles
     roles_a = await permit.api.users.get_assigned_roles(USER_A.key)
@@ -179,7 +193,8 @@ async def test_users_tenants(permit: Permit):
     assert len(tenant2_users.data) == 2
     await permit.api.tenants.delete_tenant_user(TENANT_2.key, USER_A.key)
     tenant2_users = await permit.api.tenants.list_tenant_users(TENANT_2.key)
-    assert len(tenant2_users.data) == 2  # TODO: change to 1, fix bug in delete_tenant_user
+    # Still 2, not 1: the API keeps listing a user removed with delete_tenant_user.
+    assert len(tenant2_users.data) == 2
 
     # list role assignments
     role_assignments = await permit.api.role_assignments.list()

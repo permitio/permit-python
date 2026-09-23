@@ -37,16 +37,17 @@ Repository = "https://github.com/permitio/permit-python"
 
 [dependency-groups]
 # Exact pins, so every developer, CI lane and the dev-ceiling audit tree
-# resolve the same versions. Dependabot raises them. ruff and mypy match the
-# hook revs in .pre-commit-config.yaml; the hooks install their own copies,
-# and those are what CI lints and type-checks with.
+# resolve the same versions. Dependabot raises them. These pins are the only
+# place ruff, mypy and typos versions are set: their pre-commit hooks are
+# `repo: local` and run the copies installed from uv.lock.
 dev = [
-    "mypy==1.11.2",
+    "mypy==2.3.1",
     "pre-commit==4.6.2",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-httpserver==1.1.5",
-    "ruff==0.6.9",
+    "ruff==0.16.7",
+    "typos==1.50.2",
     # Imported directly by the offline tests to assert on what the SDK put on
     # the wire, as well as backing pytest-httpserver.
     "werkzeug==3.1.8",
@@ -73,59 +74,161 @@ module-root = ""
 [tool.pytest]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# strict_config, strict_markers, strict_xfail and strict_parametrization_ids.
+strict = true
+filterwarnings = ["error"]
 
 [tool.ruff]
-line-length = 120
-src = ["permit"]
-exclude = ["permit/api/models.py"]
-target-version = "py310"
+line-length = 100
+# Generated from the Permit OpenAPI spec by datamodel-code-generator, then
+# hand-patched at the top (CONTRIBUTING.md, "Regenerating the API models").
+# Linting or formatting it would rewrite ~7k generated lines on every regen
+# and bury the real API diff; its content is owned by the generator.
+extend-exclude = ["permit/api/models.py"]
+# pre-commit passes file names explicitly, which bypasses exclusions unless
+# this is set -- without it the hook would lint and reformat models.py.
+force-exclude = true
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.ruff.lint]
-select = [
-    "E", # pycodestyle
-    "W", # pycodestyle
-    "F", # pyflakes
-    "N", # pep8
-    "I", # isort
-    "BLE", # flake8 blind except
-    "FBT", # flake8 boolean trap
-    "B", # flake8 bug bear
-    "C4", # flake8 comprehensions
-    "PIE", # flake8 pie
-    "T20", # flake8 print
-    "SIM", # flake8 simplify
-    "ARG", # flake8 unused arguments
-    "PTH", # flake8 pathlib
-    "ASYNC", # flake8 Asyncio rules
-#    "UP", # pyupgrade
-    "ERA", # comment out code
-    "RUF", # ruff rules
-    "FAST", # FastAPI rules
+select = ["ALL"]
+ignore = [
+    # Conflict with `ruff format` (listed as such in the ruff formatter docs).
+    "COM812", # trailing commas are the formatter's call
+    # Per-file license headers: the Apache-2.0 LICENSE file at the root and
+    # the package metadata already carry the license.
+    "CPY001",
+    # Long messages at the raise site. The alternative is a new exception
+    # subclass per message, which would widen the public exception API.
+    "TRY003",
+    # Module and package docstrings. Users reach the SDK through the `permit`
+    # package (which has one) and the documented classes and functions; most
+    # modules hold a single class, so a module docstring would repeat its.
+    "D100",
+    "D104",
+    # Magic-method docstrings restate the protocol (`__repr__`, `__eq__`).
+    "D105",
+    # Nested classes are pydantic's `class Config:` blocks: configuration, not API.
+    "D106",
+    # Google style documents constructor arguments in the class docstring,
+    # so a separate `__init__` docstring would repeat it.
+    "D107",
+    # The maintainers' limit is on *positional* parameters, enforced by
+    # PLR0917 (max 5). PLR0913 counts keyword-only parameters too, which is
+    # the very shape PLR0917 steers towards.
+    "PLR0913",
 ]
+
+[tool.ruff.lint.flake8-annotations]
+# `*args: Any` / `**kwargs: Any` are pass-throughs to aiohttp and pydantic,
+# which accept arbitrary values; Any elsewhere is still flagged (ANN401).
+allow-star-arg-any = true
+
+[tool.ruff.lint.pydocstyle]
+# Also resolves the mutually exclusive pairs (D203/D211, D212/D213) and
+# turns off the rules Google style contradicts (D401 imperative mood, D413 ...).
+convention = "google"
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.flake8-type-checking]
+# pydantic evaluates field annotations at runtime, so the imports they use
+# must never be moved under `if TYPE_CHECKING:`.
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
+
 [tool.ruff.lint.per-file-ignores]
+# Adapted from fastapi.encoders and kept structurally close to it, so upstream
+# fixes still port over: its dispatch-by-type function is long by nature, and it
+# encodes arbitrary objects, which is what `Any` says.
+"permit/api/encoders.py" = ["C901", "PLR0911", "PLR0912", "ANN401"]
+"tests/**/*.py" = [
+    "S101",    # assert is how pytest checks things
+    "S105",    # hard-coded fake credentials are test fixtures
+    "S106",    # hard-coded fake credentials are test fixtures
+    "PLR2004", # literal expected values are the point of an assertion
+    "SLF001",  # white-box tests reach into private state on purpose
+    "D1",      # test names document the test; docstrings where they add something
+    # End-to-end scenarios run a whole create/check/tear-down story against a live
+    # backend; splitting them would only scatter one sequence of API side effects.
+    "C901",
+    "PLR0912",
+    "PLR0915",
+    "PERF203", # try/except in retry and cleanup loops; speed is not what tests measure
+    "T201",    # progress output for long e2e runs; pytest captures it
+    "BLE001",  # e2e tests turn any unexpected exception into a readable pytest.fail
+]
 # These are standalone CLI programs, not library code: writing the rendered
 # report to stdout IS their interface, so the "no print" rule does not apply.
-".github/scripts/*.py" = ["T201"]
+".github/scripts/*.py" = [
+    "T201",
+    "INP001", # standalone scripts run by path, not an importable package
+]
+".github/scripts/test_*.py" = ["S101", "PLR2004", "D1"]
+
+[tool.typos.files]
+# Generated (see [tool.ruff]); its misspellings come from the OpenAPI spec's
+# descriptions and have to be fixed there.
+extend-exclude = ["permit/api/models.py"]
 
 [tool.mypy]
 python_version = "3.10"
-packages = ["permit"]
-plugins = ["pydantic.mypy"]
-
-check_untyped_defs = true
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
+files = ["permit", "tests", ".github/scripts"]
+strict = true
 warn_unreachable = true
+enable_error_code = [
+    "deprecated",
+    "exhaustive-match",
+    "ignore-without-code",
+    "mutable-override",
+    "possibly-undefined",
+    "redundant-expr",
+    "redundant-self",
+    "truthy-bool",
+    "truthy-iterable",
+    "unimported-reveal",
+    "unused-awaitable",
+]
+# The SDK's models are pydantic-v1 models on both majors: `pydantic.BaseModel`
+# under pydantic 1, `pydantic.v1.BaseModel` under pydantic 2. `pydantic.v1.mypy`
+# is the v1 plugin and is importable on both, so each CI lane type-checks the
+# models the same way. (`pydantic.mypy` under pydantic 2 is the v2 plugin,
+# which misreads v1 models.)
+plugins = ["pydantic.v1.mypy"]
+
+[tool.pydantic-mypy]
+# Model constructors are typed the way pydantic v1 behaves: it coerces input (a
+# str for a UUID or EmailStr field) and the API models accept extra fields, so a
+# strictly typed or closed `__init__` would reject calls that work. Missing
+# required fields are still reported.
+init_forbid_extra = false
+init_typed = false
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
 
 [[tool.mypy.overrides]]
+# Generated code (see [tool.ruff] above); checked as a dependency, not linted.
 module = ["permit.api.models"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["tests"]
-ignore_errors = true
+# These tests drive the blocking API that the SyncClass metaclass generates at
+# runtime from the async classes. mypy only sees the inherited `async def`
+# signatures, so every call looks like it returns a coroutine. The checks that
+# rest on those result types are off here; annotation completeness is not.
+module = [
+    "tests.endpoints.test_resources_sync",
+    "tests.test_fix_sync",
+    "tests.test_rbac_e2e_sync",
+    "tests.test_sync_client",
+]
+disable_error_code = [
+    "arg-type",
+    "attr-defined",
+    "comparison-overlap",
+    "return-value",
+    "unreachable",
+    "unused-coroutine",
+]
