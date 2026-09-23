@@ -186,3 +186,79 @@ jobs:
             -H "Authorization: Bearer ${PROJECT_API_KEY}"; then
             echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
           fi
+
+  # Offline suite on every supported Python. It needs no secrets and no PDP, so
+  # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
+  # matrix are required status checks.
+  compatibility:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # floor: the lowest version of every runtime dependency requirements.txt
+        # allows on that Python. pydantic-v2: what a fresh install gets.
+        # Python 3.14 also runs the newest pydantic 1, because it has its own
+        # pydantic requirement and pydantic calls v1's 3.14 support minimal.
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        deps: [floor, pydantic-v2]
+        include:
+          - python-version: '3.14'
+            deps: pydantic-v1
+    name: compatibility (Python ${{ matrix.python-version }}, ${{ matrix.deps }})
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Python setup
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # pip cannot resolve to the lowest allowed versions; uv can.
+      - name: Install uv
+        if: matrix.deps == 'floor'
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      # Installing the package itself (".") resolves the dependencies from the
+      # metadata setup.py builds out of requirements.txt, which is what a
+      # consumer's installer sees, version markers included.
+      - name: Install dependencies
+        env:
+          DEPS: ${{ matrix.deps }}
+        run: |
+          set -euo pipefail
+          case "${DEPS}" in
+            floor)
+              uv pip compile --quiet --python "$(command -v python)" \
+                --resolution lowest-direct requirements.txt -o "${RUNNER_TEMP}/floor.txt"
+              python -m pip install . -r requirements-dev.txt -c "${RUNNER_TEMP}/floor.txt"
+              ;;
+            pydantic-v1)
+              python -m pip install . -r requirements-dev.txt "pydantic[email]<2"
+              ;;
+            pydantic-v2)
+              python -m pip install . -r requirements-dev.txt "pydantic[email]>=2"
+              ;;
+            *)
+              echo "::error title=Unknown dependency set::${DEPS}"
+              exit 1
+              ;;
+          esac
+
+      - name: Show installed packages
+        run: python -m pip list
+
+      # The filter fails the run on Python 3.14's deprecation of
+      # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
+      # It is deliberately narrow: a blanket error::DeprecationWarning would
+      # also trip on PermitConnectionError, which still subclasses the
+      # deprecated PermitException on purpose.
+      - name: Offline tests
+        run: |
+          python -m pytest -q \
+            -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning" \
+            tests/test_offline_regressions.py tests/test_fix_*.py

@@ -12,6 +12,9 @@
 # the next person down a dead end. Offline HTTP tests use pytest_httpserver,
 # which is version-independent and asserts on real request bodies.
 mypy>=1.11.0
+# Imported directly by the offline tests, which evaluate requirements.txt's
+# version markers the way an installer does. The floor is pytest's own.
+packaging>=22.0
 # 9.0.3 rather than 8.x: the 8.3.0 floor is affected by CVE-2025-71176
 # (insecure temporary directory handling). Caught by this repo's own audit gate.
 pytest>=9.0.3

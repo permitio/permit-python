@@ -6,12 +6,17 @@ instance, and the SDK context is pre-populated so no API-key scope lookup is
 issued.
 """
 
+import inspect
+import warnings
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 from uuid import UUID, uuid4
 
 import aiohttp
+import pydantic
 import pytest
+from packaging.requirements import Requirement
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
@@ -32,7 +37,9 @@ from permit.exceptions import (
     handle_api_error,
 )
 from permit.pdp_api.pdp_api_client import SyncPDPApi
+from permit.utils import pydantic_version
 from permit.utils.context import ContextStore
+from permit.utils.deprecation import deprecated
 
 ORG = "test-org"
 PROJECT = "test-project"
@@ -349,3 +356,107 @@ def test_check_query_context_is_optional():
     # is valid and the TypedDict must not make type checkers demand it.
     assert CheckQuery.__required_keys__ == {"user", "action", "resource"}
     assert CheckQuery.__optional_keys__ == {"context"}
+
+
+REQUIREMENTS = Path(__file__).resolve().parents[1] / "requirements.txt"
+
+
+def runtime_requirement(name: str, python_version: str) -> Requirement:
+    """Return the one requirements.txt entry for `name` that applies on `python_version`.
+
+    Lines are filtered exactly as setup.py's get_requirements() filters them, so a
+    line setup.py would pass to setuptools but packaging cannot parse fails here.
+    """
+    lines = REQUIREMENTS.read_text().splitlines()
+    requirements = [Requirement(line.strip()) for line in lines if line.strip() and not line.startswith("#")]
+    environment = {"python_version": python_version, "python_full_version": f"{python_version}.0"}
+    matching = [
+        requirement
+        for requirement in requirements
+        if requirement.name == name and (requirement.marker is None or requirement.marker.evaluate(environment))
+    ]
+    assert len(matching) == 1, f"expected one {name} requirement on Python {python_version}, got {matching}"
+    return matching[0]
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13"])
+def test_pydantic_requirement_before_py314_accepts_both_majors(python_version: str):
+    specifier = runtime_requirement("pydantic", python_version).specifier
+
+    assert specifier.contains("1.10.17")
+    assert specifier.contains("2.0.1")
+    assert specifier.contains("2.12.5")
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13", "3.14"])
+def test_pydantic_requirement_rejects_2_0(python_version: str):
+    # pydantic 2.0's pydantic.v1.parse_obj_as builds a pydantic 2 model, so every
+    # API call that parses a response raises TypeError.
+    assert not runtime_requirement("pydantic", python_version).specifier.contains("2.0")
+
+
+def test_pydantic_requirement_rejects_versions_that_crash_on_py314():
+    specifier = runtime_requirement("pydantic", "3.14").specifier
+
+    for crashing in ("1.10.24", "2.11.10", "2.12.5"):
+        assert not specifier.contains(crashing), crashing
+    for working in ("1.10.25", "1.10.26", "2.13.0", "2.13.5"):
+        assert specifier.contains(working), working
+
+
+@pytest.mark.parametrize(
+    ("name", "python_version", "broken"),
+    [
+        # `import permit` raises AttributeError from typing_extensions.ParamSpec.
+        ("typing-extensions", "3.13", "4.11.0"),
+        # typing_extensions.TypedDict loses every key, so CheckQuery has none.
+        ("typing-extensions", "3.14", "4.13.2"),
+        # `import loguru` warns that asyncio.iscoroutinefunction is going away.
+        ("loguru", "3.14", "0.7.2"),
+    ],
+)
+def test_runtime_floor_excludes_versions_broken_on_a_supported_python(name: str, python_version: str, broken: str):
+    assert not runtime_requirement(name, python_version).specifier.contains(broken)
+
+
+def test_deprecated_decorator_keeps_async_functions_async():
+    async def fetch():
+        return None
+
+    def compute():
+        return None
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        async_wrapper = deprecated("use something else")(fetch)
+        sync_wrapper = deprecated("use something else")(compute)
+
+    assert inspect.iscoroutinefunction(async_wrapper)
+    assert not inspect.iscoroutinefunction(sync_wrapper)
+    assert [str(w.message) for w in caught if "asyncio.iscoroutinefunction" in str(w.message)] == []
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("1.10.13", (1, 10, 13)),
+        ("2.13.5", (2, 13, 5)),
+        ("2.0", (2, 0)),
+        ("2.14.0b2", (2, 14, 0)),
+        ("2.12.0a1", (2, 12, 0)),
+        ("2.11.0rc1", (2, 11, 0)),
+        ("2.13.0.dev0", (2, 13, 0)),
+        ("2.13.5+local", (2, 13, 5)),
+    ],
+)
+def test_pydantic_version_parses_release_and_pre_release_versions(version: str, expected: tuple[int, ...]):
+    assert pydantic_version._parse(version) == expected
+
+
+def test_pydantic_version_rejects_a_component_without_a_leading_number():
+    with pytest.raises(ValueError, match=r"'x1'"):
+        pydantic_version._parse("2.x1.0")
+
+
+def test_pydantic_version_constant_is_the_installed_version():
+    assert pydantic_version._parse(pydantic.__version__) == pydantic_version.PYDANTIC_VERSION

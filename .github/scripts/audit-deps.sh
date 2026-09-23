@@ -22,10 +22,11 @@
 #
 # WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev files together
 # lets a dev tool drag a runtime dependency's floor upward and hide the real
-# exposure: with mypy in the mix the floor resolves typing-extensions==4.12.0,
-# because mypy requires >=4.6 -- but a consumer installing only `permit` can
-# still land on 4.5.0. Scanning the combined floor would silently under-report
-# exactly the versions users can actually get.
+# exposure: when a dev tool needs a newer release of a runtime dependency than
+# the floor in requirements.txt, the combined floor resolves that newer release,
+# but a consumer installing only `permit` can still land on the older one.
+# Scanning the combined floor would silently under-report exactly the versions
+# users can actually get.
 #
 # WHY COMPILE AT ALL. Trivy's pip analyzer only understands `==`. Pointed at
 # this repo's raw requirements.txt it reports zero findings and exits 0 -- a

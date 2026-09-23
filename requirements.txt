@@ -1,4 +1,16 @@
 aiohttp>=3.14.3,<4
-loguru>=0.7.0,<1
-pydantic[email]>=1.10.13
-typing-extensions>=4.5.0,<5
+# 0.7.3 is the first loguru release that imports without a DeprecationWarning on
+# Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
+loguru>=0.7.3,<1
+# pydantic 2.0 fails every API call that parses a response: its
+# pydantic.v1.parse_obj_as builds the model with pydantic 2, which rejects the
+# `__root__` field. 2.0.1 fixed that.
+# On Python 3.14, pydantic 1.x before 1.10.25 and 2.x before 2.13 (whose
+# pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to infer
+# type for attribute". pydantic 2.0-2.11 also have no Python 3.14 builds.
+pydantic[email]>=1.10.13,!=2.0; python_version < "3.14"
+pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"
+# 4.14.0 is the lowest release that works on every supported Python: releases
+# before 4.6 break `import permit` on 3.12+, before 4.12 on 3.13+, and 4.12-4.13
+# lose TypedDict keys on 3.14.
+typing-extensions>=4.14.0,<5
