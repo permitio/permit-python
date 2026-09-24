@@ -212,16 +212,51 @@ jobs:
           name: dependency-audit
           path: /tmp/audit
 
+      # The script checks the report itself. hashFiles() in `if:` cannot:
+      # it ignores every file outside the workspace, so it returns '' for
+      # anything under /tmp/audit.
       - name: Comment on PR
-        if: steps.download.outcome == 'success' && hashFiles('/tmp/audit/comment.md') != ''
+        if: steps.download.outcome == 'success'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           # listComments is paginated: on a busy PR the marker may not be on
           # page 1, and missing it would post a duplicate comment every run.
           script: |
             const fs = require('fs');
-            const body = fs.readFileSync('/tmp/audit/comment.md', 'utf8');
+            const REPORT = '/tmp/audit/comment.md';
             const MARKER = '<!-- permit-python:audit:deps -->';
+            // GitHub rejects a comment body longer than this.
+            const MAX_COMMENT_CHARS = 65536;
+
+            // format_audit.py starts every body it renders with the marker, so
+            // a report without it means the render step did not finish.
+            let body = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';
+            if (!body.startsWith(MARKER)) {
+              core.warning(
+                `No rendered audit report in the artifact (${REPORT}), so no PR comment ` +
+                'was posted. See the Dependency Audit job for what went wrong.'
+              );
+              return;
+            }
+            if (body.length > MAX_COMMENT_CHARS) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+              core.warning(
+                `The audit report is ${body.length} characters, over GitHub's ` +
+                `${MAX_COMMENT_CHARS}-character comment limit. The PR comment links to ` +
+                'the job summary instead.'
+              );
+              body = [
+                MARKER,
+                '',
+                '## Dependency Security Audit',
+                '',
+                `The report is ${body.length} characters, too long for a PR comment ` +
+                  `(GitHub allows ${MAX_COMMENT_CHARS}). Read it in the ` +
+                  `[job summary](${runUrl}).`,
+                '',
+              ].join('\n');
+            }
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
