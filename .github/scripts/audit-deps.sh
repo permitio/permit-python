@@ -128,12 +128,7 @@ done
 # which recommends hashing the requirements. With --disable-pip, pip-audit only
 # checks that hashes are present and never verifies them, so hashing would add
 # nothing. Errors, and the summary line, still print.
-#
-# The private cache keeps pip-audit away from the runner's pip HTTP cache,
-# whose entries another pip version may have written in a format it cannot
-# read.
 PIP_AUDIT_VERSION="2.10.1"
-pip_audit_cache="$(mktemp -d)"
 for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
   report="${OUT}/pip-audit-${tree}.json"
   echo "::group::pip-audit (${tree}, advisory)"
@@ -143,7 +138,6 @@ for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling;
     --requirement "${OUT}/${tree}/requirements.txt" \
     --no-deps \
     --disable-pip \
-    --cache-dir "${pip_audit_cache}" \
     --format json \
     --output "${report}" \
     --progress-spinner off || status=$?
@@ -152,4 +146,3 @@ for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling;
   fi
   echo "::endgroup::"
 done
-rm -r "${pip_audit_cache}"
