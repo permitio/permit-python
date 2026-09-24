@@ -22,7 +22,6 @@ from .models import (
     UserRead,
 )
 from .resources import ResourcesApi
-from .role_assignments import RoleAssignmentsApi
 from .roles import RolesApi
 from .tenants import TenantsApi
 from .users import UsersApi
@@ -36,7 +35,6 @@ class DeprecatedApi(BasePermitApi):
     def __init__(self, config: PermitConfig):
         super().__init__(config)
         self.__resources = ResourcesApi(config)
-        self.__role_assignments = RoleAssignmentsApi(config)
         self.__roles = RolesApi(config)
         self.__tenants = TenantsApi(config)
         self.__users = UsersApi(config)
@@ -110,15 +108,11 @@ class DeprecatedApi(BasePermitApi):
 
     @deprecated("use permit.api.users.assign_role() instead")
     async def assign_role(self, user_key: str, role_key: str, tenant_key: str) -> RoleAssignmentRead:
-        return await self.__role_assignments.assign(
-            RoleAssignmentCreate(user=user_key, role=role_key, tenant=tenant_key)
-        )
+        return await self.__users.assign_role(RoleAssignmentCreate(user=user_key, role=role_key, tenant=tenant_key))
 
     @deprecated("use permit.api.users.unassign_role() instead")
     async def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
-        return await self.__role_assignments.unassign(
-            RoleAssignmentRemove(user=user_key, role=role_key, tenant=tenant_key)
-        )
+        return await self.__users.unassign_role(RoleAssignmentRemove(user=user_key, role=role_key, tenant=tenant_key))
 
     @deprecated("use permit.api.roles.delete() instead")
     async def delete_role(self, role_key: str) -> None:
