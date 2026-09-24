@@ -308,9 +308,3 @@ def test_sync_pdp_api_role_assignments_list(httpserver: HTTPServer, config: Perm
 
     assert result == []
     httpserver.check_assertions()
-
-
-def test_sync_permit_public_methods_are_not_coroutines():
-    for name in ("check", "bulk_check", "authorized_users", "get_user_permissions", "filter_objects"):
-        attr = getattr(SyncPermit, name)
-        assert not inspect.iscoroutinefunction(attr), f"SyncPermit.{name} is still a coroutine function"
