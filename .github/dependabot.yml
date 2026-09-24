@@ -19,12 +19,11 @@ updates:
     # would silently never do the one thing this file exists to do.
     # `increase` raises the lower bound instead.
     versioning-strategy: increase
-    # Matches the agent-security policy: wait 7 days before proposing a
-    # release, 14 for a major. A brand-new version is the window in which a
-    # compromised or yanked package is most likely to still be live, and
-    # nothing here is urgent enough to need day-zero adoption. Security
-    # updates are exempt from cooldown by Dependabot and still arrive
-    # immediately.
+    # Wait 7 days before proposing a release, 14 for a major. A brand-new
+    # version is the window in which a compromised or yanked package is most
+    # likely to still be live, and nothing here is urgent enough to need
+    # day-zero adoption. Security updates are exempt from cooldown by
+    # Dependabot and still arrive immediately.
     cooldown:
       default-days: 7
       semver-major-days: 14

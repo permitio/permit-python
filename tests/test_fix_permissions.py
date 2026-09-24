@@ -4,11 +4,10 @@ A role's ``permissions`` list has two different formats, and the server decides
 which one applies from the kind of role:
 
 * a top level (tenant) role takes ``"{resource_key}:{action_key}"`` -- the server
-  splits the string on the first colon (permit_backend/services/roles.py:462-470);
+  splits the string on the first colon;
 * a *resource* role takes a bare ``"{action_key}"`` -- the role already belongs to
   a resource, so the server reads the whole string as an action key of that
-  resource (permit_backend/services/roles.py:472-474) and reads it back the same
-  way (permit_backend/api/formatters/role.py:45).
+  resource, and returns it in the same form.
 
 Sending ``"document:read"`` for a resource role therefore asks for an action keyed
 ``"document:read"`` and fails with ``MISSING_PERMISSIONS ... 'document:document:read'``
@@ -191,10 +190,8 @@ async def test_top_level_role_create_keeps_the_resource_qualified_form(httpserve
 async def test_role_assignment_filters_send_the_instance_ident_verbatim(httpserver: HTTPServer):
     """``resource_instance_key`` is a ``resource:key`` ident and travels unchanged.
 
-    The server resolves this filter with ``get_or_create_resource_instance_by_string``
-    (permit_backend/services/role_assignments.py:408), which rejects anything that is
-    neither ``resource:key`` nor an instance uuid with a 400
-    (permit_backend/services/resource_instances.py:126-140).
+    The server reads this filter as a resource instance string and answers 400 to
+    anything that is neither ``resource:key`` nor an instance uuid.
     """
     httpserver.expect_request(ROLE_ASSIGNMENTS_PATH, method="GET").respond_with_json([])
     permit = _make_permit(httpserver)

@@ -1,9 +1,8 @@
 """Offline tests pinning the response shape ``resource_relations.list()`` parses.
 
-``GET /v2/schema/{proj}/{env}/resources/{resource}/relations`` is declared
-``response_model=PaginatedResult[RelationRead]`` in the backend
-(permit_backend/api/routers/schema_routes/resource_relations.py:89), so it always
-answers with a ``{"data": [...], "total_count": N}`` envelope -- never a bare array.
+``GET /v2/schema/{proj}/{env}/resources/{resource}/relations`` returns a
+``PaginatedResultRelationRead`` in the published API schema, so it always answers
+with a ``{"data": [...], "total_count": N}`` envelope -- never a bare array.
 The SDK used to parse it as ``List[RelationRead]``, which made every ``list()`` call
 raise ``ValidationError: value is not a valid list``.
 
