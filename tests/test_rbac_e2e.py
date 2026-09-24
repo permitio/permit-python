@@ -11,7 +11,6 @@ from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
 from permit.exceptions import PermitApiError, PermitConnectionError
 from permit.pdp_api.models import RoleAssignment
 
-from .conftest import MOCKED_PORT
 from .utils import handle_api_error, handle_cleanup_error, unique_key
 
 
@@ -20,10 +19,6 @@ def print_break():
 
 
 TEST_TIMEOUT = 1
-MOCKED_URL = "http://localhost"
-# MOCKED_PORT and the httpserver_listen_address fixture that binds it live in
-# conftest.py -- see the note there on why a module-local override is
-# order-dependent and therefore unsafe.
 RESOURCE_CREATE_ACTION: Final[str] = "create"
 RESOURCE_READ_ACTION: Final[str] = "read"
 RESOURCE_UPDATE_ACTION: Final[str] = "update"
@@ -107,10 +102,11 @@ def sleeping(request: Request):  # noqa: ARG001
 
 
 async def test_api_timeout(httpserver: HTTPServer):
+    mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
-        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
-        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp=mocked_url,
+        api_url=mocked_url,
         api_timeout=TEST_TIMEOUT,
     )
     current_time = time.time()
@@ -122,10 +118,11 @@ async def test_api_timeout(httpserver: HTTPServer):
 
 
 async def test_pdp_timeout(httpserver: HTTPServer):
+    mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
-        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
-        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp=mocked_url,
+        api_url=mocked_url,
         pdp_timeout=TEST_TIMEOUT,
     )
     current_time = time.time()
