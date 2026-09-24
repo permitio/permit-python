@@ -29,7 +29,10 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*", "harness", "harness.*"]),
     # py.typed tells type checkers to read permit's annotations (PEP 561), and
     # _sync_types.pyi is how they see the blocking client. Neither is a .py
-    # file, so neither ships unless listed here.
+    # file. setuptools 69 and later put both in the wheel by default, but older
+    # releases leave them out, and with no [build-system] table in
+    # pyproject.toml a build may run with one. Listing them here keeps them in
+    # the wheel whichever setuptools builds it.
     package_data={"permit": ["py.typed", "_sync_types.pyi"]},
     author="Asaf Cohen",
     author_email="asaf@permit.io",
