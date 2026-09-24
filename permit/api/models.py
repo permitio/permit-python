@@ -669,6 +669,7 @@ class EmailTemplateUpdate(BaseModel):
 class Engine(str, Enum):
     OPA = 'OPA'
     AVP = 'AVP'
+    GENERIC = 'GENERIC'
 
 
 class EnvironmentCopyConflictStrategy(str, Enum):
@@ -740,6 +741,27 @@ class FailedInvite(BaseModel):
 
     email: str = Field(..., title='Email')
     reason: str = Field(..., title='Reason')
+
+
+class GenericEngineDecisionLog(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    engine: Optional[Literal['GENERIC']] = Field(default='GENERIC', title='Engine')
+    timestamp: datetime = Field(..., title='Timestamp')
+    decision: bool = Field(..., title='Decision')
+    decision_id: Optional[UUID] = Field(default=None, title='Decision Id')
+    process_time_ms: Optional[int] = Field(default=0, title='Process Time Ms')
+    query: Optional[str] = Field(default=None, title='Query')
+    user_key: Optional[str] = Field(default=None, title='User Key')
+    user_email: Optional[str] = Field(default=None, title='User Email')
+    user_name: Optional[str] = Field(default=None, title='User Name')
+    action: Optional[str] = Field(default=None, title='Action')
+    resource_type: Optional[str] = Field(default=None, title='Resource Type')
+    tenant: Optional[str] = Field(default=None, title='Tenant')
+    input: Optional[Any] = Field(default=None, title='Input')
+    result: Optional[Any] = Field(default=None, title='Result')
+    context: Optional[Any] = Field(default=None, title='Context')
 
 
 class GroupAddRole(BaseModel):
@@ -5745,7 +5767,12 @@ class AuditLogModel(BaseModel):
 
     id: UUID = Field(..., title='Id')
     raw_data: Optional[
-        Union[OPAEngineDecisionLog, AVPEngineDecisionLog, DummyEngineModel]
+        Union[
+            OPAEngineDecisionLog,
+            AVPEngineDecisionLog,
+            GenericEngineDecisionLog,
+            DummyEngineModel,
+        ]
     ] = Field(default=None, title='Raw Data')
     timestamp: datetime = Field(..., title='Timestamp')
     created_at: Optional[datetime] = Field(default=None, title='Created At')
@@ -5761,7 +5788,7 @@ class AuditLogModel(BaseModel):
     org_id: UUID = Field(..., title='Org Id')
     project_id: UUID = Field(..., title='Project Id')
     env_id: UUID = Field(..., title='Env Id')
-    pdp_config_id: UUID = Field(..., title='Pdp Config Id')
+    pdp_config_id: Optional[UUID] = Field(default=None, title='Pdp Config Id')
     input: Optional[Any] = Field(default=None, title='Input')
     result: Optional[Any] = Field(default=None, title='Result')
     context: Optional[Any] = Field(default=None, title='Context')
@@ -5816,9 +5843,12 @@ class DetailedAuditLogModel(BaseModel):
         extra = Extra.allow
 
     id: UUID = Field(..., title='Id')
-    raw_data: Union[OPAEngineDecisionLog, AVPEngineDecisionLog, DummyEngineModel] = (
-        Field(..., title='Raw Data')
-    )
+    raw_data: Union[
+        OPAEngineDecisionLog,
+        AVPEngineDecisionLog,
+        GenericEngineDecisionLog,
+        DummyEngineModel,
+    ] = Field(..., title='Raw Data')
     timestamp: datetime = Field(..., title='Timestamp')
     created_at: Optional[datetime] = Field(default=None, title='Created At')
     query: Optional[str] = Field(default=None, title='Query')
@@ -5833,11 +5863,11 @@ class DetailedAuditLogModel(BaseModel):
     org_id: UUID = Field(..., title='Org Id')
     project_id: UUID = Field(..., title='Project Id')
     env_id: UUID = Field(..., title='Env Id')
-    pdp_config_id: UUID = Field(..., title='Pdp Config Id')
+    pdp_config_id: Optional[UUID] = Field(default=None, title='Pdp Config Id')
     input: Optional[Any] = Field(default=None, title='Input')
     result: Optional[Any] = Field(default=None, title='Result')
     context: Optional[Any] = Field(default=None, title='Context')
-    objects: AuditLogObjectsModel
+    objects: Optional[AuditLogObjectsModel] = Field(default={}, title='Objects')
 
 
 class ElementsConfigRead(BaseModel):
