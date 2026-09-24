@@ -308,10 +308,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # No inputs: the repository has no action.yml, so the runner builds its
+      # Dockerfile and runs actionlint with no arguments. actionlint exits 1
+      # on any finding, and a non-zero container exit fails the step.
       - name: actionlint
         uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
-        with:
-          fail-on-error: true
 
       - name: zizmor
         uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
