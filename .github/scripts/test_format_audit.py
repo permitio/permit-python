@@ -1,8 +1,9 @@
 """Contract tests for format_audit.py.
 
 These lock the parts the workflow silently depends on: the marker is always the
-first line, bad input still exits 0, and untrusted advisory text cannot break
-out of a fence or a workflow command.
+first line, bad input still exits 0, untrusted advisory text cannot break out
+of a fence or a workflow command, and a pip-audit that did not check a tree is
+always named rather than passing for a clean result.
 
 Run with: python -m pytest .github/scripts/test_format_audit.py
 """
@@ -363,8 +364,8 @@ def test_gate_fails_closed_on_unparseable_report(tmp_path: Path):
 
 
 def test_missing_pip_audit_does_not_fail_the_gate(tmp_path: Path):
-    # audit-deps.sh deletes a partial pip-audit report on failure, so "absent"
-    # is an expected state. pip-audit is advisory-only and must never gate --
+    # A pip-audit run that did not finish leaves no report, so "absent" is an
+    # expected state. pip-audit is advisory-only and must never gate --
     # otherwise a pip-audit outage blocks every PR and release.
     clean = tmp_path / "trivy.json"
     clean.write_text(json.dumps(clean_report()))
@@ -372,15 +373,129 @@ def test_missing_pip_audit_does_not_fail_the_gate(tmp_path: Path):
     assert result.returncode == 0
 
 
-def test_missing_pip_audit_is_surfaced_as_a_note_not_a_parse_failure(tmp_path: Path):
+def test_missing_pip_audit_is_named_in_the_report_not_a_parse_failure(tmp_path: Path):
     clean = tmp_path / "trivy.json"
     clean.write_text(json.dumps(clean_report()))
-    result = run(str(clean), "--pip-audit", str(tmp_path / "absent.json"))
+    result = run(str(clean), "--pip-audit", f"runtime-floor={tmp_path / 'absent.json'}")
     assert result.returncode == 0
-    assert "do not affect the gate" in result.stdout
+    assert "pip-audit did not check everything" in result.stdout
+    assert "pip-audit:runtime-floor: no report at" in result.stdout
+    assert "does not affect the gate" in result.stdout
+    assert "could not be parsed" not in result.stdout
     assert (
         "No known vulnerabilities found" in result.stdout
     ), "a missing advisory scanner must not suppress the clean verdict from the gating one"
+
+
+# --- pip-audit, one report per tree -----------------------------------------
+
+
+def pip_audit_report(*deps: dict) -> dict:
+    return {"dependencies": list(deps), "fixes": []}
+
+
+def test_pip_audit_is_repeatable_and_tags_findings_with_their_tree(tmp_path: Path):
+    trivy = tmp_path / "trivy.json"
+    ceiling = tmp_path / "pa-ceiling.json"
+    floor = tmp_path / "pa-floor.json"
+    trivy.write_text(json.dumps(clean_report()))
+    ceiling.write_text(
+        json.dumps(pip_audit_report({"name": "werkzeug", "version": "3.1.6", "vulns": [{"id": "PYSEC-2026-2"}]}))
+    )
+    floor.write_text(
+        json.dumps(pip_audit_report({"name": "aiohttp", "version": "3.12.14", "vulns": [{"id": "PYSEC-2026-1"}]}))
+    )
+    result = run(
+        str(trivy),
+        "--pip-audit",
+        f"runtime-ceiling={ceiling}",
+        "--pip-audit",
+        f"runtime-floor={floor}",
+    )
+    assert result.returncode == 0
+    assert "**UNKNOWN -- PYSEC-2026-2** (`werkzeug` 3.1.6)\n\nFound by: pip-audit:runtime-ceiling" in result.stdout
+    assert "**UNKNOWN -- PYSEC-2026-1** (`aiohttp` 3.12.14)\n\nFound by: pip-audit:runtime-floor" in result.stdout
+    assert "pip-audit did not check everything" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "content,expected",
+    [
+        ("", "is empty"),
+        ("{{{ truncated", "not valid JSON"),
+        (json.dumps({}), "lists no audited packages"),
+        (json.dumps(pip_audit_report()), "lists no audited packages"),
+    ],
+)
+def test_incomplete_pip_audit_report_is_named(tmp_path: Path, content: str, expected: str):
+    trivy = tmp_path / "trivy.json"
+    report = tmp_path / "pa.json"
+    trivy.write_text(json.dumps(clean_report()))
+    report.write_text(content)
+    result = run(str(trivy), "--pip-audit", f"dev-ceiling={report}")
+    assert result.returncode == 0
+    assert result.stdout.split("\n")[0] == MARKER
+    assert "pip-audit did not check everything" in result.stdout
+    assert "pip-audit:dev-ceiling" in result.stdout
+    assert expected in result.stdout
+
+
+def test_package_pip_audit_skipped_is_named(tmp_path: Path):
+    trivy = tmp_path / "trivy.json"
+    report = tmp_path / "pa.json"
+    trivy.write_text(json.dumps(clean_report()))
+    report.write_text(
+        json.dumps(
+            pip_audit_report(
+                {"name": "aiohttp", "version": "3.14.3", "vulns": []},
+                {"name": "private-pkg", "skip_reason": "Dependency not found on PyPI and could not be audited"},
+            )
+        )
+    )
+    result = run(str(trivy), "--pip-audit", f"runtime-ceiling={report}")
+    assert result.returncode == 0
+    assert "pip-audit did not check everything" in result.stdout
+    assert "pip-audit:runtime-ceiling: skipped private-pkg: Dependency not found on PyPI" in result.stdout
+
+
+@pytest.mark.parametrize("content", ["", "{{{ truncated", json.dumps({})])
+def test_incomplete_pip_audit_never_fails_the_gate(tmp_path: Path, content: str):
+    trivy = tmp_path / "trivy.json"
+    report = tmp_path / "pa.json"
+    trivy.write_text(json.dumps(clean_report()))
+    report.write_text(content)
+    result = run(str(trivy), "--pip-audit", f"runtime-ceiling={report}", "--gate")
+    assert result.returncode == 0
+    assert "pip-audit:runtime-ceiling" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "findings,errors",
+    [
+        ([], []),
+        ([Finding("CVE-1", "aiohttp", "1.0", "HIGH", "2.0", "t", "", "trivy")], []),
+        ([], ["trivy: boom"]),
+    ],
+)
+def test_slack_names_the_trees_pip_audit_did_not_check(findings, errors):
+    gaps = [("pip-audit:runtime-floor", "pip-audit:runtime-floor: no report at /tmp/x.json")]
+    lines = render_slack(findings, errors, "https://example.invalid/run", "repo", pip_audit_gaps=gaps).split("\n")
+    assert "pip-audit did not fully check pip-audit:runtime-floor" in lines[-2]
+    assert lines[-1] == "><https://example.invalid/run|View the full report>"
+
+
+def test_slack_says_nothing_about_pip_audit_when_it_checked_everything():
+    out = render_slack([], [], "", "repo")
+    assert "pip-audit" not in out
+
+
+def test_slack_message_from_cli_names_a_missing_pip_audit_report(tmp_path: Path):
+    trivy = tmp_path / "trivy.json"
+    trivy.write_text(json.dumps(clean_report()))
+    result = run(str(trivy), "--pip-audit", f"runtime-floor={tmp_path / 'absent.json'}", "--slack")
+    assert result.returncode == 0
+    assert "weekly dependency audit clean" in result.stdout
+    assert "pip-audit did not fully check pip-audit:runtime-floor" in result.stdout
 
 
 # --- an empty scan is not a clean scan --------------------------------------
