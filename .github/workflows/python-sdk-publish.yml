@@ -117,6 +117,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          # Pinned so a new uv release cannot change which trees get scanned.
+          version: "0.12.18"
           # This job resolves dependency trees for scanning and installs
           # nothing, so the cache buys nothing and only adds a poisoning
           # vector on a workflow that publishes artifacts.
@@ -145,6 +147,7 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
             --pip-audit /tmp/audit/pip-audit.json \
             --context "release ${RELEASE_TAG}" \
@@ -164,6 +167,7 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             --pip-audit /tmp/audit/pip-audit.json \
             --gate
 

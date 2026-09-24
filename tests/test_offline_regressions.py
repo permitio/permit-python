@@ -17,6 +17,7 @@ import aiohttp
 import pydantic
 import pytest
 from packaging.requirements import Requirement
+from packaging.version import Version
 from pydantic.v1 import ValidationError
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
@@ -433,13 +434,50 @@ def runtime_requirement(name: str, python_version: str) -> Requirement:
     return matching[0]
 
 
-@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13"])
-def test_pydantic_requirement_before_py314_accepts_both_majors(python_version: str):
-    specifier = runtime_requirement("pydantic", python_version).specifier
+# Release numbers 1.0.0-1.10.29 and 2.0.0-2.19.29, covering every pydantic 1 and 2
+# release so far, so a test can ask which of them a specifier allows without
+# reaching PyPI. "2.0" is how pydantic spelled its 2.0.0 release.
+PYDANTIC_CANDIDATES = ["2.0"] + [
+    f"{major}.{minor}.{patch}" for major, minors in ((1, 11), (2, 20)) for minor in range(minors) for patch in range(30)
+]
 
-    assert specifier.contains("1.10.18")
-    assert specifier.contains("2.0.1")
-    assert specifier.contains("2.12.5")
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13", "3.14"])
+def test_pydantic_requirement_allows_no_release_affected_by_cve_2024_3772(python_version: str):
+    # CVE-2024-3772 (ReDoS in email validation) is fixed in pydantic 1.10.13.
+    # Under pydantic 2 permit validates emails with the pydantic.v1 copy pydantic
+    # bundles, which is 1.10.13 or later only from pydantic 2.4.2.
+    specifier = runtime_requirement("pydantic", python_version).specifier
+    affected = [
+        candidate
+        for candidate in PYDANTIC_CANDIDATES
+        if Version(candidate) < Version("1.10.13") or Version("2") <= Version(candidate) < Version("2.4.2")
+    ]
+
+    assert list(specifier.filter(affected)) == []
+
+
+@pytest.mark.parametrize(
+    ("python_version", "pydantic_1_floor", "pydantic_2_floor"),
+    [
+        ("3.10", "1.10.18", "2.4.2"),
+        ("3.11", "1.10.18", "2.4.2"),
+        ("3.12", "1.10.18", "2.4.2"),
+        # pydantic 2.4.2-2.7.x need a pydantic-core with no Python 3.13 wheels.
+        ("3.13", "1.10.18", "2.8.0"),
+        ("3.14", "1.10.25", "2.13.0"),
+    ],
+)
+def test_pydantic_requirement_allows_each_major_from_its_floor_up(
+    python_version: str, pydantic_1_floor: str, pydantic_2_floor: str
+):
+    specifier = runtime_requirement("pydantic", python_version).specifier
+    allowed = [Version(candidate) for candidate in specifier.filter(PYDANTIC_CANDIDATES)]
+    candidates = [Version(candidate) for candidate in PYDANTIC_CANDIDATES]
+
+    for major, floor in ((1, Version(pydantic_1_floor)), (2, Version(pydantic_2_floor))):
+        expected = [candidate for candidate in candidates if candidate.major == major and candidate >= floor]
+        assert [version for version in allowed if version.major == major] == expected
 
 
 @pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13"])

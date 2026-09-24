@@ -4,16 +4,22 @@
 #
 # Usage: audit-deps.sh <output-dir>
 #
-# Writes three dependency trees to <output-dir>, each as a directory holding a
+# Writes four dependency trees to <output-dir>, each as a directory holding a
 # file literally named requirements.txt, plus one Trivy report per tree:
 #
 #   runtime-ceiling/  + trivy-runtime-ceiling.json
 #       requirements.txt alone, current resolution. What a fresh
 #       `pip install permit` gets today.
 #   runtime-floor/    + trivy-runtime-floor.json
-#       requirements.txt alone, lowest-direct. The lowest versions the
-#       PUBLISHED specs permit -- i.e. real consumer exposure. This is the
-#       tree that matters most for a library with open `>=` ranges.
+#   runtime-floor-pydantic-v2/  + trivy-runtime-floor-pydantic-v2.json
+#       requirements.txt alone, lowest-direct. Together, the lowest versions
+#       the PUBLISHED specs permit -- i.e. real consumer exposure. These are
+#       the trees that matter most for a library with open `>=` ranges.
+#       requirements.txt accepts either pydantic major, and lowest-direct
+#       picks the lowest release it allows, which is a pydantic 1 release, so
+#       runtime-floor alone never scans a pydantic 2 floor.
+#       runtime-floor-pydantic-v2 holds pydantic to 2 and scans the lowest
+#       pydantic 2 (and the pydantic-core it pins) the specs permit.
 #   dev-ceiling/      + trivy-dev-ceiling.json
 #       requirements.txt + requirements-dev.txt, current resolution. Test
 #       tooling only; never ships to a user.
@@ -74,6 +80,10 @@ echo "::group::Resolving dependency trees (python ${PYTHON_VERSION})"
 # to its first ever release and drown the report in irrelevant history.
 compile_tree runtime-ceiling "" "${REPO_ROOT}/requirements.txt"
 compile_tree runtime-floor "lowest-direct" "${REPO_ROOT}/requirements.txt"
+mkdir -p "${OUT}"
+echo "pydantic>=2" >"${OUT}/pydantic-v2-constraint.txt"
+compile_tree runtime-floor-pydantic-v2 "lowest-direct" "${REPO_ROOT}/requirements.txt" \
+  --constraints "${OUT}/pydantic-v2-constraint.txt"
 compile_tree dev-ceiling "" "${REPO_ROOT}/requirements.txt" "${REPO_ROOT}/requirements-dev.txt"
 echo "::endgroup::"
 
@@ -87,7 +97,7 @@ echo "::endgroup::"
 # entirely -- they vanish from the gate, the PR comment and the Slack message
 # with no trace that anything was suppressed. Unfixable advisories already fail
 # open (see Finding.blocking), so there is no need for a silent mute button.
-for tree in runtime-ceiling runtime-floor dev-ceiling; do
+for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
   echo "::group::Trivy scan (${tree})"
   trivy fs \
     --scanners vuln \

@@ -198,11 +198,14 @@ jobs:
       fail-fast: false
       matrix:
         # floor: the lowest version of every runtime dependency requirements.txt
-        # allows on that Python. pydantic-v2: what a fresh install gets.
+        # allows on that Python, which for pydantic is a pydantic 1 release.
+        # pydantic-v2-floor: the same with pydantic held to 2, i.e. the lowest
+        # pydantic 2 a consumer can install on that Python.
+        # pydantic-v2: what a fresh install gets.
         # Python 3.14 also runs the newest pydantic 1, because it has its own
         # pydantic requirement and pydantic calls v1's 3.14 support minimal.
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
-        deps: [floor, pydantic-v2]
+        deps: [floor, pydantic-v2-floor, pydantic-v2]
         include:
           - python-version: '3.14'
             deps: pydantic-v1
@@ -218,10 +221,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # pip cannot resolve to the lowest allowed versions; uv can.
+      # pip cannot resolve to the lowest allowed versions; uv can. The version
+      # is pinned so a new uv release cannot change which floor a leg tests.
       - name: Install uv
-        if: matrix.deps == 'floor'
+        if: matrix.deps == 'floor' || matrix.deps == 'pydantic-v2-floor'
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
 
       # Installing the package itself (".") resolves the dependencies from the
       # metadata setup.py builds out of requirements.txt, which is what a
@@ -235,6 +241,14 @@ jobs:
             floor)
               uv pip compile --quiet --python "$(command -v python)" \
                 --resolution lowest-direct requirements.txt -o "${RUNNER_TEMP}/floor.txt"
+              python -m pip install . -r requirements-dev.txt -c "${RUNNER_TEMP}/floor.txt"
+              ;;
+            pydantic-v2-floor)
+              echo "pydantic>=2" > "${RUNNER_TEMP}/pydantic-v2.txt"
+              uv pip compile --quiet --python "$(command -v python)" \
+                --resolution lowest-direct requirements.txt -c "${RUNNER_TEMP}/pydantic-v2.txt" \
+                -o "${RUNNER_TEMP}/floor.txt"
+              grep '^pydantic==' "${RUNNER_TEMP}/floor.txt"
               python -m pip install . -r requirements-dev.txt -c "${RUNNER_TEMP}/floor.txt"
               ;;
             pydantic-v1)

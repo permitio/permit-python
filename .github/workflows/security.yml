@@ -72,8 +72,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      # Pinned so a new uv release cannot change which trees get scanned.
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
 
       - name: Install Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -82,7 +85,7 @@ jobs:
           scan-ref: .
           # This invocation exists only to install Trivy and warm its
           # vulnerability DB. The real scan runs in audit-deps.sh, because the
-          # action cannot compile the two dependency trees the scan needs.
+          # action cannot compile the dependency trees the scan needs.
           skip-setup-trivy: false
           format: table
           exit-code: "0"
@@ -106,9 +109,10 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
             --pip-audit /tmp/audit/pip-audit.json \
-            --context "requirements.txt + requirements-dev.txt, resolved at Python 3.10 (both the current resolution and the lowest versions the published specs permit)" \
+            --context "requirements.txt + requirements-dev.txt, resolved at Python 3.10 (the current resolution, and the lowest versions the published specs permit under each pydantic major)" \
             --blocking \
             > /tmp/audit/comment.md 2>/tmp/audit/format.err
           render_exit=$?
@@ -129,6 +133,7 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
             --annotations
 
@@ -144,6 +149,7 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
             --pip-audit /tmp/audit/pip-audit.json \
             --gate
@@ -375,6 +381,7 @@ jobs:
               python .github/scripts/format_audit.py \
                 "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
                 "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+                "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
                 "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
                 --pip-audit /tmp/audit/pip-audit.json \
                 --slack \

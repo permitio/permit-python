@@ -2,17 +2,29 @@ aiohttp>=3.14.3,<4
 # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
 # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
 loguru>=0.7.3,<1
-# pydantic 2.0 fails every API call that parses a response: its
-# pydantic.v1.parse_obj_as builds the model with pydantic 2, which rejects the
-# `__root__` field. 2.0.1 fixed that.
-# On Python 3.14, pydantic 1.x before 1.10.25 and 2.x before 2.13 (whose
-# pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to infer
-# type for attribute". pydantic 2.0-2.11 also have no Python 3.14 builds.
-# Below Python 3.14 the floor is 1.10.18. Type checkers read permit's models
-# from the pydantic.v1 package, which pydantic 1 first ships in 1.10.17, and
-# 1.10.13-1.10.17 emit about 2,400 DeprecationWarnings on `import permit`
-# under Python 3.13 (typing._eval_type called without type_params).
-pydantic[email]>=1.10.18,!=2.0; python_version < "3.14"
+# pydantic has one line per Python range. Why each version is excluded:
+# - CVE-2024-3772 (ReDoS in email validation) affects pydantic 1.x before
+#   1.10.13. Under pydantic 2, permit validates emails with the pydantic.v1 copy
+#   that pydantic 2 bundles, and only 2.4.2 and later bundle the fixed 1.10.13:
+#   2.0.1 bundles 1.10.11, and 2.4.0 and 2.4.1 bundle 1.10.12. So 2.0-2.3, 2.4.0
+#   and 2.4.1 are excluded on every Python.
+# - pydantic 2.0 also fails every API call that parses a response: its
+#   pydantic.v1.parse_obj_as builds the model with pydantic 2, which rejects the
+#   `__root__` field.
+# - Below Python 3.14 the pydantic 1 floor is 1.10.18. Type checkers read
+#   permit's models from the pydantic.v1 package, which pydantic 1 first ships
+#   in 1.10.17, and 1.10.13-1.10.17 emit about 2,400 DeprecationWarnings on
+#   `import permit` under Python 3.13 (typing._eval_type called without
+#   type_params).
+# - On Python 3.13 the pydantic 2 floor is 2.8.0: 2.4.2-2.7.x require a
+#   pydantic-core release with no Python 3.13 wheels. 2.8.0 is the first to
+#   require one that has them (pydantic-core 2.20.0).
+# - On Python 3.14, pydantic 1.x before 1.10.25 and 2.x before 2.13 (whose
+#   pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to
+#   infer type for attribute". pydantic 2.0-2.11 also have no Python 3.14
+#   builds.
+pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1; python_version < "3.13"
+pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*; python_version == "3.13"
 pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"
 # 4.14.0 is the lowest release that works on every supported Python: releases
 # before 4.6 break `import permit` on 3.12+, before 4.12 on 3.13+, and 4.12-4.13
