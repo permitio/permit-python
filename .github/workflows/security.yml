@@ -49,7 +49,7 @@ env:
 jobs:
   audit:
     name: Dependency Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Read-only ON PURPOSE. `uv pip compile` builds an sdist to read its
     # metadata for any dependency without a wheel, which runs that package's
     # setup.py on the runner -- against a dependency list the PR author
@@ -184,7 +184,7 @@ jobs:
   # package code and the writable token never coexist in the same job.
   comment:
     name: Post Audit Comment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [audit]
     # always(): the comment matters most when the audit FAILED.
     # Fork PRs get a read-only token, so the post would fail -- they are served
@@ -256,7 +256,7 @@ jobs:
   # and additionally checks licences.
   dependency-review:
     name: Dependency Review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
@@ -277,7 +277,7 @@ jobs:
   # load-bearing, so it is tested like any other code.
   audit-scripts-test:
     name: Audit Script Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -305,7 +305,7 @@ jobs:
   # A CVE gate that runs in a workflow an attacker can rewrite is not a gate.
   workflow-hardening:
     name: Workflow Hardening
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -332,7 +332,7 @@ jobs:
   # themselves (packages, counts, upgrade targets) rather than just a verdict.
   notify:
     name: Notify Slack
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [audit]
     if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     env:

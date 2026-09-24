@@ -20,7 +20,7 @@ env:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -191,7 +191,7 @@ jobs:
   # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
   # matrix are required status checks.
   compatibility:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     strategy:
