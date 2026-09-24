@@ -280,9 +280,13 @@ def removal_warning(case: FacadeCase) -> str:
     )
 
 
-def facade_notices(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str]]:
-    """The deprecated-facade warnings among ``caught``; other warnings are not this test's business."""
-    return [(w.category, str(w.message)) for w in caught if str(w.message).startswith("permit.api.")]
+def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str]]:
+    """Every DeprecationWarning in ``caught``, whoever raised it.
+
+    Other categories are left out: a ResourceWarning, for one, comes from garbage
+    collection and can land in whichever test happens to be running.
+    """
+    return [(w.category, str(w.message)) for w in caught if issubclass(w.category, DeprecationWarning)]
 
 
 def sent(request: Request) -> Dict[str, Any]:
@@ -342,8 +346,8 @@ def test_deprecated_method_warns_and_matches_its_replacement(httpserver: HTTPSer
     with pytest.warns(DeprecationWarning) as facade_warnings:
         result = invoke(case.facade)
 
-    assert facade_notices(replacement_warnings) == []
-    assert facade_notices(facade_warnings) == [(DeprecationWarning, removal_warning(case))]
+    assert deprecations(replacement_warnings) == []
+    assert deprecations(facade_warnings) == [(DeprecationWarning, removal_warning(case))]
 
     assert len(httpserver.log) == 2, [sent(request) for request, _ in httpserver.log]
     replacement_request, facade_request = (sent(request) for request, _ in httpserver.log)
