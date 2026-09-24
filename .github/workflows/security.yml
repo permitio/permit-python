@@ -83,14 +83,18 @@ jobs:
         with:
           scan-type: filesystem
           scan-ref: .
-          # This invocation exists only to install Trivy and warm its
-          # vulnerability DB. The real scan runs in audit-deps.sh, because the
-          # action cannot compile the dependency trees the scan needs.
+          # This invocation exists only to install Trivy. The real scan runs
+          # in audit-deps.sh, because the action cannot compile the dependency
+          # trees the scan needs. The action always scans scan-ref, and the
+          # repo root has nothing Trivy can scan, so hide-progress (TRIVY_QUIET)
+          # keeps that empty scan from logging a "Supported files not found"
+          # warning. Errors still print.
           skip-setup-trivy: false
           format: table
           exit-code: "0"
           scanners: vuln
           trivy-config: ""
+          hide-progress: true
 
       - name: Run dependency audit
         id: audit

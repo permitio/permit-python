@@ -134,6 +134,9 @@ jobs:
           exit-code: "0"
           scanners: vuln
           trivy-config: ""
+          # See the same step in security.yml: this only installs Trivy, and
+          # hide-progress keeps its empty scan from logging a warning.
+          hide-progress: true
 
       - name: Run dependency audit
         run: bash .github/scripts/audit-deps.sh /tmp/audit
