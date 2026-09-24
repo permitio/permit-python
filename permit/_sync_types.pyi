@@ -249,7 +249,9 @@ class SyncConditionSetsApi(BasePermitApi):
 
 class SyncDeprecatedApi(BasePermitApi):
     """
-    Represents the interface for managing roles.
+    The flat methods on permit.api that predate the per-resource APIs.
+
+    Each one warns and calls the method named in its warning. They will be removed in permit 4.0.
     """
     def __init__(self, config: PermitConfig): ...
     def get_user(self, user_key: str) -> UserRead: ...
