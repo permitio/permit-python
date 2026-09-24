@@ -4,6 +4,8 @@ The `X as X` imports mark the package's public names as explicit re-exports
 for type checkers.
 """
 
+import warnings
+
 from permit.api.models import *  # noqa: F403 - every API model is part of the public surface
 from permit.config import PermitConfig as PermitConfig
 from permit.enforcement.enforcer import Action as Action
@@ -27,3 +29,15 @@ from permit.exceptions import PermitNotFoundError as PermitNotFoundError
 from permit.exceptions import PermitValidationError as PermitValidationError
 from permit.permit import Permit as Permit
 from permit.utils.context import Context as Context
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+
+if PYDANTIC_VERSION < (2, 0):
+    # Importing any permit module runs this file first, and only once per process, so this
+    # warns once. stacklevel=2 attributes the warning to the code that imported permit (the
+    # import machinery's frames are skipped), which Python shows by default when that is
+    # __main__.
+    warnings.warn(
+        "Support for pydantic 1 is deprecated and will be removed in permit 4.0. Upgrade to pydantic 2.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
