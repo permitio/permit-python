@@ -22,7 +22,20 @@ from permit import Permit
 from permit.api.context import ApiContext
 from permit.api.deprecated import DeprecatedApi
 from permit.api.elements import UserLoginAsResponse
-from permit.api.models import ResourceRead, RoleAssignmentRead, RoleRead, TenantRead, UserRead
+from permit.api.models import (
+    ResourceCreate,
+    ResourceRead,
+    ResourceUpdate,
+    RoleAssignmentRead,
+    RoleCreate,
+    RoleRead,
+    RoleUpdate,
+    TenantCreate,
+    TenantRead,
+    TenantUpdate,
+    UserCreate,
+    UserRead,
+)
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
 
@@ -115,6 +128,7 @@ NEW_RESOURCE = {"key": "document", "name": "Document", "actions": {"read": {}}}
 RESOURCE_CHANGES = {"name": "Doc"}
 ASSIGNMENT = {"user": "user-1", "role": "admin", "tenant": "tenant-1"}
 
+# The methods that take a model or a dict have one case with each.
 CASES = [
     FacadeCase(
         facade=call("permit.api.get_user", "user-1"),
@@ -166,6 +180,13 @@ CASES = [
         model=UserRead,
     ),
     FacadeCase(
+        facade=call("permit.api.sync_user", UserCreate(**NEW_USER)),
+        replacement=call("permit.api.users.sync", UserCreate(**NEW_USER)),
+        request=("PUT", f"{FACTS}/users/user-1"),
+        response=user("user-1"),
+        model=UserRead,
+    ),
+    FacadeCase(
         facade=call("permit.api.delete_user", "user-1"),
         replacement=call("permit.api.users.delete", "user-1"),
         request=("DELETE", f"{FACTS}/users/user-1"),
@@ -187,8 +208,22 @@ CASES = [
         model=TenantRead,
     ),
     FacadeCase(
+        facade=call("permit.api.create_tenant", TenantCreate(**NEW_TENANT)),
+        replacement=call("permit.api.tenants.create", TenantCreate(**NEW_TENANT)),
+        request=("POST", f"{FACTS}/tenants"),
+        response=tenant("tenant-1"),
+        model=TenantRead,
+    ),
+    FacadeCase(
         facade=call("permit.api.update_tenant", "tenant-1", TENANT_CHANGES),
         replacement=call("permit.api.tenants.update", "tenant-1", TENANT_CHANGES),
+        request=("PATCH", f"{FACTS}/tenants/tenant-1"),
+        response=tenant("tenant-1"),
+        model=TenantRead,
+    ),
+    FacadeCase(
+        facade=call("permit.api.update_tenant", "tenant-1", TenantUpdate(**TENANT_CHANGES)),
+        replacement=call("permit.api.tenants.update", "tenant-1", TenantUpdate(**TENANT_CHANGES)),
         request=("PATCH", f"{FACTS}/tenants/tenant-1"),
         response=tenant("tenant-1"),
         model=TenantRead,
@@ -208,8 +243,22 @@ CASES = [
         model=RoleRead,
     ),
     FacadeCase(
+        facade=call("permit.api.create_role", RoleCreate(**NEW_ROLE)),
+        replacement=call("permit.api.roles.create", RoleCreate(**NEW_ROLE)),
+        request=("POST", f"{SCHEMA}/roles"),
+        response=role("admin"),
+        model=RoleRead,
+    ),
+    FacadeCase(
         facade=call("permit.api.update_role", "admin", ROLE_CHANGES),
         replacement=call("permit.api.roles.update", "admin", ROLE_CHANGES),
+        request=("PATCH", f"{SCHEMA}/roles/admin"),
+        response=role("admin"),
+        model=RoleRead,
+    ),
+    FacadeCase(
+        facade=call("permit.api.update_role", "admin", RoleUpdate(**ROLE_CHANGES)),
+        replacement=call("permit.api.roles.update", "admin", RoleUpdate(**ROLE_CHANGES)),
         request=("PATCH", f"{SCHEMA}/roles/admin"),
         response=role("admin"),
         model=RoleRead,
@@ -243,8 +292,22 @@ CASES = [
         model=ResourceRead,
     ),
     FacadeCase(
+        facade=call("permit.api.create_resource", ResourceCreate(**NEW_RESOURCE)),
+        replacement=call("permit.api.resources.create", ResourceCreate(**NEW_RESOURCE)),
+        request=("POST", f"{SCHEMA}/resources"),
+        response=resource("document"),
+        model=ResourceRead,
+    ),
+    FacadeCase(
         facade=call("permit.api.update_resource", "document", RESOURCE_CHANGES),
         replacement=call("permit.api.resources.update", "document", RESOURCE_CHANGES),
+        request=("PATCH", f"{SCHEMA}/resources/document"),
+        response=resource("document"),
+        model=ResourceRead,
+    ),
+    FacadeCase(
+        facade=call("permit.api.update_resource", "document", ResourceUpdate(**RESOURCE_CHANGES)),
+        replacement=call("permit.api.resources.update", "document", ResourceUpdate(**RESOURCE_CHANGES)),
         request=("PATCH", f"{SCHEMA}/resources/document"),
         response=resource("document"),
         model=ResourceRead,
@@ -289,6 +352,17 @@ def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str]
     return [(w.category, str(w.message)) for w in caught if issubclass(w.category, DeprecationWarning)]
 
 
+MODEL_INPUTS = (UserCreate, TenantCreate, TenantUpdate, RoleCreate, RoleUpdate, ResourceCreate, ResourceUpdate)
+
+
+def case_id(case: FacadeCase) -> str:
+    """The method's name, with "-model" on the case that passes a model instead of a dict."""
+    name = case.facade.path.rpartition(".")[2]
+    if any(isinstance(arg, MODEL_INPUTS) for arg in case.facade.args):
+        return f"{name}-model"
+    return name
+
+
 def sent(request: Request) -> Dict[str, Any]:
     """What a request put on the wire, in a form two requests can be compared by."""
     body = request.get_data()
@@ -319,7 +393,7 @@ def test_the_table_covers_every_deprecated_method():
 
 
 @pytest.mark.parametrize("flavour", ["async", "sync"])
-@pytest.mark.parametrize("case", CASES, ids=[case.facade.path.rpartition(".")[2] for case in CASES])
+@pytest.mark.parametrize("case", CASES, ids=[case_id(case) for case in CASES])
 def test_deprecated_method_warns_and_matches_its_replacement(httpserver: HTTPServer, case: FacadeCase, flavour: str):
     http_method, path = case.request
     handler = httpserver.expect_request(path, method=http_method)
