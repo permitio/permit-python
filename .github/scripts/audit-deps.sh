@@ -80,7 +80,6 @@ echo "::group::Resolving dependency trees (python ${PYTHON_VERSION})"
 # to its first ever release and drown the report in irrelevant history.
 compile_tree runtime-ceiling "" "${REPO_ROOT}/requirements.txt"
 compile_tree runtime-floor "lowest-direct" "${REPO_ROOT}/requirements.txt"
-mkdir -p "${OUT}"
 echo "pydantic>=2" >"${OUT}/pydantic-v2-constraint.txt"
 compile_tree runtime-floor-pydantic-v2 "lowest-direct" "${REPO_ROOT}/requirements.txt" \
   --constraints "${OUT}/pydantic-v2-constraint.txt"

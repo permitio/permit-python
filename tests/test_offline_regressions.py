@@ -434,12 +434,22 @@ def runtime_requirement(name: str, python_version: str) -> Requirement:
     return matching[0]
 
 
-# Release numbers 1.0.0-1.10.29 and 2.0.0-2.19.29, covering every pydantic 1 and 2
-# release so far, so a test can ask which of them a specifier allows without
-# reaching PyPI. "2.0" is how pydantic spelled its 2.0.0 release.
-PYDANTIC_CANDIDATES = ["2.0"] + [
-    f"{major}.{minor}.{patch}" for major, minors in ((1, 11), (2, 20)) for minor in range(minors) for patch in range(30)
-]
+def pydantic_release_candidates() -> list[str]:
+    """Return the release numbers 1.0.0-1.10.29 and 2.0.0-2.19.29, plus "2.0".
+
+    That covers every pydantic 1 and 2 release so far, so a test can ask which of
+    them a specifier allows without reaching PyPI. "2.0" is how pydantic spelled
+    its 2.0.0 release.
+    """
+    candidates = ["2.0"]
+    for major, minor_count in ((1, 11), (2, 20)):
+        for minor in range(minor_count):
+            for patch in range(30):
+                candidates.append(f"{major}.{minor}.{patch}")
+    return candidates
+
+
+PYDANTIC_CANDIDATES = pydantic_release_candidates()
 
 
 @pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13", "3.14"])
