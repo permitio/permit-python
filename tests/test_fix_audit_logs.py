@@ -15,6 +15,7 @@ from permit.api.models import (
     AuditLogModel,
     AVPEngineDecisionLog,
     DetailedAuditLogModel,
+    DummyEngineModel,
     Engine,
     GenericEngineDecisionLog,
     LimitedPaginatedResultAuditLogModel,
@@ -129,9 +130,16 @@ def test_audit_log_page_parses_items_without_pdp_config_id(pdp_config_id_field: 
     assert [log.pdp_config_id for log in page.data] == [None, PDP_CONFIG_ID]
 
 
-@pytest.mark.parametrize("model", [AuditLogModel, DetailedAuditLogModel])
-def test_audit_logs_parse_a_generic_engine_log(model: type):
-    log = model.parse_obj(detailed_audit_log(GENERIC_RAW_DATA))
+@pytest.mark.parametrize(
+    ("model", "payload"),
+    [
+        (AuditLogModel, audit_log(raw_data=GENERIC_RAW_DATA)),
+        (DetailedAuditLogModel, detailed_audit_log(GENERIC_RAW_DATA)),
+    ],
+    ids=["list", "detailed"],
+)
+def test_audit_logs_parse_a_generic_engine_log(model: type, payload: dict):
+    log = model.parse_obj(payload)
 
     assert isinstance(log.raw_data, GenericEngineDecisionLog)
     assert log.raw_data.engine == Engine.GENERIC
@@ -160,3 +168,14 @@ def test_detailed_audit_log_keeps_parsing_opa_and_avp_logs(raw_data: dict, engin
 
     assert type(log.raw_data) is engine_log_type
     assert log.pdp_config_id == PDP_CONFIG_ID
+
+
+@pytest.mark.parametrize("engine", ["OPA", "AVP"])
+def test_generic_engine_log_does_not_take_other_engines_logs(engine: str):
+    """An OPA or AVP log with GENERIC's required fields is not parsed as a GENERIC log."""
+    raw_data = {"engine": engine, "timestamp": TIMESTAMP, "decision": True}
+
+    log = DetailedAuditLogModel.parse_obj(detailed_audit_log(raw_data))
+
+    assert type(log.raw_data) is DummyEngineModel
+    assert log.raw_data.engine == Engine(engine)
