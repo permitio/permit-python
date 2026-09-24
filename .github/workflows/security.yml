@@ -289,9 +289,13 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      # Pinned because .github/scripts/pytest.ini turns every warning into an
+      # error, so a new pytest release must not be able to fail this job.
       - name: Install pytest
-        run: python -m pip install --disable-pip-version-check pytest
+        run: python -m pip install --disable-pip-version-check pytest==9.1.1
 
+      # Reads .github/scripts/pytest.ini, not the SDK's pytest.ini, whose
+      # asyncio_mode option needs pytest-asyncio.
       - name: Run audit script tests
         run: python -m pytest .github/scripts/test_format_audit.py -q
 
