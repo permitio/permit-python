@@ -222,6 +222,22 @@ def test_parse_pip_audit_marks_severity_unknown():
     assert findings[0].blocking is False, "pip-audit has no severity, so it must never gate"
 
 
+def test_same_pip_audit_advisory_from_two_trees_merges_whatever_the_alias_order():
+    # pip-audit keeps aliases in a set, so each run lists them in its own
+    # order. The finding id must not depend on that order, or the same
+    # advisory shows up once per tree.
+    def report(aliases: list[str]) -> dict:
+        vuln = {"id": "PYSEC-1", "aliases": aliases}
+        return pip_audit_report({"name": "aiohttp", "version": "3.12.14", "vulns": [vuln]})
+
+    ceiling = parse_pip_audit(report(["GHSA-x", "CVE-1"]), source="pip-audit:runtime-ceiling")
+    floor = parse_pip_audit(report(["CVE-1", "GHSA-x"]), source="pip-audit:runtime-floor")
+    merged = merge([ceiling, floor])
+    assert len(merged) == 1
+    assert merged[0].id == "PYSEC-1 (CVE-1, GHSA-x)"
+    assert merged[0].sources == {"pip-audit:runtime-ceiling", "pip-audit:runtime-floor"}
+
+
 def test_parse_pip_audit_tolerates_garbage():
     assert parse_pip_audit({}) == []
     assert parse_pip_audit({"dependencies": "nope"}) == []

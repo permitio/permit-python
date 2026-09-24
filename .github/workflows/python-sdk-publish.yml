@@ -149,7 +149,10 @@ jobs:
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
             "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
             --context "release ${RELEASE_TAG}" \
             --blocking >> "$GITHUB_STEP_SUMMARY"
 
@@ -168,7 +171,9 @@ jobs:
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
             "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
             --gate
 
       - name: Upload audit artifacts

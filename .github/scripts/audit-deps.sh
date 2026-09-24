@@ -24,7 +24,7 @@
 #       requirements.txt + requirements-dev.txt, current resolution. Test
 #       tooling only; never ships to a user.
 #
-# Plus pip-audit.json (advisory only) for the runtime ceiling.
+# Plus pip-audit-<tree>.json (advisory only) for each of the four trees.
 #
 # WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev files together
 # lets a dev tool drag a runtime dependency's floor upward and hide the real
@@ -112,16 +112,44 @@ done
 # gate; it is here because it reads PYSEC, which sometimes carries a
 # Python-specific advisory before it reaches the GHSA feed Trivy uses.
 # A pip-audit failure must never fail the job.
-echo "::group::pip-audit (advisory)"
-if ! uv tool run --from pip-audit pip-audit \
-  --requirement "${OUT}/runtime-ceiling/requirements.txt" \
-  --format json \
-  --output "${OUT}/pip-audit.json" \
-  --progress-spinner off; then
-  echo "::warning::pip-audit did not complete cleanly; continuing with Trivy results only."
-  # An absent file is handled by format_audit.py as a note; a truncated one
-  # would be reported as a parse error. Remove it so a partial write cannot be
-  # mistaken for a failed scan.
-  rm -f "${OUT}/pip-audit.json"
-fi
-echo "::endgroup::"
+#
+# Each tree is already a fully pinned `uv pip compile` output, so pip-audit
+# reads the pins as written (--no-deps --disable-pip) instead of resolving them
+# again in a throwaway venv. That venv is where it used to fail: ensurepip
+# exits non-zero on the uv-managed Python, so pip-audit never produced a report.
+#
+# The exit code cannot tell a failure from a finding: pip-audit exits 1 for
+# both. A finished run always writes its report and a failed one writes
+# nothing, so each report is deleted before its run and a missing one is the
+# failure signal. format_audit.py names every tree without a report in the PR
+# comment, the job summary and the Slack message.
+#
+# PIP_AUDIT_LOGLEVEL=ERROR drops the warning pip-audit logs for --no-deps,
+# which recommends hashing the requirements. With --disable-pip, pip-audit only
+# checks that hashes are present and never verifies them, so hashing would add
+# nothing. Errors, and the summary line, still print.
+#
+# The private cache keeps pip-audit away from the runner's pip HTTP cache,
+# whose entries another pip version may have written in a format it cannot
+# read.
+PIP_AUDIT_VERSION="2.10.1"
+pip_audit_cache="$(mktemp -d)"
+for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
+  report="${OUT}/pip-audit-${tree}.json"
+  echo "::group::pip-audit (${tree}, advisory)"
+  rm -f "${report}"
+  status=0
+  PIP_AUDIT_LOGLEVEL=ERROR uv tool run --from "pip-audit==${PIP_AUDIT_VERSION}" pip-audit \
+    --requirement "${OUT}/${tree}/requirements.txt" \
+    --no-deps \
+    --disable-pip \
+    --cache-dir "${pip_audit_cache}" \
+    --format json \
+    --output "${report}" \
+    --progress-spinner off || status=$?
+  if [ ! -s "${report}" ]; then
+    echo "::warning title=pip-audit did not run::pip-audit exited ${status} without a report for ${tree}, so only Trivy checked that tree. The audit report names it too."
+  fi
+  echo "::endgroup::"
+done
+rm -r "${pip_audit_cache}"

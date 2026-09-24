@@ -198,10 +198,13 @@ def parse_pip_audit(doc: Any, source: str = "pip-audit") -> list[Finding]:
                 continue
             fixes = vuln.get("fix_versions") or []
             fixed = ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
+            # Sorted because pip-audit keeps aliases in a set and lists them in
+            # a different order on each run. The id is half of the merge key,
+            # so an unsorted one would list the same advisory once per tree.
             aliases = vuln.get("aliases") or []
             alias_str = ""
             if isinstance(aliases, list) and aliases:
-                alias_str = f" ({', '.join(str(a) for a in aliases[:3])})"
+                alias_str = f" ({', '.join(sorted(str(a) for a in aliases)[:3])})"
             findings.append(
                 Finding(
                     vuln_id=str(vuln.get("id") or "UNKNOWN") + alias_str,

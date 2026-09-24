@@ -111,7 +111,10 @@ jobs:
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
             "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
             --context "requirements.txt + requirements-dev.txt, resolved at Python 3.10 (the current resolution, and the lowest versions the published specs permit under each pydantic major)" \
             --blocking \
             > /tmp/audit/comment.md 2>/tmp/audit/format.err
@@ -151,7 +154,10 @@ jobs:
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
             "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
             --gate
           gate_exit=$?
           set -e
@@ -383,7 +389,10 @@ jobs:
                 "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
                 "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
                 "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
-                --pip-audit /tmp/audit/pip-audit.json \
+                --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+                --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+                --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+                --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
                 --slack \
                 --repo "${REPO}" \
                 --run-url "${RUN_URL}"
