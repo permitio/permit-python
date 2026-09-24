@@ -316,7 +316,8 @@ def render_slack(
     """
     lines = _slack_body(findings, errors, repo)
     if pip_audit_gaps:
-        trees = ", ".join(sorted({label for label, _ in pip_audit_gaps}))
+        # A gap label is "pip-audit:<tree>", and the line already names pip-audit.
+        trees = ", ".join(sorted({label.split(":", 1)[-1] for label, _ in pip_audit_gaps}))
         lines.append(
             f">:warning: pip-audit did not fully check {_slack_escape(trees)}, so an advisory "
             "only pip-audit reports could be missing."

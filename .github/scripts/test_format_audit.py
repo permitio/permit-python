@@ -494,9 +494,16 @@ def test_incomplete_pip_audit_never_fails_the_gate(tmp_path: Path, content: str)
     ],
 )
 def test_slack_names_the_trees_pip_audit_did_not_check(findings, errors):
-    gaps = [("pip-audit:runtime-floor", "pip-audit:runtime-floor: no report at /tmp/x.json")]
+    gaps = [
+        ("pip-audit:runtime-floor", "pip-audit:runtime-floor: no report at /tmp/x.json"),
+        ("pip-audit:dev-ceiling", "pip-audit:dev-ceiling: skipped a: b"),
+        ("pip-audit:dev-ceiling", "pip-audit:dev-ceiling: skipped c: d"),
+    ]
     lines = render_slack(findings, errors, "https://example.invalid/run", "repo", pip_audit_gaps=gaps).split("\n")
-    assert "pip-audit did not fully check pip-audit:runtime-floor" in lines[-2]
+    assert lines[-2] == (
+        ">:warning: pip-audit did not fully check dev-ceiling, runtime-floor, so an advisory "
+        "only pip-audit reports could be missing."
+    )
     assert lines[-1] == "><https://example.invalid/run|View the full report>"
 
 
@@ -511,7 +518,7 @@ def test_slack_message_from_cli_names_a_missing_pip_audit_report(tmp_path: Path)
     result = run(str(trivy), "--pip-audit", f"runtime-floor={tmp_path / 'absent.json'}", "--slack")
     assert result.returncode == 0
     assert "weekly dependency audit clean" in result.stdout
-    assert "pip-audit did not fully check pip-audit:runtime-floor" in result.stdout
+    assert "pip-audit did not fully check runtime-floor, so" in result.stdout
 
 
 # --- an empty scan is not a clean scan --------------------------------------
