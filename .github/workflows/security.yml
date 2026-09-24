@@ -1,15 +1,12 @@
 name: Security
 
 on:
-  # DELIBERATELY NOT path-filtered. "Dependency Audit" is intended to become a
-  # required status check on main (a manual branch-protection change, not
-  # something this file can do). GitHub treats a required check that never runs
-  # as perpetually pending rather than passing, so a path filter here would
-  # block every PR that happens not to touch a dependency file. The audit is
-  # ~1 minute with a warm Trivy DB, which is cheaper than that failure mode.
-  #
-  # NOTE: until it is added to branch protection, a red audit does NOT block a
-  # merge -- it comments and fails the check, but the merge button stays green.
+  # DELIBERATELY NOT path-filtered. "Dependency Audit", "Audit Script Tests"
+  # and "Workflow Hardening" are required status checks on main. GitHub treats
+  # a required check that never runs as perpetually pending rather than
+  # passing, so a path filter here would block every PR that happens not to
+  # touch a dependency file. The audit takes under two minutes, which is
+  # cheaper than that failure mode.
   pull_request:
     branches: [main, master]
   # Run on every merge to main too, so a regression is surfaced immediately
@@ -380,9 +377,9 @@ jobs:
       # whether it is actually set.
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
-      # permitio/permit-python does not have SLACK_WEBHOOK_URL configured yet.
-      # Without this guard every Monday run would fail on a missing webhook and
-      # the weekly audit would read as broken rather than as unconfigured.
+      # A fork, or any repository without SLACK_WEBHOOK_URL, gets a warning
+      # here instead of a failed job, so a missing webhook reads as
+      # unconfigured rather than as a broken weekly audit.
       - name: Check Slack webhook is configured
         id: check
         run: |
