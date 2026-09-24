@@ -31,3 +31,20 @@ calls into the SDK against its type annotations. No pydantic mypy plugin is need
   pass plain dicts, give the whole payload to the API method as a dict instead.
 - The blocking client, `permit.sync.Permit`, is typed as blocking:
   `permit.api.users.get("user")` returns a `UserRead`, not a coroutine.
+
+## Deprecations
+
+permit 4.0 removes the following. They still work in 3.x, and each one issues a
+`DeprecationWarning` that says what to do instead.
+
+- **pydantic 1 support.** On pydantic 1, `import permit` warns once. Upgrade to pydantic 2.
+  The SDK's models then come from `pydantic.v1`, so their methods stay the same, but
+  invalid input raises `pydantic.v1.ValidationError` rather than `pydantic.ValidationError`.
+  Catching `pydantic.v1.ValidationError` works under both majors.
+- **The flat methods on `permit.api`**, such as `permit.api.get_user()`. Use the grouped
+  APIs instead, such as `permit.api.users.get()`. Each flat method's warning names its
+  replacement.
+
+By default, Python shows a `DeprecationWarning` only when the code that triggers it is in
+`__main__`, such as the script you run, while pytest shows them. To see them
+elsewhere, run Python with `-W default::DeprecationWarning`.
