@@ -40,11 +40,13 @@ permit 4.0 removes the following. They still work in 3.x, and each one issues a
 - **pydantic 1 support.** On pydantic 1, `import permit` warns once. Upgrade to pydantic 2.
   The SDK's models then come from `pydantic.v1`, so their methods stay the same, but
   invalid input raises `pydantic.v1.ValidationError` rather than `pydantic.ValidationError`.
-  Catching `pydantic.v1.ValidationError` works under both majors.
+  Catching `pydantic.v1.ValidationError` works under both majors. Until you upgrade, the
+  warning filter `ignore:Support for pydantic 1:DeprecationWarning` silences the import warning.
 - **The flat methods on `permit.api`**, such as `permit.api.get_user()`. Use the grouped
   APIs instead, such as `permit.api.users.get()`. Each flat method's warning names its
   replacement.
 
-By default, Python shows a `DeprecationWarning` only when the code that triggers it is in
-`__main__`, such as the script you run, while pytest shows them. To see them
-elsewhere, run Python with `-W default::DeprecationWarning`.
+By default, Python shows these warnings only when the code that triggers them is in
+`__main__`, such as the script you run. pytest shows them in its warnings summary. To see
+them elsewhere, such as in a web app, run Python with `-W default::DeprecationWarning` or
+set the environment variable `PYTHONWARNINGS=default::DeprecationWarning`.
