@@ -93,7 +93,7 @@ jobs:
           PY
 
       - name: Upload distribution
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: dist/
@@ -178,7 +178,7 @@ jobs:
 
       - name: Upload audit artifacts
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dependency-audit
           path: /tmp/audit/
@@ -197,8 +197,14 @@ jobs:
       # never used -- nothing in this workflow commits or opens a PR.
       id-token: write
     steps:
+      # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
+      # calls the deprecated Buffer() constructor, so every download prints
+      # DEP0005 (actions/download-artifact#484). This hides DEP0005 alone;
+      # drop it once a release stops printing the warning.
       - name: Download distribution
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
         with:
           name: dist
           path: dist/
