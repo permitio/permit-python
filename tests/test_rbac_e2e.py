@@ -1,6 +1,8 @@
 import asyncio
+import http.client
+import threading
 import time
-from typing import Any, AsyncIterable, Awaitable, Callable, Final, List, Optional
+from typing import Any, AsyncIterable, Awaitable, Callable, Final, Iterator, List, Optional
 
 import pytest
 from loguru import logger
@@ -99,12 +101,35 @@ async def assert_gone(get: Callable[[str], Awaitable[Any]], key: str, descriptio
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
-def sleeping(request: Request):  # noqa: ARG001
-    time.sleep(TEST_TIMEOUT + 1)
-    return Response("OK", status=200)
+@pytest.fixture
+def sleeping(httpserver: HTTPServer) -> Iterator[Callable[[Request], Response]]:
+    """A handler that answers only after the client has given up.
+
+    The shared httpserver answers one request at a time, in the order they
+    arrive, so a handler still waiting when the test ends would answer into the
+    request log of whichever test uses the server next. Teardown therefore wakes
+    every waiting handler and sends one more request: once that one is answered,
+    so is every request before it.
+    """
+    release = threading.Event()
+
+    def handler(request: Request) -> Response:  # noqa: ARG001
+        release.wait(TEST_TIMEOUT + 1)
+        return Response("OK", status=200)
+
+    yield handler
+
+    release.set()
+    httpserver.expect_request("/drained").respond_with_data("")
+    connection = http.client.HTTPConnection(httpserver.host, httpserver.port, timeout=10)
+    try:
+        connection.request("GET", "/drained")
+        connection.getresponse().read()
+    finally:
+        connection.close()
 
 
-async def test_api_timeout(httpserver: HTTPServer):
+async def test_api_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
     mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
@@ -120,7 +145,7 @@ async def test_api_timeout(httpserver: HTTPServer):
     assert time_passed < 3
 
 
-async def test_pdp_timeout(httpserver: HTTPServer):
+async def test_pdp_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
     mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
