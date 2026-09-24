@@ -16,6 +16,13 @@ from permit.sync import Permit as SyncPermit
 # httpserver.url_for(), never a hardcoded port. Set PYTEST_HTTPSERVER_PORT to
 # pin one when debugging.
 
+# The fixtures below need a real API key, the Permit API and a PDP. Every test
+# that uses them is marked e2e, which the offline CI job deselects.
+MISSING_KEY = (
+    "PDP_API_KEY is not configured, test cannot run! "
+    'Tests that need it are marked e2e: deselect them with -m "not e2e".'
+)
+
 
 @pytest.fixture
 def permit_config() -> PermitConfig:
@@ -29,7 +36,7 @@ def permit_config() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", default_api_address)
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,
@@ -59,7 +66,7 @@ def permit_config_cloud() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,

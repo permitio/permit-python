@@ -19,6 +19,9 @@ def print_break():
 
 
 TEST_TIMEOUT = 1
+# test_api_timeout and test_pdp_timeout run against the local pytest_httpserver
+# and need no credentials, so the tests that do are marked e2e one by one rather
+# than with a module-level pytestmark.
 RESOURCE_CREATE_ACTION: Final[str] = "create"
 RESOURCE_READ_ACTION: Final[str] = "read"
 RESOURCE_UPDATE_ACTION: Final[str] = "update"
@@ -256,6 +259,7 @@ async def setup_env(
         await assert_gone(permit.api.resources.get, resource_key, "resource")
 
 
+@pytest.mark.e2e
 async def test_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
@@ -468,6 +472,7 @@ async def test_permission_check_e2e(
         await assert_gone(permit.api.users.get, user_key, "user")
 
 
+@pytest.mark.e2e
 async def test_local_facts_uploader_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],

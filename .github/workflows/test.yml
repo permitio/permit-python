@@ -289,6 +289,8 @@ jobs:
           print(f"{wheels[0]} ships permit/py.typed and permit/_sync_types.pyi")
           PY
 
+      # Every test that needs credentials, the Permit API or a PDP is marked
+      # e2e (see pytest.ini), so `-m "not e2e"` selects everything else.
       # The filter fails the run on Python 3.14's deprecation of
       # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
       # It is deliberately narrow: a blanket error::DeprecationWarning would
@@ -296,6 +298,5 @@ jobs:
       # deprecated PermitException on purpose.
       - name: Offline tests
         run: |
-          python -m pytest -q \
-            -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning" \
-            tests/test_offline_regressions.py tests/test_fix_*.py tests/test_typing_surface.py
+          python -m pytest -q -m "not e2e" \
+            -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"

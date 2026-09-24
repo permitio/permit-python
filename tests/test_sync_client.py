@@ -6,6 +6,8 @@ import pytest
 from permit import PermitConfig, UserCreate
 from permit.sync import Permit
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest.fixture()
 def permit(permit_config: PermitConfig) -> Permit:

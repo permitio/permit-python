@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from loguru import logger
 
 from permit import Permit, RoleCreate, TenantCreate, UserCreate
@@ -9,6 +10,8 @@ from permit.api.models import (
     RoleAssignmentCreate,
 )
 from permit.exceptions import PermitAlreadyExistsError
+
+pytestmark = pytest.mark.e2e
 
 # Schema ----------------------------------------------------------------
 EDITOR = "editor"

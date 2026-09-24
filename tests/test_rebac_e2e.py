@@ -25,6 +25,8 @@ from permit.api.models import (
 from permit.exceptions import PermitApiError
 from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
+pytestmark = pytest.mark.e2e
+
 
 @dataclass
 class ShortDerivation:

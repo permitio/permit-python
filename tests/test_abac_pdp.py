@@ -24,13 +24,16 @@ CLOUD_PDP_URL = "https://cloudpdp.api.permit.io"
 # not.
 CONFIGURED_PDP_URL = os.getenv("PDP_URL", CLOUD_PDP_URL)
 
-pytestmark = pytest.mark.skipif(
-    not CONFIGURED_PDP_URL.startswith(CLOUD_PDP_URL),
-    reason=(
-        f"cloud-PDP-only test: permit_cloud is configured against {CONFIGURED_PDP_URL}, "
-        f"not {CLOUD_PDP_URL}. Unset PDP_URL (or point it at the cloud PDP) to run these."
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skipif(
+        not CONFIGURED_PDP_URL.startswith(CLOUD_PDP_URL),
+        reason=(
+            f"cloud-PDP-only test: permit_cloud is configured against {CONFIGURED_PDP_URL}, "
+            f"not {CLOUD_PDP_URL}. Unset PDP_URL (or point it at the cloud PDP) to run these."
+        ),
     ),
-)
+]
 
 
 def abac_user(user: UserCreate):

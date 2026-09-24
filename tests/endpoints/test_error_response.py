@@ -4,6 +4,8 @@ from loguru import logger
 from permit import Permit
 from permit.exceptions import PermitApiError, PermitConnectionError
 
+pytestmark = pytest.mark.e2e
+
 
 async def test_api_error(permit: Permit):
     try:

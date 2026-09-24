@@ -22,6 +22,8 @@ from permit.api.models import (
 )
 from permit.exceptions import PermitApiError
 
+pytestmark = pytest.mark.e2e
+
 
 def print_break():
     print("\n\n ----------- \n\n")  # noqa: T201

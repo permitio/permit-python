@@ -21,6 +21,8 @@ from permit.exceptions import PermitApiError, PermitConnectionError
 
 from .utils import handle_api_error, handle_cleanup_error, unique_key
 
+pytestmark = pytest.mark.e2e
+
 
 def print_break():
     print("\n\n ----------- \n\n")  # noqa: T201

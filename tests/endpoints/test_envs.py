@@ -16,6 +16,8 @@ from permit.api.models import (
 from permit.config import PermitConfig
 from permit.exceptions import PermitApiError, PermitConnectionError, PermitContextError
 
+pytestmark = pytest.mark.e2e
+
 CREATED_PROJECTS = [ProjectCreate(key="test-python-proj", name="New Python Project")]
 CREATED_ENVIRONMENTS = [
     EnvironmentCreate(key="my-python-env", name="My Python Env"),

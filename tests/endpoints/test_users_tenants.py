@@ -7,6 +7,8 @@ from permit import Permit, RoleCreate, TenantCreate, UserCreate
 from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
 from permit.exceptions import PermitApiError
 
+pytestmark = pytest.mark.e2e
+
 USER_A = UserCreate(
     key=str(uuid.uuid4()),
     email="asaf@permit.io",
