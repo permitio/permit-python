@@ -14,7 +14,9 @@ help:
 # keyword default as optional, so a positional one makes every optional field
 # required to them. The generator emits plain `from pydantic import ...`, so after
 # regenerating, re-apply the hand-written pydantic import header at the top of
-# permit/api/models.py (the TYPE_CHECKING / PYDANTIC_VERSION branches).
+# permit/api/models.py (the TYPE_CHECKING / _PYDANTIC_VERSION branches). Keep
+# PYDANTIC_VERSION imported under the private _PYDANTIC_VERSION alias there, or
+# permit/__init__.py's `from permit.api.models import *` exports it.
 generate-models:
 	datamodel-codegen --url https://api.permit.io/v2/openapi.json \
 		--input-file-type openapi \
