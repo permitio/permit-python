@@ -11,7 +11,8 @@ name: Schema Drift
 # generate-models in the Makefile says how to run the check locally.
 #
 # A scheduled run that finds new drift, or that cannot run, posts the counts and
-# a link to Slack; the differences themselves are in the job summary.
+# a link to Slack, and so does every manual run; the differences themselves are
+# in the job summary.
 #
 # NOT a required status check, on purpose. The pull_request trigger below is
 # path-filtered, and GitHub leaves a required check that never runs pending
@@ -42,6 +43,9 @@ jobs:
   drift:
     name: Schema Drift
     runs-on: ubuntu-24.04
+    # The script gives the schema download three 60s attempts and the generator
+    # 10 minutes; this also bounds the setup steps.
+    timeout-minutes: 20
     outputs:
       exit: ${{ steps.check.outputs.exit }}
       failing: ${{ steps.check.outputs.failing }}
@@ -86,14 +90,21 @@ jobs:
           fi
           exit "${check_exit}"
 
-  # Scheduled runs only: a scheduled run has no PR to report on, so Slack is
-  # the only channel that reaches a person. The message carries counts and a
-  # link; the differences themselves are in the job summary.
+  # A scheduled run has no PR to report on, so Slack is the only channel that
+  # reaches a person; it posts only when the run did not pass. A manual run
+  # always posts, pass or fail, so the Slack path can be tried on demand. The
+  # message carries counts and a link; the differences themselves are in the
+  # job summary.
   notify:
     name: Notify Slack
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs: [drift]
-    if: always() && github.event_name == 'schedule' && needs.drift.result != 'success'
+    if: |
+      always() && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'schedule' && needs.drift.result != 'success')
+      )
     env:
       # The secrets context is not available in a job-level `if:`, so the
       # webhook is read into the environment here and the steps below gate on
@@ -127,7 +138,10 @@ jobs:
           set -uo pipefail
           {
             echo "text<<SLACK_EOF"
-            if [ "${CHECK_EXIT:-}" = "1" ]; then
+            if [ "${CHECK_EXIT:-}" = "0" ]; then
+              echo ":white_check_mark: *${REPO} - API schema drift check passed*"
+              echo ">permit/api/models.py matches the API schema apart from allowlisted differences. ${INFORMATIONAL:-0} new informational."
+            elif [ "${CHECK_EXIT:-}" = "1" ]; then
               echo ":warning: *${REPO} - API schema drift*"
               echo ">permit/api/models.py differs from the API schema: ${FAILING:-0} new failing difference(s), ${STALE:-0} stale allowlist entry(ies), ${INFORMATIONAL:-0} new informational."
             else
