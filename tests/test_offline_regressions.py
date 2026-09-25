@@ -6,6 +6,7 @@ instance, and the SDK context is pre-populated so no API-key scope lookup is
 issued.
 """
 
+import ast
 import inspect
 import warnings
 from datetime import datetime, timezone
@@ -22,11 +23,26 @@ from pydantic.v1 import ValidationError
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
+import permit
 from permit import Permit, Resource, User
 from permit.api.context import ApiKeyAccessLevel
 from permit.api.elements import ElementsApi
-from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove, UserCreate
+from permit.api.environments import EnvironmentsApi
+from permit.api.models import (
+    EnvironmentCopy,
+    EnvironmentCopyConflictStrategy,
+    EnvironmentCopyTarget,
+    EnvironmentCreate,
+    ProjectCreate,
+    RoleAssignmentCreate,
+    RoleAssignmentRemove,
+    UserCreate,
+    UserUpdate,
+)
+from permit.api.projects import ProjectsApi
 from permit.api.resource_instances import ResourceInstancesApi
+from permit.api.tenants import TenantsApi
+from permit.api.user_invites import UserInvitesApi
 from permit.api.users import UsersApi
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import CheckQuery
@@ -70,6 +86,19 @@ def user_read_payload(key: str) -> dict:
         "organization_id": str(uuid4()),
         "project_id": str(uuid4()),
         "environment_id": str(uuid4()),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def environment_read_payload(key: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "key": key,
+        "name": key,
+        "id": str(uuid4()),
+        "organization_id": str(uuid4()),
+        "project_id": str(uuid4()),
         "created_at": now,
         "updated_at": now,
     }
@@ -223,6 +252,15 @@ async def test_users_assign_role_keeps_explicitly_provided_resource_instance(
     }
 
 
+async def test_users_update_sends_a_field_set_to_none_as_null(httpserver: HTTPServer, config: PermitConfig):
+    """Setting a field to None is how a caller clears it, so the null must reach the API."""
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="PATCH").respond_with_json(user_read_payload("user-1"))
+
+    await UsersApi(config).update("user-1", UserUpdate(first_name=None))
+
+    assert single_request(httpserver).get_json() == {"first_name": None}
+
+
 @pytest.mark.parametrize(
     ("permitted", "required"),
     [
@@ -259,6 +297,16 @@ async def test_ensure_access_level_rejects_a_key_too_narrow_for_the_endpoint(
 
     with pytest.raises(PermitContextError):
         await api._ensure_access_level(required)
+
+
+async def test_projects_create_with_an_environment_key_is_refused_before_sending(
+    httpserver: HTTPServer, config: PermitConfig
+):
+    """Creating a project needs an organization key. An environment key must fail here, not at the API."""
+    with pytest.raises(PermitContextError):
+        await ProjectsApi(config).create(ProjectCreate(key="project-1", name="Project 1"))
+
+    assert httpserver.log == []
 
 
 def test_sync_pdp_api_initializes_the_base_client_state(config: PermitConfig):
@@ -319,6 +367,54 @@ async def test_elements_login_as_passes_string_ids_through(httpserver: HTTPServe
     await ElementsApi(config).login_as("user-1", "tenant-1")
 
     assert single_request(httpserver).get_json() == {"user_id": "user-1", "tenant_id": "tenant-1"}
+
+
+async def test_tenants_delete_tenant_user_targets_the_tenant_membership(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/tenants/tenant-1/users/user-1", method="DELETE").respond_with_data(
+        "", status=204
+    )
+
+    await TenantsApi(config).delete_tenant_user("tenant-1", "user-1")
+
+    request = single_request(httpserver)
+    assert (request.method, request.path, request.get_data()) == (
+        "DELETE",
+        f"{FACTS}/tenants/tenant-1/users/user-1",
+        b"",
+    )
+
+
+async def test_environments_copy_sends_the_copy_request_as_given(httpserver: HTTPServer, config: PermitConfig):
+    config.api_context._permitted_access_level = ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY
+    httpserver.expect_request("/v2/projects/project-1/envs/env-1/copy", method="POST").respond_with_json(
+        environment_read_payload("env-copy")
+    )
+
+    await EnvironmentsApi(config).copy(
+        "project-1",
+        "env-1",
+        EnvironmentCopy(
+            target_env=EnvironmentCopyTarget(new=EnvironmentCreate(key="env-copy", name="Env copy")),
+            conflict_strategy=EnvironmentCopyConflictStrategy.fail,
+        ),
+    )
+
+    assert single_request(httpserver).get_json() == {
+        "target_env": {"new": {"key": "env-copy", "name": "Env copy"}},
+        "conflict_strategy": "fail",
+    }
+
+
+async def test_user_invites_get_raises_not_found_for_an_unknown_invite(httpserver: HTTPServer, config: PermitConfig):
+    invite_id = str(uuid4())
+    httpserver.expect_request(f"{FACTS}/user_invites/{invite_id}", method="GET").respond_with_json(
+        {"detail": "not found"}, status=404
+    )
+
+    with pytest.raises(PermitApiError) as exc_info:
+        await UserInvitesApi(config).get(invite_id)
+
+    assert exc_info.value.status_code == 404
 
 
 def test_context_store_exposes_no_silently_ignored_transform_api():
@@ -544,3 +640,58 @@ def test_pydantic_version_rejects_a_component_without_a_leading_number():
 
 def test_pydantic_version_constant_is_the_installed_version():
     assert pydantic_version._parse(pydantic.__version__) == pydantic_version.PYDANTIC_VERSION
+
+
+PERMIT_PACKAGE = Path(permit.__file__).resolve().parent
+# Reads pydantic.VERSION, which both majors define, to choose every other module's branch.
+PYDANTIC_VERSION_PROBE = PERMIT_PACKAGE / "utils" / "pydantic_version.py"
+PYDANTIC_1_BRANCH_TESTS = {"PYDANTIC_VERSION < (2, 0)", "_PYDANTIC_VERSION < (2, 0)"}
+
+
+def unguarded_pydantic_imports(node: ast.AST, *, in_pydantic_1_branch: bool = False) -> List[int]:
+    """Return the lines that import the top-level ``pydantic`` namespace outside a pydantic 1 branch."""
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        modules = [node.module] if isinstance(node, ast.ImportFrom) else [alias.name for alias in node.names]
+        return [node.lineno] if "pydantic" in modules and not in_pydantic_1_branch else []
+    if isinstance(node, ast.If):
+        body_branch = in_pydantic_1_branch or ast.unparse(node.test) in PYDANTIC_1_BRANCH_TESTS
+        branches = [(node.body, body_branch), (node.orelse, in_pydantic_1_branch)]
+    else:
+        branches = [(list(ast.iter_child_nodes(node)), in_pydantic_1_branch)]
+    return [
+        line
+        for children, branch in branches
+        for child in children
+        for line in unguarded_pydantic_imports(child, in_pydantic_1_branch=branch)
+    ]
+
+
+def test_sdk_imports_the_pydantic_namespace_only_in_its_pydantic_1_branches():
+    """Under pydantic 2 the SDK's models are pydantic.v1 models. A top-level ``pydantic`` import
+    beside them mixes the two APIs and fails under pydantic 2 alone: parse_obj_as on a v1 model
+    raises TypeError."""
+    offenders = {}
+    for path in sorted(PERMIT_PACKAGE.rglob("*.py")):
+        lines = unguarded_pydantic_imports(ast.parse(path.read_text(encoding="utf-8")))
+        if lines and path != PYDANTIC_VERSION_PROBE:
+            offenders[path.relative_to(PERMIT_PACKAGE.parent).as_posix()] = lines
+
+    assert offenders == {}
+
+
+def test_the_pydantic_import_scan_tells_the_branches_apart():
+    source = "\n".join(
+        [
+            "from pydantic.v1 import BaseModel",
+            "if TYPE_CHECKING:",
+            "    from pydantic.v1 import Field",
+            "elif PYDANTIC_VERSION < (2, 0):",
+            "    from pydantic import Field",
+            "else:",
+            "    from pydantic import validator",
+            "def lazy():",
+            "    import pydantic",
+        ]
+    )
+
+    assert unguarded_pydantic_imports(ast.parse(source)) == [7, 9]

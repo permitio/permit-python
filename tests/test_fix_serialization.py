@@ -3,18 +3,22 @@
 These drive the real aiohttp client against a local pytest_httpserver and assert on the
 exact JSON body that reaches the wire. No API key, no PDP and no network are involved.
 
-Two behaviours are pinned here:
+Three behaviours are pinned here:
 
 1. Raw ``dict``/``list`` bodies go through the same encoder as pydantic models, so a
    nested ``datetime``/``UUID``/``Enum``/``Decimal`` no longer blows up inside aiohttp.
 2. Only ``exclude_unset`` is applied. A field that was never set is omitted; a field
    explicitly set to ``None`` is transmitted as JSON ``null`` so the API can tell
    "leave this alone" apart from "clear this value".
+3. Every value a caller sets reaches the wire with its JSON type, under either
+   pydantic major.
 """
 
 import datetime
+import json
 from decimal import Decimal
 from enum import Enum
+from typing import Any, Dict, List
 from uuid import UUID
 
 import pytest
@@ -23,9 +27,17 @@ from werkzeug.wrappers import Response
 
 from permit.api.base import SimpleHttpClient
 from permit.api.models import (
+    AttributeType,
+    ConditionSetCreate,
+    ConditionSetType,
+    ElementsUserInviteCreate,
+    ResourceAttributeCreate,
+    ResourceInstanceCreate,
     ResourceInstanceUpdate,
     RoleAssignmentCreate,
+    TenantCreate,
     UserCreate,
+    UserInviteStatus,
     UserUpdate,
 )
 from permit.utils.pydantic_version import PYDANTIC_VERSION
@@ -206,3 +218,128 @@ async def test_role_assignment_body_unchanged(client: SimpleHttpClient, captured
     await client.post("/echo", model=Ack, json=assignment.copy(exclude={"user"}))
 
     assert captured == [{"role": "admin", "tenant": "stripe-inc"}]
+
+
+UNICODE_NAME = "Ünïcødé ✓ 名前 🔐 مرحبا"
+MIXED_TEXT = "emoji ✅🚀 · combining e\u0301 vs \u00e9 · rtl \u202eabc\u202c · tab\tend"
+
+
+def hostile_attributes() -> Dict[str, Any]:
+    """Legal attribute values a lossy encoder would change: a bool beside ints, a whole float,
+    unicode with bidi controls, keys with separators, empty containers, nesting and nulls."""
+    return {
+        "unicode": UNICODE_NAME,
+        "mixed": MIXED_TEXT,
+        "empty_string": "",
+        "true": True,
+        "false": False,
+        "zero": 0,
+        "one": 1,
+        "negative": -42,
+        "max_safe_int": 9007199254740991,
+        "pi": 3.141592653589793,
+        "whole_float": 2.0,
+        "iso_datetime": "2024-01-31T23:59:59.123456+05:30",
+        "empty_object": {},
+        "empty_list": [],
+        "mixed_list": [1, "two", 3.0, True, None],
+        "key.with.dots": "dots",
+        "key-with-dashes": "dashes",
+        "cleared": None,
+        "nested": {
+            "level2": {"level3": [{"flag": False, "cleared": None}, {"name": UNICODE_NAME, "count": 1}]},
+            "matrix": [[1, 2], [3, 4]],
+        },
+    }
+
+
+def user_body() -> Dict[str, Any]:
+    return {
+        "key": "user-1",
+        "email": "user-1@example.com",
+        "first_name": UNICODE_NAME,
+        "last_name": "O'Brien-Núñez 🙂",
+        "attributes": hostile_attributes(),
+    }
+
+
+def tenant_body() -> Dict[str, Any]:
+    return {"key": "tenant-1", "name": UNICODE_NAME, "description": MIXED_TEXT, "attributes": hostile_attributes()}
+
+
+def resource_instance_body() -> Dict[str, Any]:
+    return {"key": "doc-1", "resource": "document", "tenant": "tenant-1", "attributes": hostile_attributes()}
+
+
+# Each model is built from its own copy of the payload, so a serializer that edited the
+# caller's dicts in place could not also edit the expected body.
+WIRE_BODIES: List[Any] = [
+    pytest.param(UserCreate(**user_body()), user_body(), id="UserCreate"),
+    pytest.param(TenantCreate(**tenant_body()), tenant_body(), id="TenantCreate"),
+    pytest.param(
+        ResourceInstanceCreate(**resource_instance_body()), resource_instance_body(), id="ResourceInstanceCreate"
+    ),
+    pytest.param(
+        ResourceAttributeCreate(key="level", type=AttributeType.number, description=MIXED_TEXT),
+        {"key": "level", "type": "number", "description": MIXED_TEXT},
+        id="ResourceAttributeCreate",
+    ),
+    pytest.param(
+        ConditionSetCreate(
+            key="gold-users",
+            name=UNICODE_NAME,
+            type=ConditionSetType.userset,
+            conditions={
+                "allOf": [{"user.attributes.tier": {"equals": "gold"}}, {"user.attributes.true": {"equals": True}}]
+            },
+        ),
+        {
+            "key": "gold-users",
+            "name": UNICODE_NAME,
+            "type": "userset",
+            "conditions": {
+                "allOf": [{"user.attributes.tier": {"equals": "gold"}}, {"user.attributes.true": {"equals": True}}]
+            },
+        },
+        id="ConditionSetCreate",
+    ),
+    pytest.param(
+        ElementsUserInviteCreate(
+            key="invite@example.com",
+            status=UserInviteStatus.pending,
+            email="invite@example.com",
+            first_name="Ada",
+            last_name=UNICODE_NAME,
+            role_id=FIXED_UUID,
+            tenant_id=FIXED_UUID,
+            resource_instance_id=FIXED_UUID,
+        ),
+        {
+            "key": "invite@example.com",
+            "status": "pending",
+            "email": "invite@example.com",
+            "first_name": "Ada",
+            "last_name": UNICODE_NAME,
+            "role_id": "11111111-2222-3333-4444-555555555555",
+            "tenant_id": "11111111-2222-3333-4444-555555555555",
+            "resource_instance_id": "11111111-2222-3333-4444-555555555555",
+        },
+        id="ElementsUserInviteCreate",
+    ),
+]
+
+
+@pytest.mark.parametrize(("body", "expected"), WIRE_BODIES)
+async def test_request_body_reaches_the_wire_exactly_as_given(
+    client: SimpleHttpClient, captured: list, body: Any, expected: Dict[str, Any]
+):
+    """Every value arrives with its JSON type and every key survives, nulls included.
+
+    Each expected body is a literal and CI runs this file under both pydantic majors, so a
+    major that serialized any of these bodies differently would fail here.
+    """
+    await client.post("/echo", model=Ack, json=body)
+
+    assert captured == [expected]
+    # == takes True for 1 and 2.0 for 2. Their JSON text tells them apart.
+    assert json.dumps(captured, sort_keys=True) == json.dumps([expected], sort_keys=True)

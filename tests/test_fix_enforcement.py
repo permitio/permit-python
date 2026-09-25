@@ -209,6 +209,41 @@ async def test_filter_objects_keeps_per_resource_context_on_the_resource(httpser
     assert entry["resource"]["context"] == {"branch": "main", "tenant": "t1"}
 
 
+USER_PERMISSIONS = {
+    "document:doc-1": {
+        "tenant": {"key": "t1", "attributes": {}},
+        "resource": {"key": "doc-1", "type": "document", "attributes": {"owner": "user_a"}},
+        "permissions": ["document:read", "document:update"],
+    }
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "pdp_response",
+    [USER_PERMISSIONS, {"result": {"permissions": USER_PERMISSIONS}}],
+    ids=["bare", "result.permissions"],
+)
+async def test_get_user_permissions_unwraps_both_pdp_response_shapes(
+    httpserver: HTTPServer, enforcer: Enforcer, pdp_response: Dict[str, Any]
+):
+    """The PDP answers with the permissions map itself or with it under ``result.permissions``."""
+    bodies: List[Any] = []
+    httpserver.expect_request("/user-permissions", method="POST").respond_with_handler(_recorder(bodies, pdp_response))
+
+    result = await enforcer.get_user_permissions("user_a", ["t1"], ["document:doc-1"], ["document"])
+
+    assert result == USER_PERMISSIONS
+    assert bodies == [
+        {
+            "user": {"key": "user_a"},
+            "tenants": ["t1"],
+            "resources": ["document:doc-1"],
+            "resource_types": ["document"],
+        }
+    ]
+
+
 # --- bug 3: snake_case user fields silently dropped --------------------------
 
 
