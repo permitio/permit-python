@@ -47,6 +47,9 @@ class CallSite(NamedTuple):
         The module name and the once-per-line registry come from the calling module, as
         `warnings.warn` takes them, so filters that match on the module (such as Python's
         default `default::DeprecationWarning:__main__`) and the `default` action behave the same.
+        Like `warnings.warn`, it does not pass the module's globals on: from Python 3.12, with
+        them `warn_explicit` asks the module's loader for the source line, which issues a second
+        warning for a script's `__main__` and raises for code run by `exec` or `runpy`.
 
         Args:
             message: The warning's text.
@@ -59,7 +62,6 @@ class CallSite(NamedTuple):
             self.lineno,
             module=self.module_globals.get("__name__", "<string>"),
             registry=self.module_globals.setdefault("__warningregistry__", {}),
-            module_globals=self.module_globals,
         )
 
 

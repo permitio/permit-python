@@ -10,6 +10,7 @@ replacement sends and return what it returns. Every request is served by a local
 import asyncio
 import copy
 import inspect
+import json
 import os
 import subprocess
 import sys
@@ -427,34 +428,50 @@ TESTS_PARENT = Path(__file__).resolve().parents[1]
 
 SCRIPT = """\
 import asyncio
+import json
 import sys
+import warnings
 
 from permit import Permit
 from permit.sync import Permit as SyncPermit
 from tests.utils import offline_config
 
 config = offline_config(sys.argv[1])
-SyncPermit(config).api.get_user("user-1")
 
 
-async def main():
+def call_blocking():
+    SyncPermit(config).api.get_user("user-1")
+
+
+async def call_awaiting():
     await Permit(config).api.get_user("user-1")
 
 
-asyncio.run(main())
+# Under the interpreter's warning filters.
+call_blocking()
+asyncio.run(call_awaiting())
+
+# With every warning recorded, whatever issued it.
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    call_blocking()
+    asyncio.run(call_awaiting())
+print(json.dumps([[w.category.__name__, str(w.message), w.filename, w.lineno] for w in caught]))
 """
 
 SCRIPT_CALL_LINES = [
-    SCRIPT.splitlines().index('SyncPermit(config).api.get_user("user-1")') + 1,
+    SCRIPT.splitlines().index('    SyncPermit(config).api.get_user("user-1")') + 1,
     SCRIPT.splitlines().index('    await Permit(config).api.get_user("user-1")') + 1,
 ]
 
 
-def test_a_script_shows_either_clients_warning_by_default(httpserver: HTTPServer, tmp_path: Path):
-    """Python's default filters show a DeprecationWarning only when it points at ``__main__``.
+def test_a_script_gets_one_warning_per_call_at_the_call(httpserver: HTTPServer, tmp_path: Path):
+    """A script runs as ``__main__``, which has no ``__spec__``, and it is the one module
+    Python's default filters show DeprecationWarnings for.
 
-    The script runs under those filters: no ``-W`` option, no PYTHONWARNINGS and no dev
-    mode. The call through each client must be reported once, at its own line.
+    The script calls the method through each client twice. Under the default filters (no
+    ``-W`` option, PYTHONWARNINGS or dev mode) each call's warning must be printed once, at
+    its line. With every warning recorded, those two warnings must be all there is.
     """
     [case] = [case for case in CASES if case.facade.path == "permit.api.get_user"]
     http_method, path = case.request
@@ -477,4 +494,7 @@ def test_a_script_shows_either_clients_warning_by_default(httpserver: HTTPServer
     message = removal_warning(case)
     assert [line for line in result.stderr.splitlines() if message in line] == [
         f"{script}:{line}: DeprecationWarning: {message}" for line in SCRIPT_CALL_LINES
+    ]
+    assert json.loads(result.stdout) == [
+        ["DeprecationWarning", message, str(script), line] for line in SCRIPT_CALL_LINES
     ]

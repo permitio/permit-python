@@ -8,10 +8,12 @@ so no API key and no ``/v2/api-key/scope`` lookup are needed.
 import _thread
 import asyncio
 import inspect
+import runpy
 import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable, List, Tuple
 from uuid import uuid4
 
@@ -237,6 +239,26 @@ def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would()
         assert ran.wait(10)
 
     assert deprecation_sites(caught) == [("<sys>", 0)]
+
+
+def test_a_blocking_call_from_code_with_no_module_spec_warns_once(tmp_path: Path):
+    """runpy.run_path() runs a file whose globals hold neither ``__spec__`` nor ``__loader__``."""
+
+    class Api(metaclass=SyncClass):
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> None:
+            pass
+
+    script = tmp_path / "script.py"
+    script.write_text("api.old_fetch()\n")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        runpy.run_path(str(script), init_globals={"api": Api()})
+
+    assert [(w.category, str(w.message), w.filename, w.lineno) for w in caught] == [
+        (DeprecationWarning, "old_fetch() is deprecated", str(script), 1)
+    ]
 
 
 # --- the sync Permit facade ------------------------------------------------
