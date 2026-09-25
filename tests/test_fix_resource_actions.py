@@ -9,16 +9,13 @@ body) and the model the response parses into. Every request is served by a local
 
 import asyncio
 import inspect
-import json
 from operator import attrgetter
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug import Request
 
 from permit import Permit
-from permit.api.context import ApiContext
 from permit.api.models import (
     ResourceActionCreate,
     ResourceActionGroupCreate,
@@ -31,11 +28,9 @@ from permit.api.resource_action_groups import ResourceActionGroupsApi
 from permit.api.resource_actions import ResourceActionsApi
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
+from tests.utils import SCHEMA, Call, call, sent
 
-ORG = "test-org"
-PROJECT = "test-project"
-ENVIRONMENT = "test-env"
-RESOURCES = f"/v2/schema/{PROJECT}/{ENVIRONMENT}/resources"
+RESOURCES = f"{SCHEMA}/resources"
 TIMESTAMP = "2024-01-01T00:00:00+00:00"
 RESOURCE_ID = "00000000-0000-4000-8000-000000000005"
 ACTION_ID = "00000000-0000-4000-8000-000000000006"
@@ -64,18 +59,6 @@ def action(key: str) -> Dict[str, Any]:
 
 def group(key: str) -> Dict[str, Any]:
     return {**common(key, GROUP_ID), "actions": ["read", "write"]}
-
-
-class Call(NamedTuple):
-    """A method, by the dotted path a user writes, and the arguments to call it with."""
-
-    path: str
-    args: Tuple[Any, ...]
-    kwargs: Dict[str, Any]
-
-
-def call(path: str, *args: Any, **kwargs: Any) -> Call:
-    return Call(path, args, kwargs)
 
 
 class Case(NamedTuple):
@@ -285,25 +268,6 @@ CASES = {
 }
 
 
-def offline_config(base_url: str) -> PermitConfig:
-    """Build a PermitConfig whose context is already resolved to environment level."""
-    api_context = ApiContext()
-    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
-    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
-    return PermitConfig(token="test-token", api_url=base_url, pdp=base_url, api_context=api_context)
-
-
-def sent(request: Request) -> Dict[str, Any]:
-    """What a request put on the wire."""
-    body = request.get_data()
-    return {
-        "method": request.method,
-        "path": request.path,
-        "query": sorted(request.args.items(multi=True)),
-        "body": json.loads(body) if body else None,
-    }
-
-
 def public_methods(api: type) -> set:
     return {name for name, value in vars(api).items() if not name.startswith("_") and callable(value)}
 
@@ -319,14 +283,13 @@ def test_every_public_method_has_a_case():
 
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
-def test_request_and_response(httpserver: HTTPServer, case: Case, flavour: str):
+def test_request_and_response(httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str):
     handler = httpserver.expect_request(case.path, method=case.method)
     if case.response is None:
         handler.respond_with_data("", status=204)
     else:
         handler.respond_with_json(case.response)
 
-    config = offline_config(httpserver.url_for("").rstrip("/"))
     permit = Permit(config) if flavour == "async" else SyncPermit(config)
     method = attrgetter(case.call.path.removeprefix("permit."))(permit)
     result = method(*case.call.args, **case.call.kwargs)

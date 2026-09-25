@@ -9,17 +9,14 @@ pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 import asyncio
 import copy
 import inspect
-import json
 import warnings
 from operator import attrgetter
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug import Request
 
 from permit import Permit
-from permit.api.context import ApiContext
 from permit.api.deprecated import DeprecatedApi
 from permit.api.elements import UserLoginAsResponse
 from permit.api.models import (
@@ -38,12 +35,8 @@ from permit.api.models import (
 )
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
+from tests.utils import FACTS, SCHEMA, Call, call, sent
 
-ORG = "test-org"
-PROJECT = "test-project"
-ENVIRONMENT = "test-env"
-FACTS = f"/v2/facts/{PROJECT}/{ENVIRONMENT}"
-SCHEMA = f"/v2/schema/{PROJECT}/{ENVIRONMENT}"
 TIMESTAMP = "2024-01-01T00:00:00+00:00"
 IDS = {
     "id": "00000000-0000-4000-8000-000000000001",
@@ -90,18 +83,6 @@ def assignment() -> Dict[str, Any]:
 
 
 LOGIN = {"redirect_url": "https://app.example.com/login?token=abc", "token": "abc"}
-
-
-class Call(NamedTuple):
-    """A method, by the dotted path a user writes, and the arguments to call it with."""
-
-    path: str
-    args: Tuple[Any, ...]
-    kwargs: Dict[str, Any]
-
-
-def call(path: str, *args: Any, **kwargs: Any) -> Call:
-    return Call(path, args, kwargs)
 
 
 class FacadeCase(NamedTuple):
@@ -329,14 +310,6 @@ CASES = [
 ]
 
 
-def offline_config(base_url: str) -> PermitConfig:
-    """Build a PermitConfig whose context is already resolved to environment level."""
-    api_context = ApiContext()
-    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
-    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
-    return PermitConfig(token="test-token", api_url=base_url, pdp=base_url, api_context=api_context)
-
-
 def removal_warning(case: FacadeCase) -> str:
     return (
         f"{case.facade.path}() is deprecated and will be removed in permit 4.0; use {case.replacement.path}() instead."
@@ -363,17 +336,6 @@ def case_id(case: FacadeCase) -> str:
     return name
 
 
-def sent(request: Request) -> Dict[str, Any]:
-    """What a request put on the wire, in a form two requests can be compared by."""
-    body = request.get_data()
-    return {
-        "method": request.method,
-        "path": request.path,
-        "query": sorted(request.args.items(multi=True)),
-        "body": json.loads(body) if body else None,
-    }
-
-
 def assert_parsed(result: Any, case: FacadeCase) -> None:
     if case.model is None:
         assert result is None
@@ -394,7 +356,9 @@ def test_the_table_covers_every_deprecated_method():
 
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES, ids=[case_id(case) for case in CASES])
-def test_deprecated_method_warns_and_matches_its_replacement(httpserver: HTTPServer, case: FacadeCase, flavour: str):
+def test_deprecated_method_warns_and_matches_its_replacement(
+    httpserver: HTTPServer, config: PermitConfig, case: FacadeCase, flavour: str
+):
     http_method, path = case.request
     handler = httpserver.expect_request(path, method=http_method)
     if case.response is None:
@@ -402,7 +366,6 @@ def test_deprecated_method_warns_and_matches_its_replacement(httpserver: HTTPSer
     else:
         handler.respond_with_json(case.response)
 
-    config = offline_config(httpserver.url_for("").rstrip("/"))
     permit = Permit(config) if flavour == "async" else SyncPermit(config)
 
     def invoke(target: Call) -> Any:

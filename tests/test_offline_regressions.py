@@ -23,7 +23,7 @@ from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
 from permit import Permit, Resource, User
-from permit.api.context import ApiContext, ApiKeyAccessLevel
+from permit.api.context import ApiKeyAccessLevel
 from permit.api.elements import ElementsApi
 from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove, UserCreate
 from permit.api.resource_instances import ResourceInstancesApi
@@ -42,34 +42,7 @@ from permit.pdp_api.pdp_api_client import SyncPDPApi
 from permit.utils import pydantic_version
 from permit.utils.context import ContextStore
 from permit.utils.deprecation import deprecated
-
-ORG = "test-org"
-PROJECT = "test-project"
-ENVIRONMENT = "test-env"
-FACTS = f"/v2/facts/{PROJECT}/{ENVIRONMENT}"
-
-
-def offline_config(base_url: str, **overrides) -> PermitConfig:
-    """Build a PermitConfig whose context is already resolved to environment level.
-
-    This is the state the SDK holds after a successful ``/v2/api-key/scope``
-    lookup, so no method under test needs to perform one.
-    """
-    api_context = ApiContext()
-    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
-    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
-    return PermitConfig(
-        token="test-token",
-        api_url=base_url,
-        pdp=base_url,
-        api_context=api_context,
-        **overrides,
-    )
-
-
-@pytest.fixture
-def config(httpserver: HTTPServer) -> PermitConfig:
-    return offline_config(httpserver.url_for("").rstrip("/"))
+from tests.utils import FACTS
 
 
 def role_assignment_read_payload() -> dict:

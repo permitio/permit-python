@@ -9,42 +9,18 @@ import asyncio
 import inspect
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Callable
 from uuid import uuid4
 
 import pytest
 from pytest_httpserver import HTTPServer
 
-from permit.api.context import ApiContext
 from permit.api.sync_api_client import SyncPermitApiClient, SyncUsersApi
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import SyncEnforcer
 from permit.sync import Permit as SyncPermit
 from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass
-
-ORG = "test-org"
-PROJECT = "test-project"
-ENVIRONMENT = "test-env"
-FACTS = f"/v2/facts/{PROJECT}/{ENVIRONMENT}"
-
-
-def offline_config(base_url: str, **overrides: Any) -> PermitConfig:
-    """Build a PermitConfig whose context is already resolved to environment level."""
-    api_context = ApiContext()
-    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
-    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
-    return PermitConfig(
-        token="test-token",
-        api_url=base_url,
-        pdp=base_url,
-        api_context=api_context,
-        **overrides,
-    )
-
-
-@pytest.fixture
-def config(httpserver: HTTPServer) -> PermitConfig:
-    return offline_config(httpserver.url_for("").rstrip("/"))
+from tests.utils import FACTS, SCHEMA
 
 
 def sync_wrapper_depth(func: Callable) -> int:
@@ -168,7 +144,7 @@ def test_deprecated_facade_get_user_issues_a_request(httpserver: HTTPServer, con
 
 
 def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, config: PermitConfig):
-    httpserver.expect_oneshot_request(f"/v2/schema/{PROJECT}/{ENVIRONMENT}/roles", method="GET").respond_with_json([])
+    httpserver.expect_oneshot_request(f"{SCHEMA}/roles", method="GET").respond_with_json([])
 
     client = SyncPermitApiClient(config)
     with pytest.warns(DeprecationWarning):

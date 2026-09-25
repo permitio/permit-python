@@ -22,9 +22,9 @@ from typing import Any
 import pytest
 
 from permit import Permit as AsyncPermit
-from permit import PermitConfig
 from permit.sync import Permit as SyncPermit
 from permit.utils.sync import SyncClass, iscoroutine_func
+from tests.utils import offline_config
 
 Surface = dict[str, Any]
 
@@ -33,9 +33,8 @@ Surface = dict[str, Any]
 # pass without having looked. Lower it only when a sub-API is removed.
 API_SUB_API_COUNT = 17
 
-
-def offline_config() -> PermitConfig:
-    return PermitConfig(token="permit_key_offline", pdp="http://localhost:7766")
+# The walk only reads attributes, so nothing is ever sent here.
+NO_SERVER = "http://localhost:1"
 
 
 def public_names(obj: object) -> set[str]:
@@ -86,7 +85,7 @@ def is_async_api(obj: object) -> bool:
 
 @pytest.fixture(scope="module")
 def async_client() -> AsyncPermit:
-    return AsyncPermit(offline_config())
+    return AsyncPermit(offline_config(NO_SERVER))
 
 
 @pytest.fixture(scope="module")
@@ -96,7 +95,7 @@ def async_surface(async_client: AsyncPermit) -> Surface:
 
 @pytest.fixture(scope="module")
 def sync_surface() -> Surface:
-    return public_surface(SyncPermit(offline_config()))
+    return public_surface(SyncPermit(offline_config(NO_SERVER)))
 
 
 def test_the_walk_reaches_every_sub_api(async_client: AsyncPermit, async_surface: Surface):

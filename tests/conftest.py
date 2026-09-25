@@ -5,16 +5,25 @@ import random
 
 import pytest
 from loguru import logger
+from pytest_httpserver import HTTPServer
 
 from permit import Permit, PermitConfig
 from permit.api.base import SimpleHttpClient
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
+from tests.utils import offline_config
 
 # pytest_httpserver's `httpserver` fixture binds a free port chosen by the OS,
 # so parallel runs on one machine cannot collide. Tests reach it through
 # httpserver.url_for(), never a hardcoded port. Set PYTEST_HTTPSERVER_PORT to
 # pin one when debugging.
+
+
+@pytest.fixture
+def config(httpserver: HTTPServer) -> PermitConfig:
+    """An offline PermitConfig: the API and the PDP are both the local ``httpserver``."""
+    return offline_config(httpserver.url_for("").rstrip("/"))
+
 
 # The fixtures below need a real API key, the Permit API and a PDP. Every test
 # that uses them is marked e2e, which the offline CI job deselects.
