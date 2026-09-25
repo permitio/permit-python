@@ -11,12 +11,15 @@ Run with: python -m pytest .github/scripts/test_check_schema_drift.py
 
 from __future__ import annotations
 
+import http.client
+import io
 import json
 import re
 import shlex
 import subprocess
 import sys
 import textwrap
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -26,6 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import check_schema_drift  # noqa: E402
 from check_schema_drift import (  # noqa: E402
     GENERATOR_EXCLUDE_NEWER,
     GENERATOR_FLAGS,
@@ -34,6 +38,7 @@ from check_schema_drift import (  # noqa: E402
     DriftError,
     apply_allowlist,
     compare,
+    fetch_spec,
     load_allowlist,
     parse_models,
     render,
@@ -72,6 +77,10 @@ def differences(sdk: str, spec: str) -> dict[str, tuple[str, str]]:
     return {d.id: (d.sdk, d.spec) for d in found}
 
 
+def cli(*args: str | Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([sys.executable, str(SCRIPT), *map(str, args)], capture_output=True, text=True, check=False)
+
+
 def run(tmp_path: Path, sdk: str, spec: str, entries: list | None = None, *extra: str):
     sdk_path = tmp_path / "models.py"
     spec_path = tmp_path / "generated.py"
@@ -79,22 +88,7 @@ def run(tmp_path: Path, sdk: str, spec: str, entries: list | None = None, *extra
     sdk_path.write_text(sdk)
     spec_path.write_text(spec)
     allowlist.write_text(json.dumps({"entries": entries or []}))
-    return subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPT),
-            "--models",
-            str(sdk_path),
-            "--generated",
-            str(spec_path),
-            "--allowlist",
-            str(allowlist),
-            *extra,
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    return cli("--models", sdk_path, "--generated", spec_path, "--allowlist", allowlist, *extra)
 
 
 # --- CLI contract -------------------------------------------------------------
@@ -149,21 +143,7 @@ def test_missing_generated_file_exits_2(tmp_path: Path):
     allowlist.write_text('{"entries": []}')
     models = tmp_path / "models.py"
     models.write_text(module())
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPT),
-            "--models",
-            str(models),
-            "--generated",
-            str(tmp_path / "absent.py"),
-            "--allowlist",
-            str(allowlist),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    result = cli("--models", models, "--generated", tmp_path / "absent.py", "--allowlist", allowlist)
     assert result.returncode == 2
 
 
@@ -174,14 +154,83 @@ def test_spec_that_is_not_json_exits_2_before_generating(tmp_path: Path):
     allowlist.write_text('{"entries": []}')
     models = tmp_path / "models.py"
     models.write_text(module())
-    result = subprocess.run(
-        [sys.executable, str(SCRIPT), "--models", str(models), "--spec", str(spec), "--allowlist", str(allowlist)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    result = cli("--models", models, "--spec", spec, "--allowlist", allowlist)
     assert result.returncode == 2
     assert "not valid JSON" in result.stderr
+
+
+def test_an_unexpected_error_exits_2_not_1(tmp_path: Path):
+    # A models file that is not UTF-8 raises UnicodeDecodeError, not DriftError. Exit 1
+    # would read as drift with nothing listed.
+    summary = tmp_path / "summary.md"
+    run(tmp_path, module(), module())
+    (tmp_path / "models.py").write_bytes(b"\xff\xfe not utf-8")
+    result = cli(
+        "--models",
+        tmp_path / "models.py",
+        "--generated",
+        tmp_path / "generated.py",
+        "--allowlist",
+        tmp_path / "allowlist.json",
+        "--summary",
+        summary,
+    )
+    assert result.returncode == 2
+    assert "Traceback" in result.stderr
+    assert "UnicodeDecodeError" in result.stderr
+    assert "The check did not run" in summary.read_text()
+    assert "UnicodeDecodeError" in summary.read_text()
+
+
+SPEC_URL = "https://schema.test/openapi.json"
+
+
+class FlakyUrlopen:
+    """Stands in for urllib.request.urlopen: raises each of `failures` in turn, then serves `body`."""
+
+    def __init__(self, failures: list[Exception], body: bytes = b"{}"):
+        self.failures = failures
+        self.body = body
+        self.requests: list[tuple[str, float]] = []
+
+    def __call__(self, url: str, timeout: float) -> io.BytesIO:
+        self.requests.append((url, timeout))
+        if self.failures:
+            raise self.failures.pop(0)
+        return io.BytesIO(self.body)
+
+
+@pytest.fixture
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    pauses: list[float] = []
+    monkeypatch.setattr(check_schema_drift.time, "sleep", pauses.append)
+    return pauses
+
+
+def test_a_failed_schema_download_is_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]):
+    urlopen = FlakyUrlopen(
+        [urllib.error.URLError("connection reset"), http.client.IncompleteRead(b"{")], b'{"openapi": "3"}'
+    )
+    monkeypatch.setattr(check_schema_drift.urllib.request, "urlopen", urlopen)
+
+    spec = fetch_spec(SPEC_URL, tmp_path)
+
+    assert spec.read_text() == '{"openapi": "3"}'
+    assert urlopen.requests == [(SPEC_URL, 60)] * 3
+    assert sleeps == [5, 10]
+
+
+def test_a_schema_download_that_keeps_failing_is_a_drift_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]
+):
+    urlopen = FlakyUrlopen([urllib.error.URLError("down") for _ in range(3)])
+    monkeypatch.setattr(check_schema_drift.urllib.request, "urlopen", urlopen)
+
+    with pytest.raises(DriftError, match="in 3 attempts: <urlopen error down>"):
+        fetch_spec(SPEC_URL, tmp_path)
+
+    assert urlopen.requests == [(SPEC_URL, 60)] * 3
+    assert sleeps == [5, 10]
 
 
 # --- what counts as a difference ----------------------------------------------
@@ -401,20 +450,13 @@ def test_stale_entry_fails(tmp_path: Path):
 def test_invalid_allowlist_exits_2(tmp_path: Path, content: str, message: str):
     (tmp_path / "models.py").write_text(module())
     (tmp_path / "allowlist.json").write_text(content)
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPT),
-            "--models",
-            str(tmp_path / "models.py"),
-            "--generated",
-            str(tmp_path / "models.py"),
-            "--allowlist",
-            str(tmp_path / "allowlist.json"),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+    result = cli(
+        "--models",
+        tmp_path / "models.py",
+        "--generated",
+        tmp_path / "models.py",
+        "--allowlist",
+        tmp_path / "allowlist.json",
     )
     assert result.returncode == 2
     assert message in result.stderr

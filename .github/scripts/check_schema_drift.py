@@ -33,9 +33,10 @@ Contract (the workflow depends on it):
 
 * Exit 0: no new failing difference and no stale allowlist entry.
 * Exit 1: at least one new failing difference or stale allowlist entry.
-* Exit 2: the comparison did not run -- the schema could not be fetched, the
-  generator failed, a models file did not parse, or the allowlist is invalid. A run
-  that did not compare is never reported as clean.
+* Exit 2: the comparison did not run -- the schema could not be fetched (a failed
+  download is retried twice), the generator failed, a models file did not parse, the
+  allowlist is invalid, or any other error stopped it. A run that did not compare is
+  never reported as clean.
 * The markdown report goes to --summary (default stdout), diagnostics to stderr, and
   --github-output receives `failing=`, `informational=` and `stale=` counts.
 
@@ -46,10 +47,13 @@ from __future__ import annotations
 
 import argparse
 import ast
+import http.client
 import json
 import subprocess
 import sys
 import tempfile
+import time
+import traceback
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -79,6 +83,9 @@ GENERATOR_FLAGS = (
 )
 
 FETCH_TIMEOUT_S = 60
+# A first try and two retries, 5s and then 10s apart.
+FETCH_ATTEMPTS = 3
+FETCH_BACKOFF_S = 5
 GENERATE_TIMEOUT_S = 600
 
 FAILING_KINDS = frozenset(
@@ -503,15 +510,28 @@ def render(result: Result, compared_with: str) -> str:
 # --- inputs -------------------------------------------------------------------
 
 
+def _download(url: str, target: Path) -> None:
+    """Download url to target, retrying a failed attempt after a growing pause."""
+    for attempt in range(1, FETCH_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_S) as response:
+                target.write_bytes(response.read())
+            return
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
+            if attempt == FETCH_ATTEMPTS:
+                raise DriftError(
+                    f"could not fetch the API schema from {url} in {FETCH_ATTEMPTS} attempts: {exc}"
+                ) from exc
+            pause = FETCH_BACKOFF_S * attempt
+            print(f"fetching the API schema failed ({exc}); retrying in {pause}s", file=sys.stderr)
+            time.sleep(pause)
+
+
 def fetch_spec(source: str, workdir: Path) -> Path:
     """Return a local path to the API schema, downloading it when given a URL."""
     if source.startswith(("http://", "https://")):
         target = workdir / "openapi.json"
-        try:
-            with urllib.request.urlopen(source, timeout=FETCH_TIMEOUT_S) as response:
-                target.write_bytes(response.read())
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise DriftError(f"could not fetch the API schema from {source}: {exc}") from exc
+        _download(source, target)
     else:
         target = Path(source)
     try:
@@ -598,11 +618,13 @@ def main(argv: list[str] | None = None) -> int:
         result = run(args)
     except DriftError as exc:
         print(f"schema drift check could not run: {exc}", file=sys.stderr)
-        report = (
-            "## API schema drift\n\n:warning: **The check did not run**, so this is not a clean result.\n\n"
-            f"`{_cell(str(exc).splitlines()[0])}`\n"
-        )
-        _emit(report, args.summary)
+        _emit(_did_not_run_report(str(exc)), args.summary)
+        return 2
+    # Any other error, such as a file that is not UTF-8, is also a run that did not
+    # compare, not drift: exit 1 would read as drift with nothing listed.
+    except Exception as exc:  # noqa: BLE001 - mapped to exit 2 with its traceback on stderr
+        traceback.print_exc()
+        _emit(_did_not_run_report(f"{type(exc).__name__}: {exc}"), args.summary)
         return 2
 
     _emit(render(result, compared_with), args.summary)
@@ -617,6 +639,14 @@ def main(argv: list[str] | None = None) -> int:
     for entry in result.stale:
         print(f"stale allowlist entry: {entry.id}", file=sys.stderr)
     return result.exit_code
+
+
+def _did_not_run_report(reason: str) -> str:
+    first_line = (reason.splitlines() or [""])[0]
+    return (
+        "## API schema drift\n\n:warning: **The check did not run**, so this is not a clean result.\n\n"
+        f"`{_cell(first_line)}`\n"
+    )
 
 
 def _emit(report: str, summary: str | None) -> None:
