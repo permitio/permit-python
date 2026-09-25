@@ -1,4 +1,4 @@
-from typing import Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Optional, Type, TypeVar, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -7,10 +7,13 @@ from loguru import logger
 from ..utils.pydantic_version import PYDANTIC_VERSION
 from .encoders import jsonable_encoder
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Extra, Field, parse_obj_as
 else:
-    from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as  # type: ignore
+    from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as
 
 from ..config import PermitConfig
 from ..exceptions import PermitContextError, handle_api_error, handle_client_error
@@ -54,16 +57,25 @@ class SimpleHttpClient:
         logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
     def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[Union[dict, list]]:
+        """Normalize a request body into JSON-serializable primitives.
+
+        Models, dicts and lists all go through the same encoder so that nested
+        ``datetime``/``UUID``/``Enum``/``Decimal`` values are encoded wherever they appear.
+
+        Only ``exclude_unset`` is applied: a model field that was never set is omitted,
+        while a field explicitly set to ``None`` is transmitted as JSON ``null`` so the
+        API can distinguish "leave this alone" from "clear this value".
+
+        Args:
+            json: The request body, as a pydantic model, a dict, a list or ``None``.
+
+        Returns:
+            The encoded body, or ``None`` when no body was given.
+        """
         if json is None:
             return None
 
-        if isinstance(json, dict):
-            return json
-
-        if isinstance(json, list):
-            return [self._prepare_json(item) for item in json]
-
-        return jsonable_encoder(json, exclude_unset=True, exclude_none=True)
+        return jsonable_encoder(json, exclude_unset=True)
 
     @handle_client_error
     async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
@@ -174,7 +186,7 @@ class BasePermitApi:
             base_url=self.config.pdp if use_pdp else self.config.api_url,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"bearer {self.config.token}",
+                "Authorization": f"Bearer {self.config.token}",
                 **optional_headers,
             },
         )
@@ -240,21 +252,14 @@ class BasePermitApi:
         ):
             await self._set_context_from_api_key()
 
-        if required_access_level != self.config.api_context.permitted_access_level:
-            if API_ACCESS_LEVELS.index(required_access_level) < API_ACCESS_LEVELS.index(
-                self.config.api_context.permitted_access_level
-            ):
-                raise PermitContextError(
-                    f"You're trying to use an SDK method that requires an API Key "
-                    f"with access level: {required_access_level}, however the SDK is running "
-                    f"with an API key with level {self.config.api_context.permitted_access_level}."
-                )
-            return
-
-        if self.config.api_context.permitted_access_level.value < required_access_level.value:
+        permitted_access_level = self.config.api_context.permitted_access_level
+        if required_access_level != permitted_access_level and API_ACCESS_LEVELS.index(
+            required_access_level
+        ) < API_ACCESS_LEVELS.index(permitted_access_level):
             raise PermitContextError(
-                f"You're trying to use an SDK method that requires an api context of {required_access_level.name}, "
-                f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
+                f"You're trying to use an SDK method that requires an API Key "
+                f"with access level: {required_access_level}, however the SDK is running "
+                f"with an API key with level {permitted_access_level}."
             )
 
     async def _ensure_context(self, required_context: ApiContextLevel) -> None:

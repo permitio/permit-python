@@ -1,11 +1,16 @@
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -23,7 +28,7 @@ class ConditionSetsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/condition_sets"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[ConditionSetRead]:
         """
         Retrieves a list of condition sets.
@@ -48,7 +53,7 @@ class ConditionSetsApi(BasePermitApi):
     async def _get(self, condition_set_key: str) -> ConditionSetRead:
         return await self.__condition_sets.get(f"/{condition_set_key}", model=ConditionSetRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, condition_set_key: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its key.
@@ -67,7 +72,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its key.
@@ -87,7 +92,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
         """
         Retrieves a condition set by its ID.
@@ -107,8 +112,8 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(condition_set_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, condition_set_data: ConditionSetCreate) -> ConditionSetRead:
+    @validate_arguments
+    async def create(self, condition_set_data: ModelInput[ConditionSetCreate]) -> ConditionSetRead:
         """
         Creates a new condition set.
 
@@ -126,8 +131,10 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.post("", model=ConditionSetRead, json=condition_set_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def update(self, condition_set_key: str, condition_set_data: ConditionSetUpdate) -> ConditionSetRead:
+    @validate_arguments
+    async def update(
+        self, condition_set_key: str, condition_set_data: ModelInput[ConditionSetUpdate]
+    ) -> ConditionSetRead:
         """
         Updates a condition set.
 
@@ -150,7 +157,7 @@ class ConditionSetsApi(BasePermitApi):
             json=condition_set_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, condition_set_key: str) -> None:
         """
         Deletes a condition set.

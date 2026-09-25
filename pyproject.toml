@@ -2,7 +2,7 @@
 line-length = 120
 src = ["permit"]
 exclude = ["permit/api/models.py"]
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -30,10 +30,18 @@ select = [
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.per-file-ignores]
+# These are standalone CLI programs, not library code: writing the rendered
+# report to stdout IS their interface, so the "no print" rule does not apply.
+".github/scripts/*.py" = ["T201"]
+
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 packages = ["permit"]
-plugins = ["pydantic.mypy"]
+# The SDK's models are pydantic v1 models under both pydantic majors, and type
+# checkers see them through pydantic.v1. pydantic.mypy is the v2 plugin under
+# pydantic 2 and does not recognise v1 models, so use the v1 plugin.
+plugins = ["pydantic.v1.mypy"]
 
 check_untyped_defs = true
 warn_unused_configs = true

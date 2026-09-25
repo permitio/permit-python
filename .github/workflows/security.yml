@@ -1,0 +1,465 @@
+name: Security
+
+on:
+  # DELIBERATELY NOT path-filtered. "Dependency Audit", "Audit Script Tests"
+  # and "Workflow Hardening" are required status checks on main. GitHub treats
+  # a required check that never runs as perpetually pending rather than
+  # passing, so a path filter here would block every PR that happens not to
+  # touch a dependency file. The audit takes under two minutes, which is
+  # cheaper than that failure mode.
+  pull_request:
+    branches: [main, master]
+  # Run on every merge to main too, so a regression is surfaced immediately
+  # (failed run on main) rather than waiting for the next PR to trip over it.
+  # No PR comment is posted on push; the job summary carries the detail.
+  # Filtered here because nothing gates on a push run.
+  push:
+    branches: [main, master]
+    paths:
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "setup.py"
+      - "pyproject.toml"
+      - ".github/workflows/security.yml"
+      - ".github/scripts/audit-deps.sh"
+      - ".github/scripts/format_audit.py"
+  # Weekly sweep. A dependency set that was clean when it merged does not stay
+  # clean -- advisories are published against versions that already shipped, so
+  # without a scheduled re-scan the gate only ever sees a tree at the moment it
+  # changed. Results go to Slack.
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC
+  workflow_dispatch: {}
+
+# Read-only by default. pull-requests: write is granted per-job, only to the
+# job that posts the comment.
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-24.04
+    # Read-only ON PURPOSE. `uv pip compile` builds an sdist to read its
+    # metadata for any dependency without a wheel, which runs that package's
+    # setup.py on the runner -- against a dependency list the PR author
+    # controls. Holding a `pull-requests: write` GITHUB_TOKEN across that step
+    # would hand arbitrary PR-authored code a writable token. The comment is
+    # posted by a separate job that has the token but never executes any of
+    # this PR's dependency code.
+    permissions:
+      contents: read
+    outputs:
+      gate_failed: ${{ steps.gate.outputs.failed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Pinned so a new uv release cannot change which trees get scanned.
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
+
+      - name: Install Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: filesystem
+          scan-ref: .
+          # This invocation exists only to install Trivy. The real scan runs
+          # in audit-deps.sh, because the action cannot compile the dependency
+          # trees the scan needs. The action always scans scan-ref, and the
+          # repo root has nothing Trivy can scan, so hide-progress (TRIVY_QUIET)
+          # keeps that empty scan from logging a "Supported files not found"
+          # warning. Errors still print.
+          skip-setup-trivy: false
+          format: table
+          exit-code: "0"
+          scanners: vuln
+          trivy-config: ""
+          hide-progress: true
+
+      - name: Run dependency audit
+        id: audit
+        run: |
+          set -uo pipefail
+          bash .github/scripts/audit-deps.sh /tmp/audit
+          echo "ran=true" >> "$GITHUB_OUTPUT"
+
+      - name: Render report
+        id: render
+        run: |
+          # GitHub runs this as `bash -e {0}`; `set -o` can only turn options
+          # ON, so an explicit `set +e` is required for $? to be observable.
+          set -uo pipefail
+          set +e
+          python .github/scripts/format_audit.py \
+            "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+            "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+            "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+            --context "requirements.txt + requirements-dev.txt, resolved at Python 3.10 (the current resolution, and the lowest versions the published specs permit under each pydantic major)" \
+            --blocking \
+            > /tmp/audit/comment.md 2>/tmp/audit/format.err
+          render_exit=$?
+          set -e
+          echo "exit=${render_exit}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to job summary
+        if: always() && steps.render.outputs.exit == '0'
+        run: cat /tmp/audit/comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Emit one annotation per blocking advisory. This is the only channel
+      # that reaches a fork PR, where the comment step below is skipped for
+      # want of a write token.
+      - name: Annotate blocking advisories
+        if: always() && steps.audit.outputs.ran == 'true'
+        run: |
+          set -uo pipefail
+          python .github/scripts/format_audit.py \
+            "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+            "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+            "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+            --annotations
+
+      # The single pass/fail decision, made by the same tested code that
+      # rendered the report -- so the comment and the check can never disagree.
+      # Blocks on fixable HIGH/CRITICAL only, and fails closed if a gating
+      # scanner report could not be parsed.
+      - name: Gate on HIGH/CRITICAL
+        id: gate
+        run: |
+          set -uo pipefail
+          set +e
+          python .github/scripts/format_audit.py \
+            "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+            "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+            "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+            --gate
+          gate_exit=$?
+          set -e
+          if [ "${gate_exit}" -ne 0 ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "::error title=Dependency audit failed::Fixable HIGH/CRITICAL advisories are present. See the job summary for the full report and the required version bumps."
+            exit 1
+          fi
+          echo "failed=false" >> "$GITHUB_OUTPUT"
+
+      # if: always() is load-bearing: the Gate step above exits non-zero on a
+      # failing audit, and that is precisely when the comment job needs this
+      # artifact to tell the author what broke.
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dependency-audit
+          path: /tmp/audit/
+          retention-days: 30
+
+  # Holds the only write token in this workflow, and does nothing but download
+  # an artifact and post it. It never runs dependency resolution, so PR-authored
+  # package code and the writable token never coexist in the same job.
+  comment:
+    name: Post Audit Comment
+    runs-on: ubuntu-24.04
+    needs: [audit]
+    # always(): the comment matters most when the audit FAILED.
+    # Fork PRs get a read-only token, so the post would fail -- they are served
+    # by the ::error:: annotations the audit job emits instead.
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
+      # calls the deprecated Buffer() constructor, so every download prints
+      # DEP0005 (actions/download-artifact#484). That is the action's code, not
+      # this workflow's, and no newer release exists. This hides DEP0005 alone;
+      # drop it once a release stops printing the warning.
+      - name: Download audit artifacts
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
+        with:
+          name: dependency-audit
+          path: /tmp/audit
+
+      # The script checks the report itself. hashFiles() in `if:` cannot:
+      # it ignores every file outside the workspace, so it returns '' for
+      # anything under /tmp/audit.
+      - name: Comment on PR
+        if: steps.download.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          # listComments is paginated: on a busy PR the marker may not be on
+          # page 1, and missing it would post a duplicate comment every run.
+          script: |
+            const fs = require('fs');
+            const REPORT = '/tmp/audit/comment.md';
+            const MARKER = '<!-- permit-python:audit:deps -->';
+            // GitHub rejects a comment body longer than this.
+            const MAX_COMMENT_CHARS = 65536;
+
+            // format_audit.py starts every body it renders with the marker, so
+            // a report without it means the render step did not finish.
+            let body = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';
+            if (!body.startsWith(MARKER)) {
+              core.warning(
+                `No rendered audit report in the artifact (${REPORT}), so no PR comment ` +
+                'was posted. See the Dependency Audit job for what went wrong.'
+              );
+              return;
+            }
+            if (body.length > MAX_COMMENT_CHARS) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+              core.warning(
+                `The audit report is ${body.length} characters, over GitHub's ` +
+                `${MAX_COMMENT_CHARS}-character comment limit. The PR comment links to ` +
+                'the job summary instead.'
+              );
+              body = [
+                MARKER,
+                '',
+                '## Dependency Security Audit',
+                '',
+                `The report is ${body.length} characters, too long for a PR comment ` +
+                  `(GitHub allows ${MAX_COMMENT_CHARS}). Read it in the ` +
+                  `[job summary](${runUrl}).`,
+                '',
+              ].join('\n');
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            // Match on author AND marker so a human quoting the report can
+            // never have their comment overwritten by CI.
+            const existing = comments.find(c =>
+              c.user?.login === 'github-actions[bot]' &&
+              c.body?.startsWith(MARKER)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # Free on public repositories. Flags dependencies a PR *introduces*, which
+  # the tree scan above cannot distinguish from ones that were already there,
+  # and additionally checks licences.
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  # The audit scripts decide whether a release ships. Their contract is
+  # load-bearing, so it is tested like any other code.
+  audit-scripts-test:
+    name: Audit Script Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Pinned because .github/scripts/pytest.ini turns every warning into an
+      # error, so a new pytest release must not be able to fail this job.
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest==9.1.1
+
+      # Reads .github/scripts/pytest.ini, not the SDK's pytest.ini, whose
+      # asyncio_mode option needs pytest-asyncio. Also runs the schema drift
+      # check's tests, which live next to the audit scripts and need the same
+      # bare Python.
+      - name: Run CI script tests
+        run: python -m pytest .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py -q
+
+      - name: Shellcheck the audit script
+        run: shellcheck .github/scripts/audit-deps.sh
+
+  # A CVE gate that runs in a workflow an attacker can rewrite is not a gate.
+  workflow-hardening:
+    name: Workflow Hardening
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No inputs: the repository has no action.yml, so the runner builds its
+      # Dockerfile and runs actionlint with no arguments. actionlint exits 1
+      # on any finding, and a non-zero container exit fails the step.
+      - name: actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          # Findings are uploaded to code scanning by default, which needs
+          # Advanced Security. Keep it to the job log and the exit code.
+          advanced-security: false
+          persona: regular
+
+
+  # Weekly only. A scheduled run has no PR to comment on, so Slack is the only
+  # channel that reaches a person -- which is why it carries the findings
+  # themselves (packages, counts, upgrade targets) rather than just a verdict.
+  notify:
+    name: Notify Slack
+    runs-on: ubuntu-24.04
+    needs: [audit]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    env:
+      # The secrets context is not available in a job-level `if:`, so the
+      # webhook is read into the environment here and the steps below gate on
+      # whether it is actually set.
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      # A fork, or any repository without SLACK_WEBHOOK_URL, gets a warning
+      # here instead of a failed job, so a missing webhook reads as
+      # unconfigured rather than as a broken weekly audit.
+      - name: Check Slack webhook is configured
+        id: check
+        run: |
+          set -uo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning title=Slack not configured::SLACK_WEBHOOK_URL is not set on this repository, so the weekly audit result was not posted. Add the secret to enable notifications."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.configured == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        if: steps.check.outputs.configured == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Rebuilding the message from the audit job's own artifact keeps all the
+      # Slack escaping inside the unit-tested renderer, rather than
+      # interpolating scanner output into the workflow's payload block.
+      # NODE_OPTIONS: see the comment job's download step.
+      - name: Download audit artifacts
+        if: steps.check.outputs.configured == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
+        with:
+          name: dependency-audit
+          path: /tmp/audit
+
+      - name: Render Slack message
+        id: slack
+        if: steps.check.outputs.configured == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          AUDIT_RESULT: ${{ needs.audit.result }}
+        run: |
+          set -uo pipefail
+          {
+            echo "text<<SLACK_EOF"
+            if [ ! -f /tmp/audit/trivy-runtime-ceiling.json ]; then
+              # The audit job never produced a report. Say so plainly rather
+              # than rendering a message that would imply a clean tree.
+              echo ":warning: *${REPO} - weekly dependency audit did not complete*"
+              echo ">Result: ${AUDIT_RESULT}. No scan report was produced, so a clean history is not evidence of a clean tree."
+              echo ">${RUN_URL}"
+            else
+              python .github/scripts/format_audit.py \
+                "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+                "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+                "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+                "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+                --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+                --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+                --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+                --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+                --slack \
+                --repo "${REPO}" \
+                --run-url "${RUN_URL}"
+            fi
+            echo "SLACK_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post to Slack
+        if: steps.check.outputs.configured == 'true'
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          # toJSON quotes and escapes the rendered text, so advisory content
+          # cannot break out of the payload.
+          payload: |
+            text: ${{ toJSON(steps.slack.outputs.text) }}

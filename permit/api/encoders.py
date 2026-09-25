@@ -15,27 +15,43 @@ from ipaddress import (
 from pathlib import Path, PurePath
 from re import Pattern
 from types import GeneratorType
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 from uuid import UUID
 
-from permit import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel
+    from pydantic.v1.color import Color
+    from pydantic.v1.networks import AnyUrl, NameEmail
+    from pydantic.v1.types import SecretBytes, SecretStr
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel
     from pydantic.color import Color
     from pydantic.networks import AnyUrl, NameEmail
     from pydantic.types import SecretBytes, SecretStr
-
-    def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
-        return model.dict(**kwargs)
 else:
-    from pydantic.v1 import BaseModel  # type: ignore[assignment]
-    from pydantic.v1.color import Color  # type: ignore[assignment]
-    from pydantic.v1.networks import AnyUrl, NameEmail  # type: ignore[assignment]
-    from pydantic.v1.types import SecretBytes, SecretStr  # type: ignore[assignment]
+    from pydantic.v1 import BaseModel
+    from pydantic.v1.color import Color
+    from pydantic.v1.networks import AnyUrl, NameEmail
+    from pydantic.v1.types import SecretBytes, SecretStr
 
-    def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
-        return model.dict(**kwargs)
+
+def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
+    """Serialize a model to a dict.
+
+    Both pydantic majors take the same path: the SDK's models are always v1
+    models (under pydantic 2.x they come from the pydantic.v1 shim), so
+    ``.dict()`` is correct either way. This used to be defined identically in
+    both arms of the version split.
+
+    ``mode`` is accepted and deliberately ignored. It exists to ABSORB the
+    argument callers pass in pydantic-v2 style: v1's ``.dict()`` has no such
+    keyword, so letting ``mode`` fall through into ``**kwargs`` raises
+    ``TypeError: BaseModel.dict() got an unexpected keyword argument 'mode'``.
+    """
+    return model.dict(**kwargs)
 
 
 def isoformat(o: Union[datetime.date, datetime.time]) -> str:
@@ -142,7 +158,7 @@ def jsonable_encoder(
     if exclude is not None and not isinstance(exclude, (set, dict)):
         exclude = set(exclude)  # type: ignore[unreachable]
     if isinstance(obj, BaseModel):
-        encoders = getattr(obj.__config__, "json_encoders", {})  # type: ignore[attr-defined]
+        encoders = getattr(obj.__config__, "json_encoders", {})
         if custom_encoder:
             encoders.update(custom_encoder)
 

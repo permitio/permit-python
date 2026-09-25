@@ -1,36 +1,70 @@
 import json
 from pprint import pformat
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
-from pydantic import parse_obj_as
+from typing_extensions import NotRequired, TypedDict
 
 from ..config import PermitConfig
 from ..exceptions import PermitConnectionError
 from ..utils.context import Context, ContextStore
+from ..utils.dicts import deep_merge
+from ..utils.pydantic_version import PYDANTIC_VERSION
 from ..utils.sync import SyncClass
 from .interfaces import AuthorizedUsersResult, ResourceInput, UserInput
 
-
-def set_if_not_none(d: dict, k: str, v):
-    if v is not None:
-        d[k] = v
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import parse_obj_as
+elif PYDANTIC_VERSION < (2, 0):
+    from pydantic import parse_obj_as
+else:
+    from pydantic.v1 import parse_obj_as
 
 
 RESOURCE_DELIMITER = ":"
 
-User = Union[dict, str]
+# At runtime the aliases keep the bare `dict`, so `isinstance(value, User)` still
+# works, which it does not with a parameterized dict. Type checkers get
+# `Dict[str, Any]`, since pyright's strict mode reports a bare `dict` in a
+# signature as partially unknown.
+if TYPE_CHECKING:
+    User = Union[Dict[str, Any], str]
+    Resource = Union[Dict[str, Any], str]
+else:
+    User = Union[dict, str]
+    Resource = Union[dict, str]
 Action = str
-Resource = Union[dict, str]
+
+
+async def read_error_body(response: aiohttp.ClientResponse) -> str:
+    """Read an error response body without assuming it is JSON.
+
+    The PDP returns its auth rejections as plain text with no content-type
+    header, so calling ``.json()`` on them raises ``aiohttp.ContentTypeError``
+    -- which is an ``aiohttp.ClientError``, and is therefore swallowed by the
+    surrounding handler and re-reported as "cannot connect to the PDP
+    container". A 403 for a wrong API key was indistinguishable from the PDP
+    being down, which is a genuinely misleading error to hand a user.
+    """
+    try:
+        return repr(await response.json())
+    except (aiohttp.ClientError, ValueError):
+        pass
+    try:
+        text = (await response.text()).strip()
+    except aiohttp.ClientError:
+        return "<error body could not be read>"
+    return text or "<empty error body>"
 
 
 class CheckQuery(TypedDict):
     user: User
     action: Action
     resource: Resource
-    context: Optional[Context]
+    context: NotRequired[Optional[Context]]
 
 
 SETUP_PDP_DOCS_LINK = (
@@ -44,12 +78,12 @@ class Enforcer:
         self._context_store = ContextStore()
         self._headers = {
             "Content-Type": "application/json",
-            "Authorization": f"bearer {self._config.token}",
+            "Authorization": f"Bearer {self._config.token}",
         }
         self._base_url = self._config.pdp
 
     @property
-    def context_store(self):
+    def context_store(self) -> ContextStore:
         """
         we let context store be accessed from the outside so that the
         using app can setup a flexible contextual behavior for authorization queries
@@ -125,18 +159,21 @@ class Enforcer:
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
 
-                        error_json: dict = await response.json()
+                        error_body = await read_error_body(response)
                         logger.error(
                             "error in permit.authorized_users({}, {}):\n{}\n{}".format(
                                 action,
                                 self._resource_repr(normalized_resource),
                                 f"status code: {response.status}",
-                                repr(error_json),
+                                error_body,
                             )
                         )
                         raise PermitConnectionError(
-                            f"Permit SDK got unexpected status code: {response.status}, "
-                            f"please check your Permit SDK class init and PDP container are configured correctly. \n"
+                            f"Permit SDK got unexpected status code: {response.status} "
+                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                            f"The PDP is reachable, so this is a rejected request rather than a "
+                            f"connectivity problem -- a 401/403 usually means the PDP was started "
+                            f"with a different API key than the SDK is using.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
 
@@ -171,6 +208,8 @@ class Enforcer:
 
         Args:
             checks: A list of CheckQuery objects representing the authorization queries to be performed.
+                Each check may carry its own ``context``, which is merged over the method-level
+                ``context`` for that check only.
             context: The context object representing the context in which the action is performed. Defaults to None.
 
         Returns:
@@ -211,7 +250,8 @@ class Enforcer:
                 if isinstance(check["resource"], str)
                 else ResourceInput(**check["resource"])
             )
-            query_context = self._context_store.get_derived_context(context)
+            check_context: Context = check.get("context") or {}
+            query_context = self._context_store.get_derived_context(deep_merge(context, check_context))
             input.append(
                 {
                     "user": normalized_user.dict(exclude_unset=True),
@@ -229,7 +269,7 @@ class Enforcer:
                     data=json.dumps(input),
                 ) as response:
                     if response.status != 200:
-                        error_json: dict = await response.json()
+                        error_body = await read_error_body(response)
                         msg = "error in permit.check({}):\n{}\n{}".format(
                             (
                                 [
@@ -242,7 +282,7 @@ class Enforcer:
                                 ]
                             ),
                             f"status code: {response.status}",
-                            repr(error_json),
+                            error_body,
                         )
                         logger.error(msg)
                         raise PermitConnectionError(msg)
@@ -338,19 +378,22 @@ class Enforcer:
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
 
-                        error_json: dict = await response.json()
+                        error_body = await read_error_body(response)
                         logger.error(
                             "error in permit.check({}, {}, {}):\n{}\n{}".format(
                                 normalized_user,
                                 action,
                                 self._resource_repr(normalized_resource),
                                 f"status code: {response.status}",
-                                repr(error_json),
+                                error_body,
                             )
                         )
                         raise PermitConnectionError(
-                            f"Permit SDK got unexpected status code: {response.status}, "
-                            f"please check your Permit SDK class init and PDP container are configured correctly. \n"
+                            f"Permit SDK got unexpected status code: {response.status} "
+                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                            f"The PDP is reachable, so this is a rejected request rather than a "
+                            f"connectivity problem -- a 401/403 usually means the PDP was started "
+                            f"with a different API key than the SDK is using.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
 
@@ -378,11 +421,11 @@ class Enforcer:
 
     async def get_user_permissions(
         self,
-        user: Union[dict, str],
+        user: Union[Dict[str, Any], str],
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         input_data = {
             "user": {"key": user} if isinstance(user, str) else user,
             "tenants": tenants,
@@ -425,11 +468,19 @@ class Enforcer:
                 ) from err
 
     async def filter_objects(
-        self, user: User, action: Action, context: Dict[str, str], resources: List[Dict[str, Any]]
+        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """
-        Filter objects based on permissions using bulk check.
-        Port of Go's FilterObjects function.
+        """Filter the given resources down to the ones the user is allowed to act on.
+
+        Args:
+            user: The user object representing the user.
+            action: The action to be performed on each resource.
+            context: The context every check is evaluated against.
+            resources: The resources to filter. Each resource may carry its own ``context``
+                key, which is sent as the resource context of that check.
+
+        Returns:
+            list[dict]: The subset of ``resources`` the user is authorized for, in input order.
         """
         requests: List[CheckQuery] = []
         for resource in resources:
@@ -443,7 +494,7 @@ class Enforcer:
             check_query: CheckQuery = {"user": user, "action": action, "resource": permit_resource, "context": context}
             requests.append(check_query)
 
-        results = await self.bulk_check(requests)
+        results = await self.bulk_check(requests, context=context)
         filtered_resources: List[Dict[str, Any]] = []
         for i, result in enumerate(results):
             if result:
@@ -481,5 +532,11 @@ class Enforcer:
         return ResourceInput(type=parts[0], key=(parts[1] if len(parts) > 1 else None))
 
 
-class SyncEnforcer(Enforcer, metaclass=SyncClass):
-    pass
+# Type checkers read this class from a generated stub: the SyncClass metaclass
+# makes its methods blocking at runtime, which they cannot see.
+if TYPE_CHECKING:
+    from permit._sync_types import SyncEnforcer as SyncEnforcer
+else:
+
+    class SyncEnforcer(Enforcer, metaclass=SyncClass):
+        pass

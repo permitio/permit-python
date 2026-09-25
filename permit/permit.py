@@ -36,7 +36,7 @@ class Permit:
         )
 
     @property
-    def config(self):
+    def config(self) -> PermitConfig:
         """
         Access the SDK configuration using this property.
         Once the SDK is initialized, the configuration is read-only.
@@ -233,7 +233,7 @@ class Permit:
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
         Get all permissions for a user.
 
@@ -242,7 +242,6 @@ class Permit:
             tenants: Optional list of tenants to filter permissions
             resources: Optional list of resources to filter
             resource_types: Optional list of resource types to filter
-            config: Optional configuration dictionary
 
         Returns:
             dict: User permissions per tenant
@@ -256,17 +255,17 @@ class Permit:
         self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        Get all permissions for a user.
+        Filter a list of resources, keeping only those the user is permitted to act on.
 
         Args:
             user: The user object or user key
-            tenants: Optional list of tenants to filter permissions
-            resources: Optional list of resources to filter
-            resource_types: Optional list of resource types to filter
-            config: Optional configuration dictionary
+            action: The action to check against every resource
+            context: The context in which the action is performed
+            resources: The resources to filter. Each entry may carry the keys
+                `type`, `key`, `context`, `attributes` and `tenant`.
 
         Returns:
-            dict: User permissions per tenant
+            List[Dict[str, Any]]: The permitted subset of `resources`, in their original order
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP

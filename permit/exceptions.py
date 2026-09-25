@@ -1,5 +1,5 @@
 import functools
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import aiohttp
 from loguru import logger
@@ -7,10 +7,13 @@ from typing_extensions import deprecated
 
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import ValidationError
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import ValidationError
 else:
-    from pydantic.v1 import ValidationError  # type: ignore[assignment]
+    from pydantic.v1 import ValidationError
 
 from permit.api.models import ErrorDetails, HTTPValidationError
 
@@ -27,7 +30,15 @@ class PermitException(PermitError):  # noqa: N818
 
 
 class PermitConnectionError(PermitException):
-    """Permit connection exception"""
+    """Permit connection exception
+
+    Note: this deliberately still inherits from the deprecated `PermitException`
+    rather than from `PermitError`. Re-parenting it looks like tidying, but it
+    silently breaks every consumer whose handler is `except PermitException` --
+    a connection blip would stop being caught and become an unhandled crash.
+    That is a breaking change worth making, but it belongs in a major version
+    with a changelog entry, not in a dependency-security patch.
+    """
 
     def __init__(self, message: str, *, error: Optional[aiohttp.ClientError] = None):
         super().__init__(message)
@@ -209,7 +220,7 @@ class PermitNotFoundError(PermitApiDetailedError):
 
 
 async def handle_api_error(response: aiohttp.ClientResponse):
-    if 200 <= response.status < 400:
+    if 200 <= response.status < 300:
         return
 
     try:

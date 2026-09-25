@@ -1,11 +1,14 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
-from permit import PYDANTIC_VERSION
 from permit.api.base import SimpleHttpClient
 from permit.pdp_api.base import BasePdpPermitApi, pagination_params
 from permit.pdp_api.models import RoleAssignment
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
@@ -16,7 +19,7 @@ class RoleAssignmentsApi(BasePdpPermitApi):
     def __role_assignments(self) -> SimpleHttpClient:
         return self._build_http_client("/local/role_assignments")
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(
         self,
         user_key: Optional[str] = None,

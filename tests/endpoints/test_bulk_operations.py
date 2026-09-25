@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from loguru import logger
 
 from permit import Permit, RoleCreate, TenantCreate, UserCreate
@@ -9,6 +10,8 @@ from permit.api.models import (
     RoleAssignmentCreate,
 )
 from permit.exceptions import PermitAlreadyExistsError
+
+pytestmark = pytest.mark.e2e
 
 # Schema ----------------------------------------------------------------
 EDITOR = "editor"
@@ -47,9 +50,9 @@ ACCOUNT = ResourceCreate(
 
 USER_A = UserCreate(
     key=str(uuid.uuid4()),
-    email="asaf@permit.io",
-    first_name="Asaf",
-    last_name="Cohen",
+    email="alice@permit.io",
+    first_name="Alice",
+    last_name="Smith",
     attributes={"age": 35},
 )
 USER_B = UserCreate(
@@ -224,7 +227,9 @@ async def test_bulk_operations(permit: Permit):
     assert len(users) == len_users_original
 
     assignments = await permit.api.role_assignments.list()
-    assert len(assignments) == len_assignments_original + 1  # (tenant role)
+    # Not +1: the surviving tenant-level assignment (USER_A/admin/TENANT_1) belongs to USER_A,
+    # and deleting a user cascades away their role assignments, so we are back to the original count.
+    assert len(assignments) == len_assignments_original
 
     ## bulk delete tenants -----------------------------------
     await permit.api.tenants.bulk_delete([tenant.key for tenant in CREATED_TENANTS])

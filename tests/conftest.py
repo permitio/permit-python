@@ -1,9 +1,36 @@
+import asyncio
+import functools
 import os
+import random
 
 import pytest
+from loguru import logger
+from pytest_httpserver import HTTPServer
 
 from permit import Permit, PermitConfig
+from permit.api.base import SimpleHttpClient
+from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
+from tests.utils import offline_config
+
+# pytest_httpserver's `httpserver` fixture binds a free port chosen by the OS,
+# so parallel runs on one machine cannot collide. Tests reach it through
+# httpserver.url_for(), never a hardcoded port. Set PYTEST_HTTPSERVER_PORT to
+# pin one when debugging.
+
+
+@pytest.fixture
+def config(httpserver: HTTPServer) -> PermitConfig:
+    """An offline PermitConfig: the API and the PDP are both the local ``httpserver``."""
+    return offline_config(httpserver.url_for("").rstrip("/"))
+
+
+# The fixtures below need a real API key, the Permit API and a PDP. Every test
+# that uses them is marked e2e, which the offline CI job deselects.
+MISSING_KEY = (
+    "PDP_API_KEY is not configured, test cannot run! "
+    'Tests that need it are marked e2e: deselect them with -m "not e2e".'
+)
 
 
 @pytest.fixture
@@ -18,7 +45,7 @@ def permit_config() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", default_api_address)
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,
@@ -48,7 +75,7 @@ def permit_config_cloud() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,
@@ -64,3 +91,81 @@ def permit_config_cloud() -> PermitConfig:
 @pytest.fixture
 def permit_cloud(permit_config_cloud: PermitConfig) -> Permit:
     return Permit(permit_config_cloud)
+
+
+# --------------------------------------------------------------------------
+# Rate-limit resilience
+#
+# The whole suite runs against ONE environment on the shared cloud test
+# project, and it creates and tears down a lot. That exceeds the API's burst
+# limit, which surfaces as HTTP 429 part-way through a test or during its
+# teardown -- a throttled request, not a product defect.
+#
+# Previously eight of these tests were @pytest.mark.xfail, so their 429s were
+# swallowed and nobody noticed. With the markers removed the throttling is
+# visible, so it has to be handled honestly: retry with backoff until the call
+# actually succeeds, rather than tolerating the failure. Tolerating is worse
+# than it looks -- a tolerated DELETE leaves the object alive, and the
+# assert-it-is-gone check that follows then fails with "DID NOT RAISE".
+#
+# This wraps the SDK's HTTP layer for the TEST SESSION ONLY. The SDK itself is
+# unchanged: adding implicit retries to a published client is a behaviour
+# change callers did not ask for.
+# --------------------------------------------------------------------------
+
+_RATE_LIMIT_STATUS = 429
+# Six attempts (~63s of backoff) was not always enough: a teardown still
+# exhausted them. Nine caps a single call at ~two minutes of waiting, which is
+# cheap next to a red build, and the loop exits the moment the call succeeds.
+_MAX_RETRIES = 9
+_BASE_BACKOFF_S = 1.0
+_MAX_BACKOFF_S = 30.0
+
+
+def _retry_after_seconds(err: PermitApiError) -> float | None:
+    """The server's own Retry-After, when it sends one."""
+    try:
+        raw = err.response.headers.get("Retry-After")
+    except Exception:  # noqa: BLE001 - a missing/odd header must never mask the 429
+        return None
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return None
+
+
+def _retry_on_rate_limit(method):
+    @functools.wraps(method)
+    async def wrapper(*args, **kwargs):
+        for attempt in range(_MAX_RETRIES):
+            try:
+                return await method(*args, **kwargs)
+            except PermitApiError as err:
+                if err.status_code != _RATE_LIMIT_STATUS or attempt == _MAX_RETRIES - 1:
+                    raise
+                # Prefer what the server asked for; otherwise exponential
+                # backoff with jitter, so parallel callers do not retry in
+                # lockstep and re-trip the limit together.
+                delay = _retry_after_seconds(err)
+                if delay is None:
+                    delay = min(_BASE_BACKOFF_S * (2**attempt), _MAX_BACKOFF_S)
+                    delay *= 0.5 + random.random() / 2
+                logger.warning(f"rate limited (429); retrying in {delay:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                await asyncio.sleep(delay)
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    return wrapper
+
+
+@pytest.fixture(scope="session", autouse=True)
+def retry_rate_limited_requests():
+    """Make every SDK HTTP verb retry a 429 for the duration of the test session."""
+    verbs = ("get", "post", "put", "patch", "delete")
+    originals = {verb: getattr(SimpleHttpClient, verb) for verb in verbs}
+    for verb, original in originals.items():
+        setattr(SimpleHttpClient, verb, _retry_on_rate_limit(original))
+    yield
+    for verb, original in originals.items():
+        setattr(SimpleHttpClient, verb, original)

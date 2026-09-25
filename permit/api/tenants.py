@@ -1,11 +1,16 @@
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput, ModelListInput
 
 from .base import (
     BasePermitApi,
@@ -38,13 +43,13 @@ class TenantsApi(BasePermitApi):
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
-            return self._build_http_client("/facts/users", use_pdp=True)
+            return self._build_http_client("/facts/bulk/tenants", use_pdp=True)
         else:
             return self._build_http_client(
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/bulk/tenants"
             )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
         """
         Retrieves a list of tenants.
@@ -64,7 +69,7 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.get("", model=List[TenantRead], params=pagination_params(page, per_page))
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list_tenant_users(self, tenant_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """
         Retrieves a list of users for a given tenant.
@@ -92,7 +97,7 @@ class TenantsApi(BasePermitApi):
     async def _get(self, tenant_key: str) -> TenantRead:
         return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, tenant_key: str) -> TenantRead:
         """
         Retrieves a tenant by its key.
@@ -111,7 +116,7 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(tenant_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, tenant_key: str) -> TenantRead:
         """
         Retrieves a tenant by its key.
@@ -131,7 +136,7 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(tenant_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, tenant_id: str) -> TenantRead:
         """
         Retrieves a tenant by its ID.
@@ -151,8 +156,8 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(tenant_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, tenant_data: TenantCreate) -> TenantRead:
+    @validate_arguments
+    async def create(self, tenant_data: ModelInput[TenantCreate]) -> TenantRead:
         """
         Creates a new tenant.
 
@@ -170,8 +175,8 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.post("", model=TenantRead, json=tenant_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def update(self, tenant_key: str, tenant_data: TenantUpdate) -> TenantRead:
+    @validate_arguments
+    async def update(self, tenant_key: str, tenant_data: ModelInput[TenantUpdate]) -> TenantRead:
         """
         Updates a tenant.
 
@@ -190,7 +195,7 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.patch(f"/{tenant_key}", model=TenantRead, json=tenant_data)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, tenant_key: str) -> None:
         """
         Deletes a tenant.
@@ -209,7 +214,7 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.delete(f"/{tenant_key}")
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete_tenant_user(self, tenant_key: str, user_key: str) -> None:
         """
         Deletes a user from a given tenant (also removes all roles granted to the user in that tenant).
@@ -226,8 +231,8 @@ class TenantsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.delete(f"/{tenant_key}/users/{user_key}")
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_create(self, tenants: List[TenantCreate]) -> TenantCreateBulkOperationResult:
+    @validate_arguments
+    async def bulk_create(self, tenants: ModelListInput[TenantCreate]) -> TenantCreateBulkOperationResult:
         """
         Creates tenants in bulk.
 
@@ -249,12 +254,10 @@ class TenantsApi(BasePermitApi):
             json=TenantCreateBulkOperation(operations=tenants),
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def bulk_delete(self, tenants: List[str]) -> TenantDeleteBulkOperationResult:
         """
         Deletes tenants in bulk.
-
-        If the tenant exists - replaces it. Otherwise creates a non-existing tenant.
 
         Args:
             tenants: The tenants identities to delete. Each identity can be either the tenant key or the tenant id.

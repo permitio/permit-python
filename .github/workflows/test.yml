@@ -9,72 +9,117 @@ on:
       - main
       - master
 
+# Least privilege. Nothing in this workflow writes to the repository; the
+# Permit API calls authenticate with their own secret, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 env:
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         pydantic-version: ['pydantic<2.0.0', 'pydantic>=2.0.0']
+    # NOTE: this name and the matrix shape are load-bearing. Branch protection
+    # on main requires the contexts "pytest (Pydantic pydantic<2.0.0)" and
+    # "pytest (Pydantic pydantic>=2.0.0)" by exact string. Renaming the job or
+    # changing the matrix silently makes those contexts unsatisfiable, which
+    # blocks every PR from merging until branch protection is updated to match.
     name: pytest (Pydantic ${{ matrix.pydantic-version }})
-    services:
-      pdp:
-        image: permitio/pdp-v2:latest
-        ports:
-          - 7766:7000
-        env:
-          PDP_API_KEY: ${{ secrets.PROJECT_API_KEY }}
-          PDP_DEBUG: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Python setup
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11.8'
 
+      # Values reach the shell through env: rather than ${{ }} interpolation
+      # into the script body. zizmor flags the interpolated form as
+      # template-injection; env-passing is the canonical fix.
       - name: Creation env ${{ env.ENV_NAME }}-${{ github.run_id }}-${{ matrix.pydantic-version }}
         id: create_env
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_NAME: ${{ env.ENV_NAME }}
+          RUN_ID: ${{ github.run_id }}
+          PYDANTIC_SUFFIX: ${{ matrix.pydantic-version == 'pydantic<2.0.0' && 'v1' || 'v2' }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
         run: |
-          ENV_KEY="${{ env.ENV_NAME }}-${{ github.run_id }}-${{ matrix.pydantic-version == 'pydantic<2.0.0' && 'v1' || 'v2' }}"
-          echo "ENV_KEY=$ENV_KEY" >> $GITHUB_ENV
+          set -euo pipefail
+          ENV_KEY="${ENV_NAME}-${RUN_ID}-${PYDANTIC_SUFFIX}"
+          echo "ENV_KEY=$ENV_KEY" >> "$GITHUB_ENV"
 
-          response=$(curl -X POST \
-            https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs \
-            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}' \
+          response=$(curl -sS -X POST \
+            "https://api.permit.io/v2/projects/${PROJECT_ID}/envs" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}" \
             -H 'Content-Type: application/json' \
-            -d '{
-            "key": "'"$ENV_KEY"'",
-            "name": "'"$ENV_KEY"'"
-          }')
+            -d "{\"key\": \"${ENV_KEY}\", \"name\": \"${ENV_KEY}\"}")
 
-          # Extract the new env id
-          echo "ENV_ID=$(echo "$response" | jq -r '.id')" >> $GITHUB_ENV
-
-          echo "New env ID: $ENV_ID with key: $ENV_KEY"
+          ENV_ID=$(echo "$response" | jq -r '.id')
+          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
+            echo "::error title=Env creation failed::Could not create the scratch environment."
+            exit 1
+          fi
+          echo "ENV_ID=$ENV_ID" >> "$GITHUB_ENV"
+          echo "New env created with key: $ENV_KEY"
 
       - name: Fetch API_KEY of ${{ env.ENV_KEY }}
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_ID: ${{ env.ENV_ID }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
         run: |
-          response=$(curl -X GET \
-            https://api.permit.io/v2/api-key/${{ env.PROJECT_ID }}/${{ env.ENV_ID }} \
-            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}')
+          set -euo pipefail
+          response=$(curl -sS -X GET \
+            "https://api.permit.io/v2/api-key/${PROJECT_ID}/${ENV_ID}" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}")
 
-          # Extract the secret from the response which is the API_KEY of the new env
-          echo "ENV_API_KEY=$(echo "$response" | jq -r '.secret')" >> $GITHUB_ENV
+          ENV_API_KEY=$(echo "$response" | jq -r '.secret')
+          if [ -z "$ENV_API_KEY" ] || [ "$ENV_API_KEY" = "null" ]; then
+            echo "::error title=API key fetch failed::Could not read the scratch environment's key."
+            exit 1
+          fi
+          # Mask before export so the key can never surface in the job log.
+          echo "::add-mask::$ENV_API_KEY"
+          echo "ENV_API_KEY=$ENV_API_KEY" >> "$GITHUB_ENV"
 
-          echo "New env api key: $ENV_API_KEY"
+      # Started here, NOT as a `services:` container. A service container is
+      # created before the first step runs, so the only key available to it is
+      # the long-lived PROJECT_API_KEY -- while the tests authenticate with the
+      # per-run scratch environment key minted above. The PDP then rejects
+      # every decision request with a 403 whose body is plain text, which the
+      # SDK surfaces as "cannot connect to the PDP container". That mismatch is
+      # why the ReBAC and RBAC decision tests could never pass.
+      - name: Start the PDP
+        env:
+          ENV_API_KEY: ${{ env.ENV_API_KEY }}
+        run: |
+          set -euo pipefail
+          docker run -d --name permit-pdp \
+            -p 7766:7000 \
+            -e PDP_API_KEY="${ENV_API_KEY}" \
+            -e PDP_DEBUG=true \
+            permitio/pdp-v2:latest
+          echo "PDP container started; it warms up while dependencies install."
 
       - name: Install dependencies
+        env:
+          PYDANTIC_VERSION: ${{ matrix.pydantic-version }}
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-cov
+          pip install pytest
           # Pin pydantic version according to matrix
-          pip install "${{ matrix.pydantic-version }}"
+          pip install "${PYDANTIC_VERSION}"
           # Explicitly install email-validator which is required for Pydantic email validation
           pip install email-validator
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
@@ -82,6 +127,27 @@ jobs:
 
       - name: Show installed packages
         run: pip list
+
+      # Waited for here rather than immediately after `docker run`, so the
+      # PDP's bootstrap (fetch config, pull the policy bundle, start OPA)
+      # overlaps with dependency installation instead of running after it.
+      # The PDP reports 503 on /healthy until its horizon component is up;
+      # issuing a check before that fails in a way that looks like a policy
+      # bug rather than a timing one.
+      - name: Wait for the PDP
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 180); do
+            if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
+              echo "PDP healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 180s"
+          docker logs permit-pdp 2>&1 | tail -80
+          exit 1
+
 
       - name: Test with pytest
         env:
@@ -93,9 +159,144 @@ jobs:
         run: |
           pytest -s --cache-clear tests/
 
+      - name: PDP logs
+        if: failure()
+        run: docker logs permit-pdp 2>&1 | tail -200 || true
+
+      - name: Stop the PDP
+        if: always()
+        run: docker rm -f permit-pdp || true
+
       - name: Delete env ${{ env.ENV_KEY }}
         if: always()
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_ID: ${{ env.ENV_ID }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
         run: |
-          curl -X DELETE \
-            https://api.permit.io/v2/projects/${{ env.PROJECT_ID }}/envs/${{ env.ENV_ID }} \
-            -H 'Authorization: Bearer ${{ secrets.PROJECT_API_KEY }}'
+          set -uo pipefail
+          # Best effort: a failed cleanup must not mask a test failure, but it
+          # must still be visible rather than silently leaking an environment.
+          if [ -z "${ENV_ID:-}" ] || [ "${ENV_ID}" = "null" ]; then
+            echo "::warning::No ENV_ID recorded; nothing to delete."
+            exit 0
+          fi
+          if ! curl -sS -f -X DELETE \
+            "https://api.permit.io/v2/projects/${PROJECT_ID}/envs/${ENV_ID}" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}"; then
+            echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
+          fi
+
+  # Offline suite on every supported Python. It needs no secrets and no PDP, so
+  # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
+  # matrix are required status checks.
+  compatibility:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # floor: the lowest version of every runtime dependency requirements.txt
+        # allows on that Python, which for pydantic is a pydantic 1 release.
+        # pydantic-v2-floor: the same with pydantic held to 2, i.e. the lowest
+        # pydantic 2 a consumer can install on that Python.
+        # pydantic-v2: what a fresh install gets.
+        # Python 3.14 also runs the newest pydantic 1, because it has its own
+        # pydantic requirement and pydantic calls v1's 3.14 support minimal.
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        deps: [floor, pydantic-v2-floor, pydantic-v2]
+        include:
+          - python-version: '3.14'
+            deps: pydantic-v1
+    name: compatibility (Python ${{ matrix.python-version }}, ${{ matrix.deps }})
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Python setup
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # pip cannot resolve to the lowest allowed versions; uv can. The version
+      # is pinned so a new uv release cannot change which floor a leg tests.
+      - name: Install uv
+        if: matrix.deps == 'floor' || matrix.deps == 'pydantic-v2-floor'
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
+
+      # Installing the package itself (".") resolves the dependencies from the
+      # metadata setup.py builds out of requirements.txt, which is what a
+      # consumer's installer sees, version markers included.
+      - name: Install dependencies
+        env:
+          DEPS: ${{ matrix.deps }}
+        run: |
+          set -euo pipefail
+          case "${DEPS}" in
+            floor)
+              uv pip compile --quiet --python "$(command -v python)" \
+                --resolution lowest-direct requirements.txt -o "${RUNNER_TEMP}/floor.txt"
+              python -m pip install . -r requirements-dev.txt -c "${RUNNER_TEMP}/floor.txt"
+              ;;
+            pydantic-v2-floor)
+              echo "pydantic>=2" > "${RUNNER_TEMP}/pydantic-v2.txt"
+              uv pip compile --quiet --python "$(command -v python)" \
+                --resolution lowest-direct requirements.txt -c "${RUNNER_TEMP}/pydantic-v2.txt" \
+                -o "${RUNNER_TEMP}/floor.txt"
+              grep '^pydantic==' "${RUNNER_TEMP}/floor.txt"
+              python -m pip install . -r requirements-dev.txt -c "${RUNNER_TEMP}/floor.txt"
+              ;;
+            pydantic-v1)
+              python -m pip install . -r requirements-dev.txt "pydantic[email]<2"
+              ;;
+            pydantic-v2)
+              python -m pip install . -r requirements-dev.txt "pydantic[email]>=2"
+              ;;
+            *)
+              echo "::error title=Unknown dependency set::${DEPS}"
+              exit 1
+              ;;
+          esac
+
+      - name: Show installed packages
+        run: python -m pip list
+
+      # Type checkers read permit's annotations only when py.typed is in the
+      # installed package, and see the blocking client as blocking only through
+      # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
+      # them without any import failing. The wheel is the same on every leg, so
+      # one leg checks it.
+      - name: Check the wheel ships its type information
+        if: matrix.python-version == '3.14' && matrix.deps == 'pydantic-v2'
+        run: |
+          set -euo pipefail
+          python -m pip wheel --no-deps --wheel-dir "${RUNNER_TEMP}/wheel" .
+          python - "${RUNNER_TEMP}"/wheel/*.whl <<'PY'
+          import sys
+          import zipfile
+
+          wheels = sys.argv[1:]
+          if len(wheels) != 1:
+              sys.exit(f"expected one wheel, found {wheels}")
+          missing = {"permit/py.typed", "permit/_sync_types.pyi"} - set(zipfile.ZipFile(wheels[0]).namelist())
+          if missing:
+              sys.exit(f"{wheels[0]} is missing {sorted(missing)}")
+          print(f"{wheels[0]} ships permit/py.typed and permit/_sync_types.pyi")
+          PY
+
+      # Every test that needs credentials, the Permit API or a PDP is marked
+      # e2e (see pytest.ini), so `-m "not e2e"` selects everything else.
+      # The filter fails the run on Python 3.14's deprecation of
+      # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
+      # It is deliberately narrow: a blanket error::DeprecationWarning would
+      # also trip on PermitConnectionError, which still subclasses the
+      # deprecated PermitException on purpose.
+      - name: Offline tests
+        run: |
+          python -m pytest -q -m "not e2e" \
+            -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"

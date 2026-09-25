@@ -1,11 +1,16 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput, ModelListInput
 
 from .base import (
     BasePermitApi,
@@ -34,7 +39,7 @@ class RelationshipTuplesApi(BasePermitApi):
                 f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
             )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(
         self,
         page: int = 1,
@@ -81,8 +86,8 @@ class RelationshipTuplesApi(BasePermitApi):
             params=params,
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, tuple_data: RelationshipTupleCreate) -> RelationshipTupleRead:
+    @validate_arguments
+    async def create(self, tuple_data: ModelInput[RelationshipTupleCreate]) -> RelationshipTupleRead:
         """
         Creates a new relationship tuple, that states that a relationship (of type: relation)
         exists between two resource instances: the subject and the object.
@@ -101,8 +106,8 @@ class RelationshipTuplesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relationship_tuples.post("", model=RelationshipTupleRead, json=tuple_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def delete(self, tuple_data: RelationshipTupleDelete) -> None:
+    @validate_arguments
+    async def delete(self, tuple_data: ModelInput[RelationshipTupleDelete]) -> None:
         """
         Removes a relationship tuple.
 
@@ -117,8 +122,10 @@ class RelationshipTuplesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relationship_tuples.delete("", json=tuple_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_create(self, tuples: List[RelationshipTupleCreate]) -> RelationshipTupleCreateBulkOperationResult:
+    @validate_arguments
+    async def bulk_create(
+        self, tuples: ModelListInput[RelationshipTupleCreate]
+    ) -> RelationshipTupleCreateBulkOperationResult:
         """
         Creates multiple relationship tuples at once using the provided tuple data.
 
@@ -150,8 +157,10 @@ class RelationshipTuplesApi(BasePermitApi):
             json=RelationshipTupleCreateBulkOperation(operations=tuples),
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def bulk_delete(self, tuples: List[RelationshipTupleDelete]) -> RelationshipTupleDeleteBulkOperationResult:
+    @validate_arguments
+    async def bulk_delete(
+        self, tuples: ModelListInput[RelationshipTupleDelete]
+    ) -> RelationshipTupleDeleteBulkOperationResult:
         """
         Deletes multiple relationship tuples at once using the provided tuple data.
 

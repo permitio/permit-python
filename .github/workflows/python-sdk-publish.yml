@@ -4,40 +4,222 @@ on:
   release:
     types: [published]
 
+# Read-only by default; the publish job widens its own scope.
+permissions:
+  contents: read
+
 env:
-  PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
-  ENV_NAME: python-sdk-ci
+  PYTHON_VERSION: "3.11"
 
 jobs:
-  publish_python_sdk:
-    runs-on: ubuntu-latest
+  # Split into build -> scan -> publish with hard `needs:` edges rather than
+  # bolting a scanner step onto the front of the publish job. A step that fails
+  # inside the publish job can be skipped or reordered; a job that never runs
+  # because its dependency failed cannot. The publish job is simply unreachable
+  # unless the scan succeeded.
+  build:
+    name: Build distribution
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Python setup
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # The release tag is attacker-influenceable text, so it is passed through
+      # the environment rather than interpolated into the shell body. zizmor
+      # flags the `${{ }}`-in-run pattern as template-injection; env-passing is
+      # the canonical fix.
+      - name: Set version from release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Strip a leading v and validate, so a crafted tag cannot smuggle
+          # anything into setup.py.
+          version="${RELEASE_TAG#v}"
+          # A whole-string bash match, NOT grep: grep is line-oriented, so a
+          # multi-line tag would pass on the strength of its first line and
+          # the remainder would still reach setup.py.
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([a-z0-9.]*)$ ]]; then
+            echo "::error title=Invalid release tag::'${RELEASE_TAG}' is not a valid PEP 440 version."
+            exit 1
+          fi
+          python - "$version" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          version = sys.argv[1]
+          path = pathlib.Path("setup.py")
+          source = path.read_text()
+          patched, count = re.subn(r'version="[^"]*"', f'version="{version}"', source, count=1)
+          if count != 1:
+              sys.exit("could not find a version= field to patch in setup.py")
+          path.write_text(patched)
+          print(f"setup.py version set to {version}")
+          PY
+
+      - name: Build Python package
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check build
+          python -m build
+
+      # Type checkers read permit's annotations only when py.typed is in the
+      # installed package, and see the blocking client as blocking only through
+      # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
+      # them without any import failing. Check the artifact that gets published.
+      - name: Check the wheel ships its type information
+        run: |
+          set -euo pipefail
+          python - dist/*.whl <<'PY'
+          import sys
+          import zipfile
+
+          wheels = sys.argv[1:]
+          if len(wheels) != 1:
+              sys.exit(f"expected one wheel, found {wheels}")
+          missing = {"permit/py.typed", "permit/_sync_types.pyi"} - set(zipfile.ZipFile(wheels[0]).namelist())
+          if missing:
+              sys.exit(f"{wheels[0]} is missing {sorted(missing)}")
+          print(f"{wheels[0]} ships permit/py.typed and permit/_sync_types.pyi")
+          PY
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  scan:
+    name: Security Gate
+    runs-on: ubuntu-24.04
+    needs: [build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Python setup
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          # Pinned so a new uv release cannot change which trees get scanned.
+          version: "0.12.18"
+          # This job resolves dependency trees for scanning and installs
+          # nothing, so the cache buys nothing and only adds a poisoning
+          # vector on a workflow that publishes artifacts.
+          enable-cache: false
+
+      - name: Install Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: filesystem
+          scan-ref: .
+          skip-setup-trivy: false
+          format: table
+          exit-code: "0"
+          scanners: vuln
+          trivy-config: ""
+          # See the same step in security.yml: this only installs Trivy, and
+          # hide-progress keeps its empty scan from logging a warning.
+          hide-progress: true
+
+      - name: Run dependency audit
+        run: bash .github/scripts/audit-deps.sh /tmp/audit
+
+      - name: Publish report to job summary
+        if: always()
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -uo pipefail
+          python .github/scripts/format_audit.py \
+            "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+            "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+            "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+            --context "release ${RELEASE_TAG}" \
+            --blocking >> "$GITHUB_STEP_SUMMARY"
+
+      # NEVER add continue-on-error here. That is the single most common way a
+      # release gate becomes decorative.
+      #
+      # Gates on the RUNTIME trees only. A HIGH in mypy or pytest is worth
+      # fixing, but it is never installed by anyone who runs `pip install
+      # permit` -- letting a dev-tool advisory block a security release would
+      # be exactly backwards. The dev tree is still rendered in the summary
+      # above, and the PR gate does block on it.
+      - name: Gate on HIGH/CRITICAL (runtime dependencies)
+        run: |
+          set -uo pipefail
+          python .github/scripts/format_audit.py \
+            "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+            "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --gate
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-dependency-audit
+          path: /tmp/audit/
+          retention-days: 90
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-24.04
+    needs: [scan]
     environment:
       name: pypi
       url: https://pypi.org/p/permit
     permissions:
+      # id-token is what lets gh-action-pypi-publish attach PEP 740 build
+      # attestations. contents/pull-requests write were previously granted and
+      # never used -- nothing in this workflow commits or opens a PR.
       id-token: write
-      contents: write           # 'write' access to repository contents
-      pull-requests: write      # 'write' access to pull requests
     steps:
+      # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
+      # calls the deprecated Buffer() constructor, so every download prints
+      # DEP0005 (actions/download-artifact#484). This hides DEP0005 alone;
+      # drop it once a release stops printing the warning.
+      - name: Download distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
+        with:
+          name: dist
+          path: dist/
 
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Python setup
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11.8'
-
-    - name: Bump version and commit changes
-      run: |
-        sed -i "s/version=\"[0-9.]*\"/version=\"${{ github.event.release.tag_name }}\"/" setup.py
-
-    - name: Build Python package
-      run: |
-        pip install wheel
-        python setup.py sdist bdist_wheel
-
-    - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_TOKEN }}
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          # zizmor: ignore[use-trusted-publishing]
+          # TODO: migrate to PyPI Trusted Publishing (OIDC) and drop this
+          # secret. That cannot be done from this repo alone -- it requires
+          # registering permitio/permit-python + this workflow filename +
+          # the "pypi" environment as a trusted publisher on PyPI first.
+          # Flipping the workflow before that is configured would break the
+          # next release, so it is deliberately left as a follow-up.
+          password: ${{ secrets.PYPI_TOKEN }}
