@@ -4,8 +4,8 @@ permit 4.0 drops pydantic 1. Until then, importing permit on pydantic 1 issues o
 DeprecationWarning that names 4.0 and says what to do, attributed to the line that imported
 permit. On pydantic 2 it issues none.
 
-This process imported permit before any test ran, so each test imports it in a fresh
-interpreter and reports every warning recorded there.
+This process imported permit before any test ran, so each warning test imports it in a
+fresh interpreter and reports every warning recorded there.
 """
 
 import json
@@ -98,3 +98,16 @@ def test_importing_permit_on_pydantic_2_does_not_warn(tmp_path: Path, first_impo
     warned = pydantic_1_warnings_on_import(tmp_path / "consumer.py", first_import)
 
     assert warned == []
+
+
+def test_the_pydantic_version_permit_checks_is_not_a_public_name():
+    """permit reads the pydantic version to decide whether to warn; the constant is not API.
+
+    permit has no ``__all__``, so any name without a leading underscore is public: it is in
+    ``dir(permit)`` and ``from permit import *`` exports it.
+    """
+    exported: dict = {}
+    exec("from permit import *", exported)
+
+    assert "PYDANTIC_VERSION" not in exported, "from permit import * exports PYDANTIC_VERSION"
+    assert not hasattr(permit, "PYDANTIC_VERSION")

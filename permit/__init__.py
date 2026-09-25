@@ -29,9 +29,9 @@ from permit.exceptions import PermitNotFoundError as PermitNotFoundError
 from permit.exceptions import PermitValidationError as PermitValidationError
 from permit.permit import Permit as Permit
 from permit.utils.context import Context as Context
-from permit.utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION as _PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if _PYDANTIC_VERSION < (2, 0):
     # Importing any permit module runs this file first, and only once per process, so this
     # warns once. stacklevel=2 attributes the warning to the code that imported permit (the
     # import machinery's frames are skipped), which Python shows by default when that is

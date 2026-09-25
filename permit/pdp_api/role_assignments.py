@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, List, Optional
 
-from permit import PYDANTIC_VERSION
 from permit.api.base import SimpleHttpClient
 from permit.pdp_api.base import BasePdpPermitApi, pagination_params
 from permit.pdp_api.models import RoleAssignment
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.

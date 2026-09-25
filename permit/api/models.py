@@ -10,7 +10,8 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+# Private, or permit/__init__.py's `from permit.api.models import *` would export it.
+from ..utils.pydantic_version import PYDANTIC_VERSION as _PYDANTIC_VERSION
 
 if _typing.TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -20,7 +21,7 @@ if _typing.TYPE_CHECKING:
     # a plain str for an email field. At runtime these fields take and hold a plain
     # str; pydantic 2 types its own EmailStr as str for the same reason.
     EmailStr = str
-elif PYDANTIC_VERSION < (2, 0):
+elif _PYDANTIC_VERSION < (2, 0):
     from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
 else:
     from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
