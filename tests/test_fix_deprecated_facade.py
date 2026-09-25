@@ -1,21 +1,27 @@
 """Offline tests for the deprecated flat methods on ``permit.api`` (PER-16177).
 
 Each deprecated method must warn that it is removed in permit 4.0, name its
-replacement, send the request that replacement sends and return what it returns.
-Every request is served by a local ``pytest_httpserver`` and the API context is
-pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
+replacement, point the warning at the line that called it, send the request that
+replacement sends and return what it returns. Every request is served by a local
+``pytest_httpserver`` and the API context is pre-populated, so no API key and no
+``/v2/api-key/scope`` lookup are needed.
 """
 
 import asyncio
 import copy
 import inspect
+import os
+import subprocess
+import sys
 import warnings
 from operator import attrgetter
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import pytest
 from pytest_httpserver import HTTPServer
 
+import permit
 from permit import Permit
 from permit.api.deprecated import DeprecatedApi
 from permit.api.elements import UserLoginAsResponse
@@ -316,13 +322,31 @@ def removal_warning(case: FacadeCase) -> str:
     )
 
 
-def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str]]:
-    """Every DeprecationWarning in ``caught``, whoever raised it.
+def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str, str, int]]:
+    """Every DeprecationWarning in ``caught``, whoever raised it, and the line it points at.
 
     Other categories are left out: a ResourceWarning, for one, comes from garbage
     collection and can land in whichever test happens to be running.
     """
-    return [(w.category, str(w.message)) for w in caught if issubclass(w.category, DeprecationWarning)]
+    return [
+        (w.category, str(w.message), w.filename, w.lineno) for w in caught if issubclass(w.category, DeprecationWarning)
+    ]
+
+
+def call_blocking(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
+    return method(*args, **kwargs)
+
+
+async def call_awaiting(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
+    return await method(*args, **kwargs)
+
+
+# Where each client's deprecation warning must point: the line in this file that calls
+# the method, which is the first line of the helper above that calls it for that client.
+CALL_SITES = {
+    "sync": (__file__, call_blocking.__code__.co_firstlineno + 1),
+    "async": (__file__, call_awaiting.__code__.co_firstlineno + 1),
+}
 
 
 MODEL_INPUTS = (UserCreate, TenantCreate, TenantUpdate, RoleCreate, RoleUpdate, ResourceCreate, ResourceUpdate)
@@ -366,14 +390,15 @@ def test_deprecated_method_warns_and_matches_its_replacement(
     else:
         handler.respond_with_json(case.response)
 
-    permit = Permit(config) if flavour == "async" else SyncPermit(config)
+    client = Permit(config) if flavour == "async" else SyncPermit(config)
 
     def invoke(target: Call) -> Any:
         # Each call gets its own copy of the inputs, so neither can see what the other did to them.
         args, kwargs = copy.deepcopy((target.args, target.kwargs))
-        result = attrgetter(target.path.removeprefix("permit."))(permit)(*args, **kwargs)
+        method = attrgetter(target.path.removeprefix("permit."))(client)
         if flavour == "async":
-            return asyncio.run(result)
+            return asyncio.run(call_awaiting(method, args, kwargs))
+        result = call_blocking(method, args, kwargs)
         assert not inspect.isawaitable(result)
         return result
 
@@ -384,7 +409,7 @@ def test_deprecated_method_warns_and_matches_its_replacement(
         result = invoke(case.facade)
 
     assert deprecations(replacement_warnings) == []
-    assert deprecations(facade_warnings) == [(DeprecationWarning, removal_warning(case))]
+    assert deprecations(facade_warnings) == [(DeprecationWarning, removal_warning(case), *CALL_SITES[flavour])]
 
     assert len(httpserver.log) == 2, [sent(request) for request, _ in httpserver.log]
     replacement_request, facade_request = (sent(request) for request, _ in httpserver.log)
@@ -393,3 +418,63 @@ def test_deprecated_method_warns_and_matches_its_replacement(
 
     assert_parsed(result, case)
     assert result == expected
+
+
+# The directories that hold the permit package this process imported and the tests
+# package, so that the script imports the same copies whether or not permit is installed.
+PERMIT_PARENT = Path(permit.__file__).resolve().parents[1]
+TESTS_PARENT = Path(__file__).resolve().parents[1]
+
+SCRIPT = """\
+import asyncio
+import sys
+
+from permit import Permit
+from permit.sync import Permit as SyncPermit
+from tests.utils import offline_config
+
+config = offline_config(sys.argv[1])
+SyncPermit(config).api.get_user("user-1")
+
+
+async def main():
+    await Permit(config).api.get_user("user-1")
+
+
+asyncio.run(main())
+"""
+
+SCRIPT_CALL_LINES = [
+    SCRIPT.splitlines().index('SyncPermit(config).api.get_user("user-1")') + 1,
+    SCRIPT.splitlines().index('    await Permit(config).api.get_user("user-1")') + 1,
+]
+
+
+def test_a_script_shows_either_clients_warning_by_default(httpserver: HTTPServer, tmp_path: Path):
+    """Python's default filters show a DeprecationWarning only when it points at ``__main__``.
+
+    The script runs under those filters: no ``-W`` option, no PYTHONWARNINGS and no dev
+    mode. The call through each client must be reported once, at its own line.
+    """
+    [case] = [case for case in CASES if case.facade.path == "permit.api.get_user"]
+    http_method, path = case.request
+    httpserver.expect_request(path, method=http_method).respond_with_json(case.response)
+    script = tmp_path / "script.py"
+    script.write_text(SCRIPT)
+    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env["PYTHONPATH"] = os.pathsep.join([str(PERMIT_PARENT), str(TESTS_PARENT)])
+
+    result = subprocess.run(
+        [sys.executable, str(script), httpserver.url_for("").rstrip("/")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    message = removal_warning(case)
+    assert [line for line in result.stderr.splitlines() if message in line] == [
+        f"{script}:{line}: DeprecationWarning: {message}" for line in SCRIPT_CALL_LINES
+    ]

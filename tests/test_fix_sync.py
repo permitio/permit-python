@@ -5,11 +5,14 @@ by a local ``pytest_httpserver`` instance and the API context is pre-populated,
 so no API key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
+import _thread
 import asyncio
 import inspect
+import threading
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Callable, List, Tuple
 from uuid import uuid4
 
 import pytest
@@ -19,6 +22,7 @@ from permit.api.sync_api_client import SyncPermitApiClient, SyncUsersApi
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import SyncEnforcer
 from permit.sync import Permit as SyncPermit
+from permit.utils.deprecation import deprecated
 from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass
 from tests.utils import FACTS, SCHEMA
 
@@ -152,6 +156,87 @@ def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, c
 
     assert roles == []
     httpserver.check_assertions()
+
+
+# --- warnings from a blocking call's coroutine ------------------------------
+
+
+def deprecation_sites(caught: List[warnings.WarningMessage]) -> List[Tuple[str, int]]:
+    return [(w.filename, w.lineno) for w in caught if issubclass(w.category, DeprecationWarning)]
+
+
+def first_line_of(func: Callable) -> Tuple[str, int]:
+    """The file and first body line of ``func``, where each helper below makes its call."""
+    return func.__code__.co_filename, func.__code__.co_firstlineno + 1
+
+
+def test_deprecated_facade_warns_at_a_call_made_inside_a_running_event_loop(
+    httpserver: HTTPServer, config: PermitConfig
+):
+    """With a loop already running, the call's coroutine runs in a worker thread of its own."""
+    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_payload("user-1"))
+    client = SyncPermitApiClient(config)
+
+    async def main() -> None:
+        client.get_user("user-1")
+
+    with pytest.warns(DeprecationWarning) as caught:
+        asyncio.run(main())
+
+    assert deprecation_sites(caught.list) == [first_line_of(main)]
+    httpserver.check_assertions()
+
+
+def test_concurrent_blocking_calls_each_warn_at_their_own_call():
+    """A coroutine that runs for a blocking call warns at that call, not another thread's."""
+    both_calls_running = threading.Barrier(2)
+
+    class Api(metaclass=SyncClass):
+        async def fetch(self) -> None:
+            # Neither coroutine warns until both threads are inside their blocking call.
+            await asyncio.to_thread(both_calls_running.wait, 10)
+            await self.old_fetch()
+
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> None:
+            pass
+
+    def first_caller() -> None:
+        Api().fetch()
+
+    def second_caller() -> None:
+        Api().fetch()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(first_caller), executor.submit(second_caller)]
+            for future in futures:
+                future.result()
+
+    assert sorted(deprecation_sites(caught)) == sorted([first_line_of(first_caller), first_line_of(second_caller)])
+
+
+def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would():
+    """C code can call a blocking method with no Python frame above it, as an atexit hook is.
+
+    ``warnings.warn`` blames ``<sys>``, line 0, when it has no frame to blame, and so does the
+    blocking call instead of failing.
+    """
+    ran = threading.Event()
+
+    class Api(metaclass=SyncClass):
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> None:
+            ran.set()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        # The new thread calls the method straight from C.
+        _thread.start_new_thread(Api().old_fetch, ())
+        assert ran.wait(10)
+
+    assert deprecation_sites(caught) == [("<sys>", 0)]
 
 
 # --- the sync Permit facade ------------------------------------------------
