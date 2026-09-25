@@ -331,9 +331,11 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest==9.1.1
 
       # Reads .github/scripts/pytest.ini, not the SDK's pytest.ini, whose
-      # asyncio_mode option needs pytest-asyncio.
-      - name: Run audit script tests
-        run: python -m pytest .github/scripts/test_format_audit.py -q
+      # asyncio_mode option needs pytest-asyncio. Also runs the schema drift
+      # check's tests, which live next to the audit scripts and need the same
+      # bare Python.
+      - name: Run CI script tests
+        run: python -m pytest .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py -q
 
       - name: Shellcheck the audit script
         run: shellcheck .github/scripts/audit-deps.sh
