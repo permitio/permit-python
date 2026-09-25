@@ -3,7 +3,7 @@ from inspect import iscoroutinefunction
 from typing import Any, Callable, TypeVar, cast
 from warnings import warn
 
-from permit.utils.sync import blocking_call_site
+from permit.utils.sync import _blocking_call_site
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -17,7 +17,7 @@ def deprecated(message: str) -> Callable[[_F], _F]:
 
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            call_site = blocking_call_site()
+            call_site = _blocking_call_site.get()
             if call_site is None:
                 warn(message, DeprecationWarning, stacklevel=2)
             else:

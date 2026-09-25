@@ -25,7 +25,7 @@ from permit.config import PermitConfig
 from permit.enforcement.enforcer import SyncEnforcer
 from permit.sync import Permit as SyncPermit
 from permit.utils.deprecation import deprecated
-from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass
+from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass, run_coroutine_sync
 from tests.utils import FACTS, SCHEMA
 
 
@@ -239,6 +239,28 @@ def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would()
         assert ran.wait(10)
 
     assert deprecation_sites(caught) == [("<sys>", 0)]
+
+
+def test_run_coroutine_sync_takes_just_the_coroutine():
+    """A public name since 2.x: called directly, it still drives re-entrant awaits of converted
+    methods, and a deprecated one warns at the line that called it."""
+
+    class Api(metaclass=SyncClass):
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> str:
+            return "fetched"
+
+    async def main() -> str:
+        return await Api().old_fetch()
+
+    def caller() -> str:
+        return run_coroutine_sync(main())
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert caller() == "fetched"
+
+    assert deprecation_sites(caught) == [first_line_of(caller)]
 
 
 def test_a_blocking_call_from_code_with_no_module_spec_warns_once(tmp_path: Path):

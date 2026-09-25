@@ -23,7 +23,7 @@ into the coroutine function such a wrapper consumes.
 """
 
 
-class CallSite(NamedTuple):
+class _CallSite(NamedTuple):
     """The line that called a blocking method, as `warnings.warn` records a frame."""
 
     filename: str
@@ -31,7 +31,7 @@ class CallSite(NamedTuple):
     module_globals: Dict[str, Any]
 
     @classmethod
-    def from_frame(cls, frame: Optional[FrameType]) -> "CallSite":
+    def from_frame(cls, frame: Optional[FrameType]) -> "_CallSite":
         """The line `frame` is running, or, with no frame, the place `warnings.warn` blames then.
 
         There is no frame when C code calls the blocking method directly, as it does an
@@ -65,22 +65,15 @@ class CallSite(NamedTuple):
         )
 
 
-_blocking_call_site: ContextVar[Optional[CallSite]] = ContextVar("permit_blocking_call_site", default=None)
-"""Set while :func:`run_coroutine_sync` drives a coroutine in this context: where the blocking call was made."""
+_blocking_call_site: ContextVar[Optional[_CallSite]] = ContextVar("permit_blocking_call_site", default=None)
+"""The line that made the blocking call whose coroutine runs in this context, otherwise None.
+
+The coroutine runs under asyncio, whose frames stand between it and that line, so code in it
+reads this to attribute a warning to the caller.
+"""
 
 
-def blocking_call_site() -> Optional[CallSite]:
-    """The line that called the blocking method whose coroutine is running.
-
-    Returns:
-        Where the blocking method was called, when the current coroutine runs on its behalf,
-        otherwise None. Code in that coroutine can use it to attribute a warning to the
-        caller: the coroutine runs under asyncio, whose frames stand between it and the call.
-    """
-    return _blocking_call_site.get()
-
-
-def _run_in_new_event_loop(coroutine: Coroutine[Any, Any, T], call_site: CallSite) -> T:
+def _run_in_new_event_loop(coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
     token = _blocking_call_site.set(call_site)
     try:
         return asyncio.run(coroutine)
@@ -88,17 +81,10 @@ def _run_in_new_event_loop(coroutine: Coroutine[Any, Any, T], call_site: CallSit
         _blocking_call_site.reset(token)
 
 
-def run_coroutine_sync(coroutine: Coroutine[Any, Any, T], call_site: CallSite) -> T:
-    """Run `coroutine` to completion and return its result.
+def _run_blocking(coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
+    """Run `coroutine` to completion for the blocking call made at `call_site`.
 
-    Args:
-        coroutine: The coroutine to run.
-        call_site: The line that called the blocking method `coroutine` runs for. The
-            coroutine sees it through :func:`blocking_call_site`, even when it runs in
-            another thread.
-
-    Returns:
-        Whatever the coroutine returns.
+    The coroutine sees `call_site` in `_blocking_call_site`, even when it runs in another thread.
     """
     try:
         asyncio.get_running_loop()
@@ -113,6 +99,19 @@ def run_coroutine_sync(coroutine: Coroutine[Any, Any, T], call_site: CallSite) -
         return executor.submit(_run_in_new_event_loop, coroutine, call_site).result()
 
 
+def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
+    """Run `coroutine` to completion and return its result.
+
+    Args:
+        coroutine: The coroutine to run. A method marked with `deprecated` that it awaits
+            warns at the line that called this function.
+
+    Returns:
+        Whatever the coroutine returns.
+    """
+    return _run_blocking(coroutine, _CallSite.from_frame(sys._getframe(0).f_back))
+
+
 def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
     """Turn an async callable into a blocking one.
 
@@ -121,18 +120,18 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
 
     Returns:
         A callable that runs `func` to completion and returns its result. When it
-        is called from inside a coroutine that `run_coroutine_sync` is already
-        driving, the coroutine is handed back untouched instead, so that internal
+        is called from inside a coroutine that a blocking call is already driving,
+        the coroutine is handed back untouched instead, so that internal
         `await self.public_method(...)` calls keep working on a converted class.
     """
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        if blocking_call_site() is not None:
+        if _blocking_call_site.get() is not None:
             return func(*args, **kwargs)  # type: ignore[return-value]
         # Read in the caller's thread, while its frame is the one that called us.
-        call_site = CallSite.from_frame(sys._getframe(0).f_back)
-        return run_coroutine_sync(func(*args, **kwargs), call_site)
+        call_site = _CallSite.from_frame(sys._getframe(0).f_back)
+        return _run_blocking(func(*args, **kwargs), call_site)
 
     setattr(wrapper, SYNC_WRAPPER_MARKER, True)
     return wrapper
