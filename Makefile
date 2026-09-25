@@ -19,7 +19,7 @@ help:
 # permit/__init__.py's `from permit.api.models import *` exports it.
 # The generator is pinned to 0.33.0, the release that produced the current file.
 # --exclude-newer freezes its dependencies and formatters at that date, so an
-# unchanged spec regenerates an unchanged file; those dependencies do not install
+# unchanged spec regenerates the same models; those dependencies do not install
 # on Python 3.14, hence --python 3.11. It runs through uvx, so it needs uv.
 #
 # Schema drift check: .github/scripts/check_schema_drift.py runs this generator
@@ -27,18 +27,21 @@ help:
 # permit/api/models.py by structure: classes, fields, types, required or optional,
 # defaults, aliases, Config.extra and enum members. A difference that makes the SDK
 # send what the API rejects, or reject what it returns, fails the check; a class or
-# optional field the SDK lacks is only reported. Known differences are listed in
-# .github/scripts/schema_drift_allowlist.json with a one-line reason each, and an
-# entry that no longer matches fails the check until it is removed. The entries
-# whose reason says "by hand" are hand fixes to re-apply after regenerating. Run it
-# after regenerating; it exits 0 (no new drift), 1 (new failing drift or a stale
-# entry) or 2 (the comparison did not run):
+# optional field the SDK lacks is only reported. That includes a class deleted from
+# permit/api/models.py: the schema has classes no SDK method uses, and a class the
+# SDK does not have cannot change what it sends or parses. Known differences are
+# listed in .github/scripts/schema_drift_allowlist.json with a one-line reason each,
+# and an entry that no longer matches fails the check until it is removed. The
+# entries whose reason says "by hand" are hand fixes to re-apply after regenerating.
+# Run it after regenerating; it exits 0 (no new failing drift and no stale entry),
+# 1 (new failing drift or a stale entry) or 2 (the comparison did not run):
 #   python .github/scripts/check_schema_drift.py --models permit/api/models.py \
 #     --allowlist .github/scripts/schema_drift_allowlist.json
 # .github/workflows/schema-drift.yml runs it weekly, on manual dispatch and on pull
-# requests that change these files.
+# requests that change permit/api/models.py, .github/scripts/check_schema_drift.py,
+# .github/scripts/schema_drift_allowlist.json or the workflow itself.
 generate-models:
-	uvx --python 3.11 --exclude-newer 2025-09-18 \
+	uvx --python 3.11 --exclude-newer 2025-09-18T00:00:00Z \
 		--from 'datamodel-code-generator[http]==0.33.0' datamodel-codegen \
 		--url https://api.permit.io/v2/openapi.json \
 		--input-file-type openapi \
