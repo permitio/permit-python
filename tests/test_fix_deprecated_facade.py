@@ -447,9 +447,10 @@ async def call_awaiting():
     await Permit(config).api.get_user("user-1")
 
 
-# Under the interpreter's warning filters.
-call_blocking()
-asyncio.run(call_awaiting())
+# Under the interpreter's warning filters, each call made three times from the same line.
+for _ in range(3):
+    call_blocking()
+    asyncio.run(call_awaiting())
 
 # With every warning recorded, whatever issued it.
 with warnings.catch_warnings(record=True) as caught:
@@ -469,9 +470,11 @@ def test_a_script_gets_one_warning_per_call_at_the_call(httpserver: HTTPServer, 
     """A script runs as ``__main__``, which has no ``__spec__``, and it is the one module
     Python's default filters show DeprecationWarnings for.
 
-    The script calls the method through each client twice. Under the default filters (no
-    ``-W`` option, PYTHONWARNINGS or dev mode) each call's warning must be printed once, at
-    its line. With every warning recorded, those two warnings must be all there is.
+    The script calls the method through each client, three times from the same line. The
+    default filters (no ``-W`` option, PYTHONWARNINGS or dev mode) print a warning once per
+    line that issues it, so each client's warning must be printed once, at its call. With
+    every warning recorded, one call through each client must issue those two warnings and
+    nothing else.
     """
     [case] = [case for case in CASES if case.facade.path == "permit.api.get_user"]
     http_method, path = case.request

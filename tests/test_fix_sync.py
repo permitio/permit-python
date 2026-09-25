@@ -5,10 +5,12 @@ by a local ``pytest_httpserver`` instance and the API context is pre-populated,
 so no API key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
-import _thread
 import asyncio
 import inspect
+import os
 import runpy
+import subprocess
+import sys
 import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +22,7 @@ from uuid import uuid4
 import pytest
 from pytest_httpserver import HTTPServer
 
+import permit
 from permit.api.sync_api_client import SyncPermitApiClient, SyncUsersApi
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import SyncEnforcer
@@ -219,26 +222,45 @@ def test_concurrent_blocking_calls_each_warn_at_their_own_call():
     assert sorted(deprecation_sites(caught)) == sorted([first_line_of(first_caller), first_line_of(second_caller)])
 
 
-def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would():
-    """C code can call a blocking method with no Python frame above it, as an atexit hook is.
+NO_CALLER_SCRIPT = """\
+import atexit
+import warnings
+
+from permit.utils.deprecation import deprecated
+from permit.utils.sync import SyncClass
+
+
+class Api(metaclass=SyncClass):
+    @deprecated("old_fetch() is deprecated")
+    async def old_fetch(self) -> None:
+        print("ran")
+
+
+warnings.filterwarnings("always", message="old_fetch", category=DeprecationWarning)
+# At exit, the interpreter calls the method from C, with no Python frame above it.
+atexit.register(Api().old_fetch)
+"""
+
+
+def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would(tmp_path: Path):
+    """C code can call a blocking method with no Python frame above it, as it calls an atexit hook.
 
     ``warnings.warn`` blames ``<sys>``, line 0, when it has no frame to blame, and so does the
     blocking call instead of failing.
     """
-    ran = threading.Event()
+    script = tmp_path / "script.py"
+    script.write_text(NO_CALLER_SCRIPT)
+    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env["PYTHONPATH"] = str(Path(permit.__file__).resolve().parents[1])
 
-    class Api(metaclass=SyncClass):
-        @deprecated("old_fetch() is deprecated")
-        async def old_fetch(self) -> None:
-            ran.set()
+    result = subprocess.run(
+        [sys.executable, str(script)], env=env, capture_output=True, text=True, timeout=120, check=False
+    )
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        # The new thread calls the method straight from C.
-        _thread.start_new_thread(Api().old_fetch, ())
-        assert ran.wait(10)
-
-    assert deprecation_sites(caught) == [("<sys>", 0)]
+    assert (result.returncode, result.stdout) == (0, "ran\n"), result.stderr
+    assert [line for line in result.stderr.splitlines() if "old_fetch" in line] == [
+        "<sys>:0: DeprecationWarning: old_fetch() is deprecated"
+    ]
 
 
 def test_run_coroutine_sync_takes_just_the_coroutine():
