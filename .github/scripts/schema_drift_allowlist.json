@@ -85,12 +85,6 @@
       "reason": "Renamed PaginatedResultAccessRequestList in the API schema; no SDK method uses it."
     },
     {
-      "id": "enum_member_added:APIKeyOwnerType.nats_pdp_config",
-      "sdk": "(absent)",
-      "spec": "'nats_pdp_config'",
-      "reason": "Owner type in the API schema but not in models.py (generated 2025-09-17); an API key read with it fails to parse. Regenerate to fix."
-    },
-    {
       "id": "field_required_changed:ElementsUserInviteRead.first_name",
       "sdk": "optional",
       "spec": "required",
@@ -115,42 +109,6 @@
       "reason": "Kept optional by hand: the API returns user invites without this field."
     },
     {
-      "id": "field_required_changed:RelationshipTupleDetailedRead.object_details",
-      "sdk": "required",
-      "spec": "optional",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_required_changed:RelationshipTupleDetailedRead.object_id",
-      "sdk": "required",
-      "spec": "optional",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_required_changed:RelationshipTupleDetailedRead.relation_details",
-      "sdk": "required",
-      "spec": "optional",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_required_changed:RelationshipTupleDetailedRead.subject_details",
-      "sdk": "required",
-      "spec": "optional",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_required_changed:RelationshipTupleDetailedRead.tenant_details",
-      "sdk": "required",
-      "spec": "optional",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_required_changed:RelationshipTupleRead.object_id",
-      "sdk": "required",
-      "spec": "optional",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
       "id": "field_type_changed:ElementsUserInviteRead.first_name",
       "sdk": "Optional[str]",
       "spec": "str",
@@ -173,42 +131,6 @@
       "sdk": "Optional[UUID]",
       "spec": "UUID",
       "reason": "Kept optional by hand: the API returns user invites without this field."
-    },
-    {
-      "id": "field_type_changed:RelationshipTupleDetailedRead.object_details",
-      "sdk": "ResourceInstanceBlockRead",
-      "spec": "Optional[ResourceInstanceBlockRead]",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_type_changed:RelationshipTupleDetailedRead.object_id",
-      "sdk": "UUID",
-      "spec": "Optional[UUID]",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_type_changed:RelationshipTupleDetailedRead.relation_details",
-      "sdk": "StrippedRelationBlockRead",
-      "spec": "Optional[StrippedRelationBlockRead]",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_type_changed:RelationshipTupleDetailedRead.subject_details",
-      "sdk": "ResourceInstanceBlockRead",
-      "spec": "Optional[ResourceInstanceBlockRead]",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_type_changed:RelationshipTupleDetailedRead.tenant_details",
-      "sdk": "TenantBlockRead",
-      "spec": "Optional[TenantBlockRead]",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
-    },
-    {
-      "id": "field_type_changed:RelationshipTupleRead.object_id",
-      "sdk": "UUID",
-      "spec": "Optional[UUID]",
-      "reason": "The API schema allows this field to be absent; models.py (generated 2025-09-17) still requires it, so a tuple read without it fails to parse. Regenerate to fix."
     }
   ]
 }

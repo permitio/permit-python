@@ -79,6 +79,7 @@ class APIKeyOwnerType(str, Enum):
     pdp_config = 'pdp_config'
     member = 'member'
     elements = 'elements'
+    nats_pdp_config = 'nats_pdp_config'
 
 
 class APIKeyScopeRead(BaseModel):
@@ -5349,8 +5350,10 @@ class RelationshipTupleDetailedRead(BaseModel):
     relation_id: UUID = Field(
         ..., description='Unique id of the relation', title='Relation Id'
     )
-    object_id: UUID = Field(
-        ..., description='Unique id of the object', title='Object Id'
+    object_id: Optional[UUID] = Field(
+        default=None,
+        description='Unique id of the object (null = all resources of this type)',
+        title='Object Id',
     )
     tenant_id: UUID = Field(
         ..., description='Unique id of the tenant', title='Tenant Id'
@@ -5380,23 +5383,23 @@ class RelationshipTupleDetailedRead(BaseModel):
         description='Date and time when the relationship tuple was created (ISO_8601 format).',
         title='Updated At',
     )
-    subject_details: ResourceInstanceBlockRead = Field(
-        ...,
+    subject_details: Optional[ResourceInstanceBlockRead] = Field(
+        default=None,
         description='The subject details of the relationship tuple',
         title='Subject Details',
     )
-    relation_details: StrippedRelationBlockRead = Field(
-        ...,
+    relation_details: Optional[StrippedRelationBlockRead] = Field(
+        default=None,
         description='The relation details of the relationship tuple',
         title='Relation Details',
     )
-    object_details: ResourceInstanceBlockRead = Field(
-        ...,
+    object_details: Optional[ResourceInstanceBlockRead] = Field(
+        default=None,
         description='The object details of the relationship tuple',
         title='Object Details',
     )
-    tenant_details: TenantBlockRead = Field(
-        ...,
+    tenant_details: Optional[TenantBlockRead] = Field(
+        default=None,
         description='The tenant details of the relationship tuple',
         title='Tenant Details',
     )
@@ -5431,8 +5434,10 @@ class RelationshipTupleRead(BaseModel):
     relation_id: UUID = Field(
         ..., description='Unique id of the relation', title='Relation Id'
     )
-    object_id: UUID = Field(
-        ..., description='Unique id of the object', title='Object Id'
+    object_id: Optional[UUID] = Field(
+        default=None,
+        description='Unique id of the object (null = all resources of this type)',
+        title='Object Id',
     )
     tenant_id: UUID = Field(
         ..., description='Unique id of the tenant', title='Tenant Id'
