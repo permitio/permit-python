@@ -18,7 +18,7 @@ import datetime
 import json
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 from uuid import UUID
 
 import pytest
@@ -31,7 +31,9 @@ from permit.api.models import (
     ConditionSetCreate,
     ConditionSetType,
     ElementsUserInviteCreate,
+    RelationshipTupleCreate,
     ResourceAttributeCreate,
+    ResourceCreate,
     ResourceInstanceCreate,
     ResourceInstanceUpdate,
     RoleAssignmentCreate,
@@ -271,21 +273,47 @@ def resource_instance_body() -> Dict[str, Any]:
     return {"key": "doc-1", "resource": "document", "tenant": "tenant-1", "attributes": hostile_attributes()}
 
 
-# Each model is built from its own copy of the payload, so a serializer that edited the
-# caller's dicts in place could not also edit the expected body.
+def resource_body() -> Dict[str, Any]:
+    return {
+        "key": "document",
+        "name": UNICODE_NAME,
+        "description": MIXED_TEXT,
+        "actions": {
+            "read": {},
+            "update": {"name": "Update ✓", "description": MIXED_TEXT, "attributes": hostile_attributes()},
+        },
+        "attributes": {"private": {"type": "bool"}, "level": {"type": "number", "description": MIXED_TEXT}},
+    }
+
+
+def relationship_tuple_body() -> Dict[str, Any]:
+    return {"subject": "folder:f-1", "relation": "parent", "object": "document:doc-1", "tenant": "tenant-1"}
+
+
+# Each model is built inside the test, so a model that fails to build fails its own case
+# and not the whole module. Each is built from its own copy of the payload, so a
+# serializer that edited the caller's dicts in place could not also edit the expected body.
 WIRE_BODIES: List[Any] = [
-    pytest.param(UserCreate(**user_body()), user_body(), id="UserCreate"),
-    pytest.param(TenantCreate(**tenant_body()), tenant_body(), id="TenantCreate"),
+    pytest.param(lambda: UserCreate(**user_body()), user_body(), id="UserCreate"),
+    pytest.param(lambda: TenantCreate(**tenant_body()), tenant_body(), id="TenantCreate"),
     pytest.param(
-        ResourceInstanceCreate(**resource_instance_body()), resource_instance_body(), id="ResourceInstanceCreate"
+        lambda: ResourceInstanceCreate(**resource_instance_body()),
+        resource_instance_body(),
+        id="ResourceInstanceCreate",
+    ),
+    pytest.param(lambda: ResourceCreate(**resource_body()), resource_body(), id="ResourceCreate"),
+    pytest.param(
+        lambda: RelationshipTupleCreate(**relationship_tuple_body()),
+        relationship_tuple_body(),
+        id="RelationshipTupleCreate",
     ),
     pytest.param(
-        ResourceAttributeCreate(key="level", type=AttributeType.number, description=MIXED_TEXT),
+        lambda: ResourceAttributeCreate(key="level", type=AttributeType.number, description=MIXED_TEXT),
         {"key": "level", "type": "number", "description": MIXED_TEXT},
         id="ResourceAttributeCreate",
     ),
     pytest.param(
-        ConditionSetCreate(
+        lambda: ConditionSetCreate(
             key="gold-users",
             name=UNICODE_NAME,
             type=ConditionSetType.userset,
@@ -304,7 +332,7 @@ WIRE_BODIES: List[Any] = [
         id="ConditionSetCreate",
     ),
     pytest.param(
-        ElementsUserInviteCreate(
+        lambda: ElementsUserInviteCreate(
             key="invite@example.com",
             status=UserInviteStatus.pending,
             email="invite@example.com",
@@ -329,16 +357,16 @@ WIRE_BODIES: List[Any] = [
 ]
 
 
-@pytest.mark.parametrize(("body", "expected"), WIRE_BODIES)
+@pytest.mark.parametrize(("build", "expected"), WIRE_BODIES)
 async def test_request_body_reaches_the_wire_exactly_as_given(
-    client: SimpleHttpClient, captured: list, body: Any, expected: Dict[str, Any]
+    client: SimpleHttpClient, captured: list, build: Callable[[], Any], expected: Dict[str, Any]
 ):
     """Every value arrives with its JSON type and every key survives, nulls included.
 
     Each expected body is a literal and CI runs this file under both pydantic majors, so a
     major that serialized any of these bodies differently would fail here.
     """
-    await client.post("/echo", model=Ack, json=body)
+    await client.post("/echo", model=Ack, json=build())
 
     assert captured == [expected]
     # == takes True for 1 and 2.0 for 2. Their JSON text tells them apart.

@@ -4,12 +4,14 @@ The schema documents a relationship tuple's ``object_id`` as optional (``null`` 
 every resource of the object's type) and its ``*_details`` blocks as optional, and lists
 ``nats_pdp_config`` as an API key owner type. The models used to require the first two
 and lack the third, so a response carrying any of them raised ``ValidationError``.
+A user's attribute values must also come back with the JSON types the API sent.
 
 Each test serves a response from ``pytest_httpserver`` through the SDK method that
 parses it, or parses the model directly where no SDK method returns it. No API key,
 PDP or network is involved.
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import UUID, uuid4
@@ -20,6 +22,7 @@ from pytest_httpserver import HTTPServer
 from permit.api.environments import EnvironmentsApi
 from permit.api.models import APIKeyOwnerType, RelationshipTupleDetailedRead
 from permit.api.relationship_tuples import RelationshipTuplesApi
+from permit.api.users import UsersApi
 from permit.config import PermitConfig
 from tests.utils import FACTS
 
@@ -126,3 +129,37 @@ async def test_environments_get_api_key_parses_a_nats_pdp_config_key(httpserver:
     key = await EnvironmentsApi(config).get_api_key("project-1", "env-1")
 
     assert key.owner_type is APIKeyOwnerType.nats_pdp_config
+
+
+async def test_users_get_keeps_every_attribute_value_and_null_as_sent(httpserver: HTTPServer, config: PermitConfig):
+    """Attribute values keep their JSON types: a bool is not an int, a whole float is not an int."""
+    attributes = {
+        "true": True,
+        "false": False,
+        "zero": 0,
+        "one": 1,
+        "negative": -7,
+        "half": 0.5,
+        "whole_float": 2.0,
+        "cleared": None,
+        "text": "",
+        "nested": {"cleared": None, "mixed": [1, 1.0, True, None, "1"]},
+    }
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        {
+            "key": "user-1",
+            **ids("id", "organization_id", "project_id", "environment_id"),
+            "created_at": NOW,
+            "updated_at": NOW,
+            "email": None,
+            "first_name": None,
+            "attributes": attributes,
+        }
+    )
+
+    user = await UsersApi(config).get("user-1")
+
+    assert (user.email, user.first_name) == (None, None)
+    assert user.attributes == attributes
+    # == takes True for 1 and 2.0 for 2. Their JSON text tells them apart.
+    assert json.dumps(user.attributes, sort_keys=True) == json.dumps(attributes, sort_keys=True)
