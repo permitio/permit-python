@@ -118,10 +118,10 @@ async def test_abac_e2e(permit: Permit):
     viewer = RoleCreate(key=unique_ident("viewer"), name="Viewer", permissions=[f"{resource_key}:read"])
     tesla = TenantCreate(key=unique_ident("tesla"), name="Tesla Inc")
     user_a = UserCreate(
-        key=unique_ident("asaf"),
-        email="asaf@permit.io",
-        first_name="Asaf",
-        last_name="Cohen",
+        key=unique_ident("alice"),
+        email="alice@permit.io",
+        first_name="Alice",
+        last_name="Smith",
         attributes={age_attribute: 35},
     )
     user_b = UserCreate(

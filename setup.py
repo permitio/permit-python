@@ -34,8 +34,8 @@ setup(
     # pyproject.toml a build may run with one. Listing them here keeps them in
     # the wheel whichever setuptools builds it.
     package_data={"permit": ["py.typed", "_sync_types.pyi"]},
-    author="Asaf Cohen",
-    author_email="asaf@permit.io",
+    author="Permit.io",
+    author_email="support@permit.io",
     license="Apache 2.0",
     python_requires=">=3.10",
     description="Permit.io python sdk",
