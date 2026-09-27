@@ -137,6 +137,9 @@ jobs:
           # See the same step in security.yml: this only installs Trivy, and
           # hide-progress keeps its empty scan from logging a warning.
           hide-progress: true
+          # The migration skill's sample apps pin vulnerable versions on
+          # purpose and are never installed (skills/tests/README.md).
+          skip-dirs: skills/tests/fixtures
 
       - name: Run dependency audit
         run: bash .github/scripts/audit-deps.sh /tmp/audit

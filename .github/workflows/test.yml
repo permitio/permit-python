@@ -300,3 +300,67 @@ jobs:
         run: |
           python -m pytest -q -m "not e2e" \
             -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"
+
+  # The migration skill's tests (skills/tests): MIGRATION.md, the skill and its
+  # scanner, checked against each other and against the SDK. They run apart from
+  # the SDK's suite, with skills/tests/pytest.ini. Not a required check.
+  migration-skill:
+    name: Migration Skill Tests (pydantic ${{ matrix.pydantic }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        pydantic: ['1', '2']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Python setup
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        env:
+          PYDANTIC_MAJOR: ${{ matrix.pydantic }}
+        run: |
+          set -euo pipefail
+          if [ "${PYDANTIC_MAJOR}" = "1" ]; then
+            python -m pip install . -r requirements-dev.txt "pydantic[email]<2"
+          else
+            python -m pip install . -r requirements-dev.txt "pydantic[email]>=2"
+          fi
+
+      - name: Migration skill tests
+        run: python -m pytest -q -c skills/tests/pytest.ini skills/tests
+
+      # Customers run the scanner before they move off Python 3.8/3.9, so it
+      # must still run there. uv provides the old interpreter.
+      - name: Install uv
+        if: matrix.pydantic == '2'
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
+          enable-cache: false
+
+      - name: Run the scanner on Python 3.9
+        if: matrix.pydantic == '2'
+        run: |
+          set -euo pipefail
+          uv run --no-project --python 3.9 python \
+            skills/permit-python-3-migration/scripts/scan.py skills/tests/fixtures/v2_app --json \
+            > "${RUNNER_TEMP}/scan.json"
+          python - "${RUNNER_TEMP}/scan.json" <<'PY'
+          import json
+          import sys
+
+          report = json.load(open(sys.argv[1]))
+          if not report["findings"]:
+              sys.exit("the scanner found nothing in the 2.x sample app on Python 3.9")
+          print(f"Python 3.9: {len(report['findings'])} findings")
+          PY

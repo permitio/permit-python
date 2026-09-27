@@ -92,6 +92,9 @@ jobs:
           scanners: vuln
           trivy-config: ""
           hide-progress: true
+          # The migration skill's sample apps pin vulnerable versions on
+          # purpose and are never installed (skills/tests/README.md).
+          skip-dirs: skills/tests/fixtures
 
       - name: Run dependency audit
         id: audit

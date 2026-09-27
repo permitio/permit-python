@@ -1,14 +1,16 @@
 """Offline tests for MIGRATION.md and the permit-python-3-migration skill.
 
-The scanner is loaded from the skill folder, the way a customer runs it, and pointed at the
-sample apps in tests/migration_fixtures: v2_app is written against permit 2.x, v3_app is the
+These tests live apart from the SDK's own tests and run in their own CI job; see README.md
+in this directory. The scanner is loaded from the skill folder, the way a customer runs it, and
+pointed at the sample apps in fixtures/: v2_app is written against permit 2.x, v3_app is the
 same app migrated to 3.0.0. The docs are checked against each other, against the scanner and
 against permit/api/deprecated.py, so a change to one that the others miss fails here.
 
 The sample apps' dependency files are stored as *.fixture, and sample_app() restores their real
 names in a temporary copy. Under their real names, GitHub's dependency graph would read v2_app's
 deliberately old pins as this repository's dependencies: Dependency Review fails every pull
-request and Dependabot raises alerts for them.
+request and Dependabot raises alerts for them. The offline helpers below are this module's own,
+so nothing here depends on the SDK's tests package.
 """
 
 import ast
@@ -43,6 +45,7 @@ from werkzeug import Request, Response
 
 import permit.sync
 from permit import Permit, PermitConfig
+from permit.api.context import ApiContext
 from permit.api.models import (
     AuditLogObjectsModel,
     DetailedAuditLogModel,
@@ -51,16 +54,45 @@ from permit.api.models import (
 )
 from permit.sync import Permit as SyncPermit
 from permit.utils.pydantic_version import PYDANTIC_VERSION
-from tests.utils import FACTS, SCHEMA, sent
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_DIR = REPO_ROOT / "skills" / "permit-python-3-migration"
 SCANNER = SKILL_DIR / "scripts" / "scan.py"
 CHANGES = SKILL_DIR / "references" / "changes.md"
 MIGRATION = REPO_ROOT / "MIGRATION.md"
-FIXTURES = REPO_ROOT / "tests" / "migration_fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAFE = "SAFE"
 REVIEW = "NEEDS-REVIEW"
+
+# The guide's snippets run against a local pytest_httpserver, with the SDK's context resolved
+# to this project and environment up front, so no request needs an API key.
+ORG = "test-org"
+PROJECT = "test-project"
+ENVIRONMENT = "test-env"
+FACTS = f"/v2/facts/{PROJECT}/{ENVIRONMENT}"
+SCHEMA = f"/v2/schema/{PROJECT}/{ENVIRONMENT}"
+
+
+@pytest.fixture
+def config(httpserver: HTTPServer) -> PermitConfig:
+    """A PermitConfig whose API and PDP are the local httpserver, its context already resolved."""
+    api_context = ApiContext()
+    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
+    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
+    base_url = httpserver.url_for("").rstrip("/")
+    return PermitConfig(token="test-token", api_url=base_url, pdp=base_url, api_context=api_context)
+
+
+def sent(request: Request) -> Dict[str, Any]:
+    """What a request put on the wire, in a form two requests can be compared by."""
+    body = request.get_data()
+    return {
+        "method": request.method,
+        "path": request.path,
+        "query": sorted(request.args.items(multi=True)),
+        "body": json.loads(body) if body else None,
+    }
+
 
 Row = Tuple[str, int, str, str]
 
