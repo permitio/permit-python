@@ -561,11 +561,23 @@ def scan_version_setting(facts: ProjectFacts, rel: str, number: int, raw: str) -
 _ERROR_FILTER_RE = re.compile(r"(?:^|[\s\"',\[=])(?:-W\s*)?error(?:::(?:DeprecationWarning|Warning))?(?=$|[\s\"',\]])")
 
 
+# A warning filter for permit 2.x's deprecation text, "use permit.api.users.get() instead". Filters
+# match from the start of the message, which in permit 3 is "permit.api.get_user() is deprecated".
+OLD_D2_TEXT_RE = re.compile(r"(?:^|:)\s*use permit\\?\.(?:api|elements)\b")
+OLD_D2_FILTER = (
+    'this warning filter matches permit 2.x\'s deprecation text ("use permit.api....() instead"). permit 3 '
+    'warns "permit.api.<method>() is deprecated and will be removed in permit 4.0; ...", which it does not '
+    "match: delete it once the calls are migrated, or match `permit\\.api\\.\\w+\\(\\) is deprecated` instead"
+)
+
+
 def scan_pytest_setting(facts: ProjectFacts, rel: str, number: int, text: str) -> None:
     if "Support for pydantic 1" in text:
         facts.pydantic1_filter_present = True
     if _ERROR_FILTER_RE.search(text):
         facts.pytest_error_filters.append((rel, number))
+    if OLD_D2_TEXT_RE.search(text):
+        facts.findings.append(Finding(rel, number, "D2", REVIEW, OLD_D2_FILTER))
 
 
 def scan_mypy_override_block(facts: ProjectFacts, rel: str, block: List[Tuple[int, str]]) -> None:
@@ -1645,6 +1657,8 @@ class SourceScan:
             self.add(node, "A5", REVIEW, f"{inner.attr} may be None in 3.0: check it before using it")
 
     def check_string(self, node: ast.Constant) -> None:
+        if OLD_D2_TEXT_RE.search(str(node.value)):
+            self.add(node, "D2", REVIEW, OLD_D2_FILTER)
         if self.imports_permit and re.match(r"bearer(\s|$)", str(node.value)):
             self.add(
                 node,

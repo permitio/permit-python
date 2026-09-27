@@ -941,6 +941,39 @@ def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path):
     assert ("pytest.ini", 2, "D1", REVIEW) in findings(tmp_path)
 
 
+def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "pyproject.toml": """
+            [tool.pytest.ini_options]
+            filterwarnings = [
+                "ignore:use permit.api:DeprecationWarning",
+                "ignore:permit\\\\.api\\\\.\\\\w+\\\\(\\\\) is deprecated:DeprecationWarning",
+            ]
+            """,
+            "setup.cfg": "[tool:pytest]\nfilterwarnings =\n    ignore:use permit\\.elements:DeprecationWarning\n",
+            "conftest.py": """
+            import warnings
+
+            import pytest
+
+            warnings.filterwarnings("ignore", message=r"use permit\\.api", category=DeprecationWarning)
+            pytest.mark.filterwarnings("ignore:use permit.api.users.get")
+            EXPECTED = "permit.api.get_user() is deprecated ...; use permit.api.users.get() instead."
+            """,
+        },
+    )
+
+    # The 3.x filter and the 3.x message itself, where "use permit.api" is not at the start, are fine.
+    assert findings(tmp_path) == [
+        ("conftest.py", 5, "D2", REVIEW),
+        ("conftest.py", 6, "D2", REVIEW),
+        ("pyproject.toml", 3, "D2", REVIEW),
+        ("setup.cfg", 3, "D2", REVIEW),
+    ]
+
+
 def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path: Path):
     write(tmp_path, {"app.py": "import httpx\nimport anyio\n", "requirements-dev.txt": "httpx==0.28.1\n"})
 

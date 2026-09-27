@@ -347,8 +347,11 @@ returned.
   (it may be another library's `.api`). The scan follows Python's scoping: a parameter, local,
   loop or comprehension variable is not the module-level client of the same name, and a name
   also bound to something other than a permit client is not traced.
-- The message text changed from 2.x ("use permit.api.users.get() instead"). Update warning
-  filters that match the old text.
+- The message text changed from 2.x ("use permit.api.users.get() instead"). A warning filter
+  written for the old text (a pytest `filterwarnings` or `-W` entry, or a string in Python code,
+  whose message starts `use permit.api`) no longer matches anything. Detect those too: delete
+  them once the calls are migrated, or match `permit\.api\.\w+\(\) is deprecated` instead.
+  **NEEDS-REVIEW.**
 
 ## Bug fixes that change results
 
