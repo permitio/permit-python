@@ -80,8 +80,10 @@ one decision. Apply what the user approves and leave the rest.
 The cases that need a decision most:
 
 - W1: a `None` that 2.x dropped now clears the field. Ask whether clearing was intended.
-- A3: a `ContextStore` transform was never applied. Deleting the call keeps behaviour;
-  applying the transform changes decisions.
+- A3: the SDK never applied a registered `ContextStore` transform to a check. Deleting the
+  `register_transform()` call keeps decisions as they are; applying the transform to the context
+  passed to `check()` changes them. Where the code calls `transform()` itself, call the
+  registered functions directly.
 - A2 in async code: recommend switching to the async `permit.Permit` and keeping the `await`;
   dropping the `await` leaves a blocking call in the coroutine. With an untraced client, the
   edit applies only to `permit.sync.Permit`.

@@ -41,7 +41,7 @@ Everyone who upgrades needs:
 
 Code changes are needed only if you:
 
-- import `httpx` without declaring it (C2);
+- import `httpx`, `certifi`, `anyio` or another package C2 lists without declaring it (C2);
 - type-check your code (T1-T3);
 - call `resource_relations.list()` (A1), or `authorized_users()`, `get_user_permissions()` or
   `filter_objects()` on the blocking `permit.sync.Permit` (A2);
@@ -56,7 +56,8 @@ The deprecations (D1, D2) keep working in 3.x and warn.
 
 - [ ] Every place the project runs uses Python 3.10 or later: `requires-python`, Docker images,
       CI matrices, `.python-version` (C1).
-- [ ] If your code imports `httpx`, it declares `httpx` itself (C2).
+- [ ] If your code imports `httpx`, `certifi`, `anyio` or another package C2 lists, it declares
+      it itself (C2).
 - [ ] No pin holds `aiohttp`, `pydantic`, `typing-extensions` or `loguru` below the new floors (C3).
 - [ ] You know whether you're on pydantic 1 or 2 (D1).
 - [ ] Optional: list what the upgrade touches with the scanner. It is read-only, needs only the
@@ -92,7 +93,7 @@ it, so declare the ones your code imports first (C2).
   [Staying on 2.x for now](#staying-on-2x-for-now).
 
 ```diff
- [project]
+  [project]
 - requires-python = ">=3.8"
 + requires-python = ">=3.10"
 ```
