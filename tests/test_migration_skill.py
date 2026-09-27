@@ -4,10 +4,17 @@ The scanner is loaded from the skill folder, the way a customer runs it, and poi
 sample apps in tests/migration_fixtures: v2_app is written against permit 2.x, v3_app is the
 same app migrated to 3.0.0. The docs are checked against each other, against the scanner and
 against permit/api/deprecated.py, so a change to one that the others miss fails here.
+
+The sample apps' dependency files are stored as *.fixture, and sample_app() restores their real
+names in a temporary copy. Under their real names, GitHub's dependency graph would read v2_app's
+deliberately old pins as this repository's dependencies: Dependency Review fails every pull
+request and Dependabot raises alerts for them.
 """
 
 import ast
 import asyncio
+import atexit
+import functools
 import hashlib
 import importlib
 import importlib.util
@@ -19,6 +26,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 import warnings
 from pathlib import Path
@@ -78,6 +86,17 @@ scan = load_scanner()
 
 def findings(root: Path) -> List[Row]:
     return [(item.path, item.line, item.change, item.safety) for item in scan.Project(root).scan()]
+
+
+@functools.lru_cache(maxsize=None)
+def sample_app(name: str) -> Path:
+    """Copy a sample app out of the repo and give its *.fixture files their real names."""
+    target = Path(tempfile.mkdtemp(prefix="permit-migration-")) / name
+    atexit.register(shutil.rmtree, target.parent, ignore_errors=True)
+    shutil.copytree(FIXTURES / name, target, ignore=shutil.ignore_patterns("__pycache__"))
+    for path in target.rglob("*.fixture"):
+        path.rename(path.with_suffix(""))
+    return target
 
 
 def write(root: Path, files: Dict[str, str]) -> Path:
@@ -161,22 +180,31 @@ def test_git_tracks_every_fixture_file():
     assert result.returncode == 1, f"git ignores these fixture files:\n{result.stdout}{result.stderr}"
 
 
+def test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest():
+    manifests = re.compile(
+        r"(pyproject\.toml|setup\.py|setup\.cfg|Pipfile(\.lock)?|poetry\.lock|uv\.lock|.*requirements.*\.txt)"
+    )
+    named = [path.relative_to(FIXTURES).as_posix() for path in FIXTURES.rglob("*") if manifests.fullmatch(path.name)]
+
+    assert named == [], f"store these as <name>.fixture: {named}"
+
+
 def test_scanner_finds_every_site_in_the_2x_app():
-    found = findings(FIXTURES / "v2_app")
+    found = findings(sample_app("v2_app"))
 
     assert len(found) == len(set(found)), "a site was reported twice"
     assert set(found) == V2_FINDINGS
 
 
 def test_scanner_reports_nothing_in_the_migrated_app():
-    project = scan.Project(FIXTURES / "v3_app")
+    project = scan.Project(sample_app("v3_app"))
 
     assert project.scan() == []
     assert project.skipped == []
 
 
 def test_safe_edits_name_the_replacement():
-    messages = {(item.path, item.line): item.message for item in scan.Project(FIXTURES / "v2_app").scan()}
+    messages = {(item.path, item.line): item.message for item in scan.Project(sample_app("v2_app")).scan()}
 
     assert "use self.permit.api.tenants.get(...)" in messages[("app/aliases.py", 18)]
     assert "rename tenant= to tenant_data=" in messages[("app/async_app.py", 21)]
@@ -192,7 +220,7 @@ def test_safe_edits_name_the_replacement():
 
 def test_json_report_matches_the_findings_and_names_the_changes():
     result = subprocess.run(
-        [sys.executable, str(SCANNER), str(FIXTURES / "v2_app"), "--json"],
+        [sys.executable, str(SCANNER), str(sample_app("v2_app")), "--json"],
         capture_output=True,
         text=True,
         check=False,
@@ -1120,7 +1148,7 @@ def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path):
 
 
 def test_scanner_does_not_modify_the_project():
-    root = FIXTURES / "v2_app"
+    root = sample_app("v2_app")
 
     def digest() -> Dict[str, str]:
         return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in root.rglob("*") if path.is_file()}
@@ -1140,7 +1168,7 @@ def test_scanner_does_not_modify_the_project():
     ],
 )
 def test_exit_status_is_non_zero_only_for_usage_errors(tmp_path: Path, arguments: List[str], status: int):
-    values = {"fixture": str(FIXTURES / "v2_app"), "missing": str(tmp_path / "missing")}
+    values = {"fixture": str(sample_app("v2_app")), "missing": str(tmp_path / "missing")}
     command = [sys.executable, str(SCANNER), *(argument.format(**values) for argument in arguments)]
 
     result = subprocess.run(command, capture_output=True, text=True, check=False)
@@ -1699,7 +1727,7 @@ def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
         },
     )
     reported: Dict[str, Set[str]] = {}
-    for _, _, change, safety in findings(FIXTURES / "v2_app") + findings(tmp_path):
+    for _, _, change, safety in findings(sample_app("v2_app")) + findings(tmp_path):
         reported.setdefault(change, set()).add(safety)
 
     for change in change_headings(CHANGES):
