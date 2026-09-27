@@ -150,7 +150,11 @@ def test_git_tracks_every_fixture_file():
     """A fixture file that git ignores is missing from every clone, so the tests below fail in CI."""
     if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
         pytest.skip("not a git checkout")
-    files = [path.relative_to(REPO_ROOT).as_posix() for path in FIXTURES.rglob("*") if path.is_file()]
+    files = [
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in FIXTURES.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts
+    ]
 
     result = subprocess.run(["git", "check-ignore", *files], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
 
