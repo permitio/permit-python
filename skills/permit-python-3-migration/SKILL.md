@@ -48,9 +48,10 @@ it finds; 2 means a usage error. Group the findings by ID and read those entries
 
 - Change every permit requirement (P1) to `permit>=3.0.0,<4`.
 - C2 with httpx: the project imports httpx but only got it through permit 2.x. Add
-  `httpx>=0.24.1,<1` to its dependencies. For C2 on httpcore, h11, anyio or zipp, first check
-  whether another dependency still installs the package (`uv tree --invert --package NAME`,
-  `pipdeptree -r -p NAME`); declare it only if nothing does.
+  `httpx>=0.24.1,<1` to its dependencies. For C2 on any other package (httpcore, h11, anyio,
+  certifi, sniffio, exceptiongroup, zipp), first check whether another dependency still installs
+  it (`uv tree --invert --package NAME`, `pipdeptree -r -p NAME`); declare it only if nothing
+  does.
 - Raise the pins C3 reports to the new floors.
 - Regenerate lock files with the project's tool (`uv lock`, `poetry lock`, `pipenv lock`,
   `pip-compile`), install, and check that `python -c "import permit"` works. A requirements file

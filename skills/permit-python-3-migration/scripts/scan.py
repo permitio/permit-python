@@ -158,7 +158,18 @@ V2_METHODS: Dict[str, Tuple[str, Set[str]]] = {
 V2_ATTRIBUTES = {"model_fields_set": "__fields_set__", "model_fields": "__fields__", "model_config": "__config__"}
 REQUEST_MODEL_SUFFIXES = ("Create", "Update", "Remove", "Delete", "Replace")
 
-TRANSITIVE_PACKAGES = {"httpx", "httpcore", "h11", "anyio", "zipp"}
+# Packages permit 2.x installed and 3.0.0 does not: httpx and zipp, which it declared, and the
+# packages only httpx brought in. idna and typing-extensions still come with permit 3.
+TRANSITIVE_PACKAGES = {
+    "httpx": "permit 2.x declared it",
+    "zipp": "permit 2.x declared it",
+    "httpcore": "permit 2.x installed it through httpx",
+    "h11": "permit 2.x installed it through httpx",
+    "anyio": "permit 2.x installed it through httpx",
+    "certifi": "permit 2.x installed it through httpx",
+    "sniffio": "permit 2.x installed it through httpx and anyio releases that need it",
+    "exceptiongroup": "permit 2.x installed it through anyio on Python 3.10",
+}
 
 # mypy and pyright codes for "this package has no type information".
 IMPORT_IGNORE_CODES = {
@@ -1225,8 +1236,8 @@ class SourceScan:
                 node,
                 "C2",
                 REVIEW,
-                f"{top} is not declared, and permit 2.x installed it through httpx: declare it unless "
-                "another dependency still brings it",
+                f"{top} is not declared, and {TRANSITIVE_PACKAGES[top]}: declare it unless another "
+                "dependency still brings it",
             )
 
     def check_removed(self, node: ast.AST, module: str, name: str) -> None:

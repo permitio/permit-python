@@ -53,16 +53,18 @@ quietly keeps 2.x.
 
 ### C2. httpx is no longer installed with permit
 
-permit 2.x declared `httpx` (and so installed `httpcore`, `h11` and `anyio`) and `zipp`. It never
-imported them. 3.0.0 declares neither.
+permit 2.x declared `httpx` and `zipp`, and httpx brought `httpcore`, `h11`, `anyio`,
+`certifi`, `sniffio` (with httpx before 0.28 and older anyio releases) and `exceptiongroup` (on
+Python 3.10). permit never imported them. 3.0.0 declares neither httpx nor zipp, so none of them
+is installed with it. `idna` and `typing-extensions` still are.
 
-- Detect: `import httpx` / `from httpx import ...` (or `httpcore`, `h11`, `anyio`, `zipp`) in a
-  project that doesn't declare that package. Pins in a compiled requirements file are not
-  declarations: `httpx==0.28.1  # via permit` disappears when the lock is regenerated.
+- Detect: an import of one of these packages in a project that doesn't declare it. Pins in a
+  compiled requirements file are not declarations: `httpx==0.28.1  # via permit` disappears when
+  the lock is regenerated.
 - Edit for httpx: add `httpx>=0.24.1,<1` (the range permit 2.x required) to the project's
   dependencies. **SAFE.**
-- Edit for httpcore, h11, anyio, zipp: another dependency may still install them (starlette and
-  FastAPI depend on anyio, for one). Check with `uv tree --invert --package NAME`,
+- Edit for the others: another dependency may still install them (Starlette and FastAPI depend
+  on anyio, requests on certifi). Check with `uv tree --invert --package NAME`,
   `pipdeptree -r -p NAME` or `pip show NAME` (Required-by), and declare the package only if
   nothing else brings it. **NEEDS-REVIEW.**
 

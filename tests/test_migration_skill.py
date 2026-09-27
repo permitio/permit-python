@@ -911,6 +911,20 @@ def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path:
     assert findings(tmp_path) == [("app.py", 2, "C2", REVIEW)]
 
 
+def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(tmp_path: Path):
+    packages = ["httpx", "zipp", "httpcore", "h11", "anyio", "certifi", "sniffio", "exceptiongroup"]
+    write(tmp_path, {"app.py": "".join(f"import {name}\n" for name in packages)})
+
+    assert findings(tmp_path) == [("app.py", 1, "C2", SAFE)] + [
+        ("app.py", line, "C2", REVIEW) for line in range(2, len(packages) + 1)
+    ]
+    assert set(scan.TRANSITIVE_PACKAGES) == set(packages)
+    # Each is in the C2 section of both docs, so the docs and the scanner name the same set.
+    for path in (MIGRATION, CHANGES):
+        section = doc_section(path, "C2")
+        assert {name for name in packages if f"`{name}`" in section} == set(packages), path.name
+
+
 def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path):
     write(
         tmp_path,
@@ -1078,6 +1092,13 @@ def test_skill_is_self_contained_and_small():
 # ---------------------------------------------------------------------------
 # The docs against each other, the scanner and the SDK
 # ---------------------------------------------------------------------------
+
+
+def doc_section(path: Path, change: str) -> str:
+    """The text under a change's `### ID. Title` heading, up to the next heading."""
+    match = re.search(rf"^### {change}\. .*?(?=^##)", path.read_text() + "\n## end", re.MULTILINE | re.DOTALL)
+    assert match, f"{path.name} has no section for {change}"
+    return match.group(0)
 
 
 def change_headings(path: Path) -> Dict[str, str]:

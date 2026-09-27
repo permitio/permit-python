@@ -96,13 +96,15 @@ it, so declare the ones your code imports first (C2).
 
 ### C2. httpx is no longer installed with permit
 
-- **What changed:** permit no longer depends on `httpx`, so `httpx`, `h11`, `httpcore`, `anyio`
-  and `zipp` are no longer installed with it. The SDK never imported any of them.
-- **Who is affected:** code that imports `httpx` (or one of the others) but relied on permit to
-  install it.
+- **What changed:** permit no longer depends on `httpx` or `zipp`, so neither is installed with
+  it, and nor are the packages that came only through httpx: `httpcore`, `h11`, `anyio`,
+  `certifi`, `sniffio` (with httpx releases before 0.28 and older anyio releases) and
+  `exceptiongroup` (on Python 3.10). The SDK never imported any of them.
+- **Who is affected:** code that imports one of them but relied on permit to install it, such as
+  `import httpx`, or `ssl.create_default_context(cafile=certifi.where())`.
 - **What to do:** declare it yourself. `httpx>=0.24.1,<1` is the range permit 2.x required. For
-  `anyio`, `h11`, `httpcore` and `zipp`, check first whether another dependency still installs
-  them (FastAPI and Starlette depend on anyio).
+  the others, check first whether another dependency still installs them (FastAPI and Starlette
+  depend on anyio, requests on certifi).
 
 ```diff
   permit>=3.0.0,<4
