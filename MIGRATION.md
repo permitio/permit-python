@@ -47,7 +47,7 @@ Code changes are needed only if you:
   `filter_objects()` on the blocking `permit.sync.Permit` (A2);
 - import a removed name (A3, A6);
 - read audit logs, relationship tuples or API keys (A4, A5);
-- set a field to `None` on an update model (W1);
+- pass `None` for a field in a create, sync or update call, as a model field or a dict value (W1);
 - assert on the exact requests permit sends, in HTTP mocks or recorded fixtures (W2-W6).
 
 The deprecations (D1, D2) keep working in 3.x and warn.
@@ -60,8 +60,11 @@ The deprecations (D1, D2) keep working in 3.x and warn.
 - [ ] No pin holds `aiohttp`, `pydantic`, `typing-extensions` or `loguru` below the new floors (C3).
 - [ ] You know whether you're on pydantic 1 or 2 (D1).
 - [ ] Optional: list what the upgrade touches with the scanner. It is read-only, needs only the
-      standard library and runs on Python 3.8+, so it works before you move:
-      `python3 skills/permit-python-3-migration/scripts/scan.py path/to/your/project`
+      standard library and runs on Python 3.8+, so it works before you move. It ships with the
+      migration skill, not with the permit package: install the skill first (see
+      [Migrate with an AI agent](#migrate-with-an-ai-agent)), then run
+      `python3 .claude/skills/permit-python-3-migration/scripts/scan.py .` from your project's
+      root.
 - [ ] Change the requirement (P1), reinstall, and run your tests and type checker.
 
 ### P1. The permit requirement
@@ -81,7 +84,7 @@ it, so declare the ones your code imports first (C2).
 ### C1. Python 3.10 or later
 
 - **What changed:** permit 3.0.0 requires Python 3.10 (`python_requires>=3.10`). This can't be
-  avoided: aiohttp 3.14.3 is the only release that fixes CVE-2026-69244, and it requires 3.10.
+  avoided: aiohttp 3.14.3, the first release that fixes CVE-2026-69244, requires 3.10.
   Python 3.8 was already unsupported in practice, since the old aiohttp floor needed 3.9.
 - **Who is affected:** projects on Python 3.8 or 3.9. pip on those versions quietly keeps the
   old, vulnerable permit.
@@ -282,10 +285,12 @@ requests permit sends.
 
 - **What changed:** a field you explicitly set to `None` is sent as `null`, so an update can clear
   a field. Fields you never set are still omitted.
-- **Who is affected:** code that passes `None` for a field it doesn't mean to change. In 2.x,
-  `exclude_none` dropped it: `users.update(key, UserUpdate(email=None))` sent `{}` and did
-  nothing. In 3.0 it clears the email. A dict passed to a method that takes a model is validated
-  into the model first, so `{"email": None}` behaves the same way.
+- **Who is affected:** code that passes `None` for a field it doesn't mean to change, in a create,
+  sync or update call. In 2.x, `exclude_none` dropped it: `users.update(key, UserUpdate(email=None))`
+  sent `{}` and did nothing. In 3.0 it clears the email. A dict passed to a method that takes a
+  model is validated into the model first, so `{"email": None}` behaves the same way. That
+  includes `users.sync()`: `users.sync({"key": k, "first_name": u.first_name})` with
+  `first_name` of `None` now sends `"first_name": null` where 2.x left the key out.
 - **What to do:** pass a field only when it has a value, unless you mean to clear it.
 
 ```diff
@@ -344,8 +349,12 @@ requests permit sends.
 - **What changed:** `permit` is a typed package (PEP 561 `py.typed`). Type checkers used to skip
   it with `import-untyped`; now they check calls into it.
 - **Who is affected:** projects that run mypy, pyright or another type checker. Genuine type
-  errors in your code may now surface.
-- **What to do:** drop the settings that hid permit, and fix what the checker reports.
+  errors in your code may now surface. Model constructors are typed by their fields, so a nested
+  model field takes a model instance: `ResourceCreate(key="doc", name="Doc", actions={"read": {}})`
+  runs, but a type checker rejects the nested dict.
+- **What to do:** drop the settings that hid permit, and fix what the checker reports. For a
+  nested field, build the nested model (`actions={"read": ActionBlockEditable()}`), or pass the
+  whole payload to the API method as a dict, which methods that take a model accept.
 
 ```diff
 - [[tool.mypy.overrides]]
@@ -477,17 +486,26 @@ summary.
 
 ## Other fixes you may notice
 
-These need no code change, but results or messages can differ from 2.x:
+These need no code change unless your code worked around the old behaviour, but results or
+messages can differ from 2.x:
 
 - `bulk_check()` honours a per-check `context`, and `filter_objects()` passes your context through.
   Context-dependent (ABAC) checks were evaluated against an empty context, so decisions can change.
 - `UserInput` accepts `first_name` and `last_name`, which were silently dropped from every check.
-- A PDP that rejects the API key is reported with its status code and response body, not as
-  "cannot connect to the PDP container".
+- A non-200 response from the PDP raises `PermitConnectionError` with the status code and the
+  response body, not "cannot connect to the PDP container", so a rejected API key reads as one.
+  Code that matches the old message text needs updating.
 - `permit.pdp_api.*` calls honour `pdp_timeout`.
 - The blocking client works when called inside a running event loop; 2.x raised
   `RuntimeError: This event loop is already running`.
 - `users.sync()` no longer removes `key` from the dict you pass, a path that always returned 422.
+- On the blocking `permit.sync.Permit`, the flat `permit.api` methods (D2) sent their request and
+  then raised `ValueError: a coroutine was expected`, so a write such as `assign_role()` took
+  effect before the error. In 3.0 they return the result. Remove any `except ValueError` added
+  around them.
+- With `proxy_facts_via_pdp`, `tenants.bulk_create()` and `tenants.bulk_delete()` go to the PDP's
+  `/facts/bulk/tenants`; 2.x sent them to its users endpoint.
+- `resource_instances.list(detailed_key=...)` works; 2.x raised `TypeError` on the boolean.
 - The `tests` package is no longer installed into your site-packages next to `permit`.
 
 ## Staying on 2.x for now
@@ -506,8 +524,8 @@ h11>=0.16.0              # CVE-2025-43859
 pydantic>=2.4.2          # CVE-2024-3772 (or pydantic>=1.10.13,<2 on pydantic 1)
 ```
 
-**On Python 3.8 or 3.9 this is not possible.** aiohttp 3.14.3 and anyio 4.14.2 both require
-Python 3.10, and they are the only fixed releases. `h11>=0.16.0` and the pydantic floor still
+**On Python 3.8 or 3.9 this is not possible.** aiohttp 3.14.3 and anyio 4.14.2, the first fixed
+releases, both require Python 3.10. `h11>=0.16.0` and the pydantic floor still
 install. Until you move to Python 3.10, the advisories give these workarounds:
 
 - CVE-2026-69244 is in aiohttp's C response parser. Setting `AIOHTTP_NO_EXTENSIONS=1` makes

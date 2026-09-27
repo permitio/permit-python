@@ -23,7 +23,7 @@ the site to the user with the recommendation, and apply what they choose).
   [W5](#w5-authorization-bearer) · [W6](#w6-the-deprecated-assign_role-and-unassign_role-use-the-users-route)
 - Deprecations, removed in 4.0: [D1. pydantic 1 support](#d1-pydantic-1-support-is-deprecated) ·
   [D2. The flat permit.api methods](#d2-the-flat-permitapi-methods-are-deprecated)
-- [Bug fixes that change results](#bug-fixes-that-change-results) (no edit)
+- [Bug fixes that change results](#bug-fixes-that-change-results) (usually no edit)
 - [What the scan cannot see](#what-the-scan-cannot-see)
 
 ### P1. The permit requirement
@@ -40,8 +40,8 @@ the site to the user with the recommendation, and apply what they choose).
 
 ### C1. Python 3.10 or later
 
-permit 3.0.0 declares `python_requires>=3.10`. It can't support less: aiohttp 3.14.3 is the only
-release that fixes CVE-2026-69244, and it requires Python 3.10. On 3.8 or 3.9, `pip install -U permit`
+permit 3.0.0 declares `python_requires>=3.10`. It can't support less: aiohttp 3.14.3, the first
+release that fixes CVE-2026-69244, requires Python 3.10. On 3.8 or 3.9, `pip install -U permit`
 quietly keeps 2.x.
 
 - Detect: `requires-python`, Poetry `python`, `python_requires`, classifiers, `.python-version`,
@@ -356,17 +356,25 @@ returned.
 
 ## Bug fixes that change results
 
-No edit, but tests that pinned the old results may change:
+No edit unless the project worked around the old behaviour, but tests that pinned the old results
+may change:
 
 - `bulk_check()` honours a per-check `context`, and `filter_objects()` passes the caller's
   context through. Context-dependent (ABAC) checks were evaluated against an empty context.
 - `UserInput` accepts `first_name` / `last_name` (snake_case), which were silently dropped from
   every check.
-- A PDP 401/403 is reported with its status code and body instead of "cannot connect to the PDP".
 - `permit.pdp_api.*` calls honour `pdp_timeout`.
 - The blocking client works when called inside a running event loop; 2.x raised
   `RuntimeError: This event loop is already running`.
 - `users.sync()` no longer removes `key` from the caller's dict.
+- On `permit.sync.Permit`, the flat `permit.api` methods (D2) sent their request and then raised
+  `ValueError: a coroutine was expected`, so writes took effect before the error. They return
+  the result in 3.0: remove any `except ValueError` added around them.
+- A non-200 PDP response raises `PermitConnectionError` with the status code and body; code that
+  matched the old message text needs updating.
+- With `proxy_facts_via_pdp`, `tenants.bulk_create()` / `bulk_delete()` go to the PDP's
+  `/facts/bulk/tenants` instead of its users endpoint.
+- `resource_instances.list(detailed_key=...)` no longer raises `TypeError`.
 
 ## What the scan cannot see
 
