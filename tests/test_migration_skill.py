@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import pytest
 
 from permit import Permit, PermitConfig
+from permit.api.models import AuditLogObjectsModel, DetailedAuditLogModel
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = REPO_ROOT / "skills" / "permit-python-3-migration"
@@ -594,6 +595,40 @@ def test_guarded_optional_fields_are_not_reported(tmp_path: Path):
     )
 
     assert findings(tmp_path) == [("app.py", 8, "A5", REVIEW)]
+
+
+def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            from uuid import UUID
+
+            from permit.api.models import AuditLogObjectsModel, DetailedAuditLogModel
+
+
+            def users(raw):
+                log = DetailedAuditLogModel.parse_obj(raw)
+                unguarded = log.objects.user_object
+                not_none = log.objects.user_object if log.objects is not None else None
+                typed = log.objects.user_object if isinstance(log.objects, AuditLogObjectsModel) else None
+                truthy = log.objects and log.objects.user_object
+                config = log.pdp_config_id.hex if isinstance(log.pdp_config_id, UUID) else None
+                return unguarded, not_none, typed, truthy, config
+            """
+        },
+    )
+
+    assert findings(tmp_path) == [("app.py", 8, "A4", REVIEW), ("app.py", 9, "A4", REVIEW)]
+
+
+def test_audit_log_objects_default_to_an_empty_dict():
+    """What A4 in both docs and the scanner's message say: `is not None` does not guard `objects`."""
+    field = DetailedAuditLogModel.__fields__["objects"]
+
+    assert field.required is False
+    assert field.default == {}
+    assert not isinstance(field.default, AuditLogObjectsModel)
 
 
 # ---------------------------------------------------------------------------

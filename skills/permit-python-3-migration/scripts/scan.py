@@ -825,17 +825,20 @@ def optional_annotation(node: Optional[ast.AST]) -> bool:
     return False
 
 
-def guards(test: ast.AST, key: str) -> bool:
-    """Whether `test` being true means the value at `key` is not None."""
+def guards(test: ast.AST, key: str, *, none_check: bool = True) -> bool:
+    """Whether `test` being true means the value at `key` is usable: truthy, an isinstance()
+    match, or (when `none_check`) `is not None`."""
     if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And):
-        return any(guards(value, key) for value in test.values)
+        return any(guards(value, key, none_check=none_check) for value in test.values)
     if (
         isinstance(test, ast.Compare)
         and len(test.ops) == 1
         and isinstance(test.ops[0], ast.IsNot)
         and is_none(test.comparators[0])
     ):
-        return dotted(test.left) == key
+        return none_check and dotted(test.left) == key
+    if isinstance(test, ast.Call) and isinstance(test.func, ast.Name) and test.func.id == "isinstance" and test.args:
+        return dotted(test.args[0]) == key
     return dotted(test) == key
 
 
@@ -1289,17 +1292,24 @@ class SourceScan:
                 found.append(argument.arg)
         return found
 
-    def guarded(self, node: ast.AST) -> bool:
-        """Whether an enclosing `if`, conditional expression, `and` or comprehension checks `node` is not None."""
+    def guarded(self, node: ast.AST, *, none_check: bool = True) -> bool:
+        """Whether an enclosing `if`, conditional expression, `and` or comprehension checks `node` first.
+
+        With `none_check` false, `is not None` does not count: only truthiness and isinstance() do.
+        """
         key = dotted(node)
         if key is None:
             return False
         child: ast.AST = node
         parent = self.parents.get(node)
         while parent is not None and not isinstance(parent, GUARD_LIMITS):
-            if isinstance(parent, ast.If) and child in parent.body and guards(parent.test, key):
+            if isinstance(parent, ast.If) and child in parent.body and guards(parent.test, key, none_check=none_check):
                 return True
-            if isinstance(parent, ast.IfExp) and child is parent.body and guards(parent.test, key):
+            if (
+                isinstance(parent, ast.IfExp)
+                and child is parent.body
+                and guards(parent.test, key, none_check=none_check)
+            ):
                 return True
             if isinstance(parent, ast.BoolOp) and isinstance(parent.op, ast.And):
                 earlier: List[ast.expr] = []
@@ -1307,11 +1317,11 @@ class SourceScan:
                     if value is child:
                         break
                     earlier.append(value)
-                if any(guards(value, key) for value in earlier):
+                if any(guards(value, key, none_check=none_check) for value in earlier):
                     return True
             if isinstance(parent, COMPREHENSIONS):
                 tests = [test for generator in parent.generators for test in generator.ifs]
-                if child not in parent.generators and any(guards(test, key) for test in tests):
+                if child not in parent.generators and any(guards(test, key, none_check=none_check) for test in tests):
                     return True
             child, parent = parent, self.parents.get(parent)
         return False
@@ -1583,12 +1593,23 @@ class SourceScan:
             replacement = V2_ATTRIBUTES[node.attr]
             self.add(node, "T2", safety, f"SDK models are pydantic v1 models: use .{replacement}, not .{node.attr}")
         inner = node.value
-        if not isinstance(inner, ast.Attribute) or self.guarded(inner):
+        if not isinstance(inner, ast.Attribute):
+            return
+        if inner.attr == "objects" and "DetailedAuditLogModel" in self.names_imported:
+            # A log without objects gets the field's default, {}, which `is not None` lets through.
+            if not self.guarded(inner, none_check=False):
+                self.add(
+                    node,
+                    "A4",
+                    REVIEW,
+                    "DetailedAuditLogModel.objects is {} (a plain dict) when a log has no objects, and None when "
+                    "the API sends null: check isinstance(..., AuditLogObjectsModel) before reading it",
+                )
+            return
+        if self.guarded(inner):
             return
         if inner.attr == "pdp_config_id" and self.names_imported & AUDIT_LOG_MODELS:
             self.add(node, "A4", REVIEW, "pdp_config_id may be None in 3.0: check it before using it")
-        elif inner.attr == "objects" and "DetailedAuditLogModel" in self.names_imported:
-            self.add(node, "A4", REVIEW, "DetailedAuditLogModel.objects may be None in 3.0: check it before using it")
         elif inner.attr in TUPLE_OPTIONAL_FIELDS and (self.mentions_tuples or self.names_imported & TUPLE_MODELS):
             self.add(node, "A5", REVIEW, f"{inner.attr} may be None in 3.0: check it before using it")
 

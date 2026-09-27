@@ -207,18 +207,24 @@ Breaking change 4 in the release notes, the typed package, is covered under [Typ
 ### A4. Audit-log models accept what the API returns
 
 - **What changed:** `pdp_config_id` on `AuditLogModel` and `DetailedAuditLogModel` is
-  `Optional[UUID]`, and `DetailedAuditLogModel.objects` is optional. `Engine.GENERIC` and
+  `Optional[UUID]`, and `DetailedAuditLogModel.objects` is optional. `objects` is `None` when the
+  API sends `null`, and an empty dict, `{}`, when the log has no `objects` at all: that is the
+  field's default, and it is not an `AuditLogObjectsModel`. `Engine.GENERIC` and
   `GenericEngineDecisionLog` are new.
-- **This is a bug fix.** The API returns logs without a `pdp_config_id`, and logs from the GENERIC
-  engine; the old models rejected both with a `ValidationError`. No SDK method returns these
-  models.
+- **This is a bug fix.** The API returns logs without a `pdp_config_id` or `objects`, and logs
+  from the GENERIC engine; the old models rejected them with a `ValidationError`. No SDK method
+  returns these models.
 - **Who is affected:** code that parses audit logs with these models, and type-checked code that
   treats `pdp_config_id` as a plain `UUID`.
-- **What to do:** check for `None`, and handle `Engine.GENERIC` where you branch on the engine.
+- **What to do:** check `pdp_config_id` for `None`. Check `objects` with
+  `isinstance(log.objects, AuditLogObjectsModel)`, not `is not None`, which lets `{}` through.
+  Handle `Engine.GENERIC` where you branch on the engine.
 
 ```diff
 - config_id = log.pdp_config_id.hex
+- user = log.objects.user_object
 + config_id = log.pdp_config_id.hex if log.pdp_config_id is not None else None
++ user = log.objects.user_object if isinstance(log.objects, AuditLogObjectsModel) else None
 ```
 
 ### A5. Relationship-tuple and API-key models accept what the API returns

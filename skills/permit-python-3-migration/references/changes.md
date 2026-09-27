@@ -194,15 +194,19 @@ calling one returned a coroutine, and awaiting it raised
 ### A4. Audit-log models accept what the API returns
 
 `pdp_config_id` on `AuditLogModel` and `DetailedAuditLogModel` is `Optional[UUID]`, and
-`DetailedAuditLogModel.objects` is optional. `Engine.GENERIC` and `GenericEngineDecisionLog` are
-new. This is a bug fix: the old models raised `ValidationError` on logs without a
-`pdp_config_id` and on GENERIC-engine logs. No SDK method returns these models.
+`DetailedAuditLogModel.objects` is optional: it is `None` when the API sends `null`, and the
+field's default, an empty dict `{}` rather than an `AuditLogObjectsModel`, when the log has no
+`objects`. `Engine.GENERIC` and `GenericEngineDecisionLog` are new. This is a bug fix: the old
+models raised `ValidationError` on logs without a `pdp_config_id` or `objects` and on
+GENERIC-engine logs. No SDK method returns these models.
 
-- Detect: `.pdp_config_id.<attr>` (and `DetailedAuditLogModel`'s `.objects.<attr>`) in a file
-  that imports the models, unless guarded by `is not None`; an `Engine` import in a file that
-  never mentions `GENERIC`.
-- Edit: check for `None` before use; handle `Engine.GENERIC` wherever the code branches on
-  every engine. **NEEDS-REVIEW.**
+- Detect: `.pdp_config_id.<attr>` in a file that imports the models, unless guarded by
+  `is not None`, `isinstance()` or a truthiness check; `DetailedAuditLogModel`'s
+  `.objects.<attr>` unless guarded by `isinstance()` or a truthiness check (`is not None` lets
+  `{}` through); an `Engine` import in a file that never mentions `GENERIC`.
+- Edit: check `pdp_config_id` for `None` before use. Read `objects` only after
+  `isinstance(log.objects, AuditLogObjectsModel)`. Handle `Engine.GENERIC` wherever the code
+  branches on every engine. **NEEDS-REVIEW.**
 
 ### A5. Relationship-tuple and API-key models accept what the API returns
 
