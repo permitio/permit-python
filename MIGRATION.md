@@ -522,9 +522,10 @@ needs Python 3.9, because its aiohttp floor does; on 3.8, pip installs an older 
 ## Migrate with an AI agent
 
 The [`permit-python-3-migration`](skills/permit-python-3-migration/) skill walks an AI agent, such
-as Claude Code, through this guide: it checks your Python version, scans the project, updates the
+as Claude Code, through this guide: it checks your Python version and stops before editing
+anything if the project still allows or runs on 3.8 or 3.9, scans the project, updates the
 dependencies, applies the mechanical edits, brings every judgement call to you, and runs your
-tests and type checker.
+tests, type checker and linter.
 
 To install it:
 

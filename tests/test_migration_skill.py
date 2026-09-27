@@ -1182,6 +1182,37 @@ def test_skill_passes_the_skill_creator_validator():
     assert valid, message
 
 
+def flat(text: str) -> str:
+    """Text with its line wrapping undone, so a phrase can be found wherever the lines break."""
+    return " ".join(text.split())
+
+
+def skill_step(number: int) -> str:
+    text = (SKILL_DIR / "SKILL.md").read_text()
+    match = re.search(rf"^## {number}\. .*?(?=^## )", text + "\n## end", re.MULTILINE | re.DOTALL)
+    assert match, f"SKILL.md has no step {number}"
+    return flat(match.group(0))
+
+
+def test_skill_stops_on_any_python_below_310_before_editing_anything():
+    preflight = skill_step(1)
+
+    assert "Stop if anything says Python below 3.10:" in preflight
+    assert "the interpreter the project runs under, or any C1 finding" in preflight
+    assert "Edit nothing." in preflight
+    assert "[Staying on 2.x](#staying-on-2x)" in preflight
+    assert "Continue only when the user confirms" in preflight
+    assert "Raise the C1 pins the user approved in step 1" in skill_step(3)
+
+
+def test_skill_leaves_judgement_calls_and_checks_to_the_project():
+    assert "Don't guess." in skill_step(5)
+    assert "Remove imports an edit leaves unused" in skill_step(4)
+    verify = skill_step(6)
+    for check in ("tests", "type checker", "linter", "deprecation warnings as errors", "Re-run the scan"):
+        assert check in verify, check
+
+
 def test_skill_is_self_contained_and_small():
     files = sorted(
         path.relative_to(SKILL_DIR).as_posix()

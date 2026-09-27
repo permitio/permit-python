@@ -48,8 +48,8 @@ quietly keeps 2.x.
   `runtime.txt`, `.tool-versions`, `Dockerfile` `FROM python:3.x`, CI matrices (GitHub Actions,
   GitLab, CircleCI, Travis, Azure, Bitbucket, tox), mypy `python_version`, pyright `pythonVersion`.
 - Edit: raise the pin to 3.10 or later. **NEEDS-REVIEW**: it changes which Pythons the project
-  supports and where it deploys. If the project must keep running on 3.8 or 3.9, stop and use the
-  stay-on-2.x path in SKILL.md.
+  supports and where it deploys. Settle it before any other edit (SKILL.md, step 1): if any
+  place the project runs stays on 3.8 or 3.9, stop and use the stay-on-2.x path.
 
 ### C2. httpx is no longer installed with permit
 
