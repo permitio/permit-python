@@ -83,6 +83,8 @@ ipython_config.py
 
 # pyenv
 .python-version
+# The migration tests' sample apps pin their Python this way on purpose.
+!tests/migration_fixtures/*/.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
