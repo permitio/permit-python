@@ -234,9 +234,9 @@ These names are gone in 3.0.0 but are not in the release notes' list of removed 
 | --- | --- | --- |
 | `permit.PYDANTIC_VERSION`, `permit.api.models.PYDANTIC_VERSION`, `permit.pdp_api.base.PYDANTIC_VERSION` | `from permit.utils.pydantic_version import PYDANTIC_VERSION` | SAFE |
 | `permit.enforcement.enforcer.set_if_not_none` | copy the helper: `if v is not None: d[k] = v` | SAFE |
-| `permit.pdp_api.base.T`, `TModel`, `TData` | define your own `TypeVar` | SAFE |
+| `T`, `TModel`, `TData` from `permit.pdp_api.base` | define your own `TypeVar` | SAFE |
 | `BaseModel`, `Extra`, `Field` from `permit.pdp_api.base` | `pydantic.v1` | SAFE |
-| `Callable`, `List`, `TypeVar` from `permit.pdp_api.base`, `permit.utils.context`, `permit.api.resource_relations` | `typing` | SAFE |
+| `Callable`, `TypeVar` from `permit.pdp_api.base`; `Callable`, `List` from `permit.utils.context`; `List` from `permit.api.resource_relations` | `typing` | SAFE |
 | `Enum` from `permit.api.elements` | `enum` | SAFE |
 | `RoleAssignmentsApi` from `permit.api.deprecated` | `permit.api.role_assignments` | SAFE |
 | `iscoroutinefunction` from `permit.utils.sync` | `inspect` | SAFE |

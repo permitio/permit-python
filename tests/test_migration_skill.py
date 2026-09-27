@@ -7,24 +7,43 @@ against permit/api/deprecated.py, so a change to one that the others miss fails 
 """
 
 import ast
+import asyncio
 import hashlib
 import importlib
 import importlib.util
 import inspect
 import json
+import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import textwrap
+import warnings
 from pathlib import Path
 from types import ModuleType
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
+from uuid import UUID
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
+from pytest_httpserver import HTTPServer
+from werkzeug import Request, Response
 
+import permit.sync
 from permit import Permit, PermitConfig
-from permit.api.models import AuditLogObjectsModel, DetailedAuditLogModel
+from permit.api.models import (
+    AuditLogObjectsModel,
+    DetailedAuditLogModel,
+    RelationshipTupleRead,
+    UserUpdate,
+)
+from permit.sync import Permit as SyncPermit
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+from tests.utils import FACTS, SCHEMA, sent
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = REPO_ROOT / "skills" / "permit-python-3-migration"
@@ -1322,3 +1341,373 @@ def test_the_removed_names_really_are_gone():
     for module_name, name in scan.REMOVED:
         module = importlib.import_module(module_name)
         assert not hasattr(module, name), f"{module_name}.{name} still exists"
+
+
+def removed_rows(path: Path, change: str) -> Dict[Tuple[str, str], Optional[str]]:
+    """(module, name) -> the Safety cell, or None, for each removed name a change's table lists.
+
+    A cell names them as `permit.module.name`, or as `name`, `name` from `module`, `module`,
+    with `;` between groups. Rows that name no module (methods, say) are skipped.
+    """
+    rows: Dict[Tuple[str, str], Optional[str]] = {}
+    for line in doc_section(path, change).splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not line.lstrip().startswith("|") or len(cells) < 2 or set(cells[0]) <= {"-", " "}:
+            continue
+        safety = cells[2] if len(cells) > 2 and cells[2] in (SAFE, REVIEW) else None
+        for group in cells[0].split(";"):
+            if " from " in group:
+                names, modules = group.split(" from ", 1)
+                for name in re.findall(r"`(\w+)`", names):
+                    for module in re.findall(r"`(permit[\w.]*)`", modules):
+                        rows[(module, name)] = safety
+                continue
+            module = ""
+            for item in re.findall(r"`([\w.]+)`", group):
+                if item.startswith("permit."):
+                    module, _, item = item.rpartition(".")
+                if module:
+                    rows[(module, item)] = safety
+    return rows
+
+
+def test_the_removed_name_tables_match_the_scanner():
+    for change in ("A3", "A6"):
+        scanner = {key: safety for key, (found, safety, _) in scan.REMOVED.items() if found == change}
+        assert removed_rows(CHANGES, change) == scanner, change
+        section = doc_section(MIGRATION, change)
+        for _, name in scanner:
+            assert re.search(rf"`(?:[\w.]+\.)?{name}`", section), f"MIGRATION.md {change} does not name {name}"
+    assert set(removed_rows(MIGRATION, "A6")) == set(removed_rows(CHANGES, "A6"))
+
+
+def test_the_floor_tables_match_requirements_txt():
+    requirements: Dict[str, List[Requirement]] = {}
+    for line in (REPO_ROOT / "requirements.txt").read_text().splitlines():
+        if line.strip() and not line.lstrip().startswith("#"):
+            requirement = Requirement(line)
+            requirements.setdefault(requirement.name.lower().replace("_", "-"), []).append(requirement)
+
+    def allowed(name: str, version: str, python: str) -> bool:
+        for requirement in requirements[name]:
+            if requirement.marker is None or requirement.marker.evaluate({"python_version": python}):
+                return requirement.specifier.contains(version, prereleases=True)
+        raise AssertionError(f"no {name} requirement applies to Python {python}")
+
+    def below(version: str) -> str:
+        """A version just below a floor: 2.8.0 -> 2.7.999, 1.10.18 -> 1.10.17, 2.13 -> 2.12."""
+        *head, last = Version(version).release
+        parts = [*head[:-1], head[-1] - 1, 999] if last == 0 else [*head, last - 1]
+        return ".".join(str(part) for part in parts)
+
+    for path in (MIGRATION, CHANGES):
+        cells = dict(re.findall(r"^\s*\| `([\w-]+)` \| `[^|]*` \| (`.+) \|$", path.read_text(), re.MULTILINE))
+        assert set(cells) == {"aiohttp", "loguru", "typing-extensions", "pydantic"}, path.name
+        for name in ("aiohttp", "loguru", "typing-extensions"):
+            specifier = SpecifierSet(cells[name].strip("`"))
+            assert [requirement.specifier for requirement in requirements[name]] == [specifier], name
+            assert scan.FLOOR_TEXT[name] == f"{name}{cells[name].strip('`')}"
+            floor = next(spec.version for spec in specifier if spec.operator == ">=")
+            ceiling = next(spec.version for spec in specifier if spec.operator == "<")
+            assert scan.FLOORS[name] == [(Version(floor).release, Version(ceiling).release)], name
+        floors = re.findall(r"`>=([\d.]+),<2` or `>=([\d.]+)` on (?:Python )?(3\.\d+)(?:-(3\.\d+))?", cells["pydantic"])
+        assert [row[2:] for row in floors] == [("3.10", "3.12"), ("3.13", ""), ("3.14", "")], path.name
+        for v1_floor, v2_floor, first, last in floors:
+            for minor in range(int(first[2:]), int((last or first)[2:]) + 1):
+                for floor in (v1_floor, v2_floor):
+                    assert allowed("pydantic", floor, f"3.{minor}"), (floor, minor)
+                    assert not allowed("pydantic", below(floor), f"3.{minor}"), (below(floor), minor)
+        documented = {version for row in floors for version in row[:2]}
+        assert set(re.findall(r">=([\d.]+)", scan.FLOOR_TEXT["pydantic"])) == documented
+        assert scan.FLOORS["pydantic"] == [
+            (Version(floors[0][0]).release, (2,)),
+            (Version(floors[0][1]).release, None),
+        ]
+
+
+def test_the_staying_on_2x_advice_states_what_was_verified():
+    for path, heading in ((MIGRATION, "## Staying on 2.x for now"), (SKILL_DIR / "SKILL.md", "## Staying on 2.x")):
+        section = flat(path.read_text().split(heading, 1)[1].split("\n## ", 1)[0])
+        for fact in (
+            "aiohttp>=3.14.3",
+            "anyio>=4.14.2",
+            "h11>=0.16.0",
+            "aiohttp 3.14.3 and anyio 4.14.2",
+            "require Python 3.10",
+            "AIOHTTP_NO_EXTENSIONS=1",
+            "aiohttp>=3.12.14,<4",
+        ):
+            assert fact in section, (path.name, fact)
+    assert "On Python 3.8 or 3.9 this is not possible." in flat(MIGRATION.read_text())
+    assert "the aiohttp and anyio fixes can't be installed" in flat((SKILL_DIR / "SKILL.md").read_text())
+
+
+# ---------------------------------------------------------------------------
+# The documented commands and code run on 3.0
+# ---------------------------------------------------------------------------
+
+FLAT_CALL_TEST = """
+from permit.sync import Permit
+
+
+def test_flat_call():
+    client = Permit(token="t", pdp="http://127.0.0.1:9", api_url="http://127.0.0.1:9")
+    client.api.get_user("u")
+"""
+
+
+def run_pytest_with(tmp_path: Path, options: List[str]) -> str:
+    """Run a test that makes one flat permit.api call under the given -W options."""
+    if PYDANTIC_VERSION < (2, 0):
+        # SKILL.md step 6 and D1: on pydantic 1, `import permit` warns once, so add this filter too.
+        options = [*options, "-W", "ignore:Support for pydantic 1:DeprecationWarning"]
+    (tmp_path / "test_flat.py").write_text(FLAT_CALL_TEST)
+    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *options, "test_flat.py"]
+    # The permit under test, whether or not it is installed, and no warning settings from outside.
+    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True, check=False, timeout=120)
+    return result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("path", [SKILL_DIR / "SKILL.md", MIGRATION], ids=["SKILL.md", "MIGRATION.md"])
+def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(tmp_path: Path, path: Path):
+    command = re.search(r"^\s*python -m pytest((?: -W (?:\"[^\"]+\"|\S+))+)\s*$", path.read_text(), re.MULTILINE)
+    assert command, f"{path.name} has no `python -m pytest -W ...` command"
+
+    output = run_pytest_with(tmp_path, shlex.split(command.group(1)))
+
+    # permit imports, and the flat call fails before it sends anything: the -W run finds it.
+    assert "1 failed" in output, output
+    assert "DeprecationWarning: permit.api.get_user() is deprecated" in output, output
+
+
+def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: Path):
+    for path in (SKILL_DIR / "SKILL.md", MIGRATION):
+        assert '-W "error:permit.api.:DeprecationWarning"' in path.read_text(), path.name
+
+    output = run_pytest_with(tmp_path, ["-W", "error:permit.api.:DeprecationWarning"])
+
+    assert "1 failed" in output, output
+    assert "DeprecationWarning: permit.api.get_user() is deprecated" in output, output
+
+
+def test_the_documented_filter_silences_the_flat_methods(httpserver: HTTPServer, config: PermitConfig):
+    text = MIGRATION.read_text()
+    code = re.search(r"In code: `(warnings\.filterwarnings\(.+\))`\.", text)
+    assert code, "MIGRATION.md has no in-code filter"
+    ini_filter = re.search(r"^\s*ignore:(permit\\\.api.+):DeprecationWarning$", text, re.MULTILINE)
+    assert ini_filter, "MIGRATION.md has no pytest.ini filter for the flat methods"
+    assert f'message=r"{ini_filter.group(1)}"' in code.group(1), "the ini and in-code filters differ"
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_json("user-1"))
+    client = Permit(config)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with pytest.raises(DeprecationWarning):
+            asyncio.run(client.api.get_user("user-1"))
+        exec(code.group(1), {"warnings": warnings})
+        assert asyncio.run(client.api.get_user("user-1")).key == "user-1"
+
+
+def diff_sides(change: str) -> Tuple[str, str]:
+    """The code before and after the first diff under a change's heading in MIGRATION.md."""
+    block = re.search(r"```diff\n(.*?)```", doc_section(MIGRATION, change), re.DOTALL)
+    assert block, f"MIGRATION.md {change} has no diff"
+    before: List[str] = []
+    after: List[str] = []
+    for line in block.group(1).splitlines():
+        marker, code = line[:2], line[2:]
+        if marker in ("- ", "  ", ""):
+            before.append(code)
+        if marker in ("+ ", "  ", ""):
+            after.append(code)
+    return "\n".join(before), "\n".join(after)
+
+
+def run_snippet(code: str, namespace: Dict[str, Any]) -> Dict[str, Any]:
+    """Run a snippet from the guide, as a coroutine when it awaits, and return what it bound."""
+    if "await " not in code:
+        exec(code, namespace)
+        return namespace
+    exec(f"async def _snippet():\n{textwrap.indent(code, '    ')}\n    return locals()\n", namespace)
+    return asyncio.run(namespace["_snippet"]())
+
+
+TIMESTAMP = "2024-01-01T00:00:00+00:00"
+IDS = {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "organization_id": "00000000-0000-4000-8000-000000000002",
+    "project_id": "00000000-0000-4000-8000-000000000003",
+    "environment_id": "00000000-0000-4000-8000-000000000004",
+}
+
+
+def user_json(key: str) -> Dict[str, Any]:
+    return {**IDS, "key": key, "email": f"{key}@example.com", "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+
+
+def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: PermitConfig):
+    relation = {
+        **IDS,
+        "key": "parent",
+        "name": "Parent",
+        "resource_id": IDS["id"],
+        "resource_key": "document",
+        "subject_resource_id": IDS["id"],
+        "subject_resource": "folder",
+        "object_resource_id": IDS["id"],
+        "object_resource": "document",
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
+    httpserver.expect_request(f"{SCHEMA}/resources/document/relations").respond_with_json(
+        {"data": [relation], "total_count": 1, "page_count": 1}
+    )
+    _, after = diff_sides("A1")
+
+    relations = run_snippet(after, {"permit": Permit(config)})["relations"]
+
+    assert [item.key for item in relations] == ["parent"]
+
+
+def test_the_guide_a2_diff_calls_the_blocking_method_directly(
+    httpserver: HTTPServer, config: PermitConfig, monkeypatch: pytest.MonkeyPatch
+):
+    httpserver.expect_request("/authorized_users", method="POST").respond_with_json(
+        {"resource": "document:1", "tenant": "default", "users": {}}
+    )
+
+    def blocking_client(token: str) -> SyncPermit:
+        """The guide's `Permit(token="...")`, pointed at the local server."""
+        assert token == "..."
+        return SyncPermit(config)
+
+    monkeypatch.setattr(permit.sync, "Permit", blocking_client)
+    before, after = diff_sides("A2")
+    assert "from permit.sync import Permit" in after
+
+    assert run_snippet(after, {})["users"].resource == "document:1"
+    with pytest.raises(ValueError, match="a coroutine was expected"):
+        run_snippet(before, {"asyncio": asyncio})
+
+
+@pytest.mark.parametrize("change", ["A3", "A6"])
+def test_the_guide_import_diffs_import_what_3_0_has(change: str):
+    before, after = diff_sides(change)
+
+    run_snippet(after, {})
+    with pytest.raises(ImportError):
+        run_snippet(before, {})
+
+
+def test_the_guide_a4_and_a5_diffs_handle_missing_values():
+    log = DetailedAuditLogModel.construct(pdp_config_id=None, objects={})
+    before, after = diff_sides("A4")
+    found = run_snippet(after, {"log": log, "AuditLogObjectsModel": AuditLogObjectsModel})
+    assert (found["config_id"], found["user"]) == (None, None)
+    with pytest.raises(AttributeError):
+        run_snippet(before, {"log": log})
+
+    tuples = [RelationshipTupleRead.construct(object_id=None), RelationshipTupleRead.construct(object_id=UUID(int=1))]
+    before, after = diff_sides("A5")
+    assert run_snippet(after, {"tuples": tuples})["ids"] == [UUID(int=1).hex]
+    with pytest.raises(AttributeError):
+        run_snippet(before, {"tuples": tuples})
+
+
+def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(httpserver: HTTPServer, config: PermitConfig):
+    bodies: List[Any] = []
+
+    def record(request: Request) -> Response:
+        bodies.append(json.loads(request.get_data()))
+        return Response(json.dumps(user_json("user-1")), content_type="application/json")
+
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="PATCH").respond_with_handler(record)
+    names = {"key": "user-1", "first_name": "Ada", "last_name": None, "UserUpdate": UserUpdate}
+    before, after = diff_sides("W1")
+
+    run_snippet(after, {"permit": Permit(config), **names})
+    run_snippet(before, {"permit": Permit(config), **names})
+
+    # The old code now clears last_name; the new code leaves it alone.
+    assert bodies == [{"first_name": "Ada"}, {"first_name": "Ada", "last_name": None}]
+
+
+def test_the_guide_w5_diff_matches_the_header_permit_sends(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    asyncio.run(Permit(config).check("user-1", "read", "document"))
+    request = httpserver.log[-1][0]
+    before, after = diff_sides("W5")
+
+    run_snippet(after, {"request": request, "token": config.token})
+    with pytest.raises(AssertionError):
+        run_snippet(before, {"request": request, "token": config.token})
+
+
+def test_the_guide_t2_diff_uses_the_pydantic_v1_method(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_json("user-1"))
+    before, after = diff_sides("T2")
+
+    assert run_snippet(after, {"permit": Permit(config)})["data"]["key"] == "user-1"
+    with pytest.raises(AttributeError):
+        run_snippet(before, {"permit": Permit(config)})
+
+
+def test_the_guide_d2_diff_sends_the_same_requests(httpserver: HTTPServer, config: PermitConfig):
+    assignment = {
+        **IDS,
+        "user": "user-1",
+        "role": "editor",
+        "tenant": "default",
+        "user_id": IDS["id"],
+        "role_id": IDS["id"],
+        "tenant_id": IDS["id"],
+        "created_at": TIMESTAMP,
+    }
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_json("user-1"))
+    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="POST").respond_with_json(assignment)
+    before, after = diff_sides("D2")
+
+    run_snippet(after, {"permit": Permit(config)})
+    replacement = [sent(request) for request, _ in httpserver.log]
+    httpserver.clear_log()
+    with pytest.warns(DeprecationWarning, match="is deprecated and will be removed in permit 4.0"):
+        run_snippet(before, {"permit": Permit(config)})
+
+    assert [sent(request) for request, _ in httpserver.log] == replacement
+    assert [request["path"] for request in replacement] == [f"{FACTS}/users/user-1", f"{FACTS}/users/user-1/roles"]
+
+
+def safety_markers(section: str) -> Set[str]:
+    bold = re.findall(r"\*\*(SAFE|NEEDS-REVIEW)\b", section)
+    cells = re.findall(r"\| (SAFE|NEEDS-REVIEW) \|", section)
+    return set(bold) | set(cells)
+
+
+def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "requirements-dev.txt": "permit @ git+https://github.com/permitio/permit-python\n",
+            "app.py": "import anyio\nfrom permit import Permit  # type: ignore[import-untyped, attr-defined]\n",
+        },
+    )
+    reported: Dict[str, Set[str]] = {}
+    for _, _, change, safety in findings(FIXTURES / "v2_app") + findings(tmp_path):
+        reported.setdefault(change, set()).add(safety)
+
+    for change in change_headings(CHANGES):
+        assert safety_markers(doc_section(CHANGES, change)) == reported.get(change, set()), change
+
+
+def test_the_catalogue_never_calls_an_untraced_receiver_safe():
+    items: List[List[str]] = []
+    for line in CHANGES.read_text().splitlines():
+        if re.match(r"^\s*- ", line):
+            items.append([line.strip()])
+        elif items and line.strip() and not line.startswith(("#", "|")):
+            items[-1].append(line.strip())
+    for item in (" ".join(lines) for lines in items):
+        if "not traced" in item:
+            assert "NEEDS-REVIEW" in item, item
