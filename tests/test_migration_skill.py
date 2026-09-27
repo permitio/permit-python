@@ -271,6 +271,147 @@ def test_untraced_receivers_are_never_safe(tmp_path: Path):
     assert findings(tmp_path) == [("service.py", 2, "D2", REVIEW), ("service.py", 3, "A2", REVIEW)]
 
 
+def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            from pydantic import BaseModel
+
+            from permit.sync import Permit as SyncPermit
+
+            permit = SyncPermit(token="t")
+            client = SyncPermit(token="t")
+            api = permit.api
+            user = permit.api.users.get("u")
+
+
+            class Mine(BaseModel):
+                name: str
+
+
+            async def parameter(permit):
+                return await permit.authorized_users("read", "doc")
+
+
+            async def local():
+                permit = make_client()
+                return await permit.get_user_permissions("u")
+
+
+            async def loop(clients):
+                for client in clients:
+                    await client.authorized_users("read", "doc")
+
+
+            def other_library(api):
+                return api.get_user("octocat")
+
+
+            def serialize(user: Mine):
+                return user.model_dump()
+
+
+            def own_model():
+                user = Mine(name="x")
+                return user.model_dump()
+
+
+            def comprehension(users):
+                return [user.model_dump() for user in users]
+
+
+            async def module_level():
+                await client.authorized_users("read", "doc")
+                return user.model_dump(), api.get_role("admin")
+            """
+        },
+    )
+
+    # The parameter, local, loop and comprehension variables and the pydantic 2 model are not
+    # the module-level client or SDK model of the same name, so nothing about them is SAFE.
+    assert findings(tmp_path) == [
+        ("app.py", 16, "A2", REVIEW),
+        ("app.py", 21, "A2", REVIEW),
+        ("app.py", 26, "A2", REVIEW),
+        ("app.py", 30, "D2", REVIEW),
+        ("app.py", 47, "A2", SAFE),
+        ("app.py", 48, "D2", SAFE),
+        ("app.py", 48, "T2", SAFE),
+    ]
+
+
+def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            from permit import Permit
+            from permit.sync import Permit as SyncPermit
+
+            both = SyncPermit(token="t")
+            if ASYNC:
+                both = Permit(token="t")
+
+            other = SyncPermit(token="t")
+            other = make_other()
+
+            lazy = None
+
+
+            def connect():
+                global lazy
+                lazy = SyncPermit(token="t")
+
+
+            class Owner:
+                def __init__(self):
+                    self.permit = SyncPermit(token="t")
+
+                async def owned(self):
+                    return await self.permit.authorized_users("read", "doc")
+
+
+            class Borrower:
+                def __init__(self, permit):
+                    self.permit = permit
+
+                async def borrowed(self):
+                    return await self.permit.authorized_users("read", "doc")
+
+
+            class Annotated:
+                permit: SyncPermit
+
+                async def declared(self):
+                    return await self.permit.authorized_users("read", "doc")
+
+
+            async def run():
+                await both.authorized_users("read", "doc")
+                await both.api.get_user("u")
+                await other.authorized_users("read", "doc")
+                await other.api.get_user("u")
+                await lazy.authorized_users("read", "doc")
+            """
+        },
+    )
+
+    assert findings(tmp_path) == [
+        ("app.py", 24, "A2", SAFE),
+        ("app.py", 32, "A2", REVIEW),
+        ("app.py", 39, "A2", SAFE),
+        # Bound to both clients: .api exists on either, but await is right only on the async one.
+        ("app.py", 43, "A2", REVIEW),
+        ("app.py", 44, "D2", SAFE),
+        # Bound to a client and to something else: nothing is safe.
+        ("app.py", 45, "A2", REVIEW),
+        ("app.py", 46, "D2", REVIEW),
+        # `lazy = None` is a placeholder, not another value.
+        ("app.py", 47, "A2", SAFE),
+    ]
+
+
 def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path):
     write(
         tmp_path,

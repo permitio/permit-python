@@ -313,10 +313,13 @@ clients. `permit` below stands for the client, whatever the variable is called.
 Positional arguments keep their order, and each replacement returns what the deprecated method
 returned.
 
-- Detect: `<client>.api.<method>(`, or `<handle>.<method>(` where `handle = client.api`.
+- Detect: `<client>.api.<method>(`, `<handle>.<method>(` where `handle = client.api`, and
+  `<name>.<method>(` on an untraced name ending in `api` in a file that imports permit.
 - Edit: the replacement, with keyword renames. **SAFE** when the receiver is traced to a permit
   client and there is no `*args` / `**kwargs`. **NEEDS-REVIEW** when the receiver is not traced
-  (it may be another library's `.api`).
+  (it may be another library's `.api`). The scan follows Python's scoping: a parameter, local,
+  loop or comprehension variable is not the module-level client of the same name, and a name
+  also bound to something other than a permit client is not traced.
 - The message text changed from 2.x ("use permit.api.users.get() instead"). Update warning
   filters that match the old text.
 

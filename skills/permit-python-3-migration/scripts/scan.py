@@ -30,6 +30,13 @@ from typing import Dict, Iterator, List, NamedTuple, Optional, Set, Tuple, Union
 SAFE = "SAFE"
 REVIEW = "NEEDS-REVIEW"
 
+# What a name holds, when it is traced to a permit client.
+ASYNC = "async"
+SYNC = "sync"
+EITHER = "either"  # a permit client: the async one in one place, the blocking one in another
+MAYBE = "maybe"  # a permit client in one place, something else in another
+CLIENTS = (ASYNC, SYNC, EITHER)
+
 TITLES = {
     "P1": "The permit requirement",
     "C1": "Python 3.10 or later",
@@ -735,6 +742,34 @@ def is_none(node: Optional[ast.AST]) -> bool:
     return isinstance(node, ast.Constant) and node.value is None
 
 
+def bound_name(node: ast.AST) -> Optional[str]:
+    """The name `node` binds, if it is a binding site: a target, parameter, import, def or except."""
+    if isinstance(node, ast.Name):
+        return node.id if isinstance(node.ctx, (ast.Store, ast.Del)) else None
+    if isinstance(node, ast.arg):
+        return node.arg
+    if isinstance(node, ast.alias):
+        return None if node.name == "*" else node.asname or node.name.split(".", 1)[0]
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return node.name
+    if isinstance(node, ast.ExceptHandler):
+        return node.name
+    # match statements (Python 3.10+): `case Point(x=px)` and `case {**rest}` bind names too.
+    name = getattr(node, "rest", None) if type(node).__name__ == "MatchMapping" else None
+    if type(node).__name__ in ("MatchAs", "MatchStar"):
+        name = getattr(node, "name", None)
+    return name if isinstance(name, str) else None
+
+
+def combined(kinds: Set[str]) -> str:
+    """One kind for a value bound in several places."""
+    if MAYBE in kinds:
+        return MAYBE
+    if len(kinds) == 1:
+        return next(iter(kinds))
+    return EITHER
+
+
 def optional_annotation(node: Optional[ast.AST]) -> bool:
     """Optional[X], Union[X, None] or X | None, also as a string annotation."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -770,8 +805,14 @@ def guards(test: ast.AST, key: str) -> bool:
     return dotted(test) == key
 
 
-SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.Module)
+FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
+SCOPE_NODES = (*FUNCTIONS, *COMPREHENSIONS, ast.ClassDef, ast.Module)
+GUARD_LIMITS = (*FUNCTIONS, ast.Module)
 CLIENT_MEMBERS = {"api", "elements", "pdp_api", "authorized_users"}
+
+# A name, or a chain such as self.permit, in the scope that binds it: (id of the scope node, name).
+Slot = Tuple[int, str]
 
 
 class SourceScan:
@@ -788,17 +829,25 @@ class SourceScan:
         for parent in ast.walk(tree):
             for child in ast.iter_child_nodes(parent):
                 self.parents[child] = parent
-        self.aliases: Dict[str, str] = {}
+        self.bound: Dict[int, Set[str]] = {}
+        self.declared_global: Dict[int, Set[str]] = {}
+        self.declared_nonlocal: Dict[int, Set[str]] = {}
+        # Every place a slot is bound, other than to None. A traced value counts only when it
+        # accounts for all of them: a name also bound to something else may not hold it.
+        self.sites: Dict[Slot, Set[int]] = {}
+        self.imported: Dict[Slot, str] = {}
         self.imports_permit = False
-        self.clients: Dict[Tuple[int, str], str] = {}
-        self.api_handles: Dict[Tuple[int, str], str] = {}
-        self.sdk_values: Set[Tuple[int, str]] = set()
-        self.context_stores: Set[Tuple[int, str]] = set()
-        self.optional_names: Set[Tuple[int, str]] = set()
+        self.client_annotations: Dict[Slot, Set[str]] = {}
+        self.client_sites: Dict[Slot, Dict[int, str]] = {}
+        self.handle_sites: Dict[Slot, Set[int]] = {}
+        self.sdk_sites: Dict[Slot, Set[int]] = {}
+        self.context_stores: Set[Slot] = set()
+        self.optional_names: Set[Slot] = set()
         self.names_imported: Set[str] = set()
         self.mentions_tuples = False
 
     def run(self) -> List[Finding]:
+        self.collect_bindings()
         self.collect_imports()
         self.trace_values()
         for node in ast.walk(self.tree):
@@ -824,7 +873,8 @@ class SourceScan:
     def qualname(self, node: ast.AST) -> Optional[str]:
         """The permit name `node` refers to, through import aliases: SP.api -> permit.sync.Permit.api."""
         if isinstance(node, ast.Name):
-            return self.aliases.get(node.id)
+            slot = self.slot(node)
+            return self.imported.get(slot) if slot is not None else None
         if isinstance(node, ast.Attribute):
             base = self.qualname(node.value)
             return f"{base}.{node.attr}" if base else None
@@ -836,59 +886,195 @@ class SourceScan:
             return self.qualname(expression)
         return None
 
-    def scope_of(self, node: ast.AST, key: str) -> int:
-        """The function (for a name) or class (for self.x) that a traced value belongs to."""
-        kinds: Tuple[type, ...] = (ast.ClassDef, ast.Module) if "." in key else SCOPES
-        current: Optional[ast.AST] = self.parents.get(node)
-        while current is not None and not isinstance(current, kinds):
-            current = self.parents.get(current)
-        return id(current if current is not None else self.tree)
+    # -- scopes ----------------------------------------------------------------
 
-    def slots(self, node: ast.AST) -> List[Tuple[int, str]]:
+    def enclosing_scopes(self, node: ast.AST) -> Iterator[ast.AST]:
+        """The scopes whose names `node` sees, innermost first.
+
+        Defaults, annotations, decorators, base classes and a comprehension's first iterable are
+        evaluated in the scope around the function, class or comprehension they belong to.
+        """
+        skip = False
+        child = node
+        parent = self.parents.get(node)
+        while parent is not None:
+            if (
+                (isinstance(parent, ast.arguments) and (child in parent.defaults or child in parent.kw_defaults))
+                or (isinstance(parent, ast.arg) and child is parent.annotation)
+                or (
+                    isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and (child in parent.decorator_list or child is parent.returns)
+                )
+                or (
+                    isinstance(parent, ast.ClassDef)
+                    and (child in parent.bases or child in parent.keywords or child in parent.decorator_list)
+                )
+            ):
+                skip = True
+            elif isinstance(parent, ast.comprehension) and child is parent.iter:
+                owner = self.parents.get(parent)
+                skip = isinstance(owner, COMPREHENSIONS) and owner.generators[0] is parent
+            if isinstance(parent, SCOPE_NODES):
+                if skip:
+                    skip = False
+                else:
+                    yield parent
+            child, parent = parent, self.parents.get(parent)
+
+    def innermost_scope(self, site: ast.AST) -> ast.AST:
+        """The scope a binding site binds in. A walrus in a comprehension binds in the enclosing one."""
+        parent = self.parents.get(site)
+        walrus = isinstance(parent, ast.NamedExpr) and parent.target is site
+        for scope in self.enclosing_scopes(site):
+            if not (walrus and isinstance(scope, COMPREHENSIONS)):
+                return scope
+        return self.tree
+
+    def resolve(self, node: ast.AST, name: str) -> ast.AST:
+        """The scope that binds `name` where `node` uses it, following Python's rules."""
+        nested = False
+        for scope in self.enclosing_scopes(node):
+            if isinstance(scope, ast.Module):
+                return scope
+            if isinstance(scope, ast.ClassDef):
+                # A class body's names are visible in the body itself, not in its methods.
+                if not nested and name in self.bound.get(id(scope), ()):
+                    return scope
+                continue
+            nested = True
+            if name in self.declared_global.get(id(scope), ()):
+                return self.tree
+            if name in self.bound.get(id(scope), ()):
+                return scope
+        return self.tree
+
+    def enclosing_class(self, node: ast.AST) -> Optional[ast.ClassDef]:
+        current = self.parents.get(node)
+        while current is not None and not isinstance(current, ast.ClassDef):
+            current = self.parents.get(current)
+        return current
+
+    def slot(self, node: ast.AST) -> Optional[Slot]:
+        """Where the value `node` names is bound: a name's scope, or the class for self.x and cls.x."""
         key = dotted(node)
         if key is None:
+            return None
+        root = key.split(".", 1)[0]
+        if "." in key and root in ("self", "cls"):
+            owner = self.enclosing_class(node)
+            if owner is not None:
+                return (id(owner), key)
+        return (id(self.resolve(node, root)), key)
+
+    def target_slots(self, target: ast.AST) -> List[Slot]:
+        """The slots an assignment target binds. A name in a class body is also self.name."""
+        slot = self.slot(target)
+        if slot is None:
             return []
-        return [(self.scope_of(node, key), key), (id(self.tree), key)]
+        slots = [slot]
+        if isinstance(target, ast.Name):
+            scope = self.resolve(target, target.id)
+            if isinstance(scope, ast.ClassDef):
+                slots.append((id(scope), f"self.{target.id}"))
+        return slots
 
-    def record(self, table: Dict[Tuple[int, str], str], target: ast.AST, kind: str) -> None:
-        slots = self.slots(target)
-        if slots:
-            previous = table.get(slots[0])
-            table[slots[0]] = kind if previous in (None, kind) else "ambiguous"
+    def collect_bindings(self) -> None:
+        """Which names each scope binds, and every site that binds a slot."""
+        for node in ast.walk(self.tree):
+            if isinstance(node, (ast.Global, ast.Nonlocal)):
+                declared = self.declared_global if isinstance(node, ast.Global) else self.declared_nonlocal
+                declared.setdefault(id(self.innermost_scope(node)), set()).update(node.names)
+        sites: List[Tuple[str, ast.AST]] = []
+        for node in ast.walk(self.tree):
+            name = bound_name(node)
+            if name is None:
+                continue
+            sites.append((name, node))
+            scope = id(self.innermost_scope(node))
+            elsewhere = self.declared_global.get(scope, set()) | self.declared_nonlocal.get(scope, set())
+            if name not in elsewhere:
+                self.bound.setdefault(scope, set()).add(name)
+        for name, node in sites:
+            if self.binds_none(node):
+                continue
+            named = isinstance(node, ast.Name)
+            slots = self.target_slots(node) if named else [(id(self.resolve(node, name)), name)]
+            for slot in slots:
+                self.sites.setdefault(slot, set()).add(id(node))
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store) and not self.binds_none(node):
+                for slot in self.target_slots(node):
+                    self.sites.setdefault(slot, set()).add(id(node))
 
-    def mark(self, table: Set[Tuple[int, str]], target: ast.AST) -> None:
-        slots = self.slots(target)
-        if slots:
-            table.add(slots[0])
+    def binds_none(self, target: ast.AST) -> bool:
+        """`x = None` or `x: T` with no value: a placeholder, not another value `x` may hold."""
+        parent = self.parents.get(target)
+        if isinstance(parent, ast.Assign) and target in parent.targets:
+            return is_none(parent.value)
+        if isinstance(parent, ast.AnnAssign) and parent.target is target:
+            return parent.value is None or is_none(parent.value)
+        return False
+
+    # -- traced values ---------------------------------------------------------
+
+    def bind(self, table: Dict[Slot, Set[int]], target: ast.AST) -> None:
+        for slot in self.target_slots(target):
+            table.setdefault(slot, set()).add(id(target))
+
+    def bind_client(self, target: ast.AST, kind: str) -> None:
+        for slot in self.target_slots(target):
+            self.client_sites.setdefault(slot, {})[id(target)] = kind
+
+    def mark(self, table: Set[Slot], target: ast.AST) -> None:
+        slot = self.slot(target)
+        if slot is not None:
+            table.add(slot)
+
+    def holds_only(self, slot: Optional[Slot], site_ids: Optional[Set[int]]) -> bool:
+        """Whether the traced sites account for every site that binds the slot."""
+        return slot is not None and bool(site_ids) and self.sites.get(slot, set()) <= (site_ids or set())
 
     def client_kind(self, node: ast.AST) -> Optional[str]:
-        """async, sync or ambiguous when `node` is a traced permit client, otherwise None."""
+        """ASYNC, SYNC, EITHER or MAYBE when `node` is traced to a permit client, otherwise None."""
         if isinstance(node, ast.Call):
             return self.class_kind(node.func)
-        for slot in self.slots(node):
-            if slot in self.clients:
-                return self.clients[slot]
-        return None
+        slot = self.slot(node)
+        if slot is None:
+            return None
+        annotated = self.client_annotations.get(slot)
+        if annotated:
+            return combined(annotated)
+        assigned = self.client_sites.get(slot)
+        if not assigned:
+            return None
+        if not self.holds_only(slot, set(assigned)):
+            return MAYBE
+        return combined(set(assigned.values()))
+
+    def is_client(self, node: ast.AST) -> bool:
+        return self.client_kind(node) in CLIENTS
 
     def class_kind(self, annotation: Optional[ast.AST]) -> Optional[str]:
         if annotation is None:
             return None
+        kinds = set()
         for node in ast.walk(annotation):
             name = self.qualname(node)
             if name in ASYNC_CLIENTS:
-                return "async"
-            if name in SYNC_CLIENTS:
-                return "sync"
-        return None
+                kinds.add(ASYNC)
+            elif name in SYNC_CLIENTS:
+                kinds.add(SYNC)
+        return combined(kinds) if kinds else None
 
     def is_api_handle(self, node: ast.AST) -> bool:
-        return any(slot in self.api_handles for slot in self.slots(node))
+        slot = self.slot(node)
+        return slot is not None and self.holds_only(slot, self.handle_sites.get(slot))
 
     def client_behind(self, func: ast.AST) -> Optional[ast.AST]:
         """The client expression before `.api`, `.elements`, `.pdp_api` or `.authorized_users` in a chain."""
         node = func
         while isinstance(node, ast.Attribute):
-            if node.attr in CLIENT_MEMBERS and self.client_kind(node.value) is not None:
+            if node.attr in CLIENT_MEMBERS and self.is_client(node.value):
                 return node.value
             node = node.value
         return None
@@ -898,7 +1084,7 @@ class SourceScan:
         node: ast.AST = func.value
         while isinstance(node, ast.Attribute):
             if node.attr == "api":
-                return node.value, self.client_kind(node.value) is not None
+                return node.value, self.is_client(node.value)
             node = node.value
         if self.is_api_handle(node):
             return node, True
@@ -927,9 +1113,15 @@ class SourceScan:
     def is_sdk_value(self, node: ast.AST) -> bool:
         if self.sdk_class(node) is not None or self.is_api_call(node):
             return True
-        return any(slot in self.sdk_values for slot in self.slots(node))
+        slot = self.slot(node)
+        return slot is not None and self.holds_only(slot, self.sdk_sites.get(slot))
 
     # -- imports ---------------------------------------------------------------
+
+    def import_as(self, alias: ast.alias, qualname: str) -> None:
+        name = bound_name(alias)
+        if name is not None:
+            self.imported[(id(self.resolve(alias, name)), name)] = qualname
 
     def collect_imports(self) -> None:
         for node in ast.walk(self.tree):
@@ -940,7 +1132,7 @@ class SourceScan:
                     if top != "permit":
                         continue
                     self.imports_permit = True
-                    self.aliases[alias.asname or "permit"] = alias.name if alias.asname else "permit"
+                    self.import_as(alias, alias.name if alias.asname else "permit")
                     self.check_import_comment(node)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 top = node.module.split(".", 1)[0]
@@ -950,7 +1142,7 @@ class SourceScan:
                 self.imports_permit = True
                 self.check_import_comment(node)
                 for alias in node.names:
-                    self.aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+                    self.import_as(alias, f"{node.module}.{alias.name}")
                     self.names_imported.add(alias.name)
                     self.check_removed(node, node.module, alias.name)
                     self.check_model_import(node, node.module, alias.name)
@@ -1018,17 +1210,11 @@ class SourceScan:
                 self.mentions_tuples = True
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 for argument in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
-                    kind = self.class_kind(argument.annotation)
-                    if kind is not None:
-                        self.clients[(id(node), argument.arg)] = kind
+                    self.annotate([(id(node), argument.arg)], argument.annotation)
                 for name in self.optional_parameters(node):
                     self.optional_names.add((id(node), name))
             elif isinstance(node, ast.AnnAssign):
-                kind = self.class_kind(node.annotation)
-                if kind is not None:
-                    self.record(self.clients, node.target, kind)
-                    if isinstance(node.target, ast.Name) and isinstance(self.parents.get(node), ast.ClassDef):
-                        self.clients[(id(self.tree), f"self.{node.target.id}")] = kind
+                self.annotate(self.target_slots(node.target), node.annotation)
                 if optional_annotation(node.annotation):
                     self.mark(self.optional_names, node.target)
         # Assignments after annotations, twice, so that `b = a` sees what `a` holds whatever their order.
@@ -1040,7 +1226,14 @@ class SourceScan:
                 elif isinstance(node, ast.AnnAssign) and node.value is not None:
                     self.trace_assignment(node.target, node.value)
                 elif isinstance(node, (ast.For, ast.AsyncFor)) and self.is_api_call(node.iter):
-                    self.mark(self.sdk_values, node.target)
+                    self.bind(self.sdk_sites, node.target)
+
+    def annotate(self, slots: List[Slot], annotation: Optional[ast.AST]) -> None:
+        """A client annotation decides what the name holds, whatever else it is assigned."""
+        kind = self.class_kind(annotation)
+        if kind is not None:
+            for slot in slots:
+                self.client_annotations.setdefault(slot, set()).add(kind)
 
     def optional_parameters(self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> List[str]:
         """Parameters annotated Optional (or `X | None`) or defaulting to None."""
@@ -1063,7 +1256,7 @@ class SourceScan:
             return False
         child: ast.AST = node
         parent = self.parents.get(node)
-        while parent is not None and not isinstance(parent, SCOPES):
+        while parent is not None and not isinstance(parent, GUARD_LIMITS):
             if isinstance(parent, ast.If) and child in parent.body and guards(parent.test, key):
                 return True
             if isinstance(parent, ast.IfExp) and child is parent.body and guards(parent.test, key):
@@ -1076,7 +1269,7 @@ class SourceScan:
                     earlier.append(value)
                 if any(guards(value, key) for value in earlier):
                     return True
-            if isinstance(parent, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            if isinstance(parent, COMPREHENSIONS):
                 tests = [test for generator in parent.generators for test in generator.ifs]
                 if child not in parent.generators and any(guards(test, key) for test in tests):
                     return True
@@ -1097,7 +1290,7 @@ class SourceScan:
                 return len(node.args) == 3 and is_none(node.args[2])
             return False
         if isinstance(node, ast.Name) and not self.guarded(node):
-            return any(slot in self.optional_names for slot in self.slots(node))
+            return self.slot(node) in self.optional_names
         return False
 
     def trace_assignment(self, target: ast.AST, value: ast.AST) -> None:
@@ -1105,15 +1298,15 @@ class SourceScan:
             value = value.value
         kind = self.client_kind(value)
         if kind is not None:
-            self.record(self.clients, target, kind)
-        elif isinstance(value, ast.Attribute) and value.attr == "api" and self.client_kind(value.value):
-            self.record(self.api_handles, target, "api")
+            self.bind_client(target, kind)
+        elif isinstance(value, ast.Attribute) and value.attr == "api" and self.is_client(value.value):
+            self.bind(self.handle_sites, target)
         elif (isinstance(value, ast.Call) and self.qualname(value.func) == "permit.utils.context.ContextStore") or (
             isinstance(value, ast.Attribute) and value.attr == "context_store"
         ):
             self.mark(self.context_stores, target)
         elif self.is_api_call(value) or (isinstance(value, ast.Call) and self.is_model_construction(value)):
-            self.mark(self.sdk_values, target)
+            self.bind(self.sdk_sites, target)
 
     def is_model_construction(self, call: ast.Call) -> bool:
         """UserRead(...) or UserRead.parse_obj(...) for a class imported from permit."""
@@ -1147,9 +1340,7 @@ class SourceScan:
                 "delete the call, or apply the transform to the context you pass to check()",
             )
         context_store = isinstance(func.value, ast.Attribute) and func.value.attr == "context_store"
-        if func.attr == "transform" and (
-            context_store or any(slot in self.context_stores for slot in self.slots(func.value))
-        ):
+        if func.attr == "transform" and (context_store or self.slot(func.value) in self.context_stores):
             self.add(node, "A3", REVIEW, "ContextStore.transform() is removed: it returned the context unchanged")
         self.check_v2_method(node, func)
         self.check_runner_argument(node, func)
@@ -1165,27 +1356,31 @@ class SourceScan:
         if not isinstance(parent, (ast.Assign, ast.AnnAssign)):
             return False
         targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
-        assigned = {self.slots(target)[0] for target in targets if self.slots(target)}
-        for other in ast.walk(self.tree):
-            if isinstance(other, ast.Attribute) and other.attr in PAGE_FIELDS:
-                read = self.slots(other.value)
-                if read and read[0] in assigned:
-                    return True
-        return False
+        assigned = {self.slot(target) for target in targets} - {None}
+        return any(
+            isinstance(other, ast.Attribute) and other.attr in PAGE_FIELDS and self.slot(other.value) in assigned
+            for other in ast.walk(self.tree)
+        )
 
     def check_deprecated_call(self, node: ast.Call, func: ast.Attribute) -> None:
         if func.attr not in DEPRECATED_METHODS:
             return
         via_api = False
+        untraced = ""
         if isinstance(func.value, ast.Attribute) and func.value.attr == "api":
             via_api = True
-            traced = self.client_kind(func.value.value) is not None
             client = self.source_of(func.value.value)
+            if not self.is_client(func.value.value):
+                untraced = f"`{client}` is not traced to a permit client in this file"
         elif self.is_api_handle(func.value):
-            traced = True
             client = f"<the client behind {self.source_of(func.value)}>"
+        elif isinstance(func.value, ast.Name) and func.value.id.endswith("api") and self.imports_permit:
+            # Named like a `client.api` handle, but bound to something this file doesn't trace.
+            client = f"<the client behind {func.value.id}>"
+            untraced = f"`{func.value.id}` is not traced to a permit client's .api in this file"
         else:
             return
+        traced = not untraced
         replacement, renames = DEPRECATED_METHODS[func.attr]
         if not via_api and replacement.startswith("api."):
             target = f"{self.source_of(func.value)}.{replacement[len('api.') :]}"
@@ -1203,7 +1398,7 @@ class SourceScan:
             detail = f"use {target}(...)" + (f" and rename {', '.join(renamed)}" if renamed else "")
             safe = traced and not starred
         if not traced:
-            detail = f"`{client}` is not traced to a permit client in this file; if it is one, {detail}"
+            detail = f"{untraced}; if it is one, {detail}"
         old = f"permit.api.{func.attr}()"
         self.add(node, "D2", SAFE if safe else REVIEW, f"{old} is deprecated and removed in 4.0: {detail}")
 
@@ -1229,9 +1424,9 @@ class SourceScan:
         if method not in NOW_SYNC_METHODS:
             return
         kind = self.client_kind(call.func.value)
-        if kind == "sync":
+        if kind == SYNC:
             self.add(node, "A2", SAFE, f"permit.sync.Permit.{method}() is synchronous in 3.0: drop the await")
-        elif kind == "ambiguous" or (kind is None and self.project.uses_sync_client):
+        elif kind in (EITHER, MAYBE) or (kind is None and self.project.uses_sync_client):
             self.add(
                 node,
                 "A2",
@@ -1248,7 +1443,7 @@ class SourceScan:
                 isinstance(arg, ast.Call)
                 and isinstance(arg.func, ast.Attribute)
                 and arg.func.attr in NOW_SYNC_METHODS
-                and self.client_kind(arg.func.value) == "sync"
+                and self.client_kind(arg.func.value) == SYNC
             ):
                 self.add(
                     arg,
