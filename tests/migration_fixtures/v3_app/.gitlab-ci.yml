@@ -1,0 +1,7 @@
+test:
+  image: python:3.12
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.10", "3.12"]
+  script:
+    - pip install -r requirements.txt
