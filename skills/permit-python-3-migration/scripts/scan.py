@@ -815,25 +815,33 @@ def combined(kinds: Set[str]) -> str:
     return EITHER
 
 
-def optional_annotation(node: Optional[ast.AST]) -> bool:
-    """Optional[X], Union[X, None] or X | None, also as a string annotation."""
+def union_members(node: Optional[ast.AST]) -> List[ast.AST]:
+    """The types an annotation allows: X | Y, Optional[X] and Union[X, Y], also as a string."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         try:
             node = ast.parse(node.value, mode="eval").body
         except SyntaxError:
-            return False
-    if is_none(node):
-        return True
+            return []
+    if node is None:
+        return []
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return optional_annotation(node.left) or optional_annotation(node.right)
+        return union_members(node.left) + union_members(node.right)
     if isinstance(node, ast.Subscript):
         name = (dotted(node.value) or "").rsplit(".", 1)[-1]
         inner = node.slice
         if type(inner).__name__ == "Index":  # Python 3.8 wraps subscripts in ast.Index
             inner = getattr(inner, "value", inner)
         elements = inner.elts if isinstance(inner, ast.Tuple) else [inner]
-        return name == "Optional" or (name == "Union" and any(is_none(element) for element in elements))
-    return False
+        if name == "Optional":
+            return [*union_members(elements[0]), ast.Constant(value=None)]
+        if name == "Union":
+            return [member for element in elements for member in union_members(element)]
+    return [node]
+
+
+def optional_annotation(node: Optional[ast.AST]) -> bool:
+    """Optional[X], Union[X, None] or X | None, also as a string annotation."""
+    return any(is_none(member) for member in union_members(node))
 
 
 def guards(test: ast.AST, key: str, *, none_check: bool = True) -> bool:
@@ -889,6 +897,7 @@ class SourceScan:
         self.client_sites: Dict[Slot, Dict[int, str]] = {}
         self.handle_sites: Dict[Slot, Set[int]] = {}
         self.sdk_sites: Dict[Slot, Set[int]] = {}
+        self.sdk_annotations: Set[Slot] = set()
         self.context_stores: Set[Slot] = set()
         self.optional_names: Set[Slot] = set()
         self.names_imported: Set[str] = set()
@@ -1164,6 +1173,8 @@ class SourceScan:
         if self.sdk_class(node) is not None or self.is_api_call(node):
             return True
         slot = self.slot(node)
+        if slot in self.sdk_annotations:
+            return True
         return slot is not None and self.holds_only(slot, self.sdk_sites.get(slot))
 
     # -- imports ---------------------------------------------------------------
@@ -1283,11 +1294,20 @@ class SourceScan:
                     self.bind(self.sdk_sites, node.target)
 
     def annotate(self, slots: List[Slot], annotation: Optional[ast.AST]) -> None:
-        """A client annotation decides what the name holds, whatever else it is assigned."""
+        """A client or SDK model annotation decides what the name holds, whatever else it is assigned."""
         kind = self.class_kind(annotation)
         if kind is not None:
             for slot in slots:
                 self.client_annotations.setdefault(slot, set()).add(kind)
+        elif self.model_annotation(annotation):
+            self.sdk_annotations.update(slots)
+
+    def model_annotation(self, annotation: Optional[ast.AST]) -> bool:
+        """UserRead, Optional[UserRead] or "UserRead | None" for a model class imported from permit."""
+        members = [member for member in union_members(annotation) if not is_none(member)]
+        return bool(members) and all(
+            (self.sdk_class(member) or "").rsplit(".", 1)[0] in MODEL_MODULES for member in members
+        )
 
     def optional_parameters(self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> List[str]:
         """Parameters annotated Optional (or `X | None`) or defaulting to None."""

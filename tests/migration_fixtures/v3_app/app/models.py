@@ -40,3 +40,7 @@ async def all_tuples() -> List[RelationshipTupleRead]:
 
 def not_found(message: str) -> bool:
     return message == USER_NOT_FOUND
+
+
+def user_dict(user: UserRead) -> Dict[str, Any]:
+    return user.dict()

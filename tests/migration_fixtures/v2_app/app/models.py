@@ -38,3 +38,7 @@ async def all_tuples() -> List[RelationshipTupleRead]:
 
 def not_found(message: str) -> bool:
     return message == LoginAsErrorMessages.USER_NOT_FOUND.value
+
+
+def user_dict(user: UserRead) -> Dict[str, Any]:
+    return user.model_dump()

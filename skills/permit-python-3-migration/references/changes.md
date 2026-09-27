@@ -117,8 +117,9 @@ way. pydantic 2 methods on them fail type checking. They also always failed at r
 | `.model_fields_set` | `.__fields_set__` |
 | `Model.model_fields` | `Model.__fields__` (values are `ModelField`, not `FieldInfo`) |
 
-- Detect: these methods on a class imported from permit, on a value built from one, or on the
-  result of a permit API call. The type checker finds the rest.
+- Detect: these methods on a class imported from permit, on a value built from one, on the
+  result of a permit API call, or on a name annotated with an SDK model (`user: UserRead`,
+  `Optional[UserRead]`). The type checker finds the rest.
 - Edit: the rename in the table. **SAFE** when only keywords both versions share are passed
   (`include`, `exclude`, `by_alias`, `exclude_unset`, `exclude_defaults`, `exclude_none`;
   `update`, `deep` for copy). **NEEDS-REVIEW** otherwise: `mode="json"` becomes

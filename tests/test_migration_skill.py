@@ -106,6 +106,7 @@ V2_FINDINGS: Set[Row] = {
     ("app/models.py", 24, "T2", SAFE),
     ("app/models.py", 28, "T2", REVIEW),
     ("app/models.py", 32, "A5", REVIEW),
+    ("app/models.py", 44, "T2", SAFE),
     ("app/sync_app.py", 8, "A3", REVIEW),
     ("app/sync_app.py", 19, "A3", REVIEW),
     ("app/sync_app.py", 23, "A2", REVIEW),
@@ -432,6 +433,41 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
         ("app.py", 49, "A2", SAFE),
         ("app.py", 50, "D2", SAFE),
         ("app.py", 50, "T2", SAFE),
+    ]
+
+
+def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            from typing import List, Optional, Union
+
+            from permit.api.models import UserRead
+
+
+            def dump(
+                a: UserRead, b: Optional[UserRead], c: "UserRead | None", d: Union[UserRead, int], e: List[UserRead]
+            ):
+                loaded: UserRead = load()
+                return (
+                    a.model_dump(),
+                    b.model_dump(mode="json"),
+                    c.model_dump_json(),
+                    d.model_dump(),
+                    e.model_dump(),
+                    loaded.model_copy(),
+                )
+            """
+        },
+    )
+
+    # d may be an int and e is a list, so neither is known to be an SDK model.
+    assert findings(tmp_path) == [
+        ("app.py", 11, "T2", SAFE),
+        ("app.py", 12, "T2", REVIEW),
+        ("app.py", 13, "T2", SAFE),
+        ("app.py", 16, "T2", SAFE),
     ]
 
 
