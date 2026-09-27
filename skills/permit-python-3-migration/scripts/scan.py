@@ -1518,7 +1518,7 @@ class SourceScan:
         if not traced:
             detail = f"{untraced}; if it is one, {detail}"
         old = f"permit.api.{func.attr}()"
-        self.add(node, "D2", SAFE if safe else REVIEW, f"{old} is deprecated and removed in 4.0: {detail}")
+        self.add(node, "D2", SAFE if safe else REVIEW, f"{old} is deprecated and will be removed in 4.0: {detail}")
 
     def assignment_argument(self, node: ast.Call) -> Optional[str]:
         """The dict that replaces assign_role(user_key, role_key, tenant_key)'s three arguments."""
@@ -1895,7 +1895,7 @@ class Project:
                         *where,
                         "D1",
                         REVIEW,
-                        f"`{requirement.text}` holds pydantic 1, which permit 3 deprecates and permit 4 drops; "
+                        f"`{requirement.text}` holds pydantic 1, which permit 3 deprecates and permit 4.0 will drop; "
                         "plan the move to pydantic 2",
                     )
                 )

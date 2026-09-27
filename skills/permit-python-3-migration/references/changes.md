@@ -21,7 +21,7 @@ the site to the user with the recommendation, and apply what they choose).
 - Wire behaviour: [W1](#w1-an-explicit-none-is-sent-as-null) · [W2](#w2-usersassign_role-and-unassign_role-omit-unset-fields) ·
   [W3](#w3-elementslogin_as-sends-hyphenated-uuids) · [W4](#w4-a-3xx-response-raises) ·
   [W5](#w5-authorization-bearer) · [W6](#w6-the-deprecated-assign_role-and-unassign_role-use-the-users-route)
-- Deprecations, removed in 4.0: [D1. pydantic 1 support](#d1-pydantic-1-support-is-deprecated) ·
+- Deprecations, to be removed in 4.0: [D1. pydantic 1 support](#d1-pydantic-1-support-is-deprecated) ·
   [D2. The flat permit.api methods](#d2-the-flat-permitapi-methods-are-deprecated)
 - [Bug fixes that change results](#bug-fixes-that-change-results) (usually no edit)
 - [What the scan cannot see](#what-the-scan-cannot-see)
@@ -291,9 +291,9 @@ Every `Authorization` header uses `Bearer`, not `bearer`. The scheme is case-ins
 `/role_assignments`. Same effect. Replacing them (D2) makes the same request. Update HTTP mocks
 that expect `/role_assignments`. Not reported separately.
 
-## Deprecations, removed in 4.0
+## Deprecations, to be removed in 4.0
 
-Both still work in 3.x and warn with a `DeprecationWarning` that says what to use instead.
+permit 4.0 is a future major release, and it will remove both. Both still work in 3.x and warn with a `DeprecationWarning` that says what to use instead.
 
 ### D1. pydantic 1 support is deprecated
 

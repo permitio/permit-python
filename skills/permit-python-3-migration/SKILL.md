@@ -1,6 +1,6 @@
 ---
 name: permit-python-3-migration
-description: Upgrade a Python project from permit 2.x (Permit.io's Python SDK, also called permit-python or the permitio SDK) to permit 3.0.0. Use when asked to upgrade or bump permit, permit-python or the permitio Python SDK from 2.x to 3.x; when code breaks after that upgrade (ImportError for ApiKeyLevel or PYDANTIC_VERSION, a coroutine or "event loop is already running" error from permit.sync, resource_relations.list() returning a page, new type errors from permit); or to clear permit's DeprecationWarnings (the flat permit.api methods, pydantic 1 support) before permit 4.0.
+description: Upgrade a Python project from permit 2.x (Permit.io's Python SDK, also called permit-python or the permitio SDK) to permit 3.0.0. Use when asked to upgrade or bump permit, permit-python or the permitio Python SDK from 2.x to 3.x; when code breaks after that upgrade (ImportError for ApiKeyLevel or PYDANTIC_VERSION, a coroutine or "event loop is already running" error from permit.sync, resource_relations.list() returning a page, new type errors from permit); or to clear permit's DeprecationWarnings (the flat permit.api methods, pydantic 1 support) before a future permit 4.0 removes them.
 ---
 
 # permit 2.x to 3.0.0

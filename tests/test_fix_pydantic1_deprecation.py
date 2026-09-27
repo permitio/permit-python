@@ -1,6 +1,6 @@
 """Offline tests for the pydantic 1 deprecation warning (PER-16236).
 
-permit 4.0 drops pydantic 1. Until then, importing permit on pydantic 1 issues one
+A future major release, permit 4.0, will drop pydantic 1. Until then, importing permit on pydantic 1 issues one
 DeprecationWarning that names 4.0 and says what to do, attributed to the line that imported
 permit. On pydantic 2 it issues none.
 

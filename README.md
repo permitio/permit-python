@@ -42,8 +42,8 @@ calls into the SDK against its type annotations. No pydantic mypy plugin is need
 
 ## Deprecations
 
-permit 4.0 removes the following. They still work in 3.x, and each one issues a
-`DeprecationWarning` that says what to do instead.
+A future major release, permit 4.0, will remove the following. They still work in 3.x, and
+each one issues a `DeprecationWarning` that says what to do instead.
 
 - **pydantic 1 support.** On pydantic 1, `import permit` warns once. Upgrade to pydantic 2.
   The SDK's models then come from `pydantic.v1`, so their methods stay the same, but

@@ -17,7 +17,7 @@ agent: see [Migrate with an AI agent](#migrate-with-an-ai-agent).
 - [API](#api): A1-A6
 - [Wire behaviour](#wire-behaviour): W1-W6
 - [Typing](#typing): T1-T3
-- [Deprecations (removed in 4.0)](#deprecations-removed-in-40): D1-D2
+- [Deprecations (to be removed in 4.0)](#deprecations-to-be-removed-in-40): D1-D2
 - [Other fixes you may notice](#other-fixes-you-may-notice)
 - [Staying on 2.x for now](#staying-on-2x-for-now)
 - [Migrate with an AI agent](#migrate-with-an-ai-agent)
@@ -397,9 +397,10 @@ requests permit sends.
 plugins = pydantic.mypy, pydantic.v1.mypy
 ```
 
-## Deprecations (removed in 4.0)
+## Deprecations (to be removed in 4.0)
 
-Both still work in 3.x and warn with a `DeprecationWarning` that says what to use instead.
+permit 4.0 is a future major release, and it will remove both of these. Both still work in 3.x
+and warn with a `DeprecationWarning` that says what to use instead.
 
 ### D1. pydantic 1 support is deprecated
 

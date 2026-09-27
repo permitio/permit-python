@@ -1,6 +1,6 @@
 """Offline tests for the deprecated flat methods on ``permit.api`` (PER-16177).
 
-Each deprecated method must warn that it is removed in permit 4.0, name its
+Each deprecated method must warn that it will be removed in permit 4.0, name its
 replacement, point the warning at the line that called it, send the request that
 replacement sends and return what it returns. Every request is served by a local
 ``pytest_httpserver`` and the API context is pre-populated, so no API key and no
