@@ -13,6 +13,14 @@ pip install permit
 
 [Read the documentation at Permit.io website](https://docs.permit.io/sdk/python/quickstart-python)
 
+## Upgrading from 2.x
+
+permit 3.0.0 requires Python 3.10 or later and raises the minimum versions of its dependencies.
+The [migration guide](https://github.com/permitio/permit-python/blob/main/MIGRATION.md) lists
+every breaking change, who it affects and what to change. To have an AI agent such as Claude Code
+do the upgrade, use the
+[permit-python-3-migration skill](https://github.com/permitio/permit-python/tree/main/skills/permit-python-3-migration).
+
 ## Type checking
 
 The package ships a `py.typed` marker (PEP 561), so mypy, pyright and IDEs check your
