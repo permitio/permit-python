@@ -29,11 +29,12 @@ the site to the user with the recommendation, and apply what they choose).
 ### P1. The permit requirement
 
 - Detect: `permit` in requirements\*.txt, pyproject.toml (PEP 621, Poetry, dependency groups),
-  setup.py, setup.cfg or Pipfile with a spec that allows 2.x or excludes 3.x; a lock file that
-  pins permit below 3.
+  setup.py, setup.cfg or Pipfile with a spec that allows 2.x or excludes 3.x; a lock file
+  (poetry.lock, uv.lock, pdm.lock, Pipfile.lock, or a requirements file compiled by `pip-compile`
+  or `uv pip compile`, recognised by its header or `# via` lines) that pins permit below 3.
 - Edit: `permit>=3.0.0,<4`. Regenerate the lock file with the project's own tool (`uv lock`,
-  `poetry lock`, `pipenv lock`, `pip-compile`). **SAFE.** A direct URL or unparseable spec is
-  NEEDS-REVIEW.
+  `poetry lock`, `pipenv lock`, `pip-compile`, or the command in a compiled file's header); never
+  edit a lock by hand. **SAFE.** A direct URL or unparseable spec is **NEEDS-REVIEW**.
 
 ## Compatibility
 
@@ -56,7 +57,8 @@ permit 2.x declared `httpx` (and so installed `httpcore`, `h11` and `anyio`) and
 imported them. 3.0.0 declares neither.
 
 - Detect: `import httpx` / `from httpx import ...` (or `httpcore`, `h11`, `anyio`, `zipp`) in a
-  project that doesn't declare that package.
+  project that doesn't declare that package. Pins in a compiled requirements file are not
+  declarations: `httpx==0.28.1  # via permit` disappears when the lock is regenerated.
 - Edit for httpx: add `httpx>=0.24.1,<1` (the range permit 2.x required) to the project's
   dependencies. **SAFE.**
 - Edit for httpcore, h11, anyio, zipp: another dependency may still install them (starlette and

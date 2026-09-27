@@ -53,7 +53,11 @@ it finds; 2 means a usage error. Group the findings by ID and read those entries
   `pipdeptree -r -p NAME`); declare it only if nothing does.
 - Raise the pins C3 reports to the new floors.
 - Regenerate lock files with the project's tool (`uv lock`, `poetry lock`, `pipenv lock`,
-  `pip-compile`), install, and check that `python -c "import permit"` works.
+  `pip-compile`), install, and check that `python -c "import permit"` works. A requirements file
+  compiled by `pip-compile` or `uv pip compile` is a lock too: regenerate it with the command in
+  its header; don't edit it.
+- Re-scan after regenerating. If a new C2 appears, declare that package in the file the lock is
+  compiled from and regenerate again.
 
 ## 4. Apply the SAFE edits
 

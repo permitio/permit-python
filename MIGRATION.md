@@ -71,7 +71,10 @@ The deprecations (D1, D2) keep working in 3.x and warn.
 + permit>=3.0.0,<4
 ```
 
-Then regenerate your lock file (`uv lock`, `poetry lock`, `pipenv lock`, `pip-compile`).
+Then regenerate your lock file (`uv lock`, `poetry lock`, `pipenv lock`, `pip-compile`). A
+requirements file compiled by `pip-compile` or `uv pip compile` is a lock too: regenerate it
+rather than editing it. A regenerated lock no longer lists `httpx` and the packages that came with
+it, so declare the ones your code imports first (C2).
 
 ## Compatibility
 
