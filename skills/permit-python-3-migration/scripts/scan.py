@@ -103,7 +103,8 @@ REMOVED: Dict[Tuple[str, str], Tuple[str, str, str]] = {
     ("permit.utils.context", "ContextTransform"): (
         "A3",
         REVIEW,
-        "removed with ContextStore.register_transform(), which never applied a transform",
+        "removed with ContextStore.register_transform(); use Callable[[Dict[str, Any]], Dict[str, Any]] if you "
+        "still need the type",
     ),
     ("permit.api.elements", "LoginAsErrorMessages"): (
         "A3",
@@ -913,6 +914,7 @@ class SourceScan:
         self.context_stores: Set[Slot] = set()
         self.optional_names: Set[Slot] = set()
         self.names_imported: Set[str] = set()
+        self.star_imports: Set[str] = set()
         self.mentions_tuples = False
 
     def run(self) -> List[Finding]:
@@ -928,6 +930,8 @@ class SourceScan:
                 self.check_async_mock_assignment(node)
             elif isinstance(node, ast.Attribute):
                 self.check_attribute(node)
+            elif isinstance(node, ast.Name):
+                self.check_star_imported_name(node)
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 self.check_string(node)
         return self.findings
@@ -1219,6 +1223,9 @@ class SourceScan:
                 self.imports_permit = True
                 self.check_import_comment(node)
                 for alias in node.names:
+                    if alias.name == "*":
+                        self.star_imports.add(node.module)
+                        continue
                     self.import_as(alias, f"{node.module}.{alias.name}")
                     self.names_imported.add(alias.name)
                     self.check_removed(node, node.module, alias.name)
@@ -1268,6 +1275,17 @@ class SourceScan:
         if entry is not None:
             change, safety, message = entry
             self.add(node, change, safety, f"{module}.{name} does not exist in permit 3: {message}")
+
+    def check_star_imported_name(self, node: ast.Name) -> None:
+        """ApiKeyLevel after `from permit.api.context import *`, unless the file binds the name itself."""
+        if not self.star_imports or not isinstance(node.ctx, ast.Load):
+            return
+        if self.resolve(node, node.id) is not self.tree or node.id in self.bound.get(id(self.tree), set()):
+            return
+        for module in sorted(self.star_imports):
+            if (module, node.id) in REMOVED:
+                self.check_removed(node, module, node.id)
+                return
 
     def check_model_import(self, node: ast.stmt, module: str, name: str) -> None:
         if module not in MODEL_MODULES or name not in NEW_ENUM_MEMBERS:
@@ -1431,12 +1449,18 @@ class SourceScan:
                 node,
                 "A3",
                 REVIEW,
-                "ContextStore.register_transform() is removed, and a registered transform was never applied: "
-                "delete the call, or apply the transform to the context you pass to check()",
+                "ContextStore.register_transform() is removed, and the SDK never applied a registered transform "
+                "to a check: delete the call, or apply the transform to the context you pass to check()",
             )
         context_store = isinstance(func.value, ast.Attribute) and func.value.attr == "context_store"
         if func.attr == "transform" and (context_store or self.slot(func.value) in self.context_stores):
-            self.add(node, "A3", REVIEW, "ContextStore.transform() is removed: it returned the context unchanged")
+            self.add(
+                node,
+                "A3",
+                REVIEW,
+                "ContextStore.transform() is removed. It applied the functions registered with register_transform() "
+                "(the SDK itself never called it): call those functions on the context directly",
+            )
         self.check_v2_method(node, func)
         self.check_api_dicts(node, func)
 

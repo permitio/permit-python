@@ -187,16 +187,18 @@ Breaking change 4 in the release notes, the typed package, is covered under [Typ
 
 - **What changed:** these names are removed:
   - `ContextStore.register_transform()`, `ContextStore.transform()` and `ContextTransform`.
-    A registered transform was never applied, so these did nothing.
+    The SDK never called `transform()`, so a registered transform never affected a check.
+    `transform()` applied the registered functions only when your own code called it.
   - `ApiKeyLevel`, a deprecated alias of `ApiKeyAccessLevel`.
   - `LoginAsErrorMessages`, `OpaResult` and the `JWT` alias. None of them had a caller.
 - **Who is affected:** code that imports them.
 - **What to do:**
   - `ApiKeyLevel`: use `ApiKeyAccessLevel` from `permit.api.context`. It has the same members.
   - `JWT`: use `str`.
-  - `register_transform()`: delete the call; the transform never ran, so deleting it changes
-    nothing. If you want its effect, apply it to the context you pass to `check()`, and expect
-    decisions to change.
+  - `register_transform()`: delete the call; no check ever ran the transform, so deleting it
+    changes no decision. If you want its effect, apply it to the context you pass to `check()`,
+    and expect decisions to change.
+  - `transform()`: call the functions you registered on the context yourself.
   - `LoginAsErrorMessages` and `OpaResult`: define what you need in your own code. The messages
     were `"User not found"`, `"Tenant not found"`, `"Invalid user permission level"` and
     `"Forbidden access"`; `OpaResult` was a model with one field, `allow: bool`.

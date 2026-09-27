@@ -186,13 +186,14 @@ calling one returned a coroutine, and awaiting it raised
 | --- | --- | --- |
 | `permit.api.context.ApiKeyLevel` | `ApiKeyAccessLevel`, same members and values | SAFE |
 | `permit.enforcement.interfaces.JWT` | `str` (it was an alias) | SAFE |
-| `ContextStore.register_transform()` and `ContextStore.transform()` | A registered transform was never applied, so the call did nothing. Delete it. If the transform's effect is wanted, apply it to the context passed to `check()`, which changes decisions | NEEDS-REVIEW |
+| `ContextStore.register_transform()` and `ContextStore.transform()` | The SDK never called `transform()`, so a registered transform never affected a check; `transform()` applied the registered functions only when the project's own code called it. Delete `register_transform()` calls. Where the project calls `transform()`, call the functions it registered on the context directly. Applying a transform to the context passed to `check()` changes decisions | NEEDS-REVIEW |
 | `permit.utils.context.ContextTransform` | `Callable[[Dict[str, Any]], Dict[str, Any]]` if still needed | NEEDS-REVIEW |
 | `permit.api.elements.LoginAsErrorMessages` | Define the strings in the project: `"User not found"`, `"Tenant not found"`, `"Invalid user permission level"`, `"Forbidden access"` | NEEDS-REVIEW |
 | `permit.enforcement.interfaces.OpaResult` | Nothing returned it. Define `class OpaResult(BaseModel): allow: bool` in the project if used | NEEDS-REVIEW |
 
-- Detect: imports of these names, attribute access through a permit module alias,
-  `.register_transform(` in a file that imports permit, `.transform(` on a `ContextStore`.
+- Detect: imports of these names, attribute access through a permit module alias, uses after a
+  star import of their module, `.register_transform(` in a file that imports permit,
+  `.transform(` on a `ContextStore`.
 
 ### A4. Audit-log models accept what the API returns
 
@@ -373,4 +374,9 @@ No edit, but tests that pinned the old results may change:
   T2 unreported. Run the tests with deprecation warnings as errors (SKILL.md, step 6).
 - Values that are `None` only at runtime (W1), such as `**kwargs` or a dict built elsewhere.
 - Code that turns SDK objects into strings: `str(t.object_id)` gives `"None"` (A5).
-- HTTP mocks and recorded requests (W2 to W6): they fail in the test run.
+- HTTP mocks and recorded requests (A1, W2 to W6): they fail in the test run.
+- pydantic floors for a particular Python (C3): the scan checks pydantic pins against the Python
+  3.10-3.12 floors (`>=1.10.18,<2` or `>=2.4.2`). On 3.13 and 3.14 the floors are higher (the
+  table above); check pins for those Pythons by hand.
+- Warning settings outside pytest's configuration and Python code (D1, D2): `PYTHONWARNINGS` or
+  `-W` in CI files, Dockerfiles and tox commands.

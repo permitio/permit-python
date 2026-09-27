@@ -346,6 +346,47 @@ def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path):
     ]
 
 
+def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            from permit.api.context import *
+            from permit.enforcement.interfaces import *
+
+            LEVEL = ApiKeyLevel.WAIT_FOR_INIT
+            TOKEN: JWT = "x"
+
+
+            def own(JWT):
+                return JWT
+            """
+        },
+    )
+
+    assert findings(tmp_path) == [("app.py", 4, "A3", SAFE), ("app.py", 5, "A3", SAFE)]
+
+
+def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            from permit.utils.context import ContextStore
+
+            store = ContextStore()
+            store.register_transform(add_region)
+            context = store.transform({"user": "u"})
+            """
+        },
+    )
+    messages = [item.message for item in scan.Project(tmp_path).scan()]
+
+    # 2.x's transform() applied the registered functions when called directly; no check ever did.
+    assert "the SDK never applied a registered transform" in messages[0]
+    assert "It applied the functions registered with register_transform()" in messages[1]
+
+
 def test_untraced_receivers_are_never_safe(tmp_path: Path):
     write(
         tmp_path,
