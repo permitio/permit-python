@@ -1588,7 +1588,8 @@ def test_the_guide_a2_diff_calls_the_blocking_method_directly(
     assert "from permit.sync import Permit" in after
 
     assert run_snippet(after, {})["users"].resource == "document:1"
-    with pytest.raises(ValueError, match="a coroutine was expected"):
+    # asyncio.run() rejects the result: ValueError before Python 3.14, TypeError from 3.14.
+    with pytest.raises((TypeError, ValueError), match="coroutine"):
         run_snippet(before, {"asyncio": asyncio})
 
 
