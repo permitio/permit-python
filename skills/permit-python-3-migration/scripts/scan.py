@@ -86,6 +86,8 @@ ASSIGNMENT_KEYS = {"user_key": "user", "role_key": "role", "tenant_key": "tenant
 NOW_SYNC_METHODS = {"authorized_users", "get_user_permissions", "filter_objects"}
 PAGE_FIELDS = {"data", "total_count", "page_count"}
 COROUTINE_RUNNERS = {"run", "run_until_complete", "gather", "create_task", "ensure_future", "wait_for"}
+# Modules whose import aliases the scan follows: permit, and asyncio for its runners.
+TRACED_MODULES = {"permit", "asyncio"}
 
 ASYNC_CLIENTS = {"permit.Permit", "permit.permit.Permit"}
 SYNC_CLIENTS = {"permit.sync.Permit"}
@@ -761,6 +763,22 @@ def bound_name(node: ast.AST) -> Optional[str]:
     return name if isinstance(name, str) else None
 
 
+def is_async_mock(node: ast.AST) -> bool:
+    """AsyncMock, mock.AsyncMock, or a call of either."""
+    if isinstance(node, ast.Call):
+        node = node.func
+    return (isinstance(node, ast.Name) and node.id == "AsyncMock") or (
+        isinstance(node, ast.Attribute) and node.attr == "AsyncMock"
+    )
+
+
+def async_mock_message(method: str) -> str:
+    return (
+        f"if this AsyncMock stands in for permit.sync.Permit.{method}(), use Mock or MagicMock with the same "
+        "return_value: the method returns its result in 3.0, and an AsyncMock hands the code a coroutine"
+    )
+
+
 def combined(kinds: Set[str]) -> str:
     """One kind for a value bound in several places."""
     if MAYBE in kinds:
@@ -855,6 +873,8 @@ class SourceScan:
                 self.check_call(node)
             elif isinstance(node, ast.Await):
                 self.check_await(node)
+            elif isinstance(node, ast.Assign):
+                self.check_async_mock_assignment(node)
             elif isinstance(node, ast.Attribute):
                 self.check_attribute(node)
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -1106,7 +1126,7 @@ class SourceScan:
     def sdk_class(self, node: ast.AST) -> Optional[str]:
         """The qualified name when `node` is a class imported from permit, other than the clients."""
         name = self.qualname(node)
-        if name is None or name in ASYNC_CLIENTS or name in SYNC_CLIENTS:
+        if name is None or not name.startswith("permit.") or name in ASYNC_CLIENTS or name in SYNC_CLIENTS:
             return None
         return name if name.rsplit(".", 1)[-1][:1].isupper() else None
 
@@ -1129,14 +1149,18 @@ class SourceScan:
                 for alias in node.names:
                     top = alias.name.split(".", 1)[0]
                     self.check_transitive_import(node, top)
+                    if top in TRACED_MODULES:
+                        self.import_as(alias, alias.name if alias.asname else top)
                     if top != "permit":
                         continue
                     self.imports_permit = True
-                    self.import_as(alias, alias.name if alias.asname else "permit")
                     self.check_import_comment(node)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 top = node.module.split(".", 1)[0]
                 self.check_transitive_import(node, top)
+                if top == "asyncio":
+                    for alias in node.names:
+                        self.import_as(alias, f"{node.module}.{alias.name}")
                 if top != "permit":
                     continue
                 self.imports_permit = True
@@ -1319,6 +1343,8 @@ class SourceScan:
     def check_call(self, node: ast.Call) -> None:
         func = node.func
         self.check_request_model(node)
+        self.check_runner_argument(node)
+        self.check_async_mock(node)
         if not isinstance(func, ast.Attribute):
             return
         self.check_deprecated_call(node, func)
@@ -1343,7 +1369,6 @@ class SourceScan:
         if func.attr == "transform" and (context_store or self.slot(func.value) in self.context_stores):
             self.add(node, "A3", REVIEW, "ContextStore.transform() is removed: it returned the context unchanged")
         self.check_v2_method(node, func)
-        self.check_runner_argument(node, func)
         self.check_api_dicts(node, func)
 
     def reads_page(self, call: ast.Call) -> bool:
@@ -1423,35 +1448,101 @@ class SourceScan:
         method = call.func.attr
         if method not in NOW_SYNC_METHODS:
             return
-        kind = self.client_kind(call.func.value)
+        receiver = call.func.value
+        kind = self.client_kind(receiver)
         if kind == SYNC:
-            self.add(node, "A2", SAFE, f"permit.sync.Permit.{method}() is synchronous in 3.0: drop the await")
-        elif kind in (EITHER, MAYBE) or (kind is None and self.project.uses_sync_client):
             self.add(
                 node,
                 "A2",
                 REVIEW,
-                f"if `{self.source_of(call.func.value)}` is a permit.sync.Permit, {method}() is synchronous "
-                "in 3.0: drop the await. The async permit.Permit still needs it",
+                f"`{self.source_of(receiver)}` is a permit.sync.Permit, whose {method}() returns its result in "
+                "3.0 and blocks while it waits. This is async code: switch it to the async permit.Permit and "
+                "keep the await (recommended), or drop the await and accept a blocking call",
             )
+        elif kind in (EITHER, MAYBE) or (kind is None and self.project.uses_sync_client):
+            self.add(node, "A2", REVIEW, self.untraced_a2(receiver, method))
 
-    def check_runner_argument(self, node: ast.Call, func: ast.Attribute) -> None:
-        if func.attr not in COROUTINE_RUNNERS:
+    def untraced_a2(self, receiver: ast.AST, method: str) -> str:
+        return (
+            f"if `{self.source_of(receiver)}` is a permit.sync.Permit, {method}() returns its result in 3.0: "
+            "call it without await or a coroutine runner. The async permit.Permit still needs them"
+        )
+
+    def coroutine_runner(self, func: ast.AST) -> Optional[Tuple[str, bool]]:
+        """(name, whether it runs a coroutine to completion from sync code) for a coroutine runner."""
+        name = self.qualname(func)
+        if name is not None and name.startswith("asyncio."):
+            short = name[len("asyncio.") :]
+        elif isinstance(func, ast.Attribute):
+            short = func.attr
+        else:
+            return None
+        if short not in COROUTINE_RUNNERS:
+            return None
+        return short, name == "asyncio.run" or short == "run_until_complete"
+
+    def check_runner_argument(self, node: ast.Call) -> None:
+        """asyncio.run(client.filter_objects(...)) and other runners given one of the three methods."""
+        runner = self.coroutine_runner(node.func)
+        if runner is None:
             return
+        name, from_sync_code = runner
         for arg in node.args:
-            if (
-                isinstance(arg, ast.Call)
-                and isinstance(arg.func, ast.Attribute)
-                and arg.func.attr in NOW_SYNC_METHODS
-                and self.client_kind(arg.func.value) == SYNC
-            ):
+            if not (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute)):
+                continue
+            method = arg.func.attr
+            if method not in NOW_SYNC_METHODS:
+                continue
+            kind = self.client_kind(arg.func.value)
+            if kind == SYNC and from_sync_code:
+                self.add(
+                    arg,
+                    "A2",
+                    SAFE,
+                    f"permit.sync.Permit.{method}() returns its result in 3.0, and {name}() raises on it: "
+                    "call the method directly",
+                )
+            elif kind == SYNC:
                 self.add(
                     arg,
                     "A2",
                     REVIEW,
-                    f"permit.sync.Permit.{arg.func.attr}() returns its result in 3.0, not a coroutine: "
-                    f"call it directly instead of passing it to {func.attr}()",
+                    f"permit.sync.Permit.{method}() returns its result in 3.0 and blocks while it waits, so "
+                    f"{name}() gets no coroutine. This is async code: switch it to the async permit.Permit "
+                    "(recommended), or call the method directly and accept a blocking call",
                 )
+            elif kind in (EITHER, MAYBE) or (kind is None and self.project.uses_sync_client):
+                self.add(arg, "A2", REVIEW, self.untraced_a2(arg.func.value, method))
+
+    def check_async_mock(self, node: ast.Call) -> None:
+        """patch(..., new_callable=AsyncMock) or setattr(x, "method", AsyncMock()) for the three methods."""
+        if not self.project.uses_sync_client:
+            return
+        values = list(node.args) + [keyword.value for keyword in node.keywords]
+        if not any(is_async_mock(value) for value in values):
+            return
+        if node.args and (self.client_kind(node.args[0]) == ASYNC or self.qualname(node.args[0]) in ASYNC_CLIENTS):
+            return
+        for arg in node.args:
+            if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                continue
+            owner, _, method = arg.value.rpartition(".")
+            if method in NOW_SYNC_METHODS and owner not in ASYNC_CLIENTS:
+                self.add(node, "A2", REVIEW, async_mock_message(method))
+                return
+
+    def check_async_mock_assignment(self, node: ast.Assign) -> None:
+        """client.authorized_users = AsyncMock(...)"""
+        if not self.project.uses_sync_client or not is_async_mock(node.value):
+            return
+        for target in node.targets:
+            if (
+                isinstance(target, ast.Attribute)
+                and target.attr in NOW_SYNC_METHODS
+                and self.client_kind(target.value) != ASYNC
+                and self.qualname(target.value) not in ASYNC_CLIENTS
+            ):
+                self.add(target, "A2", REVIEW, async_mock_message(target.attr))
 
     def check_v2_method(self, node: ast.Call, func: ast.Attribute) -> None:
         if func.attr not in V2_METHODS or not self.is_sdk_value(func.value):

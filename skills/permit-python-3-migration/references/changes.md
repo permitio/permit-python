@@ -140,7 +140,10 @@ old return type.
   `.page_count`.
 - Edit: `relations = (await permit.api.resource_relations.list("doc")).data`. **NEEDS-REVIEW**:
   the call never worked, so look at what the code around it expected (a `try` around it, a
-  fallback path) before choosing the edit.
+  fallback path) before choosing the edit. Tests that mock `GET .../resources/{key}/relations`
+  with a JSON list, or stub `resource_relations.list` to return a list, must return the page
+  instead: `{"data": [...], "total_count": n, "page_count": 1}` or a
+  `PaginatedResultRelationRead`.
 
 ### A2. Three permit.sync.Permit methods are synchronous
 
@@ -150,12 +153,27 @@ On the blocking client `permit.sync.Permit`, `authorized_users()`, `get_user_per
 calling one returned a coroutine, and awaiting it raised
 `RuntimeError: This event loop is already running`. No working code depends on the old behaviour.
 
-- Detect: `await client.<method>(...)` where `client` is traced to `permit.sync.Permit`; the call
-  passed to `asyncio.run()`, `run_until_complete()`, `gather()` and similar.
-- Edit: drop the `await`. **SAFE** when the client is traced to `permit.sync.Permit`.
-  **NEEDS-REVIEW** when the receiver is not traced (the async client still needs the `await`) or
-  the call is passed to an event-loop helper. In async code, recommend the async client: a
-  blocking call there blocks the event loop.
+- Detect: `await client.<method>(...)`; the call passed to `asyncio.run()`,
+  `run_until_complete()`, `gather()`, `create_task()` and similar; an `AsyncMock` that stands in
+  for one of the three methods (`patch(..., new_callable=AsyncMock)`,
+  `monkeypatch.setattr(client, "authorized_users", AsyncMock(...))`, an assignment) in a project
+  that uses the blocking client.
+- Edit, by form:
+  - `asyncio.run(client.<method>(...))` or `loop.run_until_complete(...)`: call the method
+    directly. This is sync code, so nothing else changes. **SAFE** when `client` is traced to
+    `permit.sync.Permit`.
+  - `await client.<method>(...)`, or the call passed to `gather()`, `create_task()` and the other
+    helpers that run inside a loop: this is async code, where the blocking call blocks the event
+    loop while it waits. Recommend switching that code to the async `permit.Permit` and keeping
+    the `await`; the alternative is dropping the `await` and accepting a blocking call.
+    **NEEDS-REVIEW.**
+  - A receiver not traced to either client: the async `permit.Permit` still needs the `await`.
+    **NEEDS-REVIEW.**
+  - Test doubles: in 2.x these methods returned coroutines, so tests that stubbed them used
+    `AsyncMock`. For the blocking client, replace the `AsyncMock` with `Mock` (or `MagicMock`)
+    and keep its `return_value`; an `AsyncMock` now hands the code a coroutine.
+    **NEEDS-REVIEW**: check that the double replaces the blocking client's method, not the async
+    client's.
 
 ### A3. Removed symbols
 

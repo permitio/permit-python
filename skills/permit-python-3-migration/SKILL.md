@@ -71,7 +71,9 @@ The cases that need a decision most:
 - W1: a `None` that 2.x dropped now clears the field. Ask whether clearing was intended.
 - A3: a `ContextStore` transform was never applied. Deleting the call keeps behaviour;
   applying the transform changes decisions.
-- A2 with an untraced client: drop the `await` only for `permit.sync.Permit`.
+- A2 in async code: recommend switching to the async `permit.Permit` and keeping the `await`;
+  dropping the `await` leaves a blocking call in the coroutine. With an untraced client, the
+  edit applies only to `permit.sync.Permit`.
 - C1: raising the Python floor changes where the project runs.
 
 ## 6. Verify
@@ -95,8 +97,9 @@ The cases that need a decision most:
    and report D1. Each warning names its replacement (D2 in `references/changes.md`).
 4. Re-run the scan. Only the NEEDS-REVIEW items the user chose to keep should remain.
 
-If HTTP mocks or recorded requests fail, check W2 to W6 in `references/changes.md`: the requests
-changed, not the behaviour.
+If mocks, test doubles or recorded requests fail, check A1 (a relations mock must return a
+page), A2 (`AsyncMock` doubles of the blocking client's methods become `Mock`) and W2 to W6 (the
+requests changed, not the behaviour) in `references/changes.md`.
 
 ## 7. Report
 

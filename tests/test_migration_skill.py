@@ -79,7 +79,7 @@ V2_FINDINGS: Set[Row] = {
     ("Dockerfile", 1, "C1", REVIEW),
     ("app/aliases.py", 3, "T1", SAFE),
     ("app/aliases.py", 18, "D2", SAFE),
-    ("app/aliases.py", 29, "A2", SAFE),
+    ("app/aliases.py", 29, "A2", REVIEW),
     ("app/aliases.py", 33, "D2", REVIEW),
     ("app/aliases.py", 37, "A2", REVIEW),
     ("app/aliases.py", 41, "A6", SAFE),
@@ -107,9 +107,9 @@ V2_FINDINGS: Set[Row] = {
     ("app/models.py", 32, "A5", REVIEW),
     ("app/sync_app.py", 8, "A3", REVIEW),
     ("app/sync_app.py", 19, "A3", REVIEW),
-    ("app/sync_app.py", 23, "A2", SAFE),
-    ("app/sync_app.py", 28, "A2", SAFE),
-    ("app/sync_app.py", 32, "A2", REVIEW),
+    ("app/sync_app.py", 23, "A2", REVIEW),
+    ("app/sync_app.py", 28, "A2", REVIEW),
+    ("app/sync_app.py", 32, "A2", SAFE),
     ("app/sync_app.py", 36, "D2", SAFE),
     ("app/sync_app.py", 40, "D2", SAFE),
     ("pyproject.toml", 4, "C1", REVIEW),
@@ -161,7 +161,8 @@ def test_safe_edits_name_the_replacement():
     )
     assert "use api.resources.get(...)" in messages[("app/async_app.py", 29)]
     assert "use client.elements.login_as(...)" in messages[("app/sync_app.py", 40)]
-    assert "drop the await" in messages[("app/sync_app.py", 23)]
+    assert "call the method directly" in messages[("app/sync_app.py", 32)]
+    assert "switch it to the async permit.Permit" in messages[("app/sync_app.py", 23)]
 
 
 def test_json_report_matches_the_findings_and_names_the_changes():
@@ -195,6 +196,8 @@ def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path):
         tmp_path,
         {
             "app.py": """
+            import asyncio
+
             import permit.sync
             import permit.sync as ps
             from permit import Permit as AsyncPermit
@@ -209,21 +212,109 @@ def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path):
             f: "Blocking" = make()
 
 
-            async def run(g: Blocking, h: AsyncPermit) -> None:
-                await a.authorized_users("read", "doc")
-                await b.filter_objects("u", "read", {}, [])
-                await c.get_user_permissions("u")
-                await d.authorized_users("read", "doc")
-                await e.authorized_users("read", "doc")
-                await f.authorized_users("read", "doc")
-                await g.authorized_users("read", "doc")
-                await h.authorized_users("read", "doc")
+            def run(g: Blocking, h: AsyncPermit) -> None:
+                asyncio.run(a.authorized_users("read", "doc"))
+                asyncio.run(b.filter_objects("u", "read", {}, []))
+                asyncio.run(c.get_user_permissions("u"))
+                asyncio.run(d.authorized_users("read", "doc"))
+                asyncio.run(e.authorized_users("read", "doc"))
+                asyncio.run(f.authorized_users("read", "doc"))
+                asyncio.run(g.authorized_users("read", "doc"))
+                asyncio.run(h.authorized_users("read", "doc"))
             """
         },
     )
 
-    # Every blocking client, however it was imported or annotated, and neither async one.
-    assert findings(tmp_path) == [("app.py", line, "A2", SAFE) for line in (16, 17, 18, 19, 21, 22)]
+    # SAFE only on a traced blocking client: every one, however it was imported or annotated,
+    # and neither async one.
+    assert findings(tmp_path) == [("app.py", line, "A2", SAFE) for line in (18, 19, 20, 21, 23, 24)]
+
+
+def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "app.py": """
+            import asyncio
+            from asyncio import gather, run as run_now
+
+            from permit import Permit
+            from permit.sync import Permit as SyncPermit
+
+            client = SyncPermit(token="t")
+            async_client = Permit(token="t")
+            loop = asyncio.new_event_loop()
+
+
+            def main():
+                asyncio.run(client.filter_objects("u", "read", {}, []))
+                run_now(client.authorized_users("read", "doc"))
+                loop.run_until_complete(client.get_user_permissions("u"))
+                asyncio.run(async_client.filter_objects("u", "read", {}, []))
+
+
+            async def handler():
+                await client.authorized_users("read", "doc")
+                await gather(client.get_user_permissions("u"))
+                await async_client.authorized_users("read", "doc")
+            """
+        },
+    )
+    found = scan.Project(tmp_path).scan()
+
+    # Run to completion from sync code, the call can simply be made directly. Inside a
+    # coroutine, a blocking call blocks the event loop: the async client may be the better edit.
+    assert [(item.line, item.change, item.safety) for item in found] == [
+        (13, "A2", SAFE),
+        (14, "A2", SAFE),
+        (15, "A2", SAFE),
+        (20, "A2", REVIEW),
+        (21, "A2", REVIEW),
+    ]
+    assert "call the method directly" in found[0].message
+    for item in found[3:]:
+        assert "switch it to the async permit.Permit" in item.message
+        assert "(recommended)" in item.message
+
+
+def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path):
+    write(
+        tmp_path,
+        {
+            "test_app.py": """
+            from unittest import mock
+            from unittest.mock import AsyncMock, patch
+
+            from permit import Permit
+            from permit.sync import Permit as SyncPermit
+
+            client = SyncPermit(token="t")
+            async_client = Permit(token="t")
+
+
+            def test_doubles(monkeypatch, mocker):
+                monkeypatch.setattr(client, "authorized_users", AsyncMock(return_value=[]))
+                client.get_user_permissions = AsyncMock(return_value={})
+                with patch("app.client.filter_objects", new_callable=AsyncMock):
+                    pass
+                with patch.object(SyncPermit, "authorized_users", new_callable=mock.AsyncMock):
+                    pass
+                monkeypatch.setattr(async_client, "authorized_users", AsyncMock(return_value=[]))
+                async_client.filter_objects = AsyncMock(return_value=[])
+                with patch("permit.Permit.filter_objects", new_callable=AsyncMock):
+                    pass
+                monkeypatch.setattr(client, "check", AsyncMock(return_value=True))
+                mocker.patch.object(client, "authorized_users", return_value=[])
+            """
+        },
+    )
+    expected = [("test_app.py", line, "A2", REVIEW) for line in (12, 13, 14, 16)]
+    assert findings(tmp_path) == expected
+    assert "use Mock or MagicMock" in scan.Project(tmp_path).scan()[0].message
+
+    # Without the blocking client in the project, an AsyncMock of these methods is right.
+    write(tmp_path, {"test_app.py": "from unittest.mock import AsyncMock\nclient.authorized_users = AsyncMock()\n"})
+    assert findings(tmp_path) == []
 
 
 def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path):
@@ -276,6 +367,8 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
         tmp_path,
         {
             "app.py": """
+            import asyncio
+
             from pydantic import BaseModel
 
             from permit.sync import Permit as SyncPermit
@@ -290,18 +383,18 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
                 name: str
 
 
-            async def parameter(permit):
-                return await permit.authorized_users("read", "doc")
+            def parameter(permit):
+                return asyncio.run(permit.authorized_users("read", "doc"))
 
 
-            async def local():
+            def local():
                 permit = make_client()
-                return await permit.get_user_permissions("u")
+                return asyncio.run(permit.get_user_permissions("u"))
 
 
-            async def loop(clients):
+            def loop(clients):
                 for client in clients:
-                    await client.authorized_users("read", "doc")
+                    asyncio.run(client.authorized_users("read", "doc"))
 
 
             def other_library(api):
@@ -321,8 +414,8 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
                 return [user.model_dump() for user in users]
 
 
-            async def module_level():
-                await client.authorized_users("read", "doc")
+            def module_level():
+                asyncio.run(client.authorized_users("read", "doc"))
                 return user.model_dump(), api.get_role("admin")
             """
         },
@@ -331,13 +424,13 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
     # The parameter, local, loop and comprehension variables and the pydantic 2 model are not
     # the module-level client or SDK model of the same name, so nothing about them is SAFE.
     assert findings(tmp_path) == [
-        ("app.py", 16, "A2", REVIEW),
-        ("app.py", 21, "A2", REVIEW),
-        ("app.py", 26, "A2", REVIEW),
-        ("app.py", 30, "D2", REVIEW),
-        ("app.py", 47, "A2", SAFE),
-        ("app.py", 48, "D2", SAFE),
-        ("app.py", 48, "T2", SAFE),
+        ("app.py", 18, "A2", REVIEW),
+        ("app.py", 23, "A2", REVIEW),
+        ("app.py", 28, "A2", REVIEW),
+        ("app.py", 32, "D2", REVIEW),
+        ("app.py", 49, "A2", SAFE),
+        ("app.py", 50, "D2", SAFE),
+        ("app.py", 50, "T2", SAFE),
     ]
 
 
@@ -346,6 +439,8 @@ def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
         tmp_path,
         {
             "app.py": """
+            import asyncio
+
             from permit import Permit
             from permit.sync import Permit as SyncPermit
 
@@ -368,47 +463,47 @@ def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
                 def __init__(self):
                     self.permit = SyncPermit(token="t")
 
-                async def owned(self):
-                    return await self.permit.authorized_users("read", "doc")
+                def owned(self):
+                    return asyncio.run(self.permit.authorized_users("read", "doc"))
 
 
             class Borrower:
                 def __init__(self, permit):
                     self.permit = permit
 
-                async def borrowed(self):
-                    return await self.permit.authorized_users("read", "doc")
+                def borrowed(self):
+                    return asyncio.run(self.permit.authorized_users("read", "doc"))
 
 
             class Annotated:
                 permit: SyncPermit
 
-                async def declared(self):
-                    return await self.permit.authorized_users("read", "doc")
+                def declared(self):
+                    return asyncio.run(self.permit.authorized_users("read", "doc"))
 
 
-            async def run():
-                await both.authorized_users("read", "doc")
-                await both.api.get_user("u")
-                await other.authorized_users("read", "doc")
-                await other.api.get_user("u")
-                await lazy.authorized_users("read", "doc")
+            def run():
+                asyncio.run(both.authorized_users("read", "doc"))
+                both.api.get_user("u")
+                asyncio.run(other.authorized_users("read", "doc"))
+                other.api.get_user("u")
+                asyncio.run(lazy.authorized_users("read", "doc"))
             """
         },
     )
 
     assert findings(tmp_path) == [
-        ("app.py", 24, "A2", SAFE),
-        ("app.py", 32, "A2", REVIEW),
-        ("app.py", 39, "A2", SAFE),
-        # Bound to both clients: .api exists on either, but await is right only on the async one.
-        ("app.py", 43, "A2", REVIEW),
-        ("app.py", 44, "D2", SAFE),
-        # Bound to a client and to something else: nothing is safe.
+        ("app.py", 26, "A2", SAFE),
+        ("app.py", 34, "A2", REVIEW),
+        ("app.py", 41, "A2", SAFE),
+        # Bound to both clients: .api exists on either, but asyncio.run() is right only on the async one.
         ("app.py", 45, "A2", REVIEW),
-        ("app.py", 46, "D2", REVIEW),
+        ("app.py", 46, "D2", SAFE),
+        # Bound to a client and to something else: nothing is safe.
+        ("app.py", 47, "A2", REVIEW),
+        ("app.py", 48, "D2", REVIEW),
         # `lazy = None` is a placeholder, not another value.
-        ("app.py", 47, "A2", SAFE),
+        ("app.py", 49, "A2", SAFE),
     ]
 
 
@@ -884,7 +979,8 @@ def test_skill_is_self_contained_and_small():
     for path in (SKILL_DIR / "SKILL.md", CHANGES):
         text = path.read_text()
         assert "MIGRATION.md" not in text
-        assert "../" not in text
+        # A path out of the skill folder, not the ellipsis in `GET .../resources`.
+        assert not re.search(r"(?<![.\w])\.\./", text)
     assert len((SKILL_DIR / "SKILL.md").read_text().splitlines()) < 500
     for link in re.findall(r"`(references/[\w./-]+|scripts/[\w./-]+)`", (SKILL_DIR / "SKILL.md").read_text()):
         assert (SKILL_DIR / link).is_file(), link

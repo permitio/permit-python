@@ -139,8 +139,10 @@ Breaking change 4 in the release notes, the typed package, is covered under [Typ
 - **This is a bug fix. The method could not work before it.** The API always returned a
   paginated `{"data": [...], ...}` envelope, and 2.x declared `List[RelationRead]`, so every call
   raised `ValidationError: value is not a valid list`. No working code depends on the old type.
-- **Who is affected:** code that calls `resource_relations.list()`.
-- **What to do:** read `.data`.
+- **Who is affected:** code that calls `resource_relations.list()`, and tests that mock its
+  response as a plain list.
+- **What to do:** read `.data`. Make mocks of `GET .../resources/{key}/relations` return the page,
+  `{"data": [...], "total_count": n, "page_count": 1}`.
 
 ```diff
 - relations = await permit.api.resource_relations.list("document")
@@ -155,17 +157,24 @@ Breaking change 4 in the release notes, the typed package, is covered under [Typ
   needs `await`.
 - **This is a bug fix. These methods could not work before it.** In 2.x the blocking client
   inherited all three unchanged from the async class, so calling one without `await` returned a
-  coroutine instead of a result, and awaiting it raised
+  coroutine instead of a result, and awaiting it, or passing it to `asyncio.run()`, raised
   `RuntimeError: This event loop is already running`. No working code depends on the old
   behaviour.
-- **Who is affected:** code that calls these three methods on `permit.sync.Permit`.
-- **What to do:** drop the `await`.
+- **Who is affected:** code that calls these three methods on `permit.sync.Permit`, and tests
+  that replace them with `AsyncMock`.
+- **What to do:**
+  - In synchronous code, call the method directly, without `await` or `asyncio.run()`.
+  - In `async` code, prefer the async `permit.Permit` and keep the `await`. Dropping the `await`
+    works too, but the blocking call then blocks the event loop while it waits.
+  - In tests, replace `AsyncMock` doubles of these methods on the blocking client with `Mock`
+    (or `MagicMock`), keeping their `return_value`. An `AsyncMock` now hands your code a
+    coroutine.
 
 ```diff
   from permit.sync import Permit
 
   permit = Permit(token="...")
-- users = await permit.authorized_users("read", "document:1")
+- users = asyncio.run(permit.authorized_users("read", "document:1"))
 + users = permit.authorized_users("read", "document:1")
 ```
 
