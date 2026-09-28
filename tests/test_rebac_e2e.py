@@ -25,6 +25,8 @@ from permit.api.models import (
 from permit.exceptions import PermitApiError
 from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
+pytestmark = pytest.mark.e2e
+
 
 @dataclass
 class ShortDerivation:
@@ -247,12 +249,12 @@ ROLE_DERIVATIONS = [
 ]
 
 # Data ------------------------------------------------------------------------
-USER_PERMIT_KEY = unique_key("asaf")
+USER_PERMIT_KEY = unique_key("alice")
 USER_PERMIT = UserCreate(
     key=USER_PERMIT_KEY,
     email=f"{USER_PERMIT_KEY}@permit.io",
-    first_name="Asaf",
-    last_name="Cohen",
+    first_name="Alice",
+    last_name="Smith",
     attributes={"age": 35},
 )
 # The "auth0|" prefix is deliberate: it keeps the test covering keys that

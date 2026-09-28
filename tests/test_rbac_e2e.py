@@ -1,6 +1,8 @@
 import asyncio
+import http.client
+import threading
 import time
-from typing import Any, AsyncIterable, Awaitable, Callable, Final, List, Optional
+from typing import Any, AsyncIterable, Awaitable, Callable, Final, Iterator, List, Optional
 
 import pytest
 from loguru import logger
@@ -11,7 +13,6 @@ from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
 from permit.exceptions import PermitApiError, PermitConnectionError
 from permit.pdp_api.models import RoleAssignment
 
-from .conftest import MOCKED_PORT
 from .utils import handle_api_error, handle_cleanup_error, unique_key
 
 
@@ -20,10 +21,9 @@ def print_break():
 
 
 TEST_TIMEOUT = 1
-MOCKED_URL = "http://localhost"
-# MOCKED_PORT and the httpserver_listen_address fixture that binds it live in
-# conftest.py -- see the note there on why a module-local override is
-# order-dependent and therefore unsafe.
+# test_api_timeout and test_pdp_timeout run against the local pytest_httpserver
+# and need no credentials, so the tests that do are marked e2e one by one rather
+# than with a module-level pytestmark.
 RESOURCE_CREATE_ACTION: Final[str] = "create"
 RESOURCE_READ_ACTION: Final[str] = "read"
 RESOURCE_UPDATE_ACTION: Final[str] = "update"
@@ -101,16 +101,40 @@ async def assert_gone(get: Callable[[str], Awaitable[Any]], key: str, descriptio
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
-def sleeping(request: Request):  # noqa: ARG001
-    time.sleep(TEST_TIMEOUT + 1)
-    return Response("OK", status=200)
+@pytest.fixture
+def sleeping(httpserver: HTTPServer) -> Iterator[Callable[[Request], Response]]:
+    """A handler that answers only after the client has given up.
+
+    The shared httpserver answers one request at a time, in the order they
+    arrive, so a handler still waiting when the test ends would answer into the
+    request log of whichever test uses the server next. Teardown therefore wakes
+    every waiting handler and sends one more request: once that one is answered,
+    so is every request before it.
+    """
+    release = threading.Event()
+
+    def handler(request: Request) -> Response:  # noqa: ARG001
+        release.wait(TEST_TIMEOUT + 1)
+        return Response("OK", status=200)
+
+    yield handler
+
+    release.set()
+    httpserver.expect_request("/drained").respond_with_data("")
+    connection = http.client.HTTPConnection(httpserver.host, httpserver.port, timeout=10)
+    try:
+        connection.request("GET", "/drained")
+        connection.getresponse().read()
+    finally:
+        connection.close()
 
 
-async def test_api_timeout(httpserver: HTTPServer):
+async def test_api_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
+    mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
-        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
-        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp=mocked_url,
+        api_url=mocked_url,
         api_timeout=TEST_TIMEOUT,
     )
     current_time = time.time()
@@ -121,11 +145,12 @@ async def test_api_timeout(httpserver: HTTPServer):
     assert time_passed < 3
 
 
-async def test_pdp_timeout(httpserver: HTTPServer):
+async def test_pdp_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
+    mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
-        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
-        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp=mocked_url,
+        api_url=mocked_url,
         pdp_timeout=TEST_TIMEOUT,
     )
     current_time = time.time()
@@ -259,6 +284,7 @@ async def setup_env(
         await assert_gone(permit.api.resources.get, resource_key, "resource")
 
 
+@pytest.mark.e2e
 async def test_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
@@ -471,6 +497,7 @@ async def test_permission_check_e2e(
         await assert_gone(permit.api.users.get, user_key, "user")
 
 
+@pytest.mark.e2e
 async def test_local_facts_uploader_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],

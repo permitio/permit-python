@@ -1,11 +1,14 @@
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel, Field
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Field
 else:
-    from pydantic.v1 import BaseModel, Field  # type: ignore
+    from pydantic.v1 import BaseModel, Field
 
 
 class UserKey(BaseModel):
@@ -28,11 +31,27 @@ class UserInput(UserKey):
     class Config:
         allow_population_by_field_name = True
 
-    first_name: Optional[str] = Field(None, alias="firstName")
-    last_name: Optional[str] = Field(None, alias="lastName")
+    first_name: Optional[str] = Field(default=None, alias="firstName")
+    last_name: Optional[str] = Field(default=None, alias="lastName")
     email: Optional[str] = None
     roles: Optional[List[AssignedRole]] = None
     attributes: Optional[Dict] = None
+
+    if TYPE_CHECKING:
+        # Type checkers derive the constructor from the fields and know only the
+        # alias spelling; allow_population_by_field_name is invisible to them.
+        def __init__(
+            self,
+            *,
+            key: str,
+            first_name: Optional[str] = None,
+            firstName: Optional[str] = None,  # noqa: N803 - the field's wire alias
+            last_name: Optional[str] = None,
+            lastName: Optional[str] = None,  # noqa: N803 - the field's wire alias
+            email: Optional[str] = None,
+            roles: Optional[List[AssignedRole]] = None,
+            attributes: Optional[Dict] = None,
+        ) -> None: ...
 
 
 class ResourceInput(BaseModel):

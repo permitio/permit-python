@@ -6,19 +6,43 @@ instance, and the SDK context is pre-populated so no API-key scope lookup is
 issued.
 """
 
+import ast
+import inspect
+import warnings
 from datetime import datetime, timezone
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional, Union, get_type_hints
 from uuid import UUID, uuid4
 
 import aiohttp
+import pydantic
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
+from pydantic.v1 import ValidationError
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
-from permit.api.context import ApiContext, ApiKeyAccessLevel
+import permit
+from permit import Permit, Resource, User
+from permit.api.context import ApiKeyAccessLevel
 from permit.api.elements import ElementsApi
-from permit.api.models import RoleAssignmentCreate, RoleAssignmentRemove
+from permit.api.environments import EnvironmentsApi
+from permit.api.models import (
+    EnvironmentCopy,
+    EnvironmentCopyConflictStrategy,
+    EnvironmentCopyTarget,
+    EnvironmentCreate,
+    ProjectCreate,
+    RoleAssignmentCreate,
+    RoleAssignmentRemove,
+    UserCreate,
+    UserUpdate,
+)
+from permit.api.projects import ProjectsApi
 from permit.api.resource_instances import ResourceInstancesApi
+from permit.api.tenants import TenantsApi
+from permit.api.user_invites import UserInvitesApi
 from permit.api.users import UsersApi
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import CheckQuery
@@ -31,35 +55,10 @@ from permit.exceptions import (
     handle_api_error,
 )
 from permit.pdp_api.pdp_api_client import SyncPDPApi
+from permit.utils import pydantic_version
 from permit.utils.context import ContextStore
-
-ORG = "test-org"
-PROJECT = "test-project"
-ENVIRONMENT = "test-env"
-FACTS = f"/v2/facts/{PROJECT}/{ENVIRONMENT}"
-
-
-def offline_config(base_url: str, **overrides) -> PermitConfig:
-    """Build a PermitConfig whose context is already resolved to environment level.
-
-    This is the state the SDK holds after a successful ``/v2/api-key/scope``
-    lookup, so no method under test needs to perform one.
-    """
-    api_context = ApiContext()
-    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
-    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
-    return PermitConfig(
-        token="test-token",
-        api_url=base_url,
-        pdp=base_url,
-        api_context=api_context,
-        **overrides,
-    )
-
-
-@pytest.fixture
-def config(httpserver: HTTPServer) -> PermitConfig:
-    return offline_config(httpserver.url_for("").rstrip("/"))
+from permit.utils.deprecation import deprecated
+from tests.utils import FACTS
 
 
 def role_assignment_read_payload() -> dict:
@@ -87,6 +86,19 @@ def user_read_payload(key: str) -> dict:
         "organization_id": str(uuid4()),
         "project_id": str(uuid4()),
         "environment_id": str(uuid4()),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def environment_read_payload(key: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "key": key,
+        "name": key,
+        "id": str(uuid4()),
+        "organization_id": str(uuid4()),
+        "project_id": str(uuid4()),
         "created_at": now,
         "updated_at": now,
     }
@@ -169,6 +181,59 @@ async def test_users_unassign_role_strips_unset_optional_fields(httpserver: HTTP
     assert single_request(httpserver).get_json() == {"role": "admin", "tenant": "tenant-1"}
 
 
+async def test_users_assign_role_sends_the_same_body_for_a_dict(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="POST").respond_with_json(
+        role_assignment_read_payload()
+    )
+
+    await UsersApi(config).assign_role({"user": "user-1", "role": "admin", "tenant": "tenant-1"})
+
+    assert single_request(httpserver).get_json() == {"role": "admin", "tenant": "tenant-1"}
+
+
+async def test_users_unassign_role_sends_the_same_body_for_a_dict(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="DELETE").respond_with_data("", status=204)
+
+    await UsersApi(config).unassign_role({"user": "user-1", "role": "admin", "tenant": "tenant-1"})
+
+    assert single_request(httpserver).get_json() == {"role": "admin", "tenant": "tenant-1"}
+
+
+def test_model_input_parameters_are_the_bare_model_at_runtime():
+    # ModelInput and ModelListInput widen these annotations for type checkers only.
+    # validate_arguments reads the runtime annotation and must still see the model.
+    assert get_type_hints(UsersApi.create.raw_function)["user_data"] is UserCreate
+    assert get_type_hints(UsersApi.bulk_create.raw_function)["users"] == List[UserCreate]
+    # sync() passes an invalid dict through as it is, which a bare dict keeps doing.
+    assert get_type_hints(UsersApi.sync.raw_function)["user"] == Union[UserCreate, dict]
+
+
+def test_user_and_resource_aliases_work_with_isinstance():
+    # Type checkers see Dict[str, Any] in these aliases. At runtime they keep the
+    # bare dict, because isinstance rejects a parameterized one.
+    assert isinstance({"key": "user-1"}, User)
+    assert isinstance("user-1", User)
+    assert isinstance({"type": "document"}, Resource)
+    assert isinstance("document", Resource)
+
+
+async def test_users_create_rejects_an_invalid_dict_before_sending_anything(
+    httpserver: HTTPServer, config: PermitConfig
+):
+    with pytest.raises(ValidationError, match="email"):
+        await UsersApi(config).create({"key": "user-1", "email": "not-an-email"})
+
+    assert httpserver.log == []
+
+
+async def test_users_create_validates_a_dict_into_the_model(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/users", method="POST").respond_with_json(user_read_payload("user-1"))
+
+    await UsersApi(config).create({"key": "user-1", "email": "user@example.com"})
+
+    assert single_request(httpserver).get_json() == {"key": "user-1", "email": "user@example.com"}
+
+
 async def test_users_assign_role_keeps_explicitly_provided_resource_instance(
     httpserver: HTTPServer, config: PermitConfig
 ):
@@ -185,6 +250,15 @@ async def test_users_assign_role_keeps_explicitly_provided_resource_instance(
         "tenant": "tenant-1",
         "resource_instance": "doc:readme",
     }
+
+
+async def test_users_update_sends_a_field_set_to_none_as_null(httpserver: HTTPServer, config: PermitConfig):
+    """Setting a field to None is how a caller clears it, so the null must reach the API."""
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="PATCH").respond_with_json(user_read_payload("user-1"))
+
+    await UsersApi(config).update("user-1", UserUpdate(first_name=None))
+
+    assert single_request(httpserver).get_json() == {"first_name": None}
 
 
 @pytest.mark.parametrize(
@@ -225,14 +299,47 @@ async def test_ensure_access_level_rejects_a_key_too_narrow_for_the_endpoint(
         await api._ensure_access_level(required)
 
 
+async def test_projects_create_with_an_environment_key_is_refused_before_sending(
+    httpserver: HTTPServer, config: PermitConfig
+):
+    """Creating a project needs an organization key. An environment key must fail here, not at the API."""
+    with pytest.raises(PermitContextError):
+        await ProjectsApi(config).create(ProjectCreate(key="project-1", name="Project 1"))
+
+    assert httpserver.log == []
+
+
 def test_sync_pdp_api_initializes_the_base_client_state(config: PermitConfig):
     """SyncPDPApi must run PermitPdpApiClient.__init__, not skip it."""
     client = SyncPDPApi(config)
 
     assert client._config is config
     assert client._base_url == config.pdp
-    assert client._headers["Authorization"] == "bearer test-token"
+    assert client._headers["Authorization"] == "Bearer test-token"
     assert client._headers["Content-Type"] == "application/json"
+
+
+async def test_every_sdk_client_sends_the_standard_bearer_scheme(httpserver: HTTPServer, config: PermitConfig) -> None:
+    """The enforcer, REST API client and PDP API client must all send "Bearer <token>"."""
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    httpserver.expect_request(f"{FACTS}/users", method="GET").respond_with_json(
+        {"data": [], "total_count": 0, "page_count": 0}
+    )
+    httpserver.expect_request("/local/role_assignments", method="GET").respond_with_json([])
+    permit = Permit(config)
+
+    await permit.check("user-1", "read", "document")
+    await permit.api.users.list()
+    await permit.pdp_api.role_assignments.list()
+
+    # Read the raw header from the log: expect_request(headers=...) matches the
+    # Authorization scheme case-insensitively, so it would also accept "bearer".
+    sent = {request.path: request.headers.get("Authorization") for request, _ in httpserver.log}
+    assert sent == {
+        "/allowed": "Bearer test-token",
+        f"{FACTS}/users": "Bearer test-token",
+        "/local/role_assignments": "Bearer test-token",
+    }
 
 
 async def test_elements_login_as_sends_canonical_uuid_strings(httpserver: HTTPServer, config: PermitConfig):
@@ -260,6 +367,54 @@ async def test_elements_login_as_passes_string_ids_through(httpserver: HTTPServe
     await ElementsApi(config).login_as("user-1", "tenant-1")
 
     assert single_request(httpserver).get_json() == {"user_id": "user-1", "tenant_id": "tenant-1"}
+
+
+async def test_tenants_delete_tenant_user_targets_the_tenant_membership(httpserver: HTTPServer, config: PermitConfig):
+    httpserver.expect_request(f"{FACTS}/tenants/tenant-1/users/user-1", method="DELETE").respond_with_data(
+        "", status=204
+    )
+
+    await TenantsApi(config).delete_tenant_user("tenant-1", "user-1")
+
+    request = single_request(httpserver)
+    assert (request.method, request.path, request.get_data()) == (
+        "DELETE",
+        f"{FACTS}/tenants/tenant-1/users/user-1",
+        b"",
+    )
+
+
+async def test_environments_copy_sends_the_copy_request_as_given(httpserver: HTTPServer, config: PermitConfig):
+    config.api_context._permitted_access_level = ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY
+    httpserver.expect_request("/v2/projects/project-1/envs/env-1/copy", method="POST").respond_with_json(
+        environment_read_payload("env-copy")
+    )
+
+    await EnvironmentsApi(config).copy(
+        "project-1",
+        "env-1",
+        EnvironmentCopy(
+            target_env=EnvironmentCopyTarget(new=EnvironmentCreate(key="env-copy", name="Env copy")),
+            conflict_strategy=EnvironmentCopyConflictStrategy.fail,
+        ),
+    )
+
+    assert single_request(httpserver).get_json() == {
+        "target_env": {"new": {"key": "env-copy", "name": "Env copy"}},
+        "conflict_strategy": "fail",
+    }
+
+
+async def test_user_invites_get_raises_not_found_for_an_unknown_invite(httpserver: HTTPServer, config: PermitConfig):
+    invite_id = str(uuid4())
+    httpserver.expect_request(f"{FACTS}/user_invites/{invite_id}", method="GET").respond_with_json(
+        {"detail": "not found"}, status=404
+    )
+
+    with pytest.raises(PermitApiError) as exc_info:
+        await UserInvitesApi(config).get(invite_id)
+
+    assert exc_info.value.status_code == 404
 
 
 def test_context_store_exposes_no_silently_ignored_transform_api():
@@ -325,3 +480,218 @@ def test_check_query_context_is_optional():
     # is valid and the TypedDict must not make type checkers demand it.
     assert CheckQuery.__required_keys__ == {"user", "action", "resource"}
     assert CheckQuery.__optional_keys__ == {"context"}
+
+
+REQUIREMENTS = Path(__file__).resolve().parents[1] / "requirements.txt"
+
+
+def runtime_requirement(name: str, python_version: str) -> Requirement:
+    """Return the one requirements.txt entry for `name` that applies on `python_version`.
+
+    Lines are filtered exactly as setup.py's get_requirements() filters them, so a
+    line setup.py would pass to setuptools but packaging cannot parse fails here.
+    """
+    lines = REQUIREMENTS.read_text().splitlines()
+    requirements = [Requirement(line.strip()) for line in lines if line.strip() and not line.startswith("#")]
+    environment = {"python_version": python_version, "python_full_version": f"{python_version}.0"}
+    matching = [
+        requirement
+        for requirement in requirements
+        if requirement.name == name and (requirement.marker is None or requirement.marker.evaluate(environment))
+    ]
+    assert len(matching) == 1, f"expected one {name} requirement on Python {python_version}, got {matching}"
+    return matching[0]
+
+
+def pydantic_release_candidates() -> list[str]:
+    """Return the release numbers 1.0.0-1.10.29 and 2.0.0-2.19.29, plus "2.0".
+
+    That covers every pydantic 1 and 2 release so far, so a test can ask which of
+    them a specifier allows without reaching PyPI. "2.0" is how pydantic spelled
+    its 2.0.0 release.
+    """
+    candidates = ["2.0"]
+    for major, minor_count in ((1, 11), (2, 20)):
+        for minor in range(minor_count):
+            for patch in range(30):
+                candidates.append(f"{major}.{minor}.{patch}")
+    return candidates
+
+
+PYDANTIC_CANDIDATES = pydantic_release_candidates()
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13", "3.14"])
+def test_pydantic_requirement_allows_no_release_affected_by_cve_2024_3772(python_version: str):
+    # CVE-2024-3772 (ReDoS in email validation) is fixed in pydantic 1.10.13.
+    # Under pydantic 2 permit validates emails with the pydantic.v1 copy pydantic
+    # bundles, which is 1.10.13 or later only from pydantic 2.4.2.
+    specifier = runtime_requirement("pydantic", python_version).specifier
+    affected = [
+        candidate
+        for candidate in PYDANTIC_CANDIDATES
+        if Version(candidate) < Version("1.10.13") or Version("2") <= Version(candidate) < Version("2.4.2")
+    ]
+
+    assert list(specifier.filter(affected)) == []
+
+
+@pytest.mark.parametrize(
+    ("python_version", "pydantic_1_floor", "pydantic_2_floor"),
+    [
+        ("3.10", "1.10.18", "2.4.2"),
+        ("3.11", "1.10.18", "2.4.2"),
+        ("3.12", "1.10.18", "2.4.2"),
+        # pydantic 2.4.2-2.7.x need a pydantic-core with no Python 3.13 wheels.
+        ("3.13", "1.10.18", "2.8.0"),
+        ("3.14", "1.10.25", "2.13.0"),
+    ],
+)
+def test_pydantic_requirement_allows_each_major_from_its_floor_up(
+    python_version: str, pydantic_1_floor: str, pydantic_2_floor: str
+):
+    specifier = runtime_requirement("pydantic", python_version).specifier
+    allowed = [Version(candidate) for candidate in specifier.filter(PYDANTIC_CANDIDATES)]
+    candidates = [Version(candidate) for candidate in PYDANTIC_CANDIDATES]
+
+    for major, floor in ((1, Version(pydantic_1_floor)), (2, Version(pydantic_2_floor))):
+        expected = [candidate for candidate in candidates if candidate.major == major and candidate >= floor]
+        assert [version for version in allowed if version.major == major] == expected
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13"])
+@pytest.mark.parametrize("version", ["1.10.13", "1.10.17"])
+def test_pydantic_requirement_before_py314_rejects_1_10_17_and_older(python_version: str, version: str):
+    # Up to 1.10.16 there is no pydantic.v1 package for type checkers to resolve
+    # permit's model imports against, and up to 1.10.17 `import permit` emits
+    # thousands of DeprecationWarnings on Python 3.13.
+    assert not runtime_requirement("pydantic", python_version).specifier.contains(version)
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12", "3.13", "3.14"])
+def test_pydantic_requirement_rejects_2_0(python_version: str):
+    # pydantic 2.0's pydantic.v1.parse_obj_as builds a pydantic 2 model, so every
+    # API call that parses a response raises TypeError.
+    assert not runtime_requirement("pydantic", python_version).specifier.contains("2.0")
+
+
+def test_pydantic_requirement_rejects_versions_that_crash_on_py314():
+    specifier = runtime_requirement("pydantic", "3.14").specifier
+
+    for crashing in ("1.10.24", "2.11.10", "2.12.5"):
+        assert not specifier.contains(crashing), crashing
+    for working in ("1.10.25", "1.10.26", "2.13.0", "2.13.5"):
+        assert specifier.contains(working), working
+
+
+@pytest.mark.parametrize(
+    ("name", "python_version", "broken"),
+    [
+        # `import permit` raises AttributeError from typing_extensions.ParamSpec.
+        ("typing-extensions", "3.13", "4.11.0"),
+        # typing_extensions.TypedDict loses every key, so CheckQuery has none.
+        ("typing-extensions", "3.14", "4.13.2"),
+        # `import loguru` warns that asyncio.iscoroutinefunction is going away.
+        ("loguru", "3.14", "0.7.2"),
+    ],
+)
+def test_runtime_floor_excludes_versions_broken_on_a_supported_python(name: str, python_version: str, broken: str):
+    assert not runtime_requirement(name, python_version).specifier.contains(broken)
+
+
+def test_deprecated_decorator_keeps_async_functions_async():
+    async def fetch():
+        return None
+
+    def compute():
+        return None
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        async_wrapper = deprecated("use something else")(fetch)
+        sync_wrapper = deprecated("use something else")(compute)
+
+    assert inspect.iscoroutinefunction(async_wrapper)
+    assert not inspect.iscoroutinefunction(sync_wrapper)
+    assert [str(w.message) for w in caught if "asyncio.iscoroutinefunction" in str(w.message)] == []
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("1.10.13", (1, 10, 13)),
+        ("2.13.5", (2, 13, 5)),
+        ("2.0", (2, 0)),
+        ("2.14.0b2", (2, 14, 0)),
+        ("2.12.0a1", (2, 12, 0)),
+        ("2.11.0rc1", (2, 11, 0)),
+        ("2.13.0.dev0", (2, 13, 0)),
+        ("2.13.5+local", (2, 13, 5)),
+    ],
+)
+def test_pydantic_version_parses_release_and_pre_release_versions(version: str, expected: tuple[int, ...]):
+    assert pydantic_version._parse(version) == expected
+
+
+def test_pydantic_version_rejects_a_component_without_a_leading_number():
+    with pytest.raises(ValueError, match=r"'x1'"):
+        pydantic_version._parse("2.x1.0")
+
+
+def test_pydantic_version_constant_is_the_installed_version():
+    assert pydantic_version._parse(pydantic.__version__) == pydantic_version.PYDANTIC_VERSION
+
+
+PERMIT_PACKAGE = Path(permit.__file__).resolve().parent
+# Reads pydantic.VERSION, which both majors define, to choose every other module's branch.
+PYDANTIC_VERSION_PROBE = PERMIT_PACKAGE / "utils" / "pydantic_version.py"
+PYDANTIC_1_BRANCH_TESTS = {"PYDANTIC_VERSION < (2, 0)", "_PYDANTIC_VERSION < (2, 0)"}
+
+
+def unguarded_pydantic_imports(node: ast.AST, *, in_pydantic_1_branch: bool = False) -> List[int]:
+    """Return the lines that import the top-level ``pydantic`` namespace outside a pydantic 1 branch."""
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        modules = [node.module] if isinstance(node, ast.ImportFrom) else [alias.name for alias in node.names]
+        return [node.lineno] if "pydantic" in modules and not in_pydantic_1_branch else []
+    if isinstance(node, ast.If):
+        body_branch = in_pydantic_1_branch or ast.unparse(node.test) in PYDANTIC_1_BRANCH_TESTS
+        branches = [(node.body, body_branch), (node.orelse, in_pydantic_1_branch)]
+    else:
+        branches = [(list(ast.iter_child_nodes(node)), in_pydantic_1_branch)]
+    return [
+        line
+        for children, branch in branches
+        for child in children
+        for line in unguarded_pydantic_imports(child, in_pydantic_1_branch=branch)
+    ]
+
+
+def test_sdk_imports_the_pydantic_namespace_only_in_its_pydantic_1_branches():
+    """Under pydantic 2 the SDK's models are pydantic.v1 models. A top-level ``pydantic`` import
+    beside them mixes the two APIs and fails under pydantic 2 alone: parse_obj_as on a v1 model
+    raises TypeError."""
+    offenders = {}
+    for path in sorted(PERMIT_PACKAGE.rglob("*.py")):
+        lines = unguarded_pydantic_imports(ast.parse(path.read_text(encoding="utf-8")))
+        if lines and path != PYDANTIC_VERSION_PROBE:
+            offenders[path.relative_to(PERMIT_PACKAGE.parent).as_posix()] = lines
+
+    assert offenders == {}
+
+
+def test_the_pydantic_import_scan_tells_the_branches_apart():
+    source = "\n".join(
+        [
+            "from pydantic.v1 import BaseModel",
+            "if TYPE_CHECKING:",
+            "    from pydantic.v1 import Field",
+            "elif PYDANTIC_VERSION < (2, 0):",
+            "    from pydantic import Field",
+            "else:",
+            "    from pydantic import validator",
+            "def lazy():",
+            "    import pydantic",
+        ]
+    )
+
+    assert unguarded_pydantic_imports(ast.parse(source)) == [7, 9]

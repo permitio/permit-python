@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from ..config import PermitConfig
 from ..utils.sync import SyncClass
 from .condition_set_rules import ConditionSetRulesApi
@@ -19,77 +21,82 @@ from .tenants import TenantsApi
 from .user_invites import UserInvitesApi
 from .users import UsersApi
 
+# Type checkers read these classes from a generated stub: the SyncClass metaclass
+# makes their methods blocking at runtime, which they cannot see.
+if TYPE_CHECKING:
+    from permit._sync_types import SyncConditionSetRulesApi as SyncConditionSetRulesApi
+    from permit._sync_types import SyncConditionSetsApi as SyncConditionSetsApi
+    from permit._sync_types import SyncDeprecatedApi as SyncDeprecatedApi
+    from permit._sync_types import SyncEnvironmentsApi as SyncEnvironmentsApi
+    from permit._sync_types import SyncProjectsApi as SyncProjectsApi
+    from permit._sync_types import SyncRelationshipTuplesApi as SyncRelationshipTuplesApi
+    from permit._sync_types import SyncResourceActionGroupsApi as SyncResourceActionGroupsApi
+    from permit._sync_types import SyncResourceActionsApi as SyncResourceActionsApi
+    from permit._sync_types import SyncResourceAttributesApi as SyncResourceAttributesApi
+    from permit._sync_types import SyncResourceInstancesApi as SyncResourceInstancesApi
+    from permit._sync_types import SyncResourceRelationsApi as SyncResourceRelationsApi
+    from permit._sync_types import SyncResourceRolesApi as SyncResourceRolesApi
+    from permit._sync_types import SyncResourcesApi as SyncResourcesApi
+    from permit._sync_types import SyncRoleAssignmentsApi as SyncRoleAssignmentsApi
+    from permit._sync_types import SyncRolesApi as SyncRolesApi
+    from permit._sync_types import SyncTenantsApi as SyncTenantsApi
+    from permit._sync_types import SyncUserInvitesApi as SyncUserInvitesApi
+    from permit._sync_types import SyncUsersApi as SyncUsersApi
+else:
 
-class SyncConditionSetRulesApi(ConditionSetRulesApi, metaclass=SyncClass):
-    pass
+    class SyncConditionSetRulesApi(ConditionSetRulesApi, metaclass=SyncClass):
+        pass
 
+    class SyncConditionSetsApi(ConditionSetsApi, metaclass=SyncClass):
+        pass
 
-class SyncConditionSetsApi(ConditionSetsApi, metaclass=SyncClass):
-    pass
+    class SyncDeprecatedApi(DeprecatedApi, metaclass=SyncClass):
+        pass
 
+    class SyncEnvironmentsApi(EnvironmentsApi, metaclass=SyncClass):
+        pass
 
-class SyncDeprecatedApi(DeprecatedApi, metaclass=SyncClass):
-    pass
+    class SyncProjectsApi(ProjectsApi, metaclass=SyncClass):
+        pass
 
+    class SyncRelationshipTuplesApi(RelationshipTuplesApi, metaclass=SyncClass):
+        pass
 
-class SyncEnvironmentsApi(EnvironmentsApi, metaclass=SyncClass):
-    pass
+    class SyncResourceActionGroupsApi(ResourceActionGroupsApi, metaclass=SyncClass):
+        pass
 
+    class SyncResourceActionsApi(ResourceActionsApi, metaclass=SyncClass):
+        pass
 
-class SyncProjectsApi(ProjectsApi, metaclass=SyncClass):
-    pass
+    class SyncResourceAttributesApi(ResourceAttributesApi, metaclass=SyncClass):
+        pass
 
+    class SyncResourceInstancesApi(ResourceInstancesApi, metaclass=SyncClass):
+        pass
 
-class SyncRelationshipTuplesApi(RelationshipTuplesApi, metaclass=SyncClass):
-    pass
+    class SyncResourceRelationsApi(ResourceRelationsApi, metaclass=SyncClass):
+        pass
 
+    class SyncResourceRolesApi(ResourceRolesApi, metaclass=SyncClass):
+        pass
 
-class SyncResourceActionGroupsApi(ResourceActionGroupsApi, metaclass=SyncClass):
-    pass
+    class SyncResourcesApi(ResourcesApi, metaclass=SyncClass):
+        pass
 
+    class SyncRoleAssignmentsApi(RoleAssignmentsApi, metaclass=SyncClass):
+        pass
 
-class SyncResourceActionsApi(ResourceActionsApi, metaclass=SyncClass):
-    pass
+    class SyncRolesApi(RolesApi, metaclass=SyncClass):
+        pass
 
+    class SyncTenantsApi(TenantsApi, metaclass=SyncClass):
+        pass
 
-class SyncResourceAttributesApi(ResourceAttributesApi, metaclass=SyncClass):
-    pass
+    class SyncUserInvitesApi(UserInvitesApi, metaclass=SyncClass):
+        pass
 
-
-class SyncResourceInstancesApi(ResourceInstancesApi, metaclass=SyncClass):
-    pass
-
-
-class SyncResourceRelationsApi(ResourceRelationsApi, metaclass=SyncClass):
-    pass
-
-
-class SyncResourceRolesApi(ResourceRolesApi, metaclass=SyncClass):
-    pass
-
-
-class SyncResourcesApi(ResourcesApi, metaclass=SyncClass):
-    pass
-
-
-class SyncRoleAssignmentsApi(RoleAssignmentsApi, metaclass=SyncClass):
-    pass
-
-
-class SyncRolesApi(RolesApi, metaclass=SyncClass):
-    pass
-
-
-class SyncTenantsApi(TenantsApi, metaclass=SyncClass):
-    pass
-
-
-class SyncUserInvitesApi(UserInvitesApi, metaclass=SyncClass):
-    pass
-
-
-class SyncUsersApi(UsersApi, metaclass=SyncClass):
-    pass
+    class SyncUsersApi(UsersApi, metaclass=SyncClass):
+        pass
 
 
 class SyncPermitApiClient(SyncDeprecatedApi):

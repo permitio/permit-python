@@ -1,11 +1,16 @@
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -33,7 +38,7 @@ class RolesApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/roles"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
         """
         Retrieves a list of roles.
@@ -56,7 +61,7 @@ class RolesApi(BasePermitApi):
     async def _get(self, role_key: str) -> RoleRead:
         return await self.__roles.get(f"/{role_key}", model=RoleRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, role_key: str) -> RoleRead:
         """
         Retrieves a role by its key.
@@ -75,7 +80,7 @@ class RolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(role_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, role_key: str) -> RoleRead:
         """
         Retrieves a role by its key.
@@ -95,7 +100,7 @@ class RolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(role_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, role_id: str) -> RoleRead:
         """
         Retrieves a role by its ID.
@@ -115,8 +120,8 @@ class RolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(role_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, role_data: RoleCreate) -> RoleRead:
+    @validate_arguments
+    async def create(self, role_data: ModelInput[RoleCreate]) -> RoleRead:
         """
         Creates a new role.
 
@@ -134,8 +139,8 @@ class RolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.post("", model=RoleRead, json=role_data)
 
-    @validate_arguments  # type: ignore[operator]
-    async def update(self, role_key: str, role_data: RoleUpdate) -> RoleRead:
+    @validate_arguments
+    async def update(self, role_key: str, role_data: ModelInput[RoleUpdate]) -> RoleRead:
         """
         Updates a role.
 
@@ -154,7 +159,7 @@ class RolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.patch(f"/{role_key}", model=RoleRead, json=role_data)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, role_key: str) -> None:
         """
         Deletes a role.
@@ -170,7 +175,7 @@ class RolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__roles.delete(f"/{role_key}")
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def assign_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
         """
         Assigns permissions to a role.
@@ -194,7 +199,7 @@ class RolesApi(BasePermitApi):
             json=AddRolePermissions(permissions=permissions),
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def remove_permissions(self, role_key: str, permissions: List[str]) -> RoleRead:
         """
         Removes permissions from a role.

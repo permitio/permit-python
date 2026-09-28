@@ -1,12 +1,15 @@
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel, Extra, Field
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Extra, Field
 else:
-    from pydantic.v1 import BaseModel, Extra, Field  # type: ignore
+    from pydantic.v1 import BaseModel, Extra, Field
 
 from ..config import PermitConfig
 from ..utils.sync import SyncClass
@@ -18,22 +21,22 @@ class EmbeddedLoginRequestOutput(BaseModel):
         extra = Extra.allow
 
     error: Optional[str] = Field(
-        None,
+        default=None,
         description="If the login request failed, this field will contain the error message",
         title="Error",
     )
     error_code: Optional[int] = Field(
-        None,
+        default=None,
         description="If the login request failed, this field will contain the error code",
         title="Error Code",
     )
     token: Optional[str] = Field(
-        None,
+        default=None,
         description="The auth token that lets your users login into permit elements",
         title="Token",
     )
     extra: Optional[str] = Field(
-        None,
+        default=None,
         description="Extra data that you can pass to the login request",
         title="Extra",
     )
@@ -59,7 +62,7 @@ class LoginAsSchema(BaseModel):
 
 class UserLoginAsResponse(EmbeddedLoginRequestOutput):
     content: Optional[dict] = Field(
-        None,
+        default=None,
         description="Content to return in the response body for header/bearer login",
     )
 
@@ -82,5 +85,11 @@ class ElementsApi(BasePermitApi):
         return UserLoginAsResponse(**ticket.dict(), content={"url": ticket.redirect_url})
 
 
-class SyncElementsApi(ElementsApi, metaclass=SyncClass):
-    pass
+# Type checkers read this class from a generated stub: the SyncClass metaclass
+# makes its methods blocking at runtime, which they cannot see.
+if TYPE_CHECKING:
+    from permit._sync_types import SyncElementsApi as SyncElementsApi
+else:
+
+    class SyncElementsApi(ElementsApi, metaclass=SyncClass):
+        pass

@@ -1,6 +1,7 @@
 import asyncio
 from typing import Awaitable, Callable, List, Sequence, TypeVar, Union
 
+import pytest
 from loguru import logger
 from tests.utils import handle_cleanup_error, unique_key
 
@@ -13,6 +14,8 @@ from permit import (
     UserCreate,
 )
 from permit.exceptions import PermitApiDetailedError
+
+pytestmark = pytest.mark.e2e
 
 TPropagated = TypeVar("TPropagated")
 

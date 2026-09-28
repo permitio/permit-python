@@ -1,0 +1,136 @@
+{
+  "entries": [
+    {
+      "id": "class_added:AccessRequestList",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:AuditLogQueryType",
+      "sdk": "(absent)",
+      "spec": "enum(str)",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:GroupRoleReadSchema",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:GroupRoleResourceReadOnly",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:GroupUserReadSchema",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:OrgExportResult",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:OrganizationScheduleDeleteResponse",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:PDPDataRefreshRequest",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:PDPDataRefreshResponse",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:PaginatedResultAccessRequestList",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "The API schema's new name for PaginatedResultAccessRequestRead; no SDK method uses it."
+    },
+    {
+      "id": "class_added:PaginatedResultGroupRoleReadSchema",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:PaginatedResultGroupUserReadSchema",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_added:TaskResultOrgExportResult",
+      "sdk": "(absent)",
+      "spec": "model",
+      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
+    },
+    {
+      "id": "class_removed_from_spec:PaginatedResultAccessRequestRead",
+      "sdk": "model",
+      "spec": "(absent)",
+      "reason": "Renamed PaginatedResultAccessRequestList in the API schema; no SDK method uses it."
+    },
+    {
+      "id": "field_required_changed:ElementsUserInviteRead.first_name",
+      "sdk": "optional",
+      "spec": "required",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_required_changed:ElementsUserInviteRead.key",
+      "sdk": "optional",
+      "spec": "required",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_required_changed:ElementsUserInviteRead.last_name",
+      "sdk": "optional",
+      "spec": "required",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_required_changed:ElementsUserInviteRead.resource_instance_id",
+      "sdk": "optional",
+      "spec": "required",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_type_changed:ElementsUserInviteRead.first_name",
+      "sdk": "Optional[str]",
+      "spec": "str",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_type_changed:ElementsUserInviteRead.key",
+      "sdk": "Optional[constr(regex='^[A-Za-z0-9|@+\\\\-\\\\._]+$')]",
+      "spec": "constr(regex='^[A-Za-z0-9|@+\\\\-\\\\._]+$')",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_type_changed:ElementsUserInviteRead.last_name",
+      "sdk": "Optional[str]",
+      "spec": "str",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    },
+    {
+      "id": "field_type_changed:ElementsUserInviteRead.resource_instance_id",
+      "sdk": "Optional[UUID]",
+      "spec": "UUID",
+      "reason": "Kept optional by hand: the API returns user invites without this field."
+    }
+  ]
+}

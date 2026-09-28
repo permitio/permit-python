@@ -1,10 +1,13 @@
 import asyncio
 import functools
 import inspect
+import sys
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, Optional, Set, TypeVar, cast
+from types import FrameType
+from typing import Any, Awaitable, Callable, Coroutine, Dict, NamedTuple, Optional, Set, Type, TypeVar, cast
 
 from typing_extensions import ParamSpec, TypeGuard
 
@@ -19,38 +22,94 @@ It marks a callable as "already converted", which makes the conversion done by
 into the coroutine function such a wrapper consumes.
 """
 
-_driving_coroutine: ContextVar[bool] = ContextVar("permit_driving_coroutine", default=False)
-"""True while :func:`run_coroutine_sync` is driving a coroutine in this context."""
+
+class _CallSite(NamedTuple):
+    """The line that called a blocking method, as `warnings.warn` records a frame."""
+
+    filename: str
+    lineno: int
+    module_globals: Dict[str, Any]
+
+    @classmethod
+    def from_frame(cls, frame: Optional[FrameType]) -> "_CallSite":
+        """The line `frame` is running, or, with no frame, the place `warnings.warn` blames then.
+
+        There is no frame when C code calls the blocking method directly, as it does an
+        atexit hook or a function started with `_thread.start_new_thread`.
+        """
+        if frame is None:
+            return cls("<sys>", 0, sys.__dict__)
+        return cls(frame.f_code.co_filename, frame.f_lineno, frame.f_globals)
+
+    def warn(self, message: str, category: Type[Warning]) -> None:
+        """Issue a warning attributed to this line, exactly as `warnings.warn` would from its frame.
+
+        The module name and the once-per-line registry come from the calling module, as
+        `warnings.warn` takes them, so filters that match on the module (such as Python's
+        default `default::DeprecationWarning:__main__`) and the `default` action behave the same.
+        Like `warnings.warn`, it does not pass the module's globals on: from Python 3.12, with
+        them `warn_explicit` asks the module's loader for the source line, which issues a second
+        warning for a script's `__main__` and raises for code run by `exec` or `runpy`.
+
+        Args:
+            message: The warning's text.
+            category: The warning's class.
+        """
+        warnings.warn_explicit(
+            message,
+            category,
+            self.filename,
+            self.lineno,
+            module=self.module_globals.get("__name__", "<string>"),
+            registry=self.module_globals.setdefault("__warningregistry__", {}),
+        )
 
 
-def _run_in_new_event_loop(coroutine: Coroutine[Any, Any, T]) -> T:
-    token = _driving_coroutine.set(True)
+_blocking_call_site: ContextVar[Optional[_CallSite]] = ContextVar("permit_blocking_call_site", default=None)
+"""The line that made the blocking call whose coroutine runs in this context, otherwise None.
+
+The coroutine runs under asyncio, whose frames stand between it and that line, so code in it
+reads this to attribute a warning to the caller.
+"""
+
+
+def _run_in_new_event_loop(coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
+    token = _blocking_call_site.set(call_site)
     try:
         return asyncio.run(coroutine)
     finally:
-        _driving_coroutine.reset(token)
+        _blocking_call_site.reset(token)
 
 
-def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
-    """Run `coroutine` to completion and return its result.
+def _run_blocking(coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
+    """Run `coroutine` to completion for the blocking call made at `call_site`.
 
-    Args:
-        coroutine: The coroutine to run.
-
-    Returns:
-        Whatever the coroutine returns.
+    The coroutine sees `call_site` in `_blocking_call_site`, even when it runs in another thread.
     """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return _run_in_new_event_loop(coroutine)
+        return _run_in_new_event_loop(coroutine, call_site)
 
     # This thread already drives a running event loop, which cannot be reused:
     # `loop.run_until_complete()` refuses to re-enter it and scheduling onto it
     # from here would deadlock, since we have to block until the result is in.
     # A dedicated thread with an event loop of its own is the only way out.
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="permit-sync") as executor:
-        return executor.submit(_run_in_new_event_loop, coroutine).result()
+        return executor.submit(_run_in_new_event_loop, coroutine, call_site).result()
+
+
+def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
+    """Run `coroutine` to completion and return its result.
+
+    Args:
+        coroutine: The coroutine to run. A method marked with `deprecated` that it awaits
+            warns at the line that called this function.
+
+    Returns:
+        Whatever the coroutine returns.
+    """
+    return _run_blocking(coroutine, _CallSite.from_frame(sys._getframe(0).f_back))
 
 
 def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
@@ -61,16 +120,18 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
 
     Returns:
         A callable that runs `func` to completion and returns its result. When it
-        is called from inside a coroutine that `run_coroutine_sync` is already
-        driving, the coroutine is handed back untouched instead, so that internal
+        is called from inside a coroutine that a blocking call is already driving,
+        the coroutine is handed back untouched instead, so that internal
         `await self.public_method(...)` calls keep working on a converted class.
     """
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        if _driving_coroutine.get():
+        if _blocking_call_site.get() is not None:
             return func(*args, **kwargs)  # type: ignore[return-value]
-        return run_coroutine_sync(func(*args, **kwargs))
+        # Read in the caller's thread, while its frame is the one that called us.
+        call_site = _CallSite.from_frame(sys._getframe(0).f_back)
+        return _run_blocking(func(*args, **kwargs), call_site)
 
     setattr(wrapper, SYNC_WRAPPER_MARKER, True)
     return wrapper

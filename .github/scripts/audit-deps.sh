@@ -4,7 +4,7 @@
 #
 # Usage: audit-deps.sh <output-dir>
 #
-# Writes three dependency trees to <output-dir>, each as a directory holding a
+# Writes four dependency trees to <output-dir>, each as a directory holding a
 # file literally named requirements.txt, plus one Trivy report per tree:
 #
 #   runtime-ceiling/  + trivy-runtime-ceiling.json
@@ -24,14 +24,15 @@
 # consumer can resolve from the published ranges -- today's ceiling and the
 # floor.
 #
-# Plus pip-audit.json (advisory only) for the runtime ceiling.
+# Plus pip-audit-<tree>.json (advisory only) for each of the four trees.
 #
 # WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev deps together
 # lets a dev tool drag a runtime dependency's floor upward and hide the real
-# exposure: with mypy in the mix the floor resolves typing-extensions==4.12.0,
-# because mypy requires >=4.6 -- but a consumer installing only `permit` can
-# still land on 4.5.0. Scanning the combined floor would silently under-report
-# exactly the versions users can actually get.
+# exposure: when a dev tool needs a newer release of a runtime dependency than
+# the floor in requirements.txt, the combined floor resolves that newer release,
+# but a consumer installing only `permit` can still land on the older one.
+# Scanning the combined floor would silently under-report exactly the versions
+# users can actually get.
 #
 # WHY COMPILE AT ALL. Trivy's pip analyzer only understands `==`. Pointed at
 # a list of open ranges it reports zero findings and exits 0 -- a
@@ -116,7 +117,7 @@ echo "::endgroup::"
 # entirely -- they vanish from the gate, the PR comment and the Slack message
 # with no trace that anything was suppressed. Unfixable advisories already fail
 # open (see Finding.blocking), so there is no need for a silent mute button.
-for tree in runtime-ceiling runtime-floor dev-ceiling; do
+for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
   echo "::group::Trivy scan (${tree})"
   trivy fs \
     --scanners vuln \
@@ -132,16 +133,37 @@ done
 # gate; it is here because it reads PYSEC, which sometimes carries a
 # Python-specific advisory before it reaches the GHSA feed Trivy uses.
 # A pip-audit failure must never fail the job.
-echo "::group::pip-audit (advisory)"
-if ! uv tool run --from pip-audit pip-audit \
-  --requirement "${OUT}/runtime-ceiling/requirements.txt" \
-  --format json \
-  --output "${OUT}/pip-audit.json" \
-  --progress-spinner off; then
-  echo "::warning::pip-audit did not complete cleanly; continuing with Trivy results only."
-  # An absent file is handled by format_audit.py as a note; a truncated one
-  # would be reported as a parse error. Remove it so a partial write cannot be
-  # mistaken for a failed scan.
-  rm -f "${OUT}/pip-audit.json"
-fi
-echo "::endgroup::"
+#
+# Each tree is already a fully pinned `uv pip compile` output, so pip-audit
+# reads the pins as written (--no-deps --disable-pip) instead of resolving them
+# again in a throwaway venv. That venv is where it used to fail: ensurepip
+# exits non-zero on the uv-managed Python, so pip-audit never produced a report.
+#
+# The exit code cannot tell a failure from a finding: pip-audit exits 1 for
+# both. A finished run always writes its report and a failed one writes
+# nothing, so each report is deleted before its run and a missing one is the
+# failure signal. format_audit.py names every tree without a report in the PR
+# comment, the job summary and the Slack message.
+#
+# PIP_AUDIT_LOGLEVEL=ERROR drops the warning pip-audit logs for --no-deps,
+# which recommends hashing the requirements. With --disable-pip, pip-audit only
+# checks that hashes are present and never verifies them, so hashing would add
+# nothing. Errors, and the summary line, still print.
+PIP_AUDIT_VERSION="2.10.1"
+for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
+  report="${OUT}/pip-audit-${tree}.json"
+  echo "::group::pip-audit (${tree}, advisory)"
+  rm -f "${report}"
+  status=0
+  PIP_AUDIT_LOGLEVEL=ERROR uv tool run --from "pip-audit==${PIP_AUDIT_VERSION}" pip-audit \
+    --requirement "${OUT}/${tree}/requirements.txt" \
+    --no-deps \
+    --disable-pip \
+    --format json \
+    --output "${report}" \
+    --progress-spinner off || status=$?
+  if [ ! -s "${report}" ]; then
+    echo "::warning title=pip-audit did not run::pip-audit exited ${status} without a report for ${tree}, so only Trivy checked that tree. The audit report names it too."
+  fi
+  echo "::endgroup::"
+done

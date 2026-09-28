@@ -5,28 +5,32 @@ import random
 
 import pytest
 from loguru import logger
+from pytest_httpserver import HTTPServer
 
 from permit import Permit, PermitConfig
 from permit.api.base import SimpleHttpClient
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
+from tests.utils import offline_config
 
-# pytest_httpserver's `httpserver` fixture is SESSION-scoped: the first test
-# that asks for it binds the one shared server for the whole run. This address
-# override therefore has to live in conftest.py, not in an individual test
-# module -- a module-local override only applies if that module happens to be
-# the first to touch the fixture, which makes the port silently depend on
-# collection order.
-#
-# test_rbac_e2e.py's timeout tests connect to a hardcoded localhost:9999, so if
-# any other module claims the server first the server binds elsewhere and those
-# tests fail with "Cannot connect to host localhost:9999".
-MOCKED_PORT = 9999
+# pytest_httpserver's `httpserver` fixture binds a free port chosen by the OS,
+# so parallel runs on one machine cannot collide. Tests reach it through
+# httpserver.url_for(), never a hardcoded port. Set PYTEST_HTTPSERVER_PORT to
+# pin one when debugging.
 
 
-@pytest.fixture(scope="session")
-def httpserver_listen_address() -> tuple:
-    return "localhost", MOCKED_PORT
+@pytest.fixture
+def config(httpserver: HTTPServer) -> PermitConfig:
+    """An offline PermitConfig: the API and the PDP are both the local ``httpserver``."""
+    return offline_config(httpserver.url_for("").rstrip("/"))
+
+
+# The fixtures below need a real API key, the Permit API and a PDP. Every test
+# that uses them is marked e2e, which the offline CI job deselects.
+MISSING_KEY = (
+    "PDP_API_KEY is not configured, test cannot run! "
+    'Tests that need it are marked e2e: deselect them with -m "not e2e".'
+)
 
 
 @pytest.fixture
@@ -41,7 +45,7 @@ def permit_config() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", default_api_address)
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,
@@ -71,7 +75,7 @@ def permit_config_cloud() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,

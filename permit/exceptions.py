@@ -1,5 +1,5 @@
 import functools
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import aiohttp
 from loguru import logger
@@ -7,10 +7,13 @@ from typing_extensions import deprecated
 
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import ValidationError
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import ValidationError
 else:
-    from pydantic.v1 import ValidationError  # type: ignore[assignment]
+    from pydantic.v1 import ValidationError
 
 from permit.api.models import ErrorDetails, HTTPValidationError
 

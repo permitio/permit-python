@@ -1,11 +1,16 @@
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -23,7 +28,7 @@ class ResourceActionsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionRead]:
         """
         Retrieves a list of actions.
@@ -51,7 +56,7 @@ class ResourceActionsApi(BasePermitApi):
     async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         return await self.__actions.get(f"/{resource_key}/actions/{action_key}", model=ResourceActionRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
         Retrieves a action by its key.
@@ -71,7 +76,7 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, action_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """
         Retrieves a action by its key.
@@ -92,7 +97,7 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, action_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
         """
         Retrieves a action by its ID.
@@ -113,8 +118,8 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, action_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, resource_key: str, action_data: ResourceActionCreate) -> ResourceActionRead:
+    @validate_arguments
+    async def create(self, resource_key: str, action_data: ModelInput[ResourceActionCreate]) -> ResourceActionRead:
         """
         Creates a new action.
 
@@ -137,8 +142,10 @@ class ResourceActionsApi(BasePermitApi):
             json=action_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def update(self, resource_key: str, action_key: str, action_data: ResourceActionUpdate) -> ResourceActionRead:
+    @validate_arguments
+    async def update(
+        self, resource_key: str, action_key: str, action_data: ModelInput[ResourceActionUpdate]
+    ) -> ResourceActionRead:
         """
         Updates a action.
 
@@ -162,7 +169,7 @@ class ResourceActionsApi(BasePermitApi):
             json=action_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, resource_key: str, action_key: str) -> None:
         """
         Deletes a action.

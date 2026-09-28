@@ -22,6 +22,8 @@ from permit.api.models import (
 )
 from permit.exceptions import PermitApiError
 
+pytestmark = pytest.mark.e2e
+
 
 def print_break():
     print("\n\n ----------- \n\n")  # noqa: T201
@@ -145,6 +147,17 @@ async def setup_user_invites(permit: Permit):
         # ==========================================
         logger.info("Starting cleanup")
         try:
+            # Delete test resource instance first: it belongs to the tenant and the resource below.
+            # The API identifies an instance as "resource:key" (or its id); a bare key is rejected.
+            if created_resource_instance:
+                instance_ident = f"{created_resource_instance.resource}:{created_resource_instance.key}"
+                try:
+                    await permit.api.resource_instances.delete(instance_ident)
+                    logger.info(f"Cleaned up resource instance: {instance_ident}")
+                except PermitApiError as e:
+                    if e.status_code != 404:  # Ignore if already deleted
+                        logger.warning(f"Failed to delete resource instance {instance_ident}: {e}")
+
             # Delete test role
             if created_role:
                 try:
@@ -162,15 +175,6 @@ async def setup_user_invites(permit: Permit):
                 except PermitApiError as e:
                     if e.status_code != 404:  # Ignore if already deleted
                         logger.warning(f"Failed to delete tenant {created_tenant.key}: {e}")
-
-            # Delete test resource instance
-            if created_resource_instance:
-                try:
-                    await permit.api.resource_instances.delete(created_resource_instance.key)
-                    logger.info(f"Cleaned up resource instance: {created_resource_instance.key}")
-                except PermitApiError as e:
-                    if e.status_code != 404:  # Ignore if already deleted
-                        logger.warning(f"Failed to delete resource instance {created_resource_instance.key}: {e}")
 
             # Delete test resource
             if created_resource:

@@ -1,9 +1,16 @@
+from typing import TYPE_CHECKING
+
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -27,7 +34,7 @@ class UserInvitesApi(BasePermitApi):
             f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/user_invites"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultElementsUserInviteRead:
         """
         Retrieves a list of user invites.
@@ -51,7 +58,7 @@ class UserInvitesApi(BasePermitApi):
             params=pagination_params(page, per_page),
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, user_invite_id: str) -> ElementsUserInviteRead:
         """
         Retrieves a single user invite by ID.
@@ -70,8 +77,8 @@ class UserInvitesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__user_invites.get(f"/{user_invite_id}", model=ElementsUserInviteRead)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, user_invite_data: ElementsUserInviteCreate) -> ElementsUserInviteRead:
+    @validate_arguments
+    async def create(self, user_invite_data: ModelInput[ElementsUserInviteCreate]) -> ElementsUserInviteRead:
         """
         Creates a new user invite.
 
@@ -89,7 +96,7 @@ class UserInvitesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__user_invites.post("", model=ElementsUserInviteRead, json=user_invite_data)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, user_invite_id: str) -> None:
         """
         Deletes a user invite.
@@ -108,8 +115,8 @@ class UserInvitesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         await self.__user_invites.delete(f"/{user_invite_id}")
 
-    @validate_arguments  # type: ignore[operator]
-    async def approve(self, user_invite_id: str, approve_data: ElementsUserInviteApprove) -> UserRead:
+    @validate_arguments
+    async def approve(self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]) -> UserRead:
         """
         Approves a user invite.
 

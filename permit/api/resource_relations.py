@@ -1,9 +1,16 @@
+from typing import TYPE_CHECKING
+
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -21,7 +28,7 @@ class ResourceRelationsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultRelationRead:
         """
         Retrieves a list of outgoing relations originating in a specific (object) resource.
@@ -50,7 +57,7 @@ class ResourceRelationsApi(BasePermitApi):
     async def _get(self, resource_key: str, relation_key: str) -> RelationRead:
         return await self.__relations.get(f"/{resource_key}/relations/{relation_key}", model=RelationRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, resource_key: str, relation_key: str) -> RelationRead:
         """
         Retrieves a relation by its key.
@@ -71,7 +78,7 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, relation_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, resource_key: str, relation_key: str) -> RelationRead:
         """
         Retrieves a relation by its key.
@@ -92,7 +99,7 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, relation_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, resource_id: str, relation_id: str) -> RelationRead:
         """
         Retrieves a relation by its ID.
@@ -113,8 +120,8 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, relation_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, resource_key: str, relation_data: RelationCreate) -> RelationRead:
+    @validate_arguments
+    async def create(self, resource_key: str, relation_data: ModelInput[RelationCreate]) -> RelationRead:
         """
         Creates a new relation.
 
@@ -137,7 +144,7 @@ class ResourceRelationsApi(BasePermitApi):
             json=relation_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, resource_key: str, relation_key: str) -> None:
         """
         Deletes a relation.

@@ -36,7 +36,7 @@ class Permit:
         )
 
     @property
-    def config(self):
+    def config(self) -> PermitConfig:
         """
         Access the SDK configuration using this property.
         Once the SDK is initialized, the configuration is read-only.
@@ -233,7 +233,7 @@ class Permit:
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
         Get all permissions for a user.
 

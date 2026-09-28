@@ -7,44 +7,29 @@ so no API key and no ``/v2/api-key/scope`` lookup are needed.
 
 import asyncio
 import inspect
+import os
+import runpy
+import subprocess
+import sys
+import threading
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, Callable
+from pathlib import Path
+from typing import Callable, List, Tuple
 from uuid import uuid4
 
 import pytest
 from pytest_httpserver import HTTPServer
 
-from permit.api.context import ApiContext
+import permit
 from permit.api.sync_api_client import SyncPermitApiClient, SyncUsersApi
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import SyncEnforcer
 from permit.sync import Permit as SyncPermit
-from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass
-
-ORG = "test-org"
-PROJECT = "test-project"
-ENVIRONMENT = "test-env"
-FACTS = f"/v2/facts/{PROJECT}/{ENVIRONMENT}"
-
-
-def offline_config(base_url: str, **overrides: Any) -> PermitConfig:
-    """Build a PermitConfig whose context is already resolved to environment level."""
-    api_context = ApiContext()
-    api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT, environment=ENVIRONMENT)
-    api_context.set_environment_level_context(ORG, PROJECT, ENVIRONMENT)
-    return PermitConfig(
-        token="test-token",
-        api_url=base_url,
-        pdp=base_url,
-        api_context=api_context,
-        **overrides,
-    )
-
-
-@pytest.fixture
-def config(httpserver: HTTPServer) -> PermitConfig:
-    return offline_config(httpserver.url_for("").rstrip("/"))
+from permit.utils.deprecation import deprecated
+from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass, run_coroutine_sync
+from tests.utils import FACTS, SCHEMA
 
 
 def sync_wrapper_depth(func: Callable) -> int:
@@ -168,7 +153,7 @@ def test_deprecated_facade_get_user_issues_a_request(httpserver: HTTPServer, con
 
 
 def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, config: PermitConfig):
-    httpserver.expect_oneshot_request(f"/v2/schema/{PROJECT}/{ENVIRONMENT}/roles", method="GET").respond_with_json([])
+    httpserver.expect_oneshot_request(f"{SCHEMA}/roles", method="GET").respond_with_json([])
 
     client = SyncPermitApiClient(config)
     with pytest.warns(DeprecationWarning):
@@ -176,6 +161,148 @@ def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, c
 
     assert roles == []
     httpserver.check_assertions()
+
+
+# --- warnings from a blocking call's coroutine ------------------------------
+
+
+def deprecation_sites(caught: List[warnings.WarningMessage]) -> List[Tuple[str, int]]:
+    return [(w.filename, w.lineno) for w in caught if issubclass(w.category, DeprecationWarning)]
+
+
+def first_line_of(func: Callable) -> Tuple[str, int]:
+    """The file and first body line of ``func``, where each helper below makes its call."""
+    return func.__code__.co_filename, func.__code__.co_firstlineno + 1
+
+
+def test_deprecated_facade_warns_at_a_call_made_inside_a_running_event_loop(
+    httpserver: HTTPServer, config: PermitConfig
+):
+    """With a loop already running, the call's coroutine runs in a worker thread of its own."""
+    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_payload("user-1"))
+    client = SyncPermitApiClient(config)
+
+    async def main() -> None:
+        client.get_user("user-1")
+
+    with pytest.warns(DeprecationWarning) as caught:
+        asyncio.run(main())
+
+    assert deprecation_sites(caught.list) == [first_line_of(main)]
+    httpserver.check_assertions()
+
+
+def test_concurrent_blocking_calls_each_warn_at_their_own_call():
+    """A coroutine that runs for a blocking call warns at that call, not another thread's."""
+    both_calls_running = threading.Barrier(2)
+
+    class Api(metaclass=SyncClass):
+        async def fetch(self) -> None:
+            # Neither coroutine warns until both threads are inside their blocking call.
+            await asyncio.to_thread(both_calls_running.wait, 10)
+            await self.old_fetch()
+
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> None:
+            pass
+
+    def first_caller() -> None:
+        Api().fetch()
+
+    def second_caller() -> None:
+        Api().fetch()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(first_caller), executor.submit(second_caller)]
+            for future in futures:
+                future.result()
+
+    assert sorted(deprecation_sites(caught)) == sorted([first_line_of(first_caller), first_line_of(second_caller)])
+
+
+NO_CALLER_SCRIPT = """\
+import atexit
+import warnings
+
+from permit.utils.deprecation import deprecated
+from permit.utils.sync import SyncClass
+
+
+class Api(metaclass=SyncClass):
+    @deprecated("old_fetch() is deprecated")
+    async def old_fetch(self) -> None:
+        print("ran")
+
+
+warnings.filterwarnings("always", message="old_fetch", category=DeprecationWarning)
+# At exit, the interpreter calls the method from C, with no Python frame above it.
+atexit.register(Api().old_fetch)
+"""
+
+
+def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would(tmp_path: Path):
+    """C code can call a blocking method with no Python frame above it, as it calls an atexit hook.
+
+    ``warnings.warn`` blames ``<sys>``, line 0, when it has no frame to blame, and so does the
+    blocking call instead of failing.
+    """
+    script = tmp_path / "script.py"
+    script.write_text(NO_CALLER_SCRIPT)
+    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env["PYTHONPATH"] = str(Path(permit.__file__).resolve().parents[1])
+
+    result = subprocess.run(
+        [sys.executable, str(script)], env=env, capture_output=True, text=True, timeout=120, check=False
+    )
+
+    assert (result.returncode, result.stdout) == (0, "ran\n"), result.stderr
+    assert [line for line in result.stderr.splitlines() if "old_fetch" in line] == [
+        "<sys>:0: DeprecationWarning: old_fetch() is deprecated"
+    ]
+
+
+def test_run_coroutine_sync_takes_just_the_coroutine():
+    """A public name since 2.x: called directly, it still drives re-entrant awaits of converted
+    methods, and a deprecated one warns at the line that called it."""
+
+    class Api(metaclass=SyncClass):
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> str:
+            return "fetched"
+
+    async def main() -> str:
+        return await Api().old_fetch()
+
+    def caller() -> str:
+        return run_coroutine_sync(main())
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert caller() == "fetched"
+
+    assert deprecation_sites(caught) == [first_line_of(caller)]
+
+
+def test_a_blocking_call_from_code_with_no_module_spec_warns_once(tmp_path: Path):
+    """runpy.run_path() runs a file whose globals hold neither ``__spec__`` nor ``__loader__``."""
+
+    class Api(metaclass=SyncClass):
+        @deprecated("old_fetch() is deprecated")
+        async def old_fetch(self) -> None:
+            pass
+
+    script = tmp_path / "script.py"
+    script.write_text("api.old_fetch()\n")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        runpy.run_path(str(script), init_globals={"api": Api()})
+
+    assert [(w.category, str(w.message), w.filename, w.lineno) for w in caught] == [
+        (DeprecationWarning, "old_fetch() is deprecated", str(script), 1)
+    ]
 
 
 # --- the sync Permit facade ------------------------------------------------
@@ -308,9 +435,3 @@ def test_sync_pdp_api_role_assignments_list(httpserver: HTTPServer, config: Perm
 
     assert result == []
     httpserver.check_assertions()
-
-
-def test_sync_permit_public_methods_are_not_coroutines():
-    for name in ("check", "bulk_check", "authorized_users", "get_user_permissions", "filter_objects"):
-        attr = getattr(SyncPermit, name)
-        assert not inspect.iscoroutinefunction(attr), f"SyncPermit.{name} is still a coroutine function"

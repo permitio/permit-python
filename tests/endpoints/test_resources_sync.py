@@ -7,6 +7,8 @@ from tests.utils import handle_cleanup_error, unique_key
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
 
+pytestmark = pytest.mark.e2e
+
 # The whole e2e suite shares a single Permit environment, so every object this
 # module creates is namespaced under one prefix. That keeps the keys collision
 # proof and -- just as important -- lets the list assertions below be scoped to

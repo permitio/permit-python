@@ -16,12 +16,16 @@ from .permit import Permit as AsyncPermit
 from .utils.context import Context
 
 
+# The blocking client keeps the blocking twins of the async client's helpers in the
+# same attributes and returns plain values where the async base returns coroutines.
+# That breaks substitutability on purpose, hence the assignment, override and
+# return-value ignores below.
 class Permit(AsyncPermit):
     def __init__(self, config: Optional[PermitConfig] = None, **options):
         super().__init__(config, **options)
-        self._enforcer = SyncEnforcer(self._config)
+        self._enforcer = SyncEnforcer(self._config)  # type: ignore[assignment]
         self._api = SyncPermitApiClient(self._config)  # type: ignore[assignment]
-        self._elements = SyncElementsApi(self._config)
+        self._elements = SyncElementsApi(self._config)  # type: ignore[assignment]
         self._pdp_api = SyncPDPApi(self._config)
 
     @property
@@ -37,7 +41,7 @@ class Permit(AsyncPermit):
         return self._api  # type: ignore[return-value]
 
     @property
-    def elements(self) -> SyncElementsApi:
+    def elements(self) -> SyncElementsApi:  # type: ignore[override]
         """
         Access the Permit Elements API using this property.
 
@@ -176,7 +180,7 @@ class Permit(AsyncPermit):
         tenants: Optional[List[str]] = None,
         resources: Optional[List[str]] = None,
         resource_types: Optional[List[str]] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
         Get all permissions for a user.
 
