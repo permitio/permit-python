@@ -92,6 +92,9 @@ dev = [
     "pytest-asyncio==1.4.0",
     "pytest-httpserver==1.1.5",
     "ruff==0.6.9",
+    # The offline tests and the migration skill's tests read [project].dependencies
+    # from this file, and tomllib is in the standard library only from Python 3.11.
+    'tomli==2.4.1; python_version < "3.11"',
     # Imported directly by the offline tests (Request/Response are used to assert
     # on what the SDK actually put on the wire), as well as backing
     # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
