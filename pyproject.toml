@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-authors = [{ name = "Asaf Cohen", email = "asaf@permit.io" }]
+authors = [{ name = "Permit.io", email = "support@permit.io" }]
 classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
@@ -19,15 +19,45 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
 ]
 # Open ranges on purpose: this is a library, and consumers resolve these
 # against their own tree. The floors are the real exposure, which is why
 # .github/scripts/audit-deps.sh scans them with --resolution lowest-direct.
 dependencies = [
     "aiohttp>=3.14.3,<4",
-    "loguru>=0.7.0,<1",
-    "pydantic[email]>=1.10.13",
-    "typing-extensions>=4.5.0,<5",
+    # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
+    # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
+    "loguru>=0.7.3,<1",
+    # pydantic has one line per Python range. Why each version is excluded:
+    # - CVE-2024-3772 (ReDoS in email validation) affects pydantic 1.x before
+    #   1.10.13. Under pydantic 2, permit validates emails with the pydantic.v1 copy
+    #   that pydantic 2 bundles, and only 2.4.2 and later bundle the fixed 1.10.13:
+    #   2.0.1 bundles 1.10.11, and 2.4.0 and 2.4.1 bundle 1.10.12. So 2.0-2.3, 2.4.0
+    #   and 2.4.1 are excluded on every Python.
+    # - pydantic 2.0 also fails every API call that parses a response: its
+    #   pydantic.v1.parse_obj_as builds the model with pydantic 2, which rejects the
+    #   `__root__` field.
+    # - Below Python 3.14 the pydantic 1 floor is 1.10.18. Type checkers read
+    #   permit's models from the pydantic.v1 package, which pydantic 1 first ships
+    #   in 1.10.17, and 1.10.13-1.10.17 emit about 2,400 DeprecationWarnings on
+    #   `import permit` under Python 3.13 (typing._eval_type called without
+    #   type_params).
+    # - On Python 3.13 the pydantic 2 floor is 2.8.0: 2.4.2-2.7.x require a
+    #   pydantic-core release with no Python 3.13 wheels. 2.8.0 is the first to
+    #   require one that has them (pydantic-core 2.20.0).
+    # - On Python 3.14, pydantic 1.x before 1.10.25 and 2.x before 2.13 (whose
+    #   pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to
+    #   infer type for attribute". pydantic 2.0-2.11 also have no Python 3.14
+    #   builds.
+    'pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1; python_version < "3.13"',
+    'pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*; python_version == "3.13"',
+    'pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"',
+    # 4.14.0 is the lowest release that works on every supported Python: releases
+    # before 4.6 break `import permit` on 3.12+, before 4.12 on 3.13+, and 4.12-4.13
+    # lose TypedDict keys on 3.14.
+    "typing-extensions>=4.14.0,<5",
 ]
 
 [project.urls]
@@ -37,18 +67,34 @@ Repository = "https://github.com/permitio/permit-python"
 
 [dependency-groups]
 # Exact pins, so every developer, CI lane and the dev-ceiling audit tree
-# resolve the same versions. Dependabot raises them. ruff and mypy match the
-# hook revs in .pre-commit-config.yaml; the hooks install their own copies,
-# and those are what CI lints and type-checks with.
+# resolve the same versions. Dependabot raises them. A pin also gives the CVE
+# scan a version to evaluate: a spec with no bound has none, so a package listed
+# that way is absent from every audit. ruff and mypy match the hook revs in
+# .pre-commit-config.yaml; the hooks install their own copies, and those are
+# what CI lints and type-checks with.
+# aioresponses is left out on purpose. No test imports it, and its latest
+# release (0.7.9) is incompatible with the aiohttp 3.14.3 floor: every mocked
+# request raises "ClientResponse.__init__() missing 1 required keyword-only
+# argument: 'stream_writer'". Offline HTTP tests use pytest-httpserver, which
+# asserts on real request bodies.
 dev = [
+    # tests/test_typing_surface.py runs mypy on tests/type_check/consumer.py;
+    # 1.11.2 passes it on Python 3.10-3.14 with either pydantic major.
     "mypy==1.11.2",
     "pre-commit==4.6.2",
+    # 9.x rather than 8.x: the old 8.3.0 floor is affected by CVE-2025-71176
+    # (insecure temporary directory handling), fixed in 9.0.3. Caught by this
+    # repo's own audit gate.
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-httpserver==1.1.5",
     "ruff==0.6.9",
-    # Imported directly by the offline tests to assert on what the SDK put on
-    # the wire, as well as backing pytest-httpserver.
+    # Imported directly by the offline tests (Request/Response are used to assert
+    # on what the SDK actually put on the wire), as well as backing
+    # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
+    # across the six advisories that affected the old >=2.3.8 floor
+    # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
+    # CVE-2026-21860, CVE-2026-27199).
     "werkzeug==3.1.8",
 ]
 # The SDK supports both pydantic majors (permit/utils/pydantic_version.py), and
@@ -69,10 +115,26 @@ conflicts = [[{ group = "pydantic-v1" }, { group = "pydantic-v2" }]]
 [tool.uv.build-backend]
 # Flat layout: the package lives at ./permit, not ./src/permit.
 module-root = ""
+# The wheel holds the permit package and nothing else, so tests/ and the local
+# harness/ tool cannot end up in a consumer's site-packages. The published
+# permit==2.8.3 installs a TOP-LEVEL `tests` package there, which shadows the
+# consumer's own `tests` module.
+# Every file under permit/ goes in, not only .py files. That includes py.typed,
+# which tells type checkers to read permit's annotations (PEP 561), and
+# _sync_types.pyi, which is how they see the blocking client. CI checks that the
+# built wheel has both.
+# The sdist also carries the top-level Markdown files, the migration guide
+# among them.
+source-include = ["*.md"]
 
 [tool.pytest]
 asyncio_mode = "auto"
+# The SDK's tests. The migration skill's tests in skills/tests run on their own,
+# with skills/tests/pytest.ini (see skills/tests/README.md).
 testpaths = ["tests"]
+markers = [
+    'e2e: needs PDP_API_KEY (or another credential), the Permit API and a running PDP. Deselect with -m "not e2e".',
+]
 
 [tool.ruff]
 line-length = 120

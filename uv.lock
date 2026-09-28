@@ -3,7 +3,9 @@ revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15'",
-    "python_full_version < '3.15'",
+    "python_full_version == '3.14.*'",
+    "python_full_version == '3.13.*'",
+    "python_full_version < '3.13'",
 ]
 conflicts = [[
     { package = "permit", group = "pydantic-v1" },
@@ -794,9 +796,11 @@ pydantic-v2 = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.3,<4" },
-    { name = "loguru", specifier = ">=0.7.0,<1" },
-    { name = "pydantic", extras = ["email"], specifier = ">=1.10.13" },
-    { name = "typing-extensions", specifier = ">=4.5.0,<5" },
+    { name = "loguru", specifier = ">=0.7.3,<1" },
+    { name = "pydantic", extras = ["email"], marker = "python_full_version < '3.13'", specifier = ">=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1" },
+    { name = "pydantic", extras = ["email"], marker = "python_full_version == '3.13.*'", specifier = ">=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*" },
+    { name = "pydantic", extras = ["email"], marker = "python_full_version >= '3.14'", specifier = ">=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*" },
+    { name = "typing-extensions", specifier = ">=4.14.0,<5" },
 ]
 
 [package.metadata.requires-dev]
@@ -997,7 +1001,9 @@ version = "1.10.26"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15'",
-    "python_full_version < '3.15'",
+    "python_full_version == '3.14.*'",
+    "python_full_version == '3.13.*'",
+    "python_full_version < '3.13'",
 ]
 dependencies = [
     { name = "typing-extensions", marker = "extra == 'group-6-permit-pydantic-v1'" },
@@ -1043,7 +1049,9 @@ version = "2.13.5"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15'",
-    "python_full_version < '3.15'",
+    "python_full_version == '3.14.*'",
+    "python_full_version == '3.13.*'",
+    "python_full_version < '3.13'",
 ]
 dependencies = [
     { name = "annotated-types", marker = "extra == 'group-6-permit-pydantic-v2' or extra != 'group-6-permit-pydantic-v1'" },
