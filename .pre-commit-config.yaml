@@ -36,10 +36,9 @@ repos:
         files: \.py$
         types: [ file ]
 
-  # Fails when pyproject.toml and uv.lock disagree. Keep rev equal to
-  # [tool.uv] required-version in pyproject.toml, the uv version's source of
-  # truth.
+  # Fails when pyproject.toml and uv.lock disagree. Keep rev equal to the `uv`
+  # pin in pyproject.toml's dev group, the uv version CI runs.
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.18
+    rev: 0.12.17
     hooks:
       - id: uv-lock

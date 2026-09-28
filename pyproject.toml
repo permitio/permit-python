@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.12.18,<0.13"]
+requires = ["uv_build>=0.12.17,<0.13"]
 build-backend = "uv_build"
 
 [project]
@@ -102,6 +102,12 @@ dev = [
     # The marker says == "3.10" rather than < "3.11", which is the same under
     # requires-python, because Dependabot skips a requirement whose marker has `<`.
     'tomli==2.4.1; python_version == "3.10"',
+    # The uv version CI runs: every setup-uv step reads it from uv.lock
+    # (version-file), except the publish build job, which pins its own version
+    # and checksum. Dependabot bumps it like any other pin. Keep the uv-lock hook
+    # rev in .pre-commit-config.yaml equal to it, and run this version locally so
+    # uv.lock comes out the same.
+    "uv==0.12.17",
     # Imported directly by the offline tests (Request/Response are used to assert
     # on what the SDK actually put on the wire), as well as backing
     # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
@@ -117,11 +123,11 @@ pydantic-v1 = ["pydantic<2"]
 pydantic-v2 = ["pydantic>=2"]
 
 [tool.uv]
-# The one place the uv version is set: setup-uv reads it in CI. The uv-lock
-# hook rev, the uv_build bound in [build-system] and the setup-uv `checksum:`
-# in python-sdk-publish.yml's build job (the uv-x86_64-unknown-linux-gnu.tar.gz
-# .sha256 of this release) must agree with it.
-required-version = "==0.12.18"
+# The oldest uv that may run here, not the version CI runs: that is the `uv`
+# pin in the dev group above, which Dependabot updates. A floor rather than an
+# exact pin, because Dependabot runs `uv lock` with its own bundled uv and an
+# exact pin fails every one of its updates once that uv differs.
+required-version = ">=0.12.17"
 # Publish-age cooldown for `uv lock`, matching Dependabot's 7-day cooldown: a
 # release is most likely to be a compromised upload in its first days. A security
 # fix younger than that is locked with an exclude-newer-package entry here (see

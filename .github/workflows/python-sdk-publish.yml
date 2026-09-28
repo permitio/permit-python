@@ -31,10 +31,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           # This uv binary is the build backend for the published artifacts,
-          # so pin its archive (uv-x86_64-unknown-linux-gnu.tar.gz, per the
-          # uv release's .sha256 asset). The version comes from [tool.uv]
-          # required-version in pyproject.toml; bumping that without updating
-          # this hash fails the download instead of building with another uv.
+          # so it is pinned here, by version and by the checksum of its archive
+          # (uv-x86_64-unknown-linux-gnu.tar.gz, per the uv release's .sha256
+          # asset), and not read from uv.lock: a Dependabot bump of the dev
+          # group's uv must not change the tool that builds releases. Bump both
+          # by hand; the uv_build bound in [build-system] must allow the version.
+          version: "0.12.18"
           checksum: "89eadd7c76fc063887959510d5ba0ab1264dfd5f1143b925ddb73021a40acf16"
           # No cache on a job whose output is published: a poisoned cache
           # entry would flow straight into the release artifacts.
@@ -127,9 +129,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          # No version input: setup-uv installs the one [tool.uv]
-          # required-version in pyproject.toml names, so a new uv release
-          # cannot change which trees get scanned.
+          # The uv pinned in uv.lock, so a new uv release cannot change which
+          # trees get scanned.
+          version-file: "uv.lock"
           # This job resolves dependency trees for scanning and installs
           # nothing, so the cache buys nothing and only adds a poisoning
           # vector on a workflow that publishes artifacts.

@@ -1,10 +1,11 @@
 # Contributing
 
-The project is managed with [uv](https://docs.astral.sh/uv/). The uv version is pinned by
-`[tool.uv] required-version` in `pyproject.toml`; install exactly that version
-(`uv self update <version>`) before starting. A newer uv refuses to run here. An older one
-cannot parse the `[tool.uv]` table, warns, and ignores it, including the pin and the 7-day
-`exclude-newer` cooldown, which produces a different `uv.lock`.
+The project is managed with [uv](https://docs.astral.sh/uv/). CI runs the uv version pinned
+as `uv==…` in the `dev` group of `pyproject.toml` (Dependabot keeps it current); install that
+version (`uv self update <version>`) before starting, so `uv.lock` comes out the same as in
+CI. `[tool.uv] required-version` is only a floor: a uv older than it refuses to run here.
+A uv too old to parse the `[tool.uv]` table warns and ignores it, including that floor and
+the 7-day `exclude-newer` cooldown, which produces a different `uv.lock`.
 
 ## Setup
 

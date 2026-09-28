@@ -63,10 +63,11 @@ jobs:
           python-version: "3.11"
 
       # The script runs the pinned model generator through uvx. setup-uv
-      # installs the uv version [tool.uv] required-version in pyproject.toml
-      # names.
+      # installs the uv pinned in uv.lock.
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
 
       # Exit 1 is new drift or a stale allowlist entry; exit 2 means the
       # comparison did not run. Both fail the job; the summary says which.

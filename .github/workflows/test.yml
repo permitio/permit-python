@@ -51,6 +51,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          # The uv pinned in the dev group, as locked in uv.lock.
+          version-file: "uv.lock"
           # Sets UV_PYTHON, so every uv command below runs on exactly this
           # interpreter (downloaded by uv if the runner does not have it).
           python-version: "3.11.8"
@@ -245,8 +247,8 @@ jobs:
           persist-credentials: false
 
       # uv resolves to the lowest allowed versions, which pip cannot. setup-uv
-      # installs the uv version [tool.uv] required-version in pyproject.toml
-      # names, so a new uv release cannot change which floor a leg tests.
+      # installs the uv pinned in uv.lock, so a new uv release cannot change
+      # which floor a leg tests.
       # activate-environment creates .venv on the leg's Python and puts it on
       # PATH, so `uv pip` installs into it and `python` runs from it. No cache:
       # every leg resolves a different set, and a shared entry would hold
@@ -254,6 +256,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version-file: "uv.lock"
           python-version: ${{ matrix.python-version }}
           activate-environment: true
           enable-cache: false
@@ -371,6 +374,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version-file: "uv.lock"
           python-version: '3.12'
           enable-cache: true
           # The two lanes share uv.lock but install different pydantic
