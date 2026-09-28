@@ -30,7 +30,8 @@ dependencies = [
     # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
     # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
     "loguru>=0.7.3,<1",
-    # pydantic has one line per Python range. Why each version is excluded:
+    # pydantic has one line per Python range, updated by hand: Dependabot ignores
+    # pydantic (see .github/dependabot.yml). Why each version is excluded:
     # - CVE-2024-3772 (ReDoS in email validation) affects pydantic 1.x before
     #   1.10.13. Under pydantic 2, permit validates emails with the pydantic.v1 copy
     #   that pydantic 2 bundles, and only 2.4.2 and later bundle the fixed 1.10.13:
@@ -94,7 +95,9 @@ dev = [
     "ruff==0.6.9",
     # The offline tests and the migration skill's tests read [project].dependencies
     # from this file, and tomllib is in the standard library only from Python 3.11.
-    'tomli==2.4.1; python_version < "3.11"',
+    # The marker says == "3.10" rather than < "3.11", which is the same under
+    # requires-python, because Dependabot skips a requirement whose marker has `<`.
+    'tomli==2.4.1; python_version == "3.10"',
     # Imported directly by the offline tests (Request/Response are used to assert
     # on what the SDK actually put on the wire), as well as backing
     # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
