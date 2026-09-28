@@ -30,7 +30,7 @@ ruff>=0.6.0
 # version across the six advisories that affected the previous >=2.3.8 floor
 # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
 # CVE-2026-21860, CVE-2026-27199).
-werkzeug>=3.1.6
+werkzeug>=3.1.8
 
 # Deliberately duplicated from requirements.txt: CI installs requirements.txt
 # with --no-deps, so this is the line that actually pulls aiohttp's transitive
