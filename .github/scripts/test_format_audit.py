@@ -5,7 +5,8 @@ first line, bad input still exits 0, untrusted advisory text cannot break out
 of a fence or a workflow command, and a pip-audit that did not check a tree is
 always named rather than passing for a clean result.
 
-Run with: python -m pytest .github/scripts/test_format_audit.py
+Run with:
+uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_format_audit.py
 """
 
 from __future__ import annotations
