@@ -21,7 +21,7 @@ packaging>=22.0
 # (insecure temporary directory handling). Caught by this repo's own audit gate.
 pytest>=9.0.3
 pytest-asyncio>=1.0.0
-pytest_httpserver>=1.1.0
+pytest_httpserver>=1.1.5
 ruff>=0.6.0
 
 # Imported directly by the offline tests (Request/Response are used to assert
