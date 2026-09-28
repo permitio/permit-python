@@ -24,8 +24,10 @@ updates:
     # Wait 7 days before proposing a release, 14 for a major. A brand-new
     # version is the window in which a compromised or yanked package is most
     # likely to still be live, and nothing here is urgent enough to need
-    # day-zero adoption. Security updates are exempt from cooldown by
-    # Dependabot and still arrive immediately.
+    # day-zero adoption. Security updates are exempt from this cooldown, but
+    # the `uv lock` Dependabot runs still applies exclude-newer = "7 days" from
+    # pyproject.toml, so a fix released less than 7 days ago cannot be locked
+    # and its update fails until the release is 7 days old.
     cooldown:
       default-days: 7
       semver-major-days: 14
