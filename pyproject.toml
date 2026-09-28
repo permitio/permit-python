@@ -52,6 +52,10 @@ dependencies = [
     #   pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to
     #   infer type for attribute". pydantic 2.0-2.11 also have no Python 3.14
     #   builds.
+    # uv_build writes these markers to the wheel and sdist as python_full_version
+    # ranges, and a pre-release sorts below its final release, so a 3.14.0 alpha,
+    # beta or release candidate matches none of the three lines and gets no
+    # pydantic requirement. Every final release matches exactly one line.
     'pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1; python_version < "3.13"',
     'pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*; python_version == "3.13"',
     'pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"',
