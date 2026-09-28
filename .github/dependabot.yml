@@ -58,6 +58,14 @@ updates:
       # Removal gate: drop this entry once pydantic is one requirement with no
       # `!=` exclusions and no `<` marker.
       - dependency-name: "pydantic"
+      # uv_build, the build backend in [build-system], is updated by hand
+      # together with the uv version and checksum that python-sdk-publish.yml's
+      # build job pins. That uv builds releases with its own built-in backend
+      # only while the uv_build bound allows its version. A Dependabot PR that
+      # raised the bound past it would make release builds download uv_build
+      # from PyPI instead, around the checksum-verified binary, and nothing
+      # would fail.
+      - dependency-name: "uv_build"
     commit-message:
       prefix: "deps"
       prefix-development: "deps-dev"

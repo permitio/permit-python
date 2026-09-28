@@ -1,4 +1,7 @@
 [build-system]
+# Must allow the uv version python-sdk-publish.yml's build job pins, so releases
+# build with that uv's built-in backend. Bumped by hand with it; Dependabot
+# ignores uv_build (see .github/dependabot.yml).
 requires = ["uv_build>=0.12.17,<0.13"]
 build-backend = "uv_build"
 

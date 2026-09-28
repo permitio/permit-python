@@ -51,6 +51,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # The declared minimum. Resolving at the floor of supported Python is the
 # worst case a consumer can legitimately be in.
+#
+# Python 3.10 only, on purpose. On 3.13 and 3.14 the pydantic floors are higher
+# (1.10.18/2.8.0 and 1.10.25/2.13), so those exact versions are never resolved
+# here. An advisory that affects everything below its fixed version, which is
+# almost every advisory, affects the lower 3.10 floor whenever it affects a
+# higher one, so it still fails this gate. What is missed is an advisory
+# confined to a later range that leaves the 3.10 floor out; the ceiling trees
+# still cover the newest releases.
 PYTHON_VERSION="${AUDIT_PYTHON_VERSION:-3.10}"
 
 # A resolved tree with almost nothing in it means the compile silently produced
