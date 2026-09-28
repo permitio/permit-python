@@ -1,11 +1,16 @@
-from typing import List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -13,7 +18,7 @@ from .base import (
     pagination_params,
 )
 from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import RelationCreate, RelationRead
+from .models import PaginatedResultRelationRead, RelationCreate, RelationRead
 
 
 class ResourceRelationsApi(BasePermitApi):
@@ -23,8 +28,8 @@ class ResourceRelationsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[RelationRead]:
+    @validate_arguments
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultRelationRead:
         """
         Retrieves a list of outgoing relations originating in a specific (object) resource.
 
@@ -34,7 +39,8 @@ class ResourceRelationsApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
 
         Returns:
-            an array of relations.
+            a PaginatedResultRelationRead holding the relations in ``.data`` and the
+            total number of relations on the resource in ``.total_count``.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -44,14 +50,14 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__relations.get(
             f"/{resource_key}/relations",
-            model=List[RelationRead],
+            model=PaginatedResultRelationRead,
             params=pagination_params(page, per_page),
         )
 
     async def _get(self, resource_key: str, relation_key: str) -> RelationRead:
         return await self.__relations.get(f"/{resource_key}/relations/{relation_key}", model=RelationRead)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, resource_key: str, relation_key: str) -> RelationRead:
         """
         Retrieves a relation by its key.
@@ -72,7 +78,7 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, relation_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, resource_key: str, relation_key: str) -> RelationRead:
         """
         Retrieves a relation by its key.
@@ -93,14 +99,14 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, relation_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, resource_id: str, relation_id: str) -> RelationRead:
         """
         Retrieves a relation by its ID.
         Alias for the get method.
 
         Args:
-            resource_key: The ID of the resource the relation belongs to.
+            resource_id: The ID of the resource the relation belongs to.
             relation_id: The ID of the relation.
 
         Returns:
@@ -114,8 +120,8 @@ class ResourceRelationsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, relation_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, resource_key: str, relation_data: RelationCreate) -> RelationRead:
+    @validate_arguments
+    async def create(self, resource_key: str, relation_data: ModelInput[RelationCreate]) -> RelationRead:
         """
         Creates a new relation.
 
@@ -138,7 +144,7 @@ class ResourceRelationsApi(BasePermitApi):
             json=relation_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, resource_key: str, relation_key: str) -> None:
         """
         Deletes a relation.

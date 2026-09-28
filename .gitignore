@@ -83,6 +83,8 @@ ipython_config.py
 
 # pyenv
 .python-version
+# The migration tests' sample apps pin their Python this way on purpose.
+!skills/tests/fixtures/*/.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
@@ -130,5 +132,9 @@ dmypy.json
 
 # editors
 .vscode/
-.DS_Store  # macOS
+# macOS
+.DS_Store
 .idea/
+
+# local SDK test harness (developer tool, never committed, never run in CI)
+harness/

@@ -1,0 +1,67 @@
+version: 2
+updates:
+  # Python dependencies (requirements.txt + requirements-dev.txt).
+  #
+  # This package publishes open `>=` ranges rather than a lockfile, so a
+  # Dependabot PR here raises the *floor* consumers are allowed to install on,
+  # not just the version CI happens to resolve. That is the whole point: the
+  # floor is the exposure, and the audit gate in security.yml scans it
+  # explicitly.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    # REQUIRED, not cosmetic. With a setup.py present Dependabot classifies
+    # this project as a library and defaults to `widen`, which only relaxes
+    # upper bounds and would never raise a `>=` floor -- so the automation
+    # would silently never do the one thing this file exists to do.
+    # `increase` raises the lower bound instead.
+    versioning-strategy: increase
+    # Wait 7 days before proposing a release, 14 for a major. A brand-new
+    # version is the window in which a compromised or yanked package is most
+    # likely to still be live, and nothing here is urgent enough to need
+    # day-zero adoption. Security updates are exempt from cooldown by
+    # Dependabot and still arrive immediately.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # pydantic is dual-supported on purpose: permit/utils/pydantic_version.py
+      # branches on PYDANTIC_VERSION and every model imports from either
+      # `pydantic` (v1) or `pydantic.v1` (v2 compat shim). A Dependabot major
+      # bump cannot reason about that and would silently propose dropping v1
+      # support, so majors are handled by hand. Minor/patch still flow through.
+      #
+      # Removal gate: drop this entry once the SDK stops supporting pydantic v1.
+      - dependency-name: "pydantic"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions versions.
+  # Note: cooldown.semver-major-days is not supported for github-actions --
+  # Dependabot only honours it on semver-strict ecosystems like pip and npm.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+    labels:
+      - "dependencies"

@@ -16,6 +16,8 @@ from permit.api.models import (
 from permit.config import PermitConfig
 from permit.exceptions import PermitApiError, PermitConnectionError, PermitContextError
 
+pytestmark = pytest.mark.e2e
+
 CREATED_PROJECTS = [ProjectCreate(key="test-python-proj", name="New Python Project")]
 CREATED_ENVIRONMENTS = [
     EnvironmentCreate(key="my-python-env", name="My Python Env"),
@@ -23,9 +25,20 @@ CREATED_ENVIRONMENTS = [
 ]
 
 
+def api_key(variable: str) -> str:
+    """Read an API key from the environment, or fail the test with a clear message."""
+    token = os.getenv(variable, "")
+    if not token:
+        pytest.fail(
+            f"{variable} is not configured, test cannot run! "
+            'This module is marked e2e: deselect it with -m "not e2e".'
+        )
+    return token
+
+
 @pytest.fixture
 def permit_with_org_level_api_key() -> Permit:
-    token = os.getenv("ORG_PDP_API_KEY", "")
+    token = api_key("ORG_PDP_API_KEY")
     pdp_address = os.getenv("PDP_URL", "http://localhost:7766")
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 
@@ -44,7 +57,7 @@ def permit_with_org_level_api_key() -> Permit:
 
 @pytest.fixture
 def permit_with_project_level_api_key() -> Permit:
-    token = os.getenv("PROJECT_PDP_API_KEY", "")
+    token = api_key("PROJECT_PDP_API_KEY")
     pdp_address = os.getenv("PDP_URL", "http://localhost:7766")
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 

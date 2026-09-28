@@ -4,41 +4,51 @@
 
 from __future__ import annotations
 
+import typing as _typing
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+# Private, or permit/__init__.py's `from permit.api.models import *` would export it.
+from ..utils.pydantic_version import PYDANTIC_VERSION as _PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if _typing.TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import AnyUrl, BaseModel, Extra, Field, conint, constr
+
+    # pydantic.v1 declares EmailStr as a str subclass, so a type checker would reject
+    # a plain str for an email field. At runtime these fields take and hold a plain
+    # str; pydantic 2 types its own EmailStr as str for the same reason.
+    EmailStr = str
+elif _PYDANTIC_VERSION < (2, 0):
     from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
 else:
-    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr  # type: ignore
+    from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
 
 
 class APIHistoryEventFullRead(BaseModel):
     class Config:
         extra = Extra.allow
 
-    request_body: Optional[bytes] = Field(None, title='Request Body')
-    response_body: Optional[bytes] = Field(None, title='Response Body')
+    request_body: Optional[bytes] = Field(default=None, title='Request Body')
+    response_body: Optional[bytes] = Field(default=None, title='Response Body')
     timestamp: datetime = Field(..., title='Timestamp')
-    timestamp_utc: Optional[datetime] = Field(None, title='Timestamp Utc')
+    timestamp_utc: Optional[datetime] = Field(default=None, title='Timestamp Utc')
     method: str = Field(..., title='Method')
     path: str = Field(..., title='Path')
     success: bool = Field(..., title='Success')
     status: int = Field(..., title='Status')
-    request_id: Optional[UUID] = Field(None, title='Request Id')
+    request_id: Optional[UUID] = Field(default=None, title='Request Id')
     client_ip: str = Field(..., title='Client Ip')
     actor_type: str = Field(..., title='Actor Type')
     actor_id: UUID = Field(..., title='Actor Id')
-    actor_display_name: Optional[str] = Field(None, title='Actor Display Name')
-    org_id: Optional[UUID] = Field(None, title='Org Id')
-    project_key: Optional[str] = Field(None, title='Project Key')
-    project_id: Optional[UUID] = Field(None, title='Project Id')
-    env_key: Optional[str] = Field(None, title='Env Key')
-    env_id: Optional[UUID] = Field(None, title='Env Id')
+    actor_display_name: Optional[str] = Field(default=None, title='Actor Display Name')
+    org_id: Optional[UUID] = Field(default=None, title='Org Id')
+    project_key: Optional[str] = Field(default=None, title='Project Key')
+    project_id: Optional[UUID] = Field(default=None, title='Project Id')
+    env_key: Optional[str] = Field(default=None, title='Env Key')
+    env_id: Optional[UUID] = Field(default=None, title='Env Id')
     id: UUID = Field(..., title='Id')
 
 
@@ -47,21 +57,21 @@ class APIHistoryEventRead(BaseModel):
         extra = Extra.allow
 
     timestamp: datetime = Field(..., title='Timestamp')
-    timestamp_utc: Optional[datetime] = Field(None, title='Timestamp Utc')
+    timestamp_utc: Optional[datetime] = Field(default=None, title='Timestamp Utc')
     method: str = Field(..., title='Method')
     path: str = Field(..., title='Path')
     success: bool = Field(..., title='Success')
     status: int = Field(..., title='Status')
-    request_id: Optional[UUID] = Field(None, title='Request Id')
+    request_id: Optional[UUID] = Field(default=None, title='Request Id')
     client_ip: str = Field(..., title='Client Ip')
     actor_type: str = Field(..., title='Actor Type')
     actor_id: UUID = Field(..., title='Actor Id')
-    actor_display_name: Optional[str] = Field(None, title='Actor Display Name')
-    org_id: Optional[UUID] = Field(None, title='Org Id')
-    project_key: Optional[str] = Field(None, title='Project Key')
-    project_id: Optional[UUID] = Field(None, title='Project Id')
-    env_key: Optional[str] = Field(None, title='Env Key')
-    env_id: Optional[UUID] = Field(None, title='Env Id')
+    actor_display_name: Optional[str] = Field(default=None, title='Actor Display Name')
+    org_id: Optional[UUID] = Field(default=None, title='Org Id')
+    project_key: Optional[str] = Field(default=None, title='Project Key')
+    project_id: Optional[UUID] = Field(default=None, title='Project Id')
+    env_key: Optional[str] = Field(default=None, title='Env Key')
+    env_id: Optional[UUID] = Field(default=None, title='Env Id')
     id: UUID = Field(..., title='Id')
 
 
@@ -69,6 +79,7 @@ class APIKeyOwnerType(str, Enum):
     pdp_config = 'pdp_config'
     member = 'member'
     elements = 'elements'
+    nats_pdp_config = 'nats_pdp_config'
 
 
 class APIKeyScopeRead(BaseModel):
@@ -81,12 +92,12 @@ class APIKeyScopeRead(BaseModel):
         title='Organization Id',
     )
     project_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Unique id of the project that the api_key belongs to.',
         title='Project Id',
     )
     environment_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Unique id of the environment that the api_key belongs to.',
         title='Environment Id',
     )
@@ -96,10 +107,10 @@ class AVPEngineDecisionLog(BaseModel):
     class Config:
         extra = Extra.allow
 
-    engine: Optional[Literal['AVP']] = Field('AVP', title='Engine')
+    engine: Optional[Literal['AVP']] = Field(default='AVP', title='Engine')
     timestamp: datetime = Field(..., title='Timestamp')
     tenant: str = Field(..., title='Tenant')
-    process_time_ms: Optional[int] = Field(None, title='Process Time Ms')
+    process_time_ms: Optional[int] = Field(default=None, title='Process Time Ms')
     input: Dict[str, Any] = Field(..., title='Input')
     result: Dict[str, Any] = Field(..., title='Result')
 
@@ -114,12 +125,12 @@ class AccessRequestCreateDetails(BaseModel):
         title='Tenant',
     )
     resource: Optional[str] = Field(
-        None,
+        default=None,
         description='resource id or key that the user is requesting access to',
         title='Resource',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='resource instance id or key that the user is requesting access to',
         title='Resource Instance',
     )
@@ -145,7 +156,7 @@ class AccessRequestDetails(BaseModel):
         title='Resource',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='Either the unique id of the resource instance that the user is requesting access to, or the URL-friendly key of the <resource_key:resource_instance_key> (i.e: file:my_file)',
         title='Resource Instance',
     )
@@ -155,7 +166,7 @@ class AccessRequestDetails(BaseModel):
         title='Role',
     )
     element_config_id: Optional[str] = Field(
-        None,
+        default=None,
         description='element config id or key that the user is requesting access request from',
         title='Element Config Id',
     )
@@ -166,12 +177,12 @@ class AccessRequestReview(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
     role: Optional[str] = Field(
-        None,
+        default=None,
         description='role id or key that the user is requesting access to',
         title='Role',
     )
@@ -182,7 +193,7 @@ class AccessRequestReviewDeny(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -198,7 +209,7 @@ class AccessRequestUserCreate(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting access',
         title='Reason',
     )
@@ -209,16 +220,16 @@ class ActionBlockEditable(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='a more descriptive name for the action', title='Name'
+        default=None, description='a more descriptive name for the action', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this action represents in your system',
         title='Description',
     )
-    attributes: Optional[Dict[str, Any]] = Field(None, title='Attributes')
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    attributes: Optional[Dict[str, Any]] = Field(default=None, title='Attributes')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
 
 
 class ActionBlockRead(BaseModel):
@@ -226,18 +237,18 @@ class ActionBlockRead(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='a more descriptive name for the action', title='Name'
+        default=None, description='a more descriptive name for the action', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this action represents in your system',
         title='Description',
     )
-    attributes: Optional[Dict[str, Any]] = Field(None, title='Attributes')
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    attributes: Optional[Dict[str, Any]] = Field(default=None, title='Attributes')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
     id: UUID = Field(..., description='Unique id of the action', title='Id')
-    key: Optional[str] = Field(None, description='action key', title='Key')
+    key: Optional[str] = Field(default=None, description='action key', title='Key')
 
 
 class ActionObj(BaseModel):
@@ -246,7 +257,7 @@ class ActionObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -255,9 +266,9 @@ class ActivityDetailsObject(BaseModel):
     class Config:
         extra = Extra.allow
 
-    id: Optional[UUID] = Field(None, title='Id')
-    key: Optional[str] = Field(None, title='Key')
-    kind: Optional[Literal['object']] = Field('object', title='Kind')
+    id: Optional[UUID] = Field(default=None, title='Id')
+    key: Optional[str] = Field(default=None, title='Key')
+    kind: Optional[Literal['object']] = Field(default='object', title='Kind')
     type: str = Field(..., title='Type')
 
 
@@ -265,8 +276,8 @@ class ActivityDetailsObjectData(BaseModel):
     class Config:
         extra = Extra.allow
 
-    id: Optional[UUID] = Field(None, title='Id')
-    key: Optional[str] = Field(None, title='Key')
+    id: Optional[UUID] = Field(default=None, title='Id')
+    key: Optional[str] = Field(default=None, title='Key')
 
 
 class AddRolePermissions(BaseModel):
@@ -309,25 +320,25 @@ class AuditLogReplayRequest(BaseModel):
         title='Pdp Url',
     )
     start_time: Optional[int] = Field(
-        None,
+        default=None,
         description='Start time for the query (in seconds since epoch). Defaults to 24 hours ago.',
         example=1616432400,
         title='Start Time',
     )
     end_time: Optional[int] = Field(
-        None,
+        default=None,
         description='End time for the query (in seconds since epoch). Defaults to current time.',
         example=1616518800,
         title='End Time',
     )
     concurrency_limit: Optional[int] = Field(
-        10,
+        default=10,
         description='Concurrency limit for processing documents (max: 5)',
         example=10,
         title='Concurrency Limit',
     )
     graceful_shutdown_s: Optional[int] = Field(
-        60,
+        default=60,
         description='Graceful shutdown time in seconds',
         example=60,
         title='Graceful Shutdown S',
@@ -366,14 +377,14 @@ class BulkRoleAssignmentReport(BaseModel):
     class Config:
         extra = Extra.allow
 
-    assignments_created: Optional[int] = Field(0, title='Assignments Created')
+    assignments_created: Optional[int] = Field(default=0, title='Assignments Created')
 
 
 class BulkRoleUnAssignmentReport(BaseModel):
     class Config:
         extra = Extra.allow
 
-    assignments_removed: Optional[int] = Field(0, title='Assignments Removed')
+    assignments_removed: Optional[int] = Field(default=0, title='Assignments Removed')
 
 
 class ConditionSet(BaseModel):
@@ -412,12 +423,12 @@ class ConditionSetRuleCreate(BaseModel):
         title='Resource Set',
     )
     is_role: Optional[bool] = Field(
-        False,
+        default=False,
         description="if True, will set the condition set rule to the role's autogen user-set.",
         title='Is Role',
     )
     is_resource: Optional[bool] = Field(
-        False,
+        default=False,
         description="if True, will set the condition set rule to the resource's autogen resource-set.",
         title='Is Resource',
     )
@@ -495,12 +506,12 @@ class ConditionSetRuleRemove(BaseModel):
         title='Resource Set',
     )
     is_role: Optional[bool] = Field(
-        False,
+        default=False,
         description="if True, will set the condition set rule to the role's autogen user-set.",
         title='Is Role',
     )
     is_resource: Optional[bool] = Field(
-        False,
+        default=False,
         description="if True, will set the condition set rule to the resource's autogen resource-set.",
         title='Is Resource',
     )
@@ -516,22 +527,22 @@ class ConditionSetUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None,
+        default=None,
         description="A descriptive name for the set, i.e: 'US based employees' or 'Users behind VPN'",
         title='Name',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the set',
         title='Description',
     )
     conditions: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='a boolean expression that consists of multiple conditions, with and/or logic.',
         title='Conditions',
     )
     parent_id: Optional[Union[str, UUID]] = Field(
-        None, description='Parent Condition Set', title='Parent Id'
+        default=None, description='Parent Condition Set', title='Parent Id'
     )
 
 
@@ -660,6 +671,7 @@ class EmailTemplateUpdate(BaseModel):
 class Engine(str, Enum):
     OPA = 'OPA'
     AVP = 'AVP'
+    GENERIC = 'GENERIC'
 
 
 class EnvironmentCopyConflictStrategy(str, Enum):
@@ -672,10 +684,10 @@ class EnvironmentCopyScopeFilters(BaseModel):
         extra = Extra.allow
 
     include: Optional[List[str]] = Field(
-        [], description='Objects to include (use * as wildcard)', title='Include'
+        default=[], description='Objects to include (use * as wildcard)', title='Include'
     )
     exclude: Optional[List[str]] = Field(
-        [], description='Object to exclude (use * as wildcard)', title='Exclude'
+        default=[], description='Object to exclude (use * as wildcard)', title='Exclude'
     )
 
 
@@ -685,7 +697,7 @@ class EnvironmentObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -719,10 +731,10 @@ class ErrorDetails(BaseModel):
 
     id: str = Field(..., title='Id')
     title: str = Field(..., title='Title')
-    support_link: Optional[AnyUrl] = Field(None, title='Support Link')
+    support_link: Optional[AnyUrl] = Field(default=None, title='Support Link')
     error_code: ErrorCode
-    message: Optional[str] = Field('', title='Message')
-    additional_info: Optional[Any] = Field(None, title='Additional Info')
+    message: Optional[str] = Field(default='', title='Message')
+    additional_info: Optional[Any] = Field(default=None, title='Additional Info')
 
 
 class FailedInvite(BaseModel):
@@ -731,6 +743,27 @@ class FailedInvite(BaseModel):
 
     email: str = Field(..., title='Email')
     reason: str = Field(..., title='Reason')
+
+
+class GenericEngineDecisionLog(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    engine: Optional[Literal['GENERIC']] = Field(default='GENERIC', title='Engine')
+    timestamp: datetime = Field(..., title='Timestamp')
+    decision: bool = Field(..., title='Decision')
+    decision_id: Optional[UUID] = Field(default=None, title='Decision Id')
+    process_time_ms: Optional[int] = Field(default=0, title='Process Time Ms')
+    query: Optional[str] = Field(default=None, title='Query')
+    user_key: Optional[str] = Field(default=None, title='User Key')
+    user_email: Optional[str] = Field(default=None, title='User Email')
+    user_name: Optional[str] = Field(default=None, title='User Name')
+    action: Optional[str] = Field(default=None, title='Action')
+    resource_type: Optional[str] = Field(default=None, title='Resource Type')
+    tenant: Optional[str] = Field(default=None, title='Tenant')
+    input: Optional[Any] = Field(default=None, title='Input')
+    result: Optional[Any] = Field(default=None, title='Result')
+    context: Optional[Any] = Field(default=None, title='Context')
 
 
 class GroupAddRole(BaseModel):
@@ -786,7 +819,7 @@ class GroupCreate(BaseModel):
         extra = Extra.allow
 
     group_resource_type_key: Optional[str] = Field(
-        'group',
+        default='group',
         description='The key of the resource type that the group belongs to.',
         title='Group Resource Type Key',
     )
@@ -807,17 +840,17 @@ class GroupRead(BaseModel):
         extra = Extra.allow
 
     assigned_roles: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='List of roles that are assigned to this group',
         title='Assigned Roles',
     )
     users: Optional[List[UUID]] = Field(
-        None,
+        default=None,
         description='List of user ids that are assigned to this group',
         title='Users',
     )
     group_resource_type_key: Optional[str] = Field(
-        'group',
+        default='group',
         description='The key of the resource type that the group belongs to.',
         title='Group Resource Type Key',
     )
@@ -838,7 +871,7 @@ class GroupReadSchema(BaseModel):
         extra = Extra.allow
 
     group_resource_type_key: Optional[str] = Field(
-        'group',
+        default='group',
         description='The key of the resource type that the group belongs to.',
         title='Group Resource Type Key',
     )
@@ -912,10 +945,10 @@ class JSONPatchAction(BaseModel):
     op: str = Field(..., description='patch action to perform', title='Op')
     path: str = Field(..., description='target location in modified json', title='Path')
     value: Optional[Any] = Field(
-        None, description='json document, the operand of the action', title='Value'
+        default=None, description='json document, the operand of the action', title='Value'
     )
     from_: Optional[str] = Field(
-        None, alias='from', description='source location in json', title='From'
+        default=None, alias='from', description='source location in json', title='From'
     )
 
 
@@ -936,7 +969,7 @@ class LimitedPaginatedResultAPIHistoryEventRead(BaseModel):
         ..., description='List of Api History Events', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
     pagination_count: conint(ge=0) = Field(..., title='Pagination Count')
 
 
@@ -959,7 +992,7 @@ class MailgunEmailConfigurationCreate(BaseModel):
         ..., description='The domain of the mail provider', title='Domain'
     )
     email_provider_type: Optional[Literal['mailgun']] = Field(
-        'mailgun',
+        default='mailgun',
         description='The type of the email provider',
         title='Email Provider Type',
     )
@@ -984,7 +1017,7 @@ class MailgunEmailConfigurationRead(BaseModel):
         ..., description='The domain of the mail provider', title='Domain'
     )
     email_provider_type: Optional[Literal['mailgun']] = Field(
-        'mailgun',
+        default='mailgun',
         description='The type of the email provider',
         title='Email Provider Type',
     )
@@ -1041,13 +1074,13 @@ class MonthlyUsage(BaseModel):
     class Config:
         extra = Extra.allow
 
-    mau: Optional[conint(ge=0)] = Field(0, title='Mau')
-    tenants: Optional[conint(ge=0)] = Field(0, title='Tenants')
+    mau: Optional[conint(ge=0)] = Field(default=0, title='Mau')
+    tenants: Optional[conint(ge=0)] = Field(default=0, title='Tenants')
     monthly_tenants: Optional[List[UUID]] = Field(
-        [], title='Monthly Tenants', unique_items=True
+        default=[], title='Monthly Tenants', unique_items=True
     )
-    month: Optional[conint(ge=0)] = Field(0, title='Month')
-    year: Optional[conint(ge=0)] = Field(0, title='Year')
+    month: Optional[conint(ge=0)] = Field(default=0, title='Month')
+    year: Optional[conint(ge=0)] = Field(default=0, title='Year')
 
 
 class OPALCommon(BaseModel):
@@ -1055,7 +1088,7 @@ class OPALCommon(BaseModel):
         extra = Extra.allow
 
     FETCHING_CALLBACK_TIMEOUT: Optional[int] = Field(
-        60, title='Fetching Callback Timeout'
+        default=60, title='Fetching Callback Timeout'
     )
     AUTH_PUBLIC_KEY: str = Field(..., title='Auth Public Key')
 
@@ -1065,15 +1098,15 @@ class OPALHttpFetcherConfig(BaseModel):
         extra = Extra.allow
 
     fetcher: Optional[str] = Field(
-        None,
+        default=None,
         description='indicates to OPAL client that it should use a custom FetcherProvider to fetch the data',
         title='Fetcher',
     )
-    headers: Optional[Dict[str, str]] = Field(None, title='Headers')
-    is_json: Optional[bool] = Field(True, title='Is Json')
-    process_data: Optional[bool] = Field(True, title='Process Data')
+    headers: Optional[Dict[str, str]] = Field(default=None, title='Headers')
+    is_json: Optional[bool] = Field(default=True, title='Is Json')
+    process_data: Optional[bool] = Field(default=True, title='Process Data')
     method: Optional[HttpMethods] = 'get'
-    data: Optional[Any] = Field(None, title='Data')
+    data: Optional[Any] = Field(default=None, title='Data')
 
 
 class OPALUpdateCallback(BaseModel):
@@ -1098,25 +1131,25 @@ class OPAMetrics(BaseModel):
         extra = Extra.allow
 
     timer_rego_input_parse_ns: Optional[int] = Field(
-        None, title='Timer Rego Input Parse Ns'
+        default=None, title='Timer Rego Input Parse Ns'
     )
     timer_rego_query_parse_ns: Optional[int] = Field(
-        None, title='Timer Rego Query Parse Ns'
+        default=None, title='Timer Rego Query Parse Ns'
     )
     timer_rego_query_compile_ns: Optional[int] = Field(
-        None, title='Timer Rego Query Compile Ns'
+        default=None, title='Timer Rego Query Compile Ns'
     )
     timer_rego_query_eval_ns: Optional[int] = Field(
-        None, title='Timer Rego Query Eval Ns'
+        default=None, title='Timer Rego Query Eval Ns'
     )
     timer_rego_module_parse_ns: Optional[int] = Field(
-        None, title='Timer Rego Module Parse Ns'
+        default=None, title='Timer Rego Module Parse Ns'
     )
     timer_rego_module_compile_ns: Optional[int] = Field(
-        None, title='Timer Rego Module Compile Ns'
+        default=None, title='Timer Rego Module Compile Ns'
     )
     timer_server_handler_ns: Optional[int] = Field(
-        None, title='Timer Server Handler Ns'
+        default=None, title='Timer Server Handler Ns'
     )
 
 
@@ -1146,7 +1179,7 @@ class OperationApprovalCreateDetails(BaseModel):
         title='Resource',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='resource instance id or key that the user is requesting operation approval for',
         title='Resource Instance',
     )
@@ -1172,7 +1205,7 @@ class OperationApprovalDetails(BaseModel):
         title='Resource Instance',
     )
     element_config_id: Optional[str] = Field(
-        None,
+        default=None,
         description='element config id or key that the user is requesting operation approval from',
         title='Element Config Id',
     )
@@ -1183,7 +1216,7 @@ class OperationApprovalReview(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -1199,7 +1232,7 @@ class OperationApprovalUserCreate(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting operation approval',
         title='Reason',
     )
@@ -1210,12 +1243,12 @@ class OrgMemberUpdate(BaseModel):
         extra = Extra.allow
 
     settings: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='Custom permit.io dashboard settings, such as preferred theme, etc.',
         title='Settings',
     )
     onboarding_step: Optional[OnboardingStep] = Field(
-        None, description='updates the onboarding step (optional)'
+        default=None, description='updates the onboarding step (optional)'
     )
 
 
@@ -1234,7 +1267,7 @@ class OrganizationCreate(BaseModel):
         title='Name',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
 
 
@@ -1244,7 +1277,7 @@ class OrganizationObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -1263,12 +1296,12 @@ class OrganizationUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[constr(regex=r'^[A-Za-z0-9\.\-\_\ ]+$')] = Field(
-        None,
+        default=None,
         description="The name of the organization, usually it's your company's name.",
         title='Name',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
 
 
@@ -1277,7 +1310,7 @@ class PDPConfigRead(BaseModel):
         extra = Extra.allow
 
     id: UUID = Field(..., title='Id')
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
     organization_id: UUID = Field(
         ...,
         description='Unique id of the organization that the pdp_config belongs to.',
@@ -1295,11 +1328,11 @@ class PDPConfigRead(BaseModel):
     )
     client_secret: str = Field(..., title='Client Secret')
     opal_server_access_token: Optional[str] = Field(
-        None, title='Opal Server Access Token'
+        default=None, title='Opal Server Access Token'
     )
-    num_shards: Optional[conint(gt=1)] = Field(None, title='Num Shards')
+    num_shards: Optional[conint(gt=1)] = Field(default=None, title='Num Shards')
     debug_audit_logs: Optional[bool] = Field(
-        True,
+        default=True,
         description='Whether debug audit logs are enabled or not',
         title='Debug Audit Logs',
     )
@@ -1308,7 +1341,7 @@ class PDPConfigRead(BaseModel):
             regex=r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
         )
     ] = Field(
-        None,
+        default=None,
         description='The minimum image version of PDP that can connect to this config',
         title='Min Pdp Version',
     )
@@ -1321,7 +1354,7 @@ class PDPContext(BaseModel):
     customer_id: UUID = Field(..., title='Customer Id')
     client_id: str = Field(..., title='Client Id')
     backend_tier: AnyUrl = Field(..., title='Backend Tier')
-    component: Optional[str] = Field('sidecar', title='Component')
+    component: Optional[str] = Field(default='sidecar', title='Component')
     org_id: UUID = Field(..., title='Org Id')
     project_id: UUID = Field(..., title='Project Id')
     env_id: UUID = Field(..., title='Env Id')
@@ -1342,7 +1375,7 @@ class PaginatedResultAPIHistoryEventRead(BaseModel):
         ..., description='List of Api History Events', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultGroupReadSchema(BaseModel):
@@ -1353,7 +1386,7 @@ class PaginatedResultGroupReadSchema(BaseModel):
         ..., description='List of Group Read Schemas', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PdpConfigObj(BaseModel):
@@ -1379,7 +1412,7 @@ class PdpValues(BaseModel):
     CONTROL_PLANE_RELAY_JWT_TIER: str = Field(..., title='Control Plane Relay Jwt Tier')
     CONTROL_PLANE_RELAY_API: str = Field(..., title='Control Plane Relay Api')
     CONTROL_PLANE_PDP_DELTAS_API: str = Field(..., title='Control Plane Pdp Deltas Api')
-    FACTDB_ENABLED: Optional[bool] = Field(None, title='Factdb Enabled')
+    FACTDB_ENABLED: Optional[bool] = Field(default=None, title='Factdb Enabled')
     FACTDB_BACKUP_SERVER_URL: str = Field(..., title='Factdb Backup Server Url')
 
 
@@ -1388,16 +1421,16 @@ class Permission(BaseModel):
         extra = Extra.allow
 
     organization_id: UUID = Field(..., title='Organization Id')
-    project_id: Optional[UUID] = Field(None, title='Project Id')
-    environment_id: Optional[UUID] = Field(None, title='Environment Id')
+    project_id: Optional[UUID] = Field(default=None, title='Project Id')
+    environment_id: Optional[UUID] = Field(default=None, title='Environment Id')
     object_type: MemberAccessObj
     access_level: MemberAccessLevel
-    organization_key: Optional[str] = Field(None, title='Organization Key')
-    project_key: Optional[str] = Field(None, title='Project Key')
-    environment_key: Optional[str] = Field(None, title='Environment Key')
-    organization_name: Optional[str] = Field(None, title='Organization Name')
-    project_name: Optional[str] = Field(None, title='Project Name')
-    environment_name: Optional[str] = Field(None, title='Environment Name')
+    organization_key: Optional[str] = Field(default=None, title='Organization Key')
+    project_key: Optional[str] = Field(default=None, title='Project Key')
+    environment_key: Optional[str] = Field(default=None, title='Environment Key')
+    organization_name: Optional[str] = Field(default=None, title='Organization Name')
+    project_name: Optional[str] = Field(default=None, title='Project Name')
+    environment_name: Optional[str] = Field(default=None, title='Environment Name')
 
 
 class PermissionLevelRoleRead(BaseModel):
@@ -1429,18 +1462,18 @@ class PolicyGuardRuleCreate(BaseModel):
         ..., description='The key of the resource.', title='Resource Key'
     )
     role_key: Optional[str] = Field(
-        None, description='The key of the role.', title='Role Key'
+        default=None, description='The key of the role.', title='Role Key'
     )
     action_key: str = Field(
         ..., description='The key of the action.', title='Action Key'
     )
     resource_set: Optional[ConditionSet] = Field(
-        None,
+        default=None,
         description='The resource set that the permission will be applied to.',
         title='Resource Set',
     )
     user_set: Optional[ConditionSet] = Field(
-        None,
+        default=None,
         description='The user set that the permission will be applied to.',
         title='User Set',
     )
@@ -1454,18 +1487,18 @@ class PolicyGuardRuleItem(BaseModel):
         ..., description='The key of the resource.', title='Resource Key'
     )
     role_key: Optional[str] = Field(
-        None, description='The key of the role.', title='Role Key'
+        default=None, description='The key of the role.', title='Role Key'
     )
     action_key: str = Field(
         ..., description='The key of the action.', title='Action Key'
     )
     resource_set: Optional[ConditionSet] = Field(
-        None,
+        default=None,
         description='The resource set that the permission will be applied to.',
         title='Resource Set',
     )
     user_set: Optional[ConditionSet] = Field(
-        None,
+        default=None,
         description='The user set that the permission will be applied to.',
         title='User Set',
     )
@@ -1484,18 +1517,18 @@ class PolicyGuardRuleRead(BaseModel):
         ..., description='The key of the resource.', title='Resource Key'
     )
     role_key: Optional[str] = Field(
-        None, description='The key of the role.', title='Role Key'
+        default=None, description='The key of the role.', title='Role Key'
     )
     action_key: str = Field(
         ..., description='The key of the action.', title='Action Key'
     )
     resource_set: Optional[ConditionSet] = Field(
-        None,
+        default=None,
         description='The resource set that the permission will be applied to.',
         title='Resource Set',
     )
     user_set: Optional[ConditionSet] = Field(
-        None,
+        default=None,
         description='The user set that the permission will be applied to.',
         title='User Set',
     )
@@ -1557,7 +1590,7 @@ class PolicyGuardScopeRead(BaseModel):
         title='Organization Id',
     )
     policy_guard_scope_details: Optional[List[PolicyGuardScopeDetail]] = Field(
-        [],
+        default=[],
         description='list of projects that this policy guard is assigned to.',
         title='Policy Guard Scope Details',
     )
@@ -1575,7 +1608,7 @@ class ProjectObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -1590,7 +1623,7 @@ class ProjectRead(BaseModel):
         title='Key',
     )
     urn_namespace: Optional[constr(regex=r'[a-z0-9-]{2,}')] = Field(
-        None,
+        default=None,
         description='Optional namespace for URNs. If empty, URNs will be generated from project key.',
         title='Urn Namespace',
     )
@@ -1612,15 +1645,15 @@ class ProjectRead(BaseModel):
     )
     name: str = Field(..., description='The name of the project', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='a longer description outlining the project objectives',
         title='Description',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
     active_policy_repo_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='the id of the policy repo to use for this project',
         title='Active Policy Repo Id',
     )
@@ -1631,18 +1664,18 @@ class ProjectUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='The name of the project', title='Name'
+        default=None, description='The name of the project', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='a longer description outlining the project objectives',
         title='Description',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
     active_policy_repo_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='the id of the policy repo to use for this project',
         title='Active Policy Repo Id',
     )
@@ -1653,7 +1686,7 @@ class RelationBlockRead(BaseModel):
         extra = Extra.allow
 
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this relation represents in your system',
         title='Description',
     )
@@ -1661,7 +1694,7 @@ class RelationBlockRead(BaseModel):
         ..., description='Unique id of the relation', title='Resource Id'
     )
     relation_name: Optional[str] = Field(
-        None,
+        default=None,
         description='a more descriptive name for the relation',
         title='Relation Name',
     )
@@ -1679,7 +1712,7 @@ class RelationCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the relation', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this relation represents in your system',
         title='Description',
     )
@@ -1693,7 +1726,7 @@ class RelationRead(BaseModel):
         extra = Extra.allow
 
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this relation represents in your system',
         title='Description',
     )
@@ -1782,7 +1815,7 @@ class RelationshipTupleCreate(BaseModel):
         title='Object',
     )
     tenant: Optional[str] = Field(
-        None,
+        default=None,
         description="The tenant the subject and object belong to, if the resource instances don't exist yet, the tenant is required to create them. otherwise it is ignored",
         title='Tenant',
     )
@@ -1887,18 +1920,18 @@ class ResourceActionCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the action', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this action respresents in your system',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this action. This metadata can be used to filter actions using query parameters with attr_ prefix',
         title='Attributes',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_is_built_in: Optional[bool] = Field(None, title='V1Compat Is Built In')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_is_built_in: Optional[bool] = Field(default=None, title='V1Compat Is Built In')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
 
 
 class ResourceActionGroupCreate(BaseModel):
@@ -1912,16 +1945,16 @@ class ResourceActionGroupCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the action group', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this action group represents in your system',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this action group. This metadata can be used to filter action groups using query parameters with attr_ prefix',
         title='Attributes',
     )
-    actions: Optional[List[str]] = Field([], title='Actions')
+    actions: Optional[List[str]] = Field(default=[], title='Actions')
 
 
 class ResourceActionGroupRead(BaseModel):
@@ -1930,16 +1963,16 @@ class ResourceActionGroupRead(BaseModel):
 
     name: str = Field(..., description='The name of the action group', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this action group represents in your system',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this action group. This metadata can be used to filter action groups using query parameters with attr_ prefix',
         title='Attributes',
     )
-    actions: Optional[List[str]] = Field([], title='Actions')
+    actions: Optional[List[str]] = Field(default=[], title='Actions')
     key: constr(regex=r'^[A-Za-z0-9\-_]+$') = Field(
         ...,
         description='A URL-friendly name of the action group (i.e: slug). You will be able to query later using this key instead of the id (UUID) of the action group.',
@@ -1983,19 +2016,19 @@ class ResourceActionGroupUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='The name of the action group', title='Name'
+        default=None, description='The name of the action group', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this action group represents in your system',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this action group. This metadata can be used to filter action groups using query parameters with attr_ prefix',
         title='Attributes',
     )
-    actions: Optional[List[str]] = Field([], title='Actions')
+    actions: Optional[List[str]] = Field(default=[], title='Actions')
 
 
 class ResourceActionRead(BaseModel):
@@ -2004,18 +2037,18 @@ class ResourceActionRead(BaseModel):
 
     name: str = Field(..., description='The name of the action', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this action respresents in your system',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this action. This metadata can be used to filter actions using query parameters with attr_ prefix',
         title='Attributes',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_is_built_in: Optional[bool] = Field(None, title='V1Compat Is Built In')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_is_built_in: Optional[bool] = Field(default=None, title='V1Compat Is Built In')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
     key: str = Field(
         ...,
         description='A URL-friendly name of the action (i.e: slug). You will be able to query later using this key instead of the id (UUID) of the action.',
@@ -2064,21 +2097,21 @@ class ResourceActionUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='The name of the action', title='Name'
+        default=None, description='The name of the action', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this action respresents in your system',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this action. This metadata can be used to filter actions using query parameters with attr_ prefix',
         title='Attributes',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_is_built_in: Optional[bool] = Field(None, title='V1Compat Is Built In')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_is_built_in: Optional[bool] = Field(default=None, title='V1Compat Is Built In')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
 
 
 class ResourceAttributeCreate(BaseModel):
@@ -2095,7 +2128,7 @@ class ResourceAttributeCreate(BaseModel):
         description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this attribute respresents in your system',
         title='Description',
     )
@@ -2110,7 +2143,7 @@ class ResourceAttributeRead(BaseModel):
         description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this attribute respresents in your system',
         title='Description',
     )
@@ -2167,11 +2200,11 @@ class ResourceAttributeUpdate(BaseModel):
         extra = Extra.allow
 
     type: Optional[AttributeType] = Field(
-        None,
+        default=None,
         description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this attribute respresents in your system',
         title='Description',
     )
@@ -2205,7 +2238,7 @@ class ResourceInstanceBlockRead(BaseModel):
         title='Resource',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary resource attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2231,7 +2264,7 @@ class ResourceInstanceCreate(BaseModel):
         title='Resource',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary resource attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2321,7 +2354,7 @@ class ResourceInstanceDetailedRead(BaseModel):
         ..., description='Unique id of the tenant', title='Tenant Id'
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary resource attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2388,12 +2421,12 @@ class ResourceInstanceRead(BaseModel):
         title='Tenant Id',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary resource attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
     relationships: Optional[List[RelationshipTupleBlockRead]] = Field(
-        None,
+        default=None,
         description='The relationships of the resource instance.',
         title='Relationships',
     )
@@ -2404,7 +2437,7 @@ class ResourceInstanceUpdate(BaseModel):
         extra = Extra.allow
 
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary resource attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2416,8 +2449,8 @@ class ResourceTypeObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    name: Optional[str] = Field(None, title='Name')
-    attributes: Optional[List[ResourceAttributes]] = Field(None, title='Attributes')
+    name: Optional[str] = Field(default=None, title='Name')
+    attributes: Optional[List[ResourceAttributes]] = Field(default=None, title='Attributes')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -2432,12 +2465,12 @@ class RoleAssignmentCreate(BaseModel):
         title='Role',
     )
     tenant: Optional[str] = Field(
-        None,
+        default=None,
         description='the tenant the role is associated with (accepts either the tenant id or the tenant key)',
         title='Tenant',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='the resource instance the role is associated with (accepts either the resource instance id or key using this format resource_type:resource_instance)The resource instance will be implicitly created if the tenant parameter is specified and the resource instance does not exist.',
         title='Resource Instance',
     )
@@ -2456,15 +2489,15 @@ class RoleAssignmentRead(BaseModel):
     user: str = Field(..., description='the user the role is assigned to', title='User')
     role: str = Field(..., description='the role that is assigned', title='Role')
     tenant: Optional[str] = Field(
-        None, description='the tenant the role is associated with', title='Tenant'
+        default=None, description='the tenant the role is associated with', title='Tenant'
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='the resource instance the role is associated with',
         title='Resource Instance',
     )
     resource_instance_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Unique id of the resource instance',
         title='Resource Instance Id',
     )
@@ -2510,7 +2543,7 @@ class RoleAssignmentRemove(BaseModel):
         title='Tenant',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='the resource instance the role is associated with (accepts either the resource instance id or key using this format resource_type:resource_instance)',
         title='Resource Instance',
     )
@@ -2528,7 +2561,7 @@ class RoleAssignmentResourceInstance(BaseModel):
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
     resource: str = Field(..., title='Resource')
-    attributes: Optional[Dict[str, Any]] = Field({}, title='Attributes')
+    attributes: Optional[Dict[str, Any]] = Field(default={}, title='Attributes')
 
 
 class RoleAssignmentRole(BaseModel):
@@ -2538,7 +2571,7 @@ class RoleAssignmentRole(BaseModel):
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
     name: str = Field(..., title='Name')
-    permissions: Optional[List[str]] = Field(None, title='Permissions')
+    permissions: Optional[List[str]] = Field(default=None, title='Permissions')
 
 
 class RoleAssignmentTenant(BaseModel):
@@ -2548,7 +2581,7 @@ class RoleAssignmentTenant(BaseModel):
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
     name: str = Field(..., title='Name')
-    attributes: Optional[Dict[str, Any]] = Field({}, title='Attributes')
+    attributes: Optional[Dict[str, Any]] = Field(default={}, title='Attributes')
 
 
 class RoleAssignmentUser(BaseModel):
@@ -2557,10 +2590,10 @@ class RoleAssignmentUser(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    email: Optional[str] = Field(None, title='Email')
-    first_name: Optional[str] = Field(None, title='First Name')
-    last_name: Optional[str] = Field(None, title='Last Name')
-    attributes: Optional[Dict[str, Any]] = Field({}, title='Attributes')
+    email: Optional[str] = Field(default=None, title='Email')
+    first_name: Optional[str] = Field(default=None, title='First Name')
+    last_name: Optional[str] = Field(default=None, title='Last Name')
+    attributes: Optional[Dict[str, Any]] = Field(default={}, title='Attributes')
 
 
 class RoleCreateBulkOperationResult(BaseModel):
@@ -2589,7 +2622,7 @@ class SMTPEmailConfigurationCreate(BaseModel):
         ..., description='The password of the SMTP provider', title='Password'
     )
     email_provider_type: Optional[Literal['smtp']] = Field(
-        'smtp',
+        default='smtp',
         description='The type of the email provider',
         title='Email Provider Type',
     )
@@ -2613,7 +2646,7 @@ class SMTPEmailConfigurationRead(BaseModel):
         ..., description='The password of the SMTP provider', title='Password'
     )
     email_provider_type: Optional[Literal['smtp']] = Field(
-        'smtp',
+        default='smtp',
         description='The type of the email provider',
         title='Email Provider Type',
     )
@@ -2641,10 +2674,10 @@ class SSHAuthData(BaseModel):
     class Config:
         extra = Extra.allow
 
-    auth_type: Optional[Literal['ssh']] = Field('ssh', title='Auth Type')
+    auth_type: Optional[Literal['ssh']] = Field(default='ssh', title='Auth Type')
     username: str = Field(..., description='SSH username', title='Username')
     public_key: Optional[str] = Field(
-        None, description='SSH public key', title='Public Key'
+        default=None, description='SSH public key', title='Public Key'
     )
     private_key: str = Field(..., description='SSH private key', title='Private Key')
 
@@ -2653,10 +2686,10 @@ class SSHAuthDataRead(BaseModel):
     class Config:
         extra = Extra.allow
 
-    auth_type: Optional[Literal['ssh']] = Field('ssh', title='Auth Type')
+    auth_type: Optional[Literal['ssh']] = Field(default='ssh', title='Auth Type')
     username: str = Field(..., description='SSH username', title='Username')
     public_key: Optional[str] = Field(
-        None, description='SSH public key', title='Public Key'
+        default=None, description='SSH public key', title='Public Key'
     )
     private_key: str = Field(..., description='SSH private key', title='Private Key')
 
@@ -2678,7 +2711,7 @@ class StrippedRelationBlockRead(BaseModel):
     )
     name: str = Field(..., description='The name of the relation', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this relation represents in your system',
         title='Description',
     )
@@ -2704,12 +2737,12 @@ class TenantBlockRead(BaseModel):
         ..., description='A descriptive name for the tenant', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the tenant',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitraty tenant attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2728,12 +2761,12 @@ class TenantCreate(BaseModel):
         ..., description='A descriptive name for the tenant', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the tenant',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitraty tenant attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2777,8 +2810,8 @@ class TenantObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    name: Optional[str] = Field(None, title='Name')
-    attributes: Optional[Dict[str, Any]] = Field(None, title='Attributes')
+    name: Optional[str] = Field(default=None, title='Name')
+    attributes: Optional[Dict[str, Any]] = Field(default=None, title='Attributes')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -2827,12 +2860,12 @@ class TenantRead(BaseModel):
         ..., description='A descriptive name for the tenant', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the tenant',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitraty tenant attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2843,15 +2876,15 @@ class TenantUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='A descriptive name for the tenant', title='Name'
+        default=None, description='A descriptive name for the tenant', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the tenant',
         title='Description',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitraty tenant attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -2862,17 +2895,17 @@ class UsageLimits(BaseModel):
         extra = Extra.allow
 
     mau: Optional[int] = Field(
-        5000,
+        default=5000,
         description='Monthly active users limit. Default for trial is 5000.',
         title='Mau',
     )
     tenants: Optional[int] = Field(
-        50,
+        default=50,
         description='Number of tenants limit. Default for trial is 50.',
         title='Tenants',
     )
     billing_tier: Optional[BillingTierType] = Field(
-        'trial', description='Billing tier. Default is trial.'
+        default='trial', description='Billing tier. Default is trial.'
     )
 
 
@@ -2912,12 +2945,12 @@ class UserObj(BaseModel):
 
     id: UUID = Field(..., title='Id')
     key: str = Field(..., title='Key')
-    email: Optional[str] = Field(None, title='Email')
-    first_name: Optional[str] = Field(None, title='First Name')
-    last_name: Optional[str] = Field(None, title='Last Name')
-    attributes: Optional[Dict[str, Any]] = Field(None, title='Attributes')
-    roles: Optional[List[RelationshipTupleObj]] = Field(None, title='Roles')
-    assigned_roles: Optional[List[str]] = Field(None, title='Assigned Roles')
+    email: Optional[str] = Field(default=None, title='Email')
+    first_name: Optional[str] = Field(default=None, title='First Name')
+    last_name: Optional[str] = Field(default=None, title='Last Name')
+    attributes: Optional[Dict[str, Any]] = Field(default=None, title='Attributes')
+    roles: Optional[List[RelationshipTupleObj]] = Field(default=None, title='Roles')
+    assigned_roles: Optional[List[str]] = Field(default=None, title='Assigned Roles')
     created_at: datetime = Field(..., title='Created At')
     updated_at: datetime = Field(..., title='Updated At')
 
@@ -2968,12 +3001,12 @@ class UserRoleCreate(BaseModel):
         title='Role',
     )
     tenant: Optional[str] = Field(
-        None,
+        default=None,
         description='the tenant the role is associated with (accepts either the tenant id or the tenant key)',
         title='Tenant',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='the resource instance the role is associated with (accepts either the resource instance id or key using this format resource_type:resource_instance)The resource instance will be implicitly created if the tenant parameter is specified and the resource instance does not exist.',
         title='Resource Instance',
     )
@@ -2994,7 +3027,7 @@ class UserRoleRemove(BaseModel):
         title='Tenant',
     )
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description='the resource instance the role is associated with (accepts either the resource instance id or key using this format resource_type:resource_instance)',
         title='Resource Instance',
     )
@@ -3010,18 +3043,18 @@ class UserUpdate(BaseModel):
         extra = Extra.allow
 
     email: Optional[EmailStr] = Field(
-        None,
+        default=None,
         description='The email of the user. If synced, will be unique inside the environment.',
         title='Email',
     )
     first_name: Optional[str] = Field(
-        None, description='First name of the user.', title='First Name'
+        default=None, description='First name of the user.', title='First Name'
     )
     last_name: Optional[str] = Field(
-        None, description='Last name of the user.', title='Last Name'
+        default=None, description='Last name of the user.', title='Last Name'
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary user attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -3040,10 +3073,10 @@ class WebhookCreateWithElements(BaseModel):
     class Config:
         extra = Extra.allow
 
-    type: Optional[Literal['elements']] = Field('elements', title='Type')
+    type: Optional[Literal['elements']] = Field(default='elements', title='Type')
     url: str = Field(..., description='The url to POST the webhook to', title='Url')
     bearer_token: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional bearer token to use to authenticate the request',
         title='Bearer Token',
     )
@@ -3059,10 +3092,10 @@ class WebhookUpdate(BaseModel):
         extra = Extra.allow
 
     url: Optional[str] = Field(
-        None, description='The url to POST the webhook to', title='Url'
+        default=None, description='The url to POST the webhook to', title='Url'
     )
     bearer_token: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional bearer token to use to authenticate the request',
         title='Bearer Token',
     )
@@ -3081,7 +3114,7 @@ class DataGeneratorLibSchemasSchemaOpalDataDerivationSettings(BaseModel):
         extra = Extra.allow
 
     superseded_by_direct_role: Optional[bool] = Field(
-        False,
+        default=False,
         description='If True, the derived role is superseded by a direct role.meaning role derivation is not considered if the user has a direct role.',
         title='Superseded By Direct Role',
     )
@@ -3112,12 +3145,12 @@ class DataGeneratorLibSchemasSchemaOpalDataResourceInstanceAttributeData(BaseMod
         extra = Extra.allow
 
     tenant: Optional[str] = Field(
-        None,
+        default=None,
         description='The tenant key that this resource instance belongs to.',
         title='Tenant',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Key-Value mapping of the attributes of the resource instance.\nThe key is the attribute key and the value is the attribute value.',
         title='Attributes',
     )
@@ -3133,7 +3166,7 @@ class DataGeneratorLibSchemasSchemaOpalDataRoleData(BaseModel):
         title='Grants',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Key-Value mapping of the attributes of the role.\nThe key is the attribute key and the value is the attribute value.',
         title='Attributes',
     )
@@ -3144,7 +3177,7 @@ class DataGeneratorLibSchemasSchemaOpalDataTenantData(BaseModel):
         extra = Extra.allow
 
     roleAssignments: Optional[Dict[str, List[str]]] = Field(
-        None, title='Roleassignments'
+        default=None, title='Roleassignments'
     )
     attributes: Dict[str, Any] = Field(
         ...,
@@ -3174,7 +3207,7 @@ class PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings(BaseModel):
         extra = Extra.allow
 
     no_direct_roles_on_object: Optional[bool] = Field(
-        False,
+        default=False,
         description='If true, the derived role or the specific rule will not apply if the resource has any direct role',
         title='No Direct Roles On Object',
     )
@@ -3193,7 +3226,7 @@ class PermitBackendSchemasSchemaOpalDataDerivationSettings(BaseModel):
         extra = Extra.allow
 
     superseded_by_direct_role: Optional[bool] = Field(
-        False,
+        default=False,
         description='If True, the derived role is superseded by a direct role.meaning role derivation is not considered if the user has a direct role.',
         title='Superseded By Direct Role',
     )
@@ -3224,12 +3257,12 @@ class PermitBackendSchemasSchemaOpalDataResourceInstanceAttributeData(BaseModel)
         extra = Extra.allow
 
     tenant: Optional[str] = Field(
-        None,
+        default=None,
         description='The tenant key that this resource instance belongs to.',
         title='Tenant',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Key-Value mapping of the attributes of the resource instance.\nThe key is the attribute key and the value is the attribute value.',
         title='Attributes',
     )
@@ -3245,7 +3278,7 @@ class PermitBackendSchemasSchemaOpalDataRoleData(BaseModel):
         title='Grants',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Key-Value mapping of the attributes of the role.\nThe key is the attribute key and the value is the attribute value.',
         title='Attributes',
     )
@@ -3256,7 +3289,7 @@ class PermitBackendSchemasSchemaOpalDataTenantData(BaseModel):
         extra = Extra.allow
 
     roleAssignments: Optional[Dict[str, List[str]]] = Field(
-        None, title='Roleassignments'
+        default=None, title='Roleassignments'
     )
     attributes: Dict[str, Any] = Field(
         ...,
@@ -3286,12 +3319,12 @@ class APIKeyCreate(BaseModel):
         extra = Extra.allow
 
     organization_id: UUID = Field(..., title='Organization Id')
-    project_id: Optional[UUID] = Field(None, title='Project Id')
-    environment_id: Optional[UUID] = Field(None, title='Environment Id')
+    project_id: Optional[UUID] = Field(default=None, title='Project Id')
+    environment_id: Optional[UUID] = Field(default=None, title='Environment Id')
     object_type: Optional[MemberAccessObj] = 'env'
     access_level: Optional[MemberAccessLevel] = 'admin'
     owner_type: Optional[APIKeyOwnerType] = 'member'
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
 
 
 class AccessRequestApproved(BaseModel):
@@ -3299,7 +3332,7 @@ class AccessRequestApproved(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -3309,7 +3342,7 @@ class AccessRequestApproved(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting access',
         title='Reason',
     )
@@ -3340,19 +3373,19 @@ class AccessRequestApproved(BaseModel):
         title='Updated At',
     )
     requesting_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='optional id of the user that is requesting the access',
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None, description='when the access request was reviewed', title='Reviewed At'
+        default=None, description='when the access request was reviewed', title='Reviewed At'
     )
     type: Optional[RequestType] = 'access_request'
     status: RequestStatus = Field(
         ..., description='current status of the access request'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the access request',
         title='Reviewer User Id',
     )
@@ -3363,7 +3396,7 @@ class AccessRequestCanceled(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -3373,7 +3406,7 @@ class AccessRequestCanceled(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting access',
         title='Reason',
     )
@@ -3404,19 +3437,19 @@ class AccessRequestCanceled(BaseModel):
         title='Updated At',
     )
     requesting_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='optional id of the user that is requesting the access',
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None, description='when the access request was reviewed', title='Reviewed At'
+        default=None, description='when the access request was reviewed', title='Reviewed At'
     )
     type: Optional[RequestType] = 'access_request'
     status: RequestStatus = Field(
         ..., description='current status of the access request'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the access request',
         title='Reviewer User Id',
     )
@@ -3427,7 +3460,7 @@ class AccessRequestDenied(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -3437,7 +3470,7 @@ class AccessRequestDenied(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting access',
         title='Reason',
     )
@@ -3468,19 +3501,19 @@ class AccessRequestDenied(BaseModel):
         title='Updated At',
     )
     requesting_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='optional id of the user that is requesting the access',
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None, description='when the access request was reviewed', title='Reviewed At'
+        default=None, description='when the access request was reviewed', title='Reviewed At'
     )
     type: Optional[RequestType] = 'access_request'
     status: RequestStatus = Field(
         ..., description='current status of the access request'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the access request',
         title='Reviewer User Id',
     )
@@ -3496,7 +3529,7 @@ class AccessRequestRead(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting access',
         title='Reason',
     )
@@ -3527,16 +3560,16 @@ class AccessRequestRead(BaseModel):
         title='Updated At',
     )
     requesting_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='optional id of the user that is requesting the access',
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None, description='when the access request was reviewed', title='Reviewed At'
+        default=None, description='when the access request was reviewed', title='Reviewed At'
     )
     type: Optional[RequestType] = 'access_request'
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -3544,7 +3577,7 @@ class AccessRequestRead(BaseModel):
         ..., description='current status of the access request'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the access request',
         title='Reviewer User Id',
     )
@@ -3554,7 +3587,7 @@ class ActivityDetailsList(BaseModel):
     class Config:
         extra = Extra.allow
 
-    kind: Optional[Literal['list']] = Field('list', title='Kind')
+    kind: Optional[Literal['list']] = Field(default='list', title='Kind')
     type: str = Field(..., title='Type')
     items: List[ActivityDetailsObjectData] = Field(..., title='Items')
 
@@ -3565,20 +3598,20 @@ class ActivityLogEventRead(BaseModel):
 
     id: UUID = Field(..., title='Id')
     timestamp: datetime = Field(..., title='Timestamp')
-    activity_id: Optional[str] = Field(None, title='Activity Id')
-    activity_description: Optional[str] = Field(None, title='Activity Description')
+    activity_id: Optional[str] = Field(default=None, title='Activity Id')
+    activity_description: Optional[str] = Field(default=None, title='Activity Description')
     activity_details: Optional[
         Dict[str, Union[ActivityDetailsObject, ActivityDetailsList]]
-    ] = Field(None, title='Activity Details')
+    ] = Field(default=None, title='Activity Details')
     client_ip: str = Field(..., title='Client Ip')
     actor_type: str = Field(..., title='Actor Type')
     actor_id: UUID = Field(..., title='Actor Id')
-    actor_display_name: Optional[str] = Field(None, title='Actor Display Name')
-    org_id: Optional[UUID] = Field(None, title='Org Id')
-    project_key: Optional[str] = Field(None, title='Project Key')
-    project_id: Optional[UUID] = Field(None, title='Project Id')
-    env_key: Optional[str] = Field(None, title='Env Key')
-    env_id: Optional[UUID] = Field(None, title='Env Id')
+    actor_display_name: Optional[str] = Field(default=None, title='Actor Display Name')
+    org_id: Optional[UUID] = Field(default=None, title='Org Id')
+    project_key: Optional[str] = Field(default=None, title='Project Key')
+    project_id: Optional[UUID] = Field(default=None, title='Project Id')
+    env_key: Optional[str] = Field(default=None, title='Env Key')
+    env_id: Optional[UUID] = Field(default=None, title='Env Id')
 
 
 class AttributeBlockEditable(BaseModel):
@@ -3590,7 +3623,7 @@ class AttributeBlockEditable(BaseModel):
         description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what data this attribute will store',
         title='Description',
     )
@@ -3605,36 +3638,36 @@ class AttributeBlockRead(BaseModel):
         description='The type of the attribute, we currently support: `bool`, `number` (ints, floats), `time` (a timestamp), `string`, and `json`.',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what data this attribute will store',
         title='Description',
     )
     id: UUID = Field(..., description='Unique id of the attribute', title='Id')
-    key: Optional[str] = Field(None, description='action key', title='Key')
+    key: Optional[str] = Field(default=None, description='action key', title='Key')
 
 
 class AuditLogObjectsModel(BaseModel):
     class Config:
         extra = Extra.allow
 
-    id: Optional[UUID] = Field(None, title='Id')
+    id: Optional[UUID] = Field(default=None, title='Id')
     organization_object: Optional[Union[OrganizationObj, Dict[str, Any]]] = Field(
-        None, title='Organization Object'
+        default=None, title='Organization Object'
     )
     project_object: Optional[Union[ProjectObj, Dict[str, Any]]] = Field(
-        None, title='Project Object'
+        default=None, title='Project Object'
     )
     environment_object: Optional[Union[EnvironmentObj, Dict[str, Any]]] = Field(
-        None, title='Environment Object'
+        default=None, title='Environment Object'
     )
     pdp_config_object: Optional[Union[PdpConfigObj, Dict[str, Any]]] = Field(
-        None, title='Pdp Config Object'
+        default=None, title='Pdp Config Object'
     )
     user_object: Optional[UserObj] = None
     action_object: Optional[ActionObj] = None
     resource_type_object: Optional[ResourceTypeObj] = None
     tenant_object: Optional[TenantObj] = None
-    created_at: Optional[datetime] = Field(None, title='Created At')
+    created_at: Optional[datetime] = Field(default=None, title='Created At')
 
 
 class ConditionSetCreate(BaseModel):
@@ -3647,15 +3680,15 @@ class ConditionSetCreate(BaseModel):
         title='Key',
     )
     type: Optional[ConditionSetType] = Field(
-        'userset', description='the type of the set: UserSet or ResourceSet'
+        default='userset', description='the type of the set: UserSet or ResourceSet'
     )
     autogenerated: Optional[bool] = Field(
-        False,
+        default=False,
         description='whether the set was autogenerated by the system.',
         title='Autogenerated',
     )
     resource_id: Optional[Union[str, UUID]] = Field(
-        None,
+        default=None,
         description='For ResourceSets, the id of the base resource.',
         title='Resource Id',
     )
@@ -3665,17 +3698,17 @@ class ConditionSetCreate(BaseModel):
         title='Name',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the set',
         title='Description',
     )
     conditions: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='a boolean expression that consists of multiple conditions, with and/or logic.',
         title='Conditions',
     )
     parent_id: Optional[Union[str, UUID]] = Field(
-        None, description='Parent Condition Set', title='Parent Id'
+        default=None, description='Parent Condition Set', title='Parent Id'
     )
 
 
@@ -3685,28 +3718,28 @@ class DataSourceEntryWithPollingInterval(BaseModel):
 
     url: str = Field(..., description='Url source to query for data', title='Url')
     config: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='Suggested fetcher configuration (e.g. auth or method) to fetch data with',
         title='Config',
     )
     topics: Optional[List[str]] = Field(
-        ['policy_data'], description='topics the data applies to', title='Topics'
+        default=['policy_data'], description='topics the data applies to', title='Topics'
     )
     dst_path: Optional[str] = Field(
-        '', description='OPA data api path to store the document at', title='Dst Path'
+        default='', description='OPA data api path to store the document at', title='Dst Path'
     )
     save_method: Optional[str] = Field(
-        'PUT',
+        default='PUT',
         description='Method used to write into OPA - PUT/PATCH, when using the PATCH method the data field should conform to the JSON patch schema defined in RFC 6902(https://datatracker.ietf.org/doc/html/rfc6902#section-3)',
         title='Save Method',
     )
     data: Optional[Union[List[JSONPatchAction], List, Dict[str, Any]]] = Field(
-        None,
+        default=None,
         description='Data payload to embed within the data update (instead of having the client fetch it from the url).',
         title='Data',
     )
     periodic_update_interval: Optional[float] = Field(
-        None,
+        default=None,
         description='Polling interval to refresh data from data source',
         title='Periodic Update Interval',
     )
@@ -3816,7 +3849,7 @@ class DummyEngineModel(BaseModel):
         extra = Extra.allow
 
     engine: Optional[Engine] = None
-    timestamp: Optional[datetime] = Field(None, title='Timestamp')
+    timestamp: Optional[datetime] = Field(default=None, title='Timestamp')
 
 
 class ElementsConfigCreate(BaseModel):
@@ -3838,7 +3871,7 @@ class ElementsConfigCreate(BaseModel):
         title='Settings',
     )
     email_notifications: Optional[bool] = Field(
-        False,
+        default=False,
         description='Whether to send email notifications to users using your Email Provider you set',
         title='Email Notifications',
     )
@@ -3855,18 +3888,18 @@ class ElementsConfigUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='The name of the elements_config', title='Name'
+        default=None, description='The name of the elements_config', title='Name'
     )
     elements_type: Optional[ElementsType] = Field(
-        None, description='The type of the elements interface, e.g: user management'
+        default=None, description='The type of the elements interface, e.g: user management'
     )
     settings: Optional[Dict[str, Union[int, str, bool]]] = Field(
-        None,
+        default=None,
         description='Obj with the options of the elements interface, e.g: primary color',
         title='Settings',
     )
     email_notifications: Optional[bool] = Field(
-        False,
+        default=False,
         description='Whether to send email notifications to users using your Email Provider you set',
         title='Email Notifications',
     )
@@ -3888,27 +3921,27 @@ class ElementsUserCreate(BaseModel):
         title='Key',
     )
     email: Optional[EmailStr] = Field(
-        None,
+        default=None,
         description='The email of the user. If synced, will be unique inside the environment.',
         title='Email',
     )
     first_name: Optional[str] = Field(
-        None, description='First name of the user.', title='First Name'
+        default=None, description='First name of the user.', title='First Name'
     )
     last_name: Optional[str] = Field(
-        None, description='Last name of the user.', title='Last Name'
+        default=None, description='Last name of the user.', title='Last Name'
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary user attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
     role_assignments: Optional[List[UserRoleCreate]] = Field(
-        None,
+        default=None,
         description='List of roles to assign to the user in the environment.',
         title='Role Assignments',
     )
-    role: Optional[str] = Field(None, title='Role')
+    role: Optional[str] = Field(default=None, title='Role')
 
 
 class ElementsUserInviteCreate(BaseModel):
@@ -3980,19 +4013,19 @@ class ElementsUserInviteRead(BaseModel):
         title='Updated At',
     )
     key: Optional[constr(regex=r'^[A-Za-z0-9|@+\-\._]+$')] = Field(
-        None, description='The key of the user that is being invited', title='Key'
+        default=None, description='The key of the user that is being invited', title='Key'
     )
     status: UserInviteStatus = Field(..., description='The status of the user invite')
     email: EmailStr = Field(
         ..., description='The email of the user that being invited', title='Email'
     )
     first_name: Optional[str] = Field(
-        None,
+        default=None,
         description='The first name of the user that is being invited',
         title='First Name',
     )
     last_name: Optional[str] = Field(
-        None,
+        default=None,
         description='The last name of the user that is being invited',
         title='Last Name',
     )
@@ -4005,7 +4038,7 @@ class ElementsUserInviteRead(BaseModel):
         title='Tenant Id',
     )
     resource_instance_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='The resource instance id of the user that is being invited',
         title='Resource Instance Id',
     )
@@ -4159,7 +4192,7 @@ class HTTPValidationError(BaseModel):
     class Config:
         extra = Extra.allow
 
-    detail: Optional[List[ValidationError]] = Field(None, title='Detail')
+    detail: Optional[List[ValidationError]] = Field(default=None, title='Detail')
 
 
 class HistoricalUsage(BaseModel):
@@ -4176,13 +4209,13 @@ class InviteCreate(BaseModel):
         extra = Extra.allow
 
     member_id: Optional[UUID] = Field(
-        None, description='Unique id of the invite', title='Member Id'
+        default=None, description='Unique id of the invite', title='Member Id'
     )
     email: EmailStr = Field(
         ..., description="The invited member's email address", title='Email'
     )
     role: Optional[MemberAccessLevel] = Field(
-        'admin', description='The role the member will be assigned with'
+        default='admin', description='The role the member will be assigned with'
     )
 
 
@@ -4191,13 +4224,13 @@ class InviteRead(BaseModel):
         extra = Extra.allow
 
     member_id: Optional[UUID] = Field(
-        None, description='Unique id of the invite', title='Member Id'
+        default=None, description='Unique id of the invite', title='Member Id'
     )
     email: EmailStr = Field(
         ..., description="The invited member's email address", title='Email'
     )
     role: Optional[MemberAccessLevel] = Field(
-        'admin', description='The role the member will be assigned with'
+        default='admin', description='The role the member will be assigned with'
     )
     id: UUID = Field(..., description='Unique id of the invite', title='Id')
     organization_id: UUID = Field(
@@ -4219,7 +4252,7 @@ class InviteRead(BaseModel):
         ..., description='The status of the invite (pending, failed, etc)'
     )
     failed_reason: Optional[str] = Field(
-        None,
+        default=None,
         description='if failed, the reason the invitation failed',
         title='Failed Reason',
     )
@@ -4230,12 +4263,12 @@ class JwksConfig(BaseModel):
         extra = Extra.allow
 
     ttl: Optional[int] = Field(
-        600, description='JWKS cache TTL (in seconds)', title='Ttl'
+        default=600, description='JWKS cache TTL (in seconds)', title='Ttl'
     )
     url: Optional[constr(regex=r'^https://[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,3}(/\S*)?$')] = (
-        Field(None, description='...', title='Url')
+        Field(default=None, description='...', title='Url')
     )
-    jwks: Optional[JwksObj] = Field(None, description='...', title='Jwks')
+    jwks: Optional[JwksObj] = Field(default=None, description='...', title='Jwks')
 
 
 class LimitedPaginatedResultActivityLogEventRead(BaseModel):
@@ -4246,7 +4279,7 @@ class LimitedPaginatedResultActivityLogEventRead(BaseModel):
         ..., description='List of Activity Log Events', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
     pagination_count: conint(ge=0) = Field(..., title='Pagination Count')
 
 
@@ -4258,7 +4291,7 @@ class MappingRule(BaseModel):
         ..., description='The URL to match against the request URL', title='Url'
     )
     url_type: Optional[Literal['regex']] = Field(
-        None,
+        default=None,
         description="The URL type to match against the request URL can be, 'regex' or none",
         title='Url Type',
     )
@@ -4271,17 +4304,17 @@ class MappingRule(BaseModel):
         title='Resource',
     )
     headers: Optional[Dict[str, str]] = Field(
-        {},
+        default={},
         description='The headers to match against the request headers',
         title='Headers',
     )
     action: Optional[str] = Field(
-        None,
+        default=None,
         description='The action to match against the request action',
         title='Action',
     )
     priority: Optional[int] = Field(
-        None,
+        default=None,
         description='The priority of the mapping rule. The higher the priority, the higher the precedence',
         title='Priority',
     )
@@ -4295,7 +4328,7 @@ class MappingRuleUpdate(BaseModel):
         ..., description='The URL to match against the request URL', title='Url'
     )
     url_type: Optional[Literal['regex']] = Field(
-        None,
+        default=None,
         description="The URL type to match against the request URL can be, 'regex' or none",
         title='Url Type',
     )
@@ -4308,22 +4341,22 @@ class MappingRuleUpdate(BaseModel):
         title='Resource',
     )
     headers: Optional[Dict[str, str]] = Field(
-        {},
+        default={},
         description='The headers to match against the request headers',
         title='Headers',
     )
     action: Optional[str] = Field(
-        None,
+        default=None,
         description='The action to match against the request action',
         title='Action',
     )
     priority: Optional[int] = Field(
-        None,
+        default=None,
         description='The priority of the mapping rule. The higher the priority, the higher the precedence',
         title='Priority',
     )
     should_delete: Optional[bool] = Field(
-        False,
+        default=False,
         description='If true, this mapping rule will be deleted during update.',
         title='Should Delete',
     )
@@ -4335,7 +4368,7 @@ class MultiInviteResult(BaseModel):
 
     success: List[InviteRead] = Field(..., title='Success')
     failed: Optional[List[FailedInvite]] = Field(
-        [],
+        default=[],
         description='invites that were not even attempted, and the reason why',
         title='Failed',
     )
@@ -4345,13 +4378,13 @@ class OPAEngineDecisionLog(BaseModel):
     class Config:
         extra = Extra.allow
 
-    engine: Optional[Literal['OPA']] = Field('OPA', title='Engine')
+    engine: Optional[Literal['OPA']] = Field(default='OPA', title='Engine')
     decision_id: UUID = Field(..., title='Decision Id')
     labels: OPALabels
     timestamp: datetime = Field(..., title='Timestamp')
     path: str = Field(..., title='Path')
-    input: Optional[Any] = Field(None, title='Input')
-    result: Optional[Any] = Field(None, title='Result')
+    input: Optional[Any] = Field(default=None, title='Input')
+    result: Optional[Any] = Field(default=None, title='Result')
     metrics: OPAMetrics
 
 
@@ -4367,9 +4400,9 @@ class OPALClient(BaseModel):
     DEFAULT_DATA_SOURCES_CONFIG_URL: str = Field(
         ..., title='Default Data Sources Config Url'
     )
-    SCOPE_ID: Optional[str] = Field(None, title='Scope Id')
+    SCOPE_ID: Optional[str] = Field(default=None, title='Scope Id')
     SHOULD_REPORT_ON_DATA_UPDATES: Optional[bool] = Field(
-        None, title='Should Report On Data Updates'
+        default=None, title='Should Report On Data Updates'
     )
     DEFAULT_UPDATE_CALLBACKS: Optional[OPALUpdateCallback] = None
     DEFAULT_UPDATE_CALLBACK_CONFIG: Optional[OPALHttpFetcherConfig] = None
@@ -4380,7 +4413,7 @@ class OperationApprovalApproved(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -4390,7 +4423,7 @@ class OperationApprovalApproved(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting operation approval',
         title='Reason',
     )
@@ -4428,7 +4461,7 @@ class OperationApprovalApproved(BaseModel):
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None,
+        default=None,
         description='when the operation approval was reviewed',
         title='Reviewed At',
     )
@@ -4437,7 +4470,7 @@ class OperationApprovalApproved(BaseModel):
         ..., description='current status of the operation approval'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the operation approval',
         title='Reviewer User Id',
     )
@@ -4448,7 +4481,7 @@ class OperationApprovalCanceled(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -4458,7 +4491,7 @@ class OperationApprovalCanceled(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting operation approval',
         title='Reason',
     )
@@ -4496,7 +4529,7 @@ class OperationApprovalCanceled(BaseModel):
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None,
+        default=None,
         description='when the operation approval was reviewed',
         title='Reviewed At',
     )
@@ -4505,7 +4538,7 @@ class OperationApprovalCanceled(BaseModel):
         ..., description='current status of the operation approval'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the operation approval',
         title='Reviewer User Id',
     )
@@ -4516,7 +4549,7 @@ class OperationApprovalDenied(BaseModel):
         extra = Extra.allow
 
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -4526,7 +4559,7 @@ class OperationApprovalDenied(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting operation approval',
         title='Reason',
     )
@@ -4564,7 +4597,7 @@ class OperationApprovalDenied(BaseModel):
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None,
+        default=None,
         description='when the operation approval was reviewed',
         title='Reviewed At',
     )
@@ -4573,7 +4606,7 @@ class OperationApprovalDenied(BaseModel):
         ..., description='current status of the operation approval'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the operation approval',
         title='Reviewer User Id',
     )
@@ -4589,7 +4622,7 @@ class OperationApprovalList(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting operation approval',
         title='Reason',
     )
@@ -4627,13 +4660,13 @@ class OperationApprovalList(BaseModel):
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None,
+        default=None,
         description='when the operation approval was reviewed',
         title='Reviewed At',
     )
     type: Optional[RequestType] = 'operation_approval'
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -4641,32 +4674,32 @@ class OperationApprovalList(BaseModel):
         ..., description='current status of the operation approval'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the operation approval',
         title='Reviewer User Id',
     )
     requesting_user_email: Optional[str] = Field(
-        None,
+        default=None,
         description='email of the user that is requesting the approval',
         title='Requesting User Email',
     )
     requesting_user_first_name: Optional[str] = Field(
-        None,
+        default=None,
         description='first name of the user that is requesting the approval',
         title='Requesting User First Name',
     )
     requesting_user_last_name: Optional[str] = Field(
-        None,
+        default=None,
         description='last name of the user that is requesting the approval',
         title='Requesting User Last Name',
     )
     resource_key: Optional[str] = Field(
-        None,
+        default=None,
         description='key of the resource that the user is requesting operation approval for',
         title='Resource Key',
     )
     resource_instance_key: Optional[str] = Field(
-        None,
+        default=None,
         description='key of the resource instance that the user is requesting operation approval for',
         title='Resource Instance Key',
     )
@@ -4682,7 +4715,7 @@ class OperationApprovalRead(BaseModel):
         title='Access Request Details',
     )
     reason: Optional[str] = Field(
-        None,
+        default=None,
         description='Optional business justification provided by the user requesting operation approval',
         title='Reason',
     )
@@ -4720,13 +4753,13 @@ class OperationApprovalRead(BaseModel):
         title='Requesting User Id',
     )
     reviewed_at: Optional[datetime] = Field(
-        None,
+        default=None,
         description='when the operation approval was reviewed',
         title='Reviewed At',
     )
     type: Optional[RequestType] = 'operation_approval'
     reviewer_comment: Optional[str] = Field(
-        None,
+        default=None,
         description='comment provided by the reviewer_user_id',
         title='Reviewer Comment',
     )
@@ -4734,7 +4767,7 @@ class OperationApprovalRead(BaseModel):
         ..., description='current status of the operation approval'
     )
     reviewer_user_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='Optional id of the user who review the operation approval',
         title='Reviewer User Id',
     )
@@ -4745,10 +4778,10 @@ class OrgMemberCreate(BaseModel):
         extra = Extra.allow
 
     id: Optional[UUID] = Field(
-        None, description='Unique id of the account member', title='Id'
+        default=None, description='Unique id of the account member', title='Id'
     )
     email: Optional[EmailStr] = Field(
-        None, description='Email of the user controlling this account', title='Email'
+        default=None, description='Email of the user controlling this account', title='Email'
     )
     permissions: List[Permission] = Field(..., title='Permissions')
 
@@ -4766,15 +4799,15 @@ class OrgMemberRead(BaseModel):
         description="Whether this email address is verified or not. For social providers like 'Login with Google' this is done automatically, otherwise we will send the user a verification link in email.",
         title='Email Verified',
     )
-    name: Optional[str] = Field(None, description='Name of this user', title='Name')
+    name: Optional[str] = Field(default=None, description='Name of this user', title='Name')
     given_name: Optional[str] = Field(
-        None, description='First name of the user', title='Given Name'
+        default=None, description='First name of the user', title='Given Name'
     )
     family_name: Optional[str] = Field(
-        None, description='Last name of the user', title='Family Name'
+        default=None, description='Last name of the user', title='Family Name'
     )
     picture: Optional[str] = Field(
-        None,
+        default=None,
         description='URL to picture, photo, or avatar of the user that controls this account.',
         title='Picture',
     )
@@ -4797,17 +4830,17 @@ class OrgMemberRead(BaseModel):
         title='Created At',
     )
     last_login: Optional[datetime] = Field(
-        None,
+        default=None,
         description='Last date and time this user logged in (ISO_8601 format).',
         title='Last Login',
     )
     last_ip: Optional[str] = Field(
-        '0.0.0.0',
+        default='0.0.0.0',
         description='Last IP address from which this user logged in.',
         title='Last Ip',
     )
     logins_count: Optional[int] = Field(
-        0,
+        default=0,
         description='Total number of logins this user has performed.',
         title='Logins Count',
     )
@@ -4833,15 +4866,15 @@ class OrgMemberReadWithGrants(BaseModel):
         description="Whether this email address is verified or not. For social providers like 'Login with Google' this is done automatically, otherwise we will send the user a verification link in email.",
         title='Email Verified',
     )
-    name: Optional[str] = Field(None, description='Name of this user', title='Name')
+    name: Optional[str] = Field(default=None, description='Name of this user', title='Name')
     given_name: Optional[str] = Field(
-        None, description='First name of the user', title='Given Name'
+        default=None, description='First name of the user', title='Given Name'
     )
     family_name: Optional[str] = Field(
-        None, description='Last name of the user', title='Family Name'
+        default=None, description='Last name of the user', title='Family Name'
     )
     picture: Optional[str] = Field(
-        None,
+        default=None,
         description='URL to picture, photo, or avatar of the user that controls this account.',
         title='Picture',
     )
@@ -4864,17 +4897,17 @@ class OrgMemberReadWithGrants(BaseModel):
         title='Created At',
     )
     last_login: Optional[datetime] = Field(
-        None,
+        default=None,
         description='Last date and time this user logged in (ISO_8601 format).',
         title='Last Login',
     )
     last_ip: Optional[str] = Field(
-        '0.0.0.0',
+        default='0.0.0.0',
         description='Last IP address from which this user logged in.',
         title='Last Ip',
     )
     logins_count: Optional[int] = Field(
-        0,
+        default=0,
         description='Total number of logins this user has performed.',
         title='Logins Count',
     )
@@ -4932,7 +4965,7 @@ class OrganizationRead(BaseModel):
         title='Name',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
 
 
@@ -4972,10 +5005,10 @@ class OrganizationReadWithAPIKey(BaseModel):
         title='Name',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
-    api_key_id: Optional[UUID] = Field(None, title='Api Key Id')
-    api_key_secret: Optional[str] = Field(None, title='Api Key Secret')
+    api_key_id: Optional[UUID] = Field(default=None, title='Api Key Id')
+    api_key_secret: Optional[str] = Field(default=None, title='Api Key Secret')
 
 
 class OrganizationStats(BaseModel):
@@ -5014,7 +5047,7 @@ class OrganizationStats(BaseModel):
         title='Name',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
     stats: OrganizationStatistics
     historical_usage: HistoricalUsage
@@ -5028,7 +5061,7 @@ class PaginatedResultAccessRequestRead(BaseModel):
         ..., description='List of Access Requests', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultActivityLogEventRead(BaseModel):
@@ -5039,7 +5072,7 @@ class PaginatedResultActivityLogEventRead(BaseModel):
         ..., description='List of Activity Log Events', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultElementsUserInviteRead(BaseModel):
@@ -5050,7 +5083,7 @@ class PaginatedResultElementsUserInviteRead(BaseModel):
         ..., description='List of Elements User Invites', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultOperationApprovalList(BaseModel):
@@ -5061,7 +5094,7 @@ class PaginatedResultOperationApprovalList(BaseModel):
         ..., description='List of Operation Approval Lists', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultRelationRead(BaseModel):
@@ -5070,7 +5103,7 @@ class PaginatedResultRelationRead(BaseModel):
 
     data: List[RelationRead] = Field(..., description='List of Relations', title='Data')
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultResourceInstanceDetailedRead(BaseModel):
@@ -5081,7 +5114,7 @@ class PaginatedResultResourceInstanceDetailedRead(BaseModel):
         ..., description='List of Resource Instance Detaileds', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultResourceInstanceRead(BaseModel):
@@ -5092,7 +5125,7 @@ class PaginatedResultResourceInstanceRead(BaseModel):
         ..., description='List of Resource Instances', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultRoleAssignmentRead(BaseModel):
@@ -5103,7 +5136,7 @@ class PaginatedResultRoleAssignmentRead(BaseModel):
         ..., description='List of Role Assignments', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultTenantRead(BaseModel):
@@ -5112,7 +5145,7 @@ class PaginatedResultTenantRead(BaseModel):
 
     data: List[TenantRead] = Field(..., description='List of Tenants', title='Data')
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PolicyGuardScopeCreate(BaseModel):
@@ -5120,7 +5153,7 @@ class PolicyGuardScopeCreate(BaseModel):
         extra = Extra.allow
 
     policy_guard_scope_details: Optional[List[PolicyGuardScopeDetailCreate]] = Field(
-        [],
+        default=[],
         description='list of projects that this policy guard is assigned to.',
         title='Policy Guard Scope Details',
     )
@@ -5143,10 +5176,10 @@ class PolicyRepoCreate(BaseModel):
         description='The SSH URL of the git repository (e.g. git@github.com:username/repository.git)',
         title='Url',
     )
-    main_branch_name: Optional[str] = Field('main', title='Main Branch Name')
+    main_branch_name: Optional[str] = Field(default='main', title='Main Branch Name')
     credentials: SSHAuthData
     activate_when_validated: Optional[bool] = Field(
-        False,
+        default=False,
         description='if you want to change your policy repository to this repo right after it is validated',
         title='Activate When Validated',
     )
@@ -5168,10 +5201,10 @@ class PolicyRepoRead(BaseModel):
         description='The SSH URL of the git repository (e.g. git@github.com:username/repository.git)',
         title='Url',
     )
-    main_branch_name: Optional[str] = Field('main', title='Main Branch Name')
+    main_branch_name: Optional[str] = Field(default='main', title='Main Branch Name')
     credentials: SSHAuthDataRead
     activate_when_validated: Optional[bool] = Field(
-        False,
+        default=False,
         description='if you want to change your policy repository to this repo right after it is validated',
         title='Activate When Validated',
     )
@@ -5197,12 +5230,12 @@ class ProxyConfigCreate(BaseModel):
         title='Name',
     )
     mapping_rules: Optional[List[MappingRule]] = Field(
-        [],
+        default=[],
         description='Proxy config mapping rules will include the rules that will be used to map the request to the backend service by a URL and a http method.',
         title='Mapping Rules',
     )
     auth_mechanism: Optional[AuthMechanism] = Field(
-        'Bearer',
+        default='Bearer',
         description='Proxy config auth mechanism will define the authentication mechanism that will be used to authenticate the request.\n\nBearer injects the secret into the Authorization header as a Bearer token,\n\nBasic injects the secret into the Authorization header as a Basic user:password,\n\nHeaders injects plain headers into the request.',
     )
 
@@ -5253,12 +5286,12 @@ class ProxyConfigRead(BaseModel):
         title='Name',
     )
     mapping_rules: Optional[List[MappingRule]] = Field(
-        [],
+        default=[],
         description='Proxy config mapping rules will include the rules that will be used to map the request to the backend service by a URL and a http method.',
         title='Mapping Rules',
     )
     auth_mechanism: Optional[AuthMechanism] = Field(
-        'Bearer',
+        default='Bearer',
         description='Proxy config auth mechanism will define the authentication mechanism that will be used to authenticate the request.\n\nBearer injects the secret into the Authorization header as a Bearer token,\n\nBasic injects the secret into the Authorization header as a Basic user:password,\n\nHeaders injects plain headers into the request.',
     )
 
@@ -5268,22 +5301,22 @@ class ProxyConfigUpdate(BaseModel):
         extra = Extra.allow
 
     secret: Optional[Any] = Field(
-        None,
+        default=None,
         description='Proxy config secret is set to enable the Permit Proxy to make proxied requests to the backend service.',
         title='Secret',
     )
     name: Optional[str] = Field(
-        None,
+        default=None,
         description="The name of the proxy config, for example: 'Stripe API'",
         title='Name',
     )
     mapping_rules: Optional[List[MappingRuleUpdate]] = Field(
-        [],
+        default=[],
         description='Proxy config mapping rules, with optional should_delete flag to indicate deletion.',
         title='Mapping Rules',
     )
     auth_mechanism: Optional[AuthMechanism] = Field(
-        'Bearer',
+        default='Bearer',
         description='Proxy config auth mechanism will define the authentication mechanism that will be used to authenticate the request.\n\nBearer injects the secret into the Authorization header as a Bearer token,\n\nBasic injects the secret into the Authorization header as a Basic user:password,\n\nHeaders injects plain headers into the request.',
     )
 
@@ -5317,8 +5350,10 @@ class RelationshipTupleDetailedRead(BaseModel):
     relation_id: UUID = Field(
         ..., description='Unique id of the relation', title='Relation Id'
     )
-    object_id: UUID = Field(
-        ..., description='Unique id of the object', title='Object Id'
+    object_id: Optional[UUID] = Field(
+        default=None,
+        description='Unique id of the object (null = all resources of this type)',
+        title='Object Id',
     )
     tenant_id: UUID = Field(
         ..., description='Unique id of the tenant', title='Tenant Id'
@@ -5348,23 +5383,23 @@ class RelationshipTupleDetailedRead(BaseModel):
         description='Date and time when the relationship tuple was created (ISO_8601 format).',
         title='Updated At',
     )
-    subject_details: ResourceInstanceBlockRead = Field(
-        ...,
+    subject_details: Optional[ResourceInstanceBlockRead] = Field(
+        default=None,
         description='The subject details of the relationship tuple',
         title='Subject Details',
     )
-    relation_details: StrippedRelationBlockRead = Field(
-        ...,
+    relation_details: Optional[StrippedRelationBlockRead] = Field(
+        default=None,
         description='The relation details of the relationship tuple',
         title='Relation Details',
     )
-    object_details: ResourceInstanceBlockRead = Field(
-        ...,
+    object_details: Optional[ResourceInstanceBlockRead] = Field(
+        default=None,
         description='The object details of the relationship tuple',
         title='Object Details',
     )
-    tenant_details: TenantBlockRead = Field(
-        ...,
+    tenant_details: Optional[TenantBlockRead] = Field(
+        default=None,
         description='The tenant details of the relationship tuple',
         title='Tenant Details',
     )
@@ -5399,8 +5434,10 @@ class RelationshipTupleRead(BaseModel):
     relation_id: UUID = Field(
         ..., description='Unique id of the relation', title='Relation Id'
     )
-    object_id: UUID = Field(
-        ..., description='Unique id of the object', title='Object Id'
+    object_id: Optional[UUID] = Field(
+        default=None,
+        description='Unique id of the object (null = all resources of this type)',
+        title='Object Id',
     )
     tenant_id: UUID = Field(
         ..., description='Unique id of the tenant', title='Tenant Id'
@@ -5431,22 +5468,22 @@ class RelationshipTupleRead(BaseModel):
         title='Updated At',
     )
     subject_details: Optional[ResourceInstanceBlockRead] = Field(
-        None,
+        default=None,
         description='The subject details of the relationship tuple',
         title='Subject Details',
     )
     relation_details: Optional[StrippedRelationBlockRead] = Field(
-        None,
+        default=None,
         description='The relation details of the relationship tuple',
         title='Relation Details',
     )
     object_details: Optional[ResourceInstanceBlockRead] = Field(
-        None,
+        default=None,
         description='The object details of the relationship tuple',
         title='Object Details',
     )
     tenant_details: Optional[TenantBlockRead] = Field(
-        None,
+        default=None,
         description='The tenant details of the relationship tuple',
         title='Tenant Details',
     )
@@ -5458,7 +5495,7 @@ class RemoteConfig(BaseModel):
 
     opal_common: OPALCommon
     opal_client: OPALClient
-    pdp: Optional[PdpValues] = Field({}, title='Pdp')
+    pdp: Optional[PdpValues] = Field(default={}, title='Pdp')
     context: PDPContext
 
 
@@ -5506,12 +5543,12 @@ class TaskResultPolicyGuardScopeRead(BaseModel):
     task_id: str = Field(..., description='The unique id of the task.', title='Task Id')
     status: TaskStatus = Field(..., description='The status of the task.')
     result: Optional[PolicyGuardScopeRead] = Field(
-        None,
+        default=None,
         description='The result of the task when the task finished.',
         title='Result',
     )
     error: Optional[ErrorDetails] = Field(
-        None, description='The error details when the task failed.', title='Error'
+        default=None, description='The error details when the task failed.', title='Error'
     )
 
 
@@ -5525,23 +5562,23 @@ class UserCreate(BaseModel):
         title='Key',
     )
     email: Optional[EmailStr] = Field(
-        None,
+        default=None,
         description='The email of the user. If synced, will be unique inside the environment.',
         title='Email',
     )
     first_name: Optional[str] = Field(
-        None, description='First name of the user.', title='First Name'
+        default=None, description='First name of the user.', title='First Name'
     )
     last_name: Optional[str] = Field(
-        None, description='Last name of the user.', title='Last Name'
+        default=None, description='Last name of the user.', title='Last Name'
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary user attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
     role_assignments: Optional[List[UserRoleCreate]] = Field(
-        None,
+        default=None,
         description='List of roles to assign to the user in the environment.',
         title='Role Assignments',
     )
@@ -5570,7 +5607,7 @@ class UserInTenant(BaseModel):
     )
     status: UserStatus = Field(..., description='Whether the user has signed in or not')
     resource_instance_roles: Optional[List[UserResourceInstanceRole]] = Field(
-        [], title='Resource Instance Roles'
+        default=[], title='Resource Instance Roles'
     )
 
 
@@ -5600,9 +5637,9 @@ class UserRead(BaseModel):
         title='Environment Id',
     )
     associated_tenants: Optional[List[UserInTenant]] = Field(
-        [], title='Associated Tenants'
+        default=[], title='Associated Tenants'
     )
-    roles: Optional[List[UserRole]] = Field([], title='Roles')
+    roles: Optional[List[UserRole]] = Field(default=[], title='Roles')
     created_at: datetime = Field(
         ...,
         description='Date and time when the user was created (ISO_8601 format).',
@@ -5614,18 +5651,18 @@ class UserRead(BaseModel):
         title='Updated At',
     )
     email: Optional[EmailStr] = Field(
-        None,
+        default=None,
         description='The email of the user. If synced, will be unique inside the environment.',
         title='Email',
     )
     first_name: Optional[str] = Field(
-        None, description='First name of the user.', title='First Name'
+        default=None, description='First name of the user.', title='First Name'
     )
     last_name: Optional[str] = Field(
-        None, description='Last name of the user.', title='Last Name'
+        default=None, description='Last name of the user.', title='Last Name'
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='Arbitrary user attributes that will be used to enforce attribute-based access control policies.',
         title='Attributes',
     )
@@ -5676,7 +5713,7 @@ class DataGeneratorLibSchemasSchemaOpalDataDerivedRole(BaseModel):
     class Config:
         extra = Extra.allow
 
-    conditions: Optional[str] = Field(None, title='Conditions')
+    conditions: Optional[str] = Field(default=None, title='Conditions')
     settings: DataGeneratorLibSchemasSchemaOpalDataDerivationSettings = Field(
         ..., description='Settings for the derived role.', title='Settings'
     )
@@ -5705,7 +5742,7 @@ class PermitBackendSchemasSchemaOpalDataDerivedRole(BaseModel):
     class Config:
         extra = Extra.allow
 
-    conditions: Optional[str] = Field(None, title='Conditions')
+    conditions: Optional[str] = Field(default=None, title='Conditions')
     settings: PermitBackendSchemasSchemaOpalDataDerivationSettings = Field(
         ..., description='Settings for the derived role.', title='Settings'
     )
@@ -5736,26 +5773,31 @@ class AuditLogModel(BaseModel):
 
     id: UUID = Field(..., title='Id')
     raw_data: Optional[
-        Union[OPAEngineDecisionLog, AVPEngineDecisionLog, DummyEngineModel]
-    ] = Field(None, title='Raw Data')
+        Union[
+            OPAEngineDecisionLog,
+            AVPEngineDecisionLog,
+            GenericEngineDecisionLog,
+            DummyEngineModel,
+        ]
+    ] = Field(default=None, title='Raw Data')
     timestamp: datetime = Field(..., title='Timestamp')
-    created_at: Optional[datetime] = Field(None, title='Created At')
-    query: Optional[str] = Field(None, title='Query')
-    user_key: Optional[str] = Field(None, title='User Key')
-    user_email: Optional[str] = Field(None, title='User Email')
-    user_name: Optional[str] = Field(None, title='User Name')
-    resource_type: Optional[str] = Field(None, title='Resource Type')
-    tenant: Optional[str] = Field(None, title='Tenant')
-    action: Optional[str] = Field(None, title='Action')
-    decision: Optional[bool] = Field(None, title='Decision')
-    reason: Optional[str] = Field(None, title='Reason')
+    created_at: Optional[datetime] = Field(default=None, title='Created At')
+    query: Optional[str] = Field(default=None, title='Query')
+    user_key: Optional[str] = Field(default=None, title='User Key')
+    user_email: Optional[str] = Field(default=None, title='User Email')
+    user_name: Optional[str] = Field(default=None, title='User Name')
+    resource_type: Optional[str] = Field(default=None, title='Resource Type')
+    tenant: Optional[str] = Field(default=None, title='Tenant')
+    action: Optional[str] = Field(default=None, title='Action')
+    decision: Optional[bool] = Field(default=None, title='Decision')
+    reason: Optional[str] = Field(default=None, title='Reason')
     org_id: UUID = Field(..., title='Org Id')
     project_id: UUID = Field(..., title='Project Id')
     env_id: UUID = Field(..., title='Env Id')
-    pdp_config_id: UUID = Field(..., title='Pdp Config Id')
-    input: Optional[Any] = Field(None, title='Input')
-    result: Optional[Any] = Field(None, title='Result')
-    context: Optional[Any] = Field(None, title='Context')
+    pdp_config_id: Optional[UUID] = Field(default=None, title='Pdp Config Id')
+    input: Optional[Any] = Field(default=None, title='Input')
+    result: Optional[Any] = Field(default=None, title='Result')
+    context: Optional[Any] = Field(default=None, title='Context')
 
 
 class DataSourceConfig(BaseModel):
@@ -5763,7 +5805,7 @@ class DataSourceConfig(BaseModel):
         extra = Extra.allow
 
     entries: Optional[List[DataSourceEntryWithPollingInterval]] = Field(
-        [],
+        default=[],
         description='list of data sources and how to fetch from them',
         title='Entries',
     )
@@ -5781,7 +5823,7 @@ class DerivedRoleBlockEdit(BaseModel):
         title='When',
     )
     users_with_role: Optional[List[DerivedRoleRuleCreate]] = Field(
-        [], description='the rules of the derived role', title='Users With Role'
+        default=[], description='the rules of the derived role', title='Users With Role'
     )
 
 
@@ -5798,7 +5840,7 @@ class DerivedRoleBlockRead(BaseModel):
     )
     id: UUID = Field(..., description='The unique id of the derived_role', title='Id')
     users_with_role: Optional[List[DerivedRoleRuleRead]] = Field(
-        [], description='the rules of the derived role', title='Users With Role'
+        default=[], description='the rules of the derived role', title='Users With Role'
     )
 
 
@@ -5807,28 +5849,31 @@ class DetailedAuditLogModel(BaseModel):
         extra = Extra.allow
 
     id: UUID = Field(..., title='Id')
-    raw_data: Union[OPAEngineDecisionLog, AVPEngineDecisionLog, DummyEngineModel] = (
-        Field(..., title='Raw Data')
-    )
+    raw_data: Union[
+        OPAEngineDecisionLog,
+        AVPEngineDecisionLog,
+        GenericEngineDecisionLog,
+        DummyEngineModel,
+    ] = Field(..., title='Raw Data')
     timestamp: datetime = Field(..., title='Timestamp')
-    created_at: Optional[datetime] = Field(None, title='Created At')
-    query: Optional[str] = Field(None, title='Query')
-    user_key: Optional[str] = Field(None, title='User Key')
-    user_email: Optional[str] = Field(None, title='User Email')
-    user_name: Optional[str] = Field(None, title='User Name')
-    resource_type: Optional[str] = Field(None, title='Resource Type')
-    tenant: Optional[str] = Field(None, title='Tenant')
-    action: Optional[str] = Field(None, title='Action')
-    decision: Optional[bool] = Field(None, title='Decision')
-    reason: Optional[str] = Field(None, title='Reason')
+    created_at: Optional[datetime] = Field(default=None, title='Created At')
+    query: Optional[str] = Field(default=None, title='Query')
+    user_key: Optional[str] = Field(default=None, title='User Key')
+    user_email: Optional[str] = Field(default=None, title='User Email')
+    user_name: Optional[str] = Field(default=None, title='User Name')
+    resource_type: Optional[str] = Field(default=None, title='Resource Type')
+    tenant: Optional[str] = Field(default=None, title='Tenant')
+    action: Optional[str] = Field(default=None, title='Action')
+    decision: Optional[bool] = Field(default=None, title='Decision')
+    reason: Optional[str] = Field(default=None, title='Reason')
     org_id: UUID = Field(..., title='Org Id')
     project_id: UUID = Field(..., title='Project Id')
     env_id: UUID = Field(..., title='Env Id')
-    pdp_config_id: UUID = Field(..., title='Pdp Config Id')
-    input: Optional[Any] = Field(None, title='Input')
-    result: Optional[Any] = Field(None, title='Result')
-    context: Optional[Any] = Field(None, title='Context')
-    objects: AuditLogObjectsModel
+    pdp_config_id: Optional[UUID] = Field(default=None, title='Pdp Config Id')
+    input: Optional[Any] = Field(default=None, title='Input')
+    result: Optional[Any] = Field(default=None, title='Result')
+    context: Optional[Any] = Field(default=None, title='Context')
+    objects: Optional[AuditLogObjectsModel] = Field(default={}, title='Objects')
 
 
 class ElementsConfigRead(BaseModel):
@@ -5877,7 +5922,7 @@ class ElementsConfigRead(BaseModel):
         title='Settings',
     )
     email_notifications: Optional[bool] = Field(
-        False,
+        default=False,
         description='Whether to send email notifications to users using your Email Provider you set',
         title='Email Notifications',
     )
@@ -5908,20 +5953,20 @@ class EnvironmentCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the environment', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the environment',
         title='Description',
     )
     custom_branch_name: Optional[str] = Field(
-        None,
+        default=None,
         description='when using gitops feature, an optional branch name for the environment',
         title='Custom Branch Name',
     )
     jwks: Optional[JwksConfig] = Field(
-        None, description='jwks for element frontend only login', title='Jwks'
+        default=None, description='jwks for element frontend only login', title='Jwks'
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this environment', title='Settings'
+        default=None, description='the settings for this environment', title='Settings'
     )
 
 
@@ -5955,23 +6000,23 @@ class EnvironmentRead(BaseModel):
         description='Date and time when the environment was last updated/modified (ISO_8601 format).',
         title='Updated At',
     )
-    avp_policy_store_id: Optional[str] = Field(None, title='Avp Policy Store Id')
+    avp_policy_store_id: Optional[str] = Field(default=None, title='Avp Policy Store Id')
     name: str = Field(..., description='The name of the environment', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the environment',
         title='Description',
     )
     custom_branch_name: Optional[str] = Field(
-        None,
+        default=None,
         description='when using gitops feature, an optional branch name for the environment',
         title='Custom Branch Name',
     )
     jwks: Optional[JwksConfig] = Field(
-        None, description='jwks for element frontend only login', title='Jwks'
+        default=None, description='jwks for element frontend only login', title='Jwks'
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this environment', title='Settings'
+        default=None, description='the settings for this environment', title='Settings'
     )
 
 
@@ -6005,23 +6050,23 @@ class EnvironmentReadWithEmailConfig(BaseModel):
         description='Date and time when the environment was last updated/modified (ISO_8601 format).',
         title='Updated At',
     )
-    avp_policy_store_id: Optional[str] = Field(None, title='Avp Policy Store Id')
+    avp_policy_store_id: Optional[str] = Field(default=None, title='Avp Policy Store Id')
     name: str = Field(..., description='The name of the environment', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the environment',
         title='Description',
     )
     custom_branch_name: Optional[str] = Field(
-        None,
+        default=None,
         description='when using gitops feature, an optional branch name for the environment',
         title='Custom Branch Name',
     )
     jwks: Optional[JwksConfig] = Field(
-        None, description='jwks for element frontend only login', title='Jwks'
+        default=None, description='jwks for element frontend only login', title='Jwks'
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this environment', title='Settings'
+        default=None, description='the settings for this environment', title='Settings'
     )
     email_configuration: UUID = Field(..., title='Email Configuration')
 
@@ -6070,23 +6115,23 @@ class EnvironmentStats(BaseModel):
         description='Date and time when the environment was last updated/modified (ISO_8601 format).',
         title='Updated At',
     )
-    avp_policy_store_id: Optional[str] = Field(None, title='Avp Policy Store Id')
+    avp_policy_store_id: Optional[str] = Field(default=None, title='Avp Policy Store Id')
     name: str = Field(..., description='The name of the environment', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the environment',
         title='Description',
     )
     custom_branch_name: Optional[str] = Field(
-        None,
+        default=None,
         description='when using gitops feature, an optional branch name for the environment',
         title='Custom Branch Name',
     )
     jwks: Optional[JwksConfig] = Field(
-        None, description='jwks for element frontend only login', title='Jwks'
+        default=None, description='jwks for element frontend only login', title='Jwks'
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this environment', title='Settings'
+        default=None, description='the settings for this environment', title='Settings'
     )
     pdp_configs: List[PDPConfigRead] = Field(..., title='Pdp Configs')
     stats: EnvironmentStatistics
@@ -6097,23 +6142,23 @@ class EnvironmentUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='The name of the environment', title='Name'
+        default=None, description='The name of the environment', title='Name'
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the environment',
         title='Description',
     )
     custom_branch_name: Optional[str] = Field(
-        None,
+        default=None,
         description='when using gitops feature, an optional branch name for the environment',
         title='Custom Branch Name',
     )
     jwks: Optional[JwksConfig] = Field(
-        None, description='jwks for element frontend only login', title='Jwks'
+        default=None, description='jwks for element frontend only login', title='Jwks'
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this environment', title='Settings'
+        default=None, description='the settings for this environment', title='Settings'
     )
 
 
@@ -6125,7 +6170,7 @@ class LimitedPaginatedResultAuditLogModel(BaseModel):
         ..., description='List of Audit Log Models', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
     pagination_count: conint(ge=0) = Field(..., title='Pagination Count')
 
 
@@ -6137,7 +6182,7 @@ class PaginatedResultElementsConfigRead(BaseModel):
         ..., description='List of Elements Configs', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultRelationshipTupleDetailedRead(BaseModel):
@@ -6148,7 +6193,7 @@ class PaginatedResultRelationshipTupleDetailedRead(BaseModel):
         ..., description='List of Relationship Tuple Detaileds', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultRelationshipTupleRead(BaseModel):
@@ -6159,7 +6204,7 @@ class PaginatedResultRelationshipTupleRead(BaseModel):
         ..., description='List of Relationship Tuples', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultRoleAssignmentDetailedRead(BaseModel):
@@ -6170,7 +6215,7 @@ class PaginatedResultRoleAssignmentDetailedRead(BaseModel):
         ..., description='List of Role Assignment Detaileds', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultUserRead(BaseModel):
@@ -6179,7 +6224,7 @@ class PaginatedResultUserRead(BaseModel):
 
     data: List[UserRead] = Field(..., description='List of Users', title='Data')
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class ProjectCreate(BaseModel):
@@ -6192,21 +6237,21 @@ class ProjectCreate(BaseModel):
         title='Key',
     )
     urn_namespace: Optional[constr(regex=r'[a-z0-9-]{2,}')] = Field(
-        None,
+        default=None,
         description='Optional namespace for URNs. If empty, URNs will be generated from project key.',
         title='Urn Namespace',
     )
     name: str = Field(..., description='The name of the project', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='a longer description outlining the project objectives',
         title='Description',
     )
     settings: Optional[Dict[str, Any]] = Field(
-        None, description='the settings for this project', title='Settings'
+        default=None, description='the settings for this project', title='Settings'
     )
     active_policy_repo_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description='the id of the policy repo to use for this project',
         title='Active Policy Repo Id',
     )
@@ -6234,33 +6279,33 @@ class ResourceRoleCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
-    v1compat_settings: Optional[Dict[str, Any]] = Field(None, title='V1Compat Settings')
+    v1compat_settings: Optional[Dict[str, Any]] = Field(default=None, title='V1Compat Settings')
     v1compat_attributes: Optional[Dict[str, Any]] = Field(
-        None, title='V1Compat Attributes'
+        default=None, title='V1Compat Attributes'
     )
 
 
@@ -6270,27 +6315,27 @@ class ResourceRoleRead(BaseModel):
 
     name: str = Field(..., description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        [],
+        default=[],
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockRead] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
@@ -6341,29 +6386,29 @@ class ResourceRoleUpdate(BaseModel):
     class Config:
         extra = Extra.allow
 
-    name: Optional[str] = Field(None, description='The name of the role', title='Name')
+    name: Optional[str] = Field(default=None, description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        [],
+        default=[],
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
@@ -6375,33 +6420,33 @@ class RoleBlockEditable(BaseModel):
 
     name: str = Field(..., description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
-    v1compat_settings: Optional[Dict[str, Any]] = Field(None, title='V1Compat Settings')
+    v1compat_settings: Optional[Dict[str, Any]] = Field(default=None, title='V1Compat Settings')
     v1compat_attributes: Optional[Dict[str, Any]] = Field(
-        None, title='V1Compat Attributes'
+        default=None, title='V1Compat Attributes'
     )
 
 
@@ -6416,35 +6461,35 @@ class RoleCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
-    v1compat_settings: Optional[Dict[str, Any]] = Field(None, title='V1Compat Settings')
+    v1compat_settings: Optional[Dict[str, Any]] = Field(default=None, title='V1Compat Settings')
     v1compat_attributes: Optional[Dict[str, Any]] = Field(
-        None, title='V1Compat Attributes'
+        default=None, title='V1Compat Attributes'
     )
-    v1compat_is_built_in: Optional[bool] = Field(None, title='V1Compat Is Built In')
+    v1compat_is_built_in: Optional[bool] = Field(default=None, title='V1Compat Is Built In')
 
 
 class RoleCreateBulk(BaseModel):
@@ -6453,33 +6498,33 @@ class RoleCreateBulk(BaseModel):
 
     name: str = Field(..., description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
-    v1compat_settings: Optional[Dict[str, Any]] = Field(None, title='V1Compat Settings')
+    v1compat_settings: Optional[Dict[str, Any]] = Field(default=None, title='V1Compat Settings')
     v1compat_attributes: Optional[Dict[str, Any]] = Field(
-        None, title='V1Compat Attributes'
+        default=None, title='V1Compat Attributes'
     )
     key: constr(regex=r'^[A-Za-z0-9\-_]+$') = Field(
         ...,
@@ -6487,7 +6532,7 @@ class RoleCreateBulk(BaseModel):
         title='Key',
     )
     resource: Optional[str] = Field(
-        None,
+        default=None,
         description='The resource key for the role. Optional; for tenant roles, leave empty.',
         title='Resource',
     )
@@ -6506,33 +6551,33 @@ class RoleRead(BaseModel):
 
     name: str = Field(..., description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockRead] = Field(
-        {},
+        default={},
         description='\n        A derived role defintion block, typically contained whithin a role definition.\n        The derived role is a role that is derived from the role definition.\n        ',
         title='Granted To',
     )
-    v1compat_settings: Optional[Dict[str, Any]] = Field(None, title='V1Compat Settings')
+    v1compat_settings: Optional[Dict[str, Any]] = Field(default=None, title='V1Compat Settings')
     v1compat_attributes: Optional[Dict[str, Any]] = Field(
-        None, title='V1Compat Attributes'
+        default=None, title='V1Compat Attributes'
     )
     key: str = Field(
         ...,
@@ -6571,35 +6616,35 @@ class RoleUpdate(BaseModel):
     class Config:
         extra = Extra.allow
 
-    name: Optional[str] = Field(None, description='The name of the role', title='Name')
+    name: Optional[str] = Field(default=None, description='The name of the role', title='Name')
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='optional description string explaining what this role represents, or what permissions are granted to it.',
         title='Description',
     )
     permissions: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of action keys that define what actions this resource role is permitted to do',
         title='Permissions',
     )
     attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="optional dictionary of key-value pairs that can be used to store arbitrary metadata about this role. This metadata can be used to filter role using query parameters with attr_ prefix, currently supports only 'equals' operator",
         title='Attributes',
     )
     extends: Optional[List[str]] = Field(
-        None,
+        default=None,
         description='list of role keys that define what roles this role extends. In other words: this role will automatically inherit all the permissions of the given roles in this list.',
         title='Extends',
     )
     granted_to: Optional[DerivedRoleBlockEdit] = Field(
-        None,
+        default=None,
         description='Derived role that inherit will be applied on this role',
         title='Granted To',
     )
-    v1compat_settings: Optional[Dict[str, Any]] = Field(None, title='V1Compat Settings')
+    v1compat_settings: Optional[Dict[str, Any]] = Field(default=None, title='V1Compat Settings')
     v1compat_attributes: Optional[Dict[str, Any]] = Field(
-        None, title='V1Compat Attributes'
+        default=None, title='V1Compat Attributes'
     )
 
 
@@ -6650,12 +6695,12 @@ class TaskResultEnvironmentRead(BaseModel):
     task_id: str = Field(..., description='The unique id of the task.', title='Task Id')
     status: TaskStatus = Field(..., description='The status of the task.')
     result: Optional[EnvironmentRead] = Field(
-        None,
+        default=None,
         description='The result of the task when the task finished.',
         title='Result',
     )
     error: Optional[ErrorDetails] = Field(
-        None, description='The error details when the task failed.', title='Error'
+        default=None, description='The error details when the task failed.', title='Error'
     )
 
 
@@ -6663,7 +6708,7 @@ class DataGeneratorLibSchemasSchemaOpalDataFullData(BaseModel):
     class Config:
         extra = Extra.allow
 
-    use_debugger: Optional[bool] = Field(True, title='Use Debugger')
+    use_debugger: Optional[bool] = Field(default=True, title='Use Debugger')
     users: Dict[str, DataGeneratorLibSchemasSchemaOpalDataUserData] = Field(
         ...,
         description='Key-Value mapping of the users in the system.\nThe key is the user key and the value contains some details about the user.',
@@ -6686,7 +6731,7 @@ class DataGeneratorLibSchemasSchemaOpalDataFullData(BaseModel):
     )
     condition_set_rules_expand: Optional[Dict[str, Dict[str, Dict[str, List[str]]]]] = (
         Field(
-            {},
+            default={},
             description='Sanitized Key-Value mapping of the permissions for each condition set.\n(Equal to condition_set_rules but user_set_key and resource_set_key are sanitized)The key is the user-set key and the value is Key-Value mapping of resource-set key to the permissions for that user-set & resource-set.The key is the resource key and the value is list of actions that the user-set can perform on that resource-set',
             title='Condition Set Rules Expand',
         )
@@ -6723,14 +6768,14 @@ class DataGeneratorLibSchemasSchemaOpalDataFullData(BaseModel):
         title='Role Permissions',
     )
     mapping_rules: Optional[Dict[str, List[Dict[str, Union[str, int]]]]] = Field(
-        {},
+        default={},
         description="Key-Value mapping of groups of mapping rules in the system.\nThe key is the mapping rule group and the value is a list of mapping rules objects.We currently have only one group named 'all' which contains all the mapping rules.A mapping rule object contains, action, http_method, resource and url - all strings.",
         title='Mapping Rules',
     )
     resource_instances: Optional[
         Dict[str, DataGeneratorLibSchemasSchemaOpalDataResourceInstanceAttributeData]
     ] = Field(
-        {},
+        default={},
         description='Key-Value mapping of the resource instances in the system.\nThe key is the resource instance key and the value contains some details about the resource instance.',
         title='Resource Instances',
     )
@@ -6740,7 +6785,7 @@ class PermitBackendSchemasSchemaOpalDataFullData(BaseModel):
     class Config:
         extra = Extra.allow
 
-    use_debugger: Optional[bool] = Field(True, title='Use Debugger')
+    use_debugger: Optional[bool] = Field(default=True, title='Use Debugger')
     users: Dict[str, PermitBackendSchemasSchemaOpalDataUserData] = Field(
         ...,
         description='Key-Value mapping of the users in the system.\nThe key is the user key and the value contains some details about the user.',
@@ -6763,7 +6808,7 @@ class PermitBackendSchemasSchemaOpalDataFullData(BaseModel):
     )
     condition_set_rules_expand: Optional[Dict[str, Dict[str, Dict[str, List[str]]]]] = (
         Field(
-            {},
+            default={},
             description='Sanitized Key-Value mapping of the permissions for each condition set.\n(Equal to condition_set_rules but user_set_key and resource_set_key are sanitized)The key is the user-set key and the value is Key-Value mapping of resource-set key to the permissions for that user-set & resource-set.The key is the resource key and the value is list of actions that the user-set can perform on that resource-set',
             title='Condition Set Rules Expand',
         )
@@ -6800,14 +6845,14 @@ class PermitBackendSchemasSchemaOpalDataFullData(BaseModel):
         title='Role Permissions',
     )
     mapping_rules: Optional[Dict[str, List[Dict[str, Union[str, int]]]]] = Field(
-        {},
+        default={},
         description="Key-Value mapping of groups of mapping rules in the system.\nThe key is the mapping rule group and the value is a list of mapping rules objects.We currently have only one group named 'all' which contains all the mapping rules.A mapping rule object contains, action, http_method, resource and url - all strings.",
         title='Mapping Rules',
     )
     resource_instances: Optional[
         Dict[str, PermitBackendSchemasSchemaOpalDataResourceInstanceAttributeData]
     ] = Field(
-        {},
+        default={},
         description='Key-Value mapping of the resource instances in the system.\nThe key is the resource instance key and the value contains some details about the resource instance.',
         title='Resource Instances',
     )
@@ -6818,17 +6863,17 @@ class APIKeyRead(BaseModel):
         extra = Extra.allow
 
     organization_id: UUID = Field(..., title='Organization Id')
-    project_id: Optional[UUID] = Field(None, title='Project Id')
-    environment_id: Optional[UUID] = Field(None, title='Environment Id')
+    project_id: Optional[UUID] = Field(default=None, title='Project Id')
+    environment_id: Optional[UUID] = Field(default=None, title='Environment Id')
     object_type: Optional[MemberAccessObj] = 'env'
     access_level: Optional[MemberAccessLevel] = 'admin'
     owner_type: APIKeyOwnerType
-    name: Optional[str] = Field(None, title='Name')
+    name: Optional[str] = Field(default=None, title='Name')
     id: UUID = Field(..., title='Id')
-    secret: Optional[str] = Field(None, title='Secret')
+    secret: Optional[str] = Field(default=None, title='Secret')
     created_at: datetime = Field(..., title='Created At')
     created_by_member: Optional[OrgMemberRead] = None
-    last_used_at: Optional[datetime] = Field(None, title='Last Used At')
+    last_used_at: Optional[datetime] = Field(default=None, title='Last Used At')
     env: Optional[EnvironmentRead] = None
     project: Optional[ProjectRead] = None
 
@@ -6838,12 +6883,12 @@ class EnvironmentCopyTarget(BaseModel):
         extra = Extra.allow
 
     existing: Optional[str] = Field(
-        None,
+        default=None,
         description='Identifier of an existing environment to copy into',
         title='Existing',
     )
     new: Optional[EnvironmentCreate] = Field(
-        None,
+        default=None,
         description='Description of the environment to create. This environment must not already exist.',
         title='New',
     )
@@ -6855,7 +6900,7 @@ class PaginatedResultAPIKeyRead(BaseModel):
 
     data: List[APIKeyRead] = Field(..., description='List of Api Keys', title='Data')
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultResourceRoleRead(BaseModel):
@@ -6866,7 +6911,7 @@ class PaginatedResultResourceRoleRead(BaseModel):
         ..., description='List of Resource Roles', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultRoleRead(BaseModel):
@@ -6875,7 +6920,7 @@ class PaginatedResultRoleRead(BaseModel):
 
     data: List[RoleRead] = Field(..., description='List of Roles', title='Data')
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class ResourceCreate(BaseModel):
@@ -6889,12 +6934,12 @@ class ResourceCreate(BaseModel):
     )
     name: str = Field(..., description='The name of the resource', title='Name')
     urn: Optional[str] = Field(
-        None,
+        default=None,
         description='The [URN](https://en.wikipedia.org/wiki/Uniform_Resource_Name) (Uniform Resource Name) of the resource',
         title='Urn',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this resource respresents in your system',
         title='Description',
     )
@@ -6904,18 +6949,18 @@ class ResourceCreate(BaseModel):
         title='Actions',
     )
     type_attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this resource. This metadata can be used to filter resource using query parameters with attr_ prefix',
         title='Type Attributes',
     )
     attributes: Optional[Dict[str, AttributeBlockEditable]] = Field(
-        None,
+        default=None,
         description='Attributes that each resource of this type defines, and can be used in your ABAC policies.',
         title='Attributes',
     )
     roles: Optional[Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), RoleBlockEditable]] = (
         Field(
-            None,
+            default=None,
             description='Roles defined on this resource. The key is the role name, and the value contains the role properties such as granted permissions, base roles, etc.',
             title='Roles',
         )
@@ -6923,13 +6968,13 @@ class ResourceCreate(BaseModel):
     relations: Optional[
         Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), constr(regex=r'^[A-Za-z0-9\-_]+$')]
     ] = Field(
-        None,
+        default=None,
         description='Relations to other resources. The key is the relation key, and the value is the related resource.',
         title='Relations',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_type: Optional[str] = Field(None, title='V1Compat Type')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_type: Optional[str] = Field(default=None, title='V1Compat Type')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
 
 
 class ResourceRead(BaseModel):
@@ -6969,44 +7014,44 @@ class ResourceRead(BaseModel):
     )
     name: str = Field(..., description='The name of the resource', title='Name')
     urn: Optional[str] = Field(
-        None,
+        default=None,
         description='The [URN](https://en.wikipedia.org/wiki/Uniform_Resource_Name) (Uniform Resource Name) of the resource',
         title='Urn',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this resource respresents in your system',
         title='Description',
     )
     actions: Optional[Dict[str, ActionBlockRead]] = Field(
-        {},
+        default={},
         description='\n        A actions definition block, typically contained within a resource type definition block.\n        The actions represents the ways you can interact with a protected resource.\n        ',
         title='Actions',
     )
     type_attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this resource. This metadata can be used to filter resource using query parameters with attr_ prefix',
         title='Type Attributes',
     )
     attributes: Optional[Dict[str, AttributeBlockRead]] = Field(
-        None,
+        default=None,
         description='Attributes that each resource of this type defines, and can be used in your ABAC policies.',
         title='Attributes',
     )
     roles: Optional[Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), ResourceRoleRead]] = Field(
-        None,
+        default=None,
         description='Roles defined on this resource. The key is the role name, and the value contains the role properties such as granted permissions, etc.',
         title='Roles',
     )
     relations: Optional[Dict[str, RelationBlockRead]] = Field(
-        {},
+        default={},
         description='\n        A relations definition block, typically contained within a resource type definition block.\n        The relations represents the ways you can interact with a protected resource.\n        ',
         title='Relations',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_type: Optional[str] = Field(None, title='V1Compat Type')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
-    action_groups: Optional[Dict[str, List[str]]] = Field({}, title='Action Groups')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_type: Optional[str] = Field(default=None, title='V1Compat Type')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
+    action_groups: Optional[Dict[str, List[str]]] = Field(default={}, title='Action Groups')
 
 
 class ResourceReplace(BaseModel):
@@ -7015,12 +7060,12 @@ class ResourceReplace(BaseModel):
 
     name: str = Field(..., description='The name of the resource', title='Name')
     urn: Optional[str] = Field(
-        None,
+        default=None,
         description='The [URN](https://en.wikipedia.org/wiki/Uniform_Resource_Name) (Uniform Resource Name) of the resource',
         title='Urn',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this resource respresents in your system',
         title='Description',
     )
@@ -7030,18 +7075,18 @@ class ResourceReplace(BaseModel):
         title='Actions',
     )
     type_attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this resource. This metadata can be used to filter resource using query parameters with attr_ prefix',
         title='Type Attributes',
     )
     attributes: Optional[Dict[str, AttributeBlockEditable]] = Field(
-        None,
+        default=None,
         description='Attributes that each resource of this type defines, and can be used in your ABAC policies.',
         title='Attributes',
     )
     roles: Optional[Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), RoleBlockEditable]] = (
         Field(
-            None,
+            default=None,
             description='Roles defined on this resource. The key is the role name, and the value contains the role properties such as granted permissions, base roles, etc.',
             title='Roles',
         )
@@ -7049,13 +7094,13 @@ class ResourceReplace(BaseModel):
     relations: Optional[
         Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), constr(regex=r'^[A-Za-z0-9\-_]+$')]
     ] = Field(
-        None,
+        default=None,
         description='Relations to other resources. The key is the relation key, and the value is the related resource.',
         title='Relations',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_type: Optional[str] = Field(None, title='V1Compat Type')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_type: Optional[str] = Field(default=None, title='V1Compat Type')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
 
 
 class ResourceRoleList(BaseModel):
@@ -7072,36 +7117,36 @@ class ResourceUpdate(BaseModel):
         extra = Extra.allow
 
     name: Optional[str] = Field(
-        None, description='The name of the resource', title='Name'
+        default=None, description='The name of the resource', title='Name'
     )
     urn: Optional[str] = Field(
-        None,
+        default=None,
         description='The [URN](https://en.wikipedia.org/wiki/Uniform_Resource_Name) (Uniform Resource Name) of the resource',
         title='Urn',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='An optional longer description of what this resource respresents in your system',
         title='Description',
     )
     actions: Optional[Dict[str, ActionBlockEditable]] = Field(
-        None,
+        default=None,
         description='\n        A actions definition block, typically contained within a resource type definition block.\n        The actions represents the ways you can interact with a protected resource.\n        ',
         title='Actions',
     )
     type_attributes: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description='optional dictionary of key-value pairs that can be used to store arbitrary metadata about this resource. This metadata can be used to filter resource using query parameters with attr_ prefix',
         title='Type Attributes',
     )
     attributes: Optional[Dict[str, AttributeBlockEditable]] = Field(
-        None,
+        default=None,
         description='Attributes that each resource of this type defines, and can be used in your ABAC policies.',
         title='Attributes',
     )
     roles: Optional[Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), RoleBlockEditable]] = (
         Field(
-            None,
+            default=None,
             description='Roles defined on this resource. The key is the role name, and the value contains the role properties such as granted permissions, base roles, etc.',
             title='Roles',
         )
@@ -7109,13 +7154,13 @@ class ResourceUpdate(BaseModel):
     relations: Optional[
         Dict[constr(regex=r'^[A-Za-z0-9\-_]+$'), constr(regex=r'^[A-Za-z0-9\-_]+$')]
     ] = Field(
-        None,
+        default=None,
         description='Relations to other resources. The key is the relation key, and the value is the related resource.',
         title='Relations',
     )
-    v1compat_path: Optional[str] = Field(None, title='V1Compat Path')
-    v1compat_type: Optional[str] = Field(None, title='V1Compat Type')
-    v1compat_name: Optional[str] = Field(None, title='V1Compat Name')
+    v1compat_path: Optional[str] = Field(default=None, title='V1Compat Path')
+    v1compat_type: Optional[str] = Field(default=None, title='V1Compat Type')
+    v1compat_name: Optional[str] = Field(default=None, title='V1Compat Name')
 
 
 class RoleList(BaseModel):
@@ -7135,15 +7180,15 @@ class ConditionSetRead(BaseModel):
         title='Key',
     )
     type: Optional[ConditionSetType] = Field(
-        'userset', description='the type of the set: UserSet or ResourceSet'
+        default='userset', description='the type of the set: UserSet or ResourceSet'
     )
     autogenerated: Optional[bool] = Field(
-        False,
+        default=False,
         description='whether the set was autogenerated by the system.',
         title='Autogenerated',
     )
     resource_id: Optional[Union[str, UUID]] = Field(
-        None,
+        default=None,
         description='For ResourceSets, the id of the base resource.',
         title='Resource Id',
     )
@@ -7180,17 +7225,17 @@ class ConditionSetRead(BaseModel):
         title='Name',
     )
     description: Optional[str] = Field(
-        None,
+        default=None,
         description='an optional longer description of the set',
         title='Description',
     )
     conditions: Optional[Dict[str, Any]] = Field(
-        {},
+        default={},
         description='a boolean expression that consists of multiple conditions, with and/or logic.',
         title='Conditions',
     )
     parent_id: Optional[Union[str, UUID]] = Field(
-        None, description='Parent Condition Set', title='Parent Id'
+        default=None, description='Parent Condition Set', title='Parent Id'
     )
 
 
@@ -7204,7 +7249,7 @@ class EnvironmentCopy(BaseModel):
         title='Target Env',
     )
     conflict_strategy: Optional[EnvironmentCopyConflictStrategy] = Field(
-        'fail',
+        default='fail',
         description='Action to take when detecting a conflict when copying. Only applies to copying into an existing environment',
     )
     scope: Optional[EnvironmentCopyScope] = Field(
@@ -7230,7 +7275,7 @@ class PaginatedResultConditionSetRead(BaseModel):
         ..., description='List of Condition Sets', title='Data'
     )
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')
 
 
 class PaginatedResultResourceRead(BaseModel):
@@ -7239,4 +7284,4 @@ class PaginatedResultResourceRead(BaseModel):
 
     data: List[ResourceRead] = Field(..., description='List of Resources', title='Data')
     total_count: conint(ge=0) = Field(..., title='Total Count')
-    page_count: Optional[conint(ge=0)] = Field(0, title='Page Count')
+    page_count: Optional[conint(ge=0)] = Field(default=0, title='Page Count')

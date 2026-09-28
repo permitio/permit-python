@@ -41,17 +41,6 @@ API_ACCESS_LEVELS = [
 ]
 
 
-class ApiKeyLevel(str, Enum):
-    """
-    Deprecated: `ApiKeyLevel` had a confusing name, use `ApiKeyAccessLevel` instead.
-    """
-
-    WAIT_FOR_INIT = "WAIT_FOR_INIT"
-    ORGANIZATION_LEVEL_API_KEY = "ORGANIZATION_LEVEL_API_KEY"
-    PROJECT_LEVEL_API_KEY = "PROJECT_LEVEL_API_KEY"
-    ENVIRONMENT_LEVEL_API_KEY = "ENVIRONMENT_LEVEL_API_KEY"
-
-
 class ApiContextLevel(int, Enum):
     """
     The `ApiContextLevel` enum represents the context level in which the SDK is running.

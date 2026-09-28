@@ -1,11 +1,16 @@
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -27,7 +32,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             f"/v2/schema/{self.config.api_context.project}/{self.config.api_context.environment}/resources"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionGroupRead]:
         """
         Retrieves a list of action groups.
@@ -58,7 +63,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             model=ResourceActionGroupRead,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its key.
@@ -78,7 +83,7 @@ class ResourceActionGroupsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, group_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_key(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its key.
@@ -99,14 +104,14 @@ class ResourceActionGroupsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, group_key)
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def get_by_id(self, resource_id: str, group_id: str) -> ResourceActionGroupRead:
         """
         Retrieves a action group by its ID.
         Alias for the get method.
 
         Args:
-            resource_key: The ID of the resource the action group belongs to.
+            resource_id: The ID of the resource the action group belongs to.
             group_id: The ID of the action group.
 
         Returns:
@@ -120,8 +125,10 @@ class ResourceActionGroupsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, group_id)
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, resource_key: str, group_data: ResourceActionGroupCreate) -> ResourceActionGroupRead:
+    @validate_arguments
+    async def create(
+        self, resource_key: str, group_data: ModelInput[ResourceActionGroupCreate]
+    ) -> ResourceActionGroupRead:
         """
         Creates a new action group.
 
@@ -144,9 +151,9 @@ class ResourceActionGroupsApi(BasePermitApi):
             json=group_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def update(
-        self, resource_key: str, group_key: str, group_data: ResourceActionGroupUpdate
+        self, resource_key: str, group_key: str, group_data: ModelInput[ResourceActionGroupUpdate]
     ) -> ResourceActionGroupRead:
         """
         Updates an action group.
@@ -171,7 +178,7 @@ class ResourceActionGroupsApi(BasePermitApi):
             json=group_data,
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def delete(self, resource_key: str, group_key: str) -> None:
         """
         Deletes a action group.

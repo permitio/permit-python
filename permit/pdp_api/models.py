@@ -4,14 +4,17 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel, Field
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel, Field
 else:
-    from pydantic.v1 import BaseModel, Field  # type: ignore
+    from pydantic.v1 import BaseModel, Field
 
 
 class RoleAssignment(BaseModel):
@@ -19,7 +22,7 @@ class RoleAssignment(BaseModel):
     role: str = Field(..., description="the role that is assigned", title="Role")
     tenant: str = Field(..., description="the tenant the role is associated with", title="Tenant")
     resource_instance: Optional[str] = Field(
-        None,
+        default=None,
         description="the resource instance the role is associated with",
         title="Resource Instance",
     )

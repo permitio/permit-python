@@ -1,11 +1,16 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import validate_arguments
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+from permit.utils.model_input import ModelInput
 
 from .base import (
     BasePermitApi,
@@ -23,7 +28,7 @@ class ConditionSetRulesApi(BasePermitApi):
             f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/set_rules"
         )
 
-    @validate_arguments  # type: ignore[operator]
+    @validate_arguments
     async def list(
         self,
         user_set_key: Optional[str] = None,
@@ -65,8 +70,8 @@ class ConditionSetRulesApi(BasePermitApi):
             params=params,
         )
 
-    @validate_arguments  # type: ignore[operator]
-    async def create(self, rule: ConditionSetRuleCreate) -> List[ConditionSetRuleRead]:
+    @validate_arguments
+    async def create(self, rule: ModelInput[ConditionSetRuleCreate]) -> List[ConditionSetRuleRead]:
         """
         Creates a new condition set rule.
 
@@ -84,8 +89,8 @@ class ConditionSetRulesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_set_rules.post("", model=List[ConditionSetRuleRead], json=rule)
 
-    @validate_arguments  # type: ignore[operator]
-    async def delete(self, rule: ConditionSetRuleRemove) -> None:
+    @validate_arguments
+    async def delete(self, rule: ModelInput[ConditionSetRuleRemove]) -> None:
         """
         Deletes a condition set rule.
 

@@ -1,32 +1,7 @@
-from typing import Callable, TypeVar
+from permit import PermitConfig
+from permit.api.base import ClientConfig, SimpleHttpClient, pagination_params
 
-from permit import PYDANTIC_VERSION, PermitConfig
-from permit.api.base import SimpleHttpClient
-
-if PYDANTIC_VERSION < (2, 0):
-    from pydantic import BaseModel, Extra, Field
-else:
-    from pydantic.v1 import BaseModel, Extra, Field  # type: ignore
-
-
-T = TypeVar("T", bound=Callable)
-TModel = TypeVar("TModel", bound=BaseModel)
-TData = TypeVar("TData", bound=BaseModel)
-
-
-def pagination_params(page: int, per_page: int) -> dict:
-    return {"page": page, "per_page": per_page}
-
-
-class ClientConfig(BaseModel):
-    class Config:
-        extra = Extra.allow
-
-    base_url: str = Field(
-        ...,
-        description="base url that will prefix the url fragment sent via the client",
-    )
-    headers: dict = Field(..., description="http headers sent to the API server")
+__all__ = ["BasePdpPermitApi", "ClientConfig", "pagination_params"]
 
 
 class BasePdpPermitApi:
@@ -48,7 +23,7 @@ class BasePdpPermitApi:
             base_url=f"{self.config.pdp}",
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"bearer {self.config.token}",
+                "Authorization": f"Bearer {self.config.token}",
             },
         )
         client_config_dict = client_config.dict()
@@ -56,4 +31,8 @@ class BasePdpPermitApi:
         return SimpleHttpClient(
             client_config_dict,
             base_url=endpoint_url,
+            # pdp_timeout was documented on PermitConfig and honoured by the
+            # enforcer, but silently ignored here, so every permit.pdp_api.*
+            # call used aiohttp's default timeout instead of the configured one.
+            timeout=self.config.pdp_timeout,
         )
