@@ -23,7 +23,7 @@ loguru>=0.7.3,<1
 #   pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to
 #   infer type for attribute". pydantic 2.0-2.11 also have no Python 3.14
 #   builds.
-pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1; python_version < "3.13"
+pydantic[email]!=2.0.0.dev,!=2.1.0.dev,!=2.2.0.dev,!=2.3.0.dev,!=2.4.0,!=2.4.1,>=2.13.5; python_version < "3.13"
 pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*; python_version == "3.13"
 pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"
 # 4.14.0 is the lowest release that works on every supported Python: releases
