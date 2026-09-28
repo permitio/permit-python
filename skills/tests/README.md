@@ -4,12 +4,14 @@ These tests check `MIGRATION.md`, the skill in `../permit-python-3-migration/` a
 scanner against each other and against the SDK. They are not part of the SDK's test suite:
 CI runs them in their own job, `Migration Skill Tests`.
 
-Run them from the repository root:
+Run them from the repository root (`CONTRIBUTING.md` covers the setup):
 
 ```bash
-pip install . -r requirements-dev.txt
-python -m pytest -c skills/tests/pytest.ini skills/tests
+uv run python -m pytest -c skills/tests/pytest.ini skills/tests
 ```
+
+CI runs them under each pydantic major. To do the same, add `--group pydantic-v1` or
+`--group pydantic-v2` after `uv run`.
 
 ## Do not use the sample apps
 

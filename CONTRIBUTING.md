@@ -13,29 +13,78 @@ uv sync                      # .venv with the SDK and the dev tools, exactly as 
 uv run pre-commit install    # lint, format, type-check and uv.lock checks on every commit
 ```
 
-`.python-version` selects Python 3.11, the version CI runs on. The SDK itself supports
-Python 3.10 and later.
+`uv sync` installs the SDK from this checkout in editable mode, so the tests and scripts
+import the working tree's `permit`. `.python-version` selects Python 3.11, the version the
+end-to-end CI job runs on. The SDK itself supports Python 3.10 and later.
+
+## Dependencies
+
+- Runtime requirements are `[project].dependencies` in `pyproject.toml`. They are open
+  ranges, and the comments there say why each floor and exclusion is what it is.
+  `tests/test_offline_regressions.py` and `skills/tests` check those floors.
+- Dev tools are exact pins in the `dev` dependency group, which `uv sync` installs by
+  default.
+- After changing either, run `uv lock` and commit `uv.lock` with the change. The `uv-lock`
+  pre-commit hook fails while the two disagree, and CI installs with `uv sync --locked`,
+  which refuses a stale lock.
 
 ## Running the tests
 
 ### Offline tests
 
-These run against local mock servers and need no PDP, API key or network access:
+Every test that needs credentials, the Permit API or a PDP is marked `e2e`. The rest run
+against local mock servers and need no PDP, API key or network access:
 
 ```sh
-uv run pytest \
-  tests/test_offline_regressions.py \
-  tests/test_fix_enforcement.py \
-  tests/test_fix_permissions.py \
-  tests/test_fix_relations.py \
-  tests/test_fix_serialization.py \
-  tests/test_fix_sync.py \
-  tests/test_fix_tenants.py
+uv run pytest -m "not e2e"
 ```
+
+### Both pydantic majors
+
+The SDK supports pydantic 1 and 2, and CI runs the suite once per major. Each major is a
+dependency group, and both resolutions are in `uv.lock`:
+
+```sh
+uv run --group pydantic-v1 pytest -m "not e2e"   # pydantic 1.x
+uv run --group pydantic-v2 pytest -m "not e2e"   # pydantic 2.x
+```
+
+`uv run` syncs `.venv` to the groups it is given before running the command, so pass the
+group every time: a plain `uv run` switches back to the default resolution (pydantic 2.x).
+
+### Other Python versions
+
+```sh
+uv run --python 3.14 --group pydantic-v2 pytest -m "not e2e"
+```
+
+`--python` rebuilds `.venv` with that interpreter, and the next `uv run` without it
+rebuilds `.venv` with the `.python-version` one.
+
+CI's `compatibility` job runs the offline tests on Python 3.10 to 3.14, both at the lowest
+versions the runtime requirements allow and at the newest.
+
+### Type checking
+
+`tests/test_typing_surface.py` runs mypy on `tests/type_check/consumer.py` the way a user's
+project sees an installed permit, and fails while `permit/_sync_types.pyi` is out of date
+(see [Regenerating the sync stubs](#regenerating-the-sync-stubs)). The `mypy` pre-commit
+hook type-checks the SDK itself.
+
+### The migration skill's tests
+
+`skills/tests` checks `MIGRATION.md` and the permit-python-3-migration skill against each
+other and against the SDK. It runs apart from the SDK's suite, with its own pytest config:
+
+```sh
+uv run python -m pytest -c skills/tests/pytest.ini skills/tests
+```
+
+See [skills/tests/README.md](skills/tests/README.md).
 
 ### End-to-end tests
 
-Everything else in `tests/` talks to a real Permit environment through a running PDP. `uv run
+The tests marked `e2e` talk to a real Permit environment through a running PDP. `uv run
 pytest` with no arguments runs the whole suite (`testpaths` is `tests/`). CI
 (`.github/workflows/test.yml`) creates a scratch environment per run, starts a PDP container
 for it, and sets:
@@ -59,26 +108,15 @@ PDP_URL=http://localhost:7766 API_TIER=prod \
 
 The suite creates and deletes objects in that environment, so use a throwaway one.
 
-### Both pydantic majors
+## Regenerating the sync stubs
 
-The SDK supports pydantic v1 and v2, and CI runs the suite once per major. Each major is a
-dependency group, and both resolutions are in `uv.lock`:
-
-```sh
-uv sync --group pydantic-v1   # pydantic 1.x
-uv sync --group pydantic-v2   # pydantic 2.x
-```
-
-A plain `uv sync` afterwards returns to the default resolution (pydantic 2.x).
-
-## Building
+The blocking client, `permit.sync.Permit`, wraps the async classes at runtime, which type
+checkers cannot follow. `permit/_sync_types.pyi` declares the blocking signatures for them
+and is generated from the async classes. After changing an async API class, regenerate it:
 
 ```sh
-uv build    # sdist and wheel into dist/
+uv run python scripts/generate_sync_stubs.py
 ```
-
-Releases are built and published by `.github/workflows/python-sdk-publish.yml` when a GitHub
-release is published; the release tag sets the version.
 
 ## Regenerating the API models
 
@@ -86,24 +124,17 @@ release is published; the release tag sets the version.
 so the same models work under both pydantic majors. Regenerating overwrites that edit, so it
 has to be restored by hand.
 
-1. Regenerate. The generator version is pinned to the one that produced the current file:
-   0.33.0 is the last version that emits pydantic v1 models (`pydantic.BaseModel`), and it
-   does not run on Python 3.14, hence `--python 3.11`. `--exclude-newer` pins its formatters
-   (black, isort) to what was current when the file was last generated, so an unchanged spec
-   produces an unchanged file.
+1. Regenerate:
 
    ```sh
-   uvx --python 3.11 --exclude-newer 2025-09-18 \
-     --from 'datamodel-code-generator[http]==0.33.0' datamodel-codegen \
-     --url https://api.permit.io/v2/openapi.json \
-     --input-file-type openapi \
-     --output permit/api/models.py \
-     --output-model-type pydantic.BaseModel \
-     --allow-extra-fields \
-     --enum-field-as-literal one \
-     --use-one-literal-as-default \
-     --use-subclass-enum
+   bash scripts/generate_models.sh
    ```
+
+   The script runs the generator through `uvx`, pinned to 0.33.0, the release that produced
+   the current file. Its `--exclude-newer` date freezes the generator's dependencies and
+   formatters, so an unchanged spec regenerates the same models, and those dependencies do
+   not install on Python 3.14, hence `--python 3.11`. The comments in the script explain the
+   generator flags, such as `--use-default-kwarg`.
 
 2. Restore the compatibility header. The generator writes a single import line such as:
 
@@ -111,22 +142,74 @@ has to be restored by hand.
    from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
    ```
 
-   Replace it with the block below, keeping exactly the names the generator imported in both
-   branches:
+   Replace it with the header the committed file has, keeping exactly the names the generator
+   imported in every branch:
 
    ```py
-   from ..utils.pydantic_version import PYDANTIC_VERSION
+   import typing as _typing
 
-   if PYDANTIC_VERSION < (2, 0):
+   # Private, or permit/__init__.py's `from permit.api.models import *` would export it.
+   from ..utils.pydantic_version import PYDANTIC_VERSION as _PYDANTIC_VERSION
+
+   if _typing.TYPE_CHECKING:
+       # The v1 API is what runs under either pydantic major, so type-check against it.
+       from pydantic.v1 import AnyUrl, BaseModel, Extra, Field, conint, constr
+
+       # pydantic.v1 declares EmailStr as a str subclass, so a type checker would reject
+       # a plain str for an email field. At runtime these fields take and hold a plain
+       # str; pydantic 2 types its own EmailStr as str for the same reason.
+       EmailStr = str
+   elif _PYDANTIC_VERSION < (2, 0):
        from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
    else:
-       from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr  # type: ignore
+       from pydantic.v1 import AnyUrl, BaseModel, EmailStr, Extra, Field, conint, constr
    ```
 
-   Without it, the v1-style models do not load under pydantic 2.
+   Without it, the v1-style models do not load under pydantic 2. Keep `PYDANTIC_VERSION`
+   imported under the private `_PYDANTIC_VERSION` alias.
 
-3. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff in
+3. Re-apply the hand fixes: the entries in `.github/scripts/schema_drift_allowlist.json`
+   whose reason says "by hand".
+
+4. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff in
    `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
 
-4. Run the offline tests under both pydantic majors (see above) and `uv run pre-commit run
-   --all-files`.
+5. Run the schema drift check, the offline tests under both pydantic majors (see above) and
+   `uv run pre-commit run --all-files`.
+
+### Schema drift check
+
+`.github/scripts/check_schema_drift.py` runs the same generator with the same flags (a unit
+test keeps it equal to `scripts/generate_models.sh`) and compares the result with
+`permit/api/models.py` by structure: classes, fields, types, required or optional, defaults,
+aliases, `Config.extra` and enum members. A difference that makes the SDK send what the API
+rejects, or reject what it returns, fails the check. A class or optional field the SDK lacks
+is only reported. That includes a class deleted from `permit/api/models.py`: the schema has
+classes no SDK method uses, and a class the SDK does not have cannot change what it sends or
+parses. Known differences are listed in `.github/scripts/schema_drift_allowlist.json` with a
+one-line reason each, and an entry that no longer matches fails the check until it is
+removed.
+
+```sh
+uv run python .github/scripts/check_schema_drift.py --models permit/api/models.py \
+  --allowlist .github/scripts/schema_drift_allowlist.json
+```
+
+It exits 0 (no new failing drift and no stale entry), 1 (new failing drift or a stale entry)
+or 2 (the comparison did not run). `.github/workflows/schema-drift.yml` runs it weekly, on
+manual dispatch and on pull requests that change `permit/api/models.py`,
+`.github/scripts/check_schema_drift.py`, `.github/scripts/schema_drift_allowlist.json` or the
+workflow itself.
+
+## Building
+
+```sh
+uv build    # sdist and wheel into dist/
+```
+
+`dist/` is the only build output; uv's build backend leaves no `build/` or `*.egg-info`
+directory behind.
+
+Releasing is done by publishing a GitHub release, which runs
+`.github/workflows/python-sdk-publish.yml` (build, then security scan, then PyPI). The release
+tag sets the version.
