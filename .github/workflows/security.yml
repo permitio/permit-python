@@ -66,11 +66,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # Pinned so a new uv release cannot change which trees get scanned.
+      # Pinned so a new uv release cannot change which trees get scanned:
+      # setup-uv installs the version [tool.uv] required-version in
+      # pyproject.toml names.
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.18"
 
       - name: Install Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -79,10 +79,10 @@ jobs:
           scan-ref: .
           # This invocation exists only to install Trivy. The real scan runs
           # in audit-deps.sh, because the action cannot compile the dependency
-          # trees the scan needs. The action always scans scan-ref, and the
-          # repo root has nothing Trivy can scan, so hide-progress (TRIVY_QUIET)
-          # keeps that empty scan from logging a "Supported files not found"
-          # warning. Errors still print.
+          # trees the scan needs. The action always scans scan-ref, and with the
+          # paths skipped below the repo root has nothing Trivy can scan, so
+          # hide-progress (TRIVY_QUIET) keeps that empty scan from logging a
+          # "Supported files not found" warning. Errors still print.
           skip-setup-trivy: false
           format: table
           exit-code: "0"
@@ -92,6 +92,9 @@ jobs:
           # The migration skill's sample apps pin vulnerable versions on
           # purpose and are never installed (skills/tests/README.md).
           skip-dirs: skills/tests/fixtures
+          # uv.lock pins this repository's own CI environment, not what a
+          # consumer installs; audit-deps.sh scans the published ranges.
+          skip-files: uv.lock
 
       - name: Run dependency audit
         id: audit
@@ -112,8 +115,11 @@ jobs:
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
             "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
-            --context "pyproject.toml dependencies + dev group, resolved at Python 3.10 (both the current resolution and the lowest versions the published specs permit)" \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+            --context "pyproject.toml dependencies + dev group, resolved at Python 3.10 (the current resolution, and the lowest versions the published specs permit under each pydantic major)" \
             --blocking \
             > /tmp/audit/comment.md 2>/tmp/audit/format.err
           render_exit=$?

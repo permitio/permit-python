@@ -11,10 +11,15 @@
 #       pyproject.toml [project].dependencies alone, current resolution. What
 #       a fresh `pip install permit` gets today.
 #   runtime-floor/    + trivy-runtime-floor.json
-#       pyproject.toml [project].dependencies alone, lowest-direct. The lowest
-#       versions the PUBLISHED specs permit -- i.e. real consumer exposure.
-#       This is the tree that matters most for a library with open `>=`
-#       ranges.
+#   runtime-floor-pydantic-v2/  + trivy-runtime-floor-pydantic-v2.json
+#       pyproject.toml [project].dependencies alone, lowest-direct. Together,
+#       the lowest versions the PUBLISHED specs permit -- i.e. real consumer
+#       exposure. These are the trees that matter most for a library with open
+#       `>=` ranges. The dependencies accept either pydantic major, and
+#       lowest-direct picks the lowest release they allow, which is a pydantic 1
+#       release, so runtime-floor alone never scans a pydantic 2 floor.
+#       runtime-floor-pydantic-v2 holds pydantic to 2 and scans the lowest
+#       pydantic 2 (and the pydantic-core it pins) the specs permit.
 #   dev-ceiling/      + trivy-dev-ceiling.json
 #       [project].dependencies + the `dev` dependency group, current
 #       resolution. Test tooling only; never ships to a user.
@@ -22,14 +27,14 @@
 # These are compiled from pyproject.toml, NOT exported from uv.lock: the lock
 # pins one resolution for this repo's own CI, while the audit has to see what a
 # consumer can resolve from the published ranges -- today's ceiling and the
-# floor.
+# floors.
 #
 # Plus pip-audit-<tree>.json (advisory only) for each of the four trees.
 #
 # WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev deps together
 # lets a dev tool drag a runtime dependency's floor upward and hide the real
 # exposure: when a dev tool needs a newer release of a runtime dependency than
-# the floor in requirements.txt, the combined floor resolves that newer release,
+# the floor in pyproject.toml, the combined floor resolves that newer release,
 # but a consumer installing only `permit` can still land on the older one.
 # Scanning the combined floor would silently under-report exactly the versions
 # users can actually get.
@@ -92,6 +97,9 @@ echo "::group::Resolving dependency trees (python ${PYTHON_VERSION})"
 # groups are added solely by an explicit --group.
 compile_tree runtime-ceiling "" "${REPO_ROOT}/pyproject.toml"
 compile_tree runtime-floor "lowest-direct" "${REPO_ROOT}/pyproject.toml"
+echo "pydantic>=2" >"${OUT}/pydantic-v2-constraint.txt"
+compile_tree runtime-floor-pydantic-v2 "lowest-direct" "${REPO_ROOT}/pyproject.toml" \
+  --constraints "${OUT}/pydantic-v2-constraint.txt"
 compile_tree dev-ceiling "" "${REPO_ROOT}/pyproject.toml" \
   --group "${REPO_ROOT}/pyproject.toml:dev"
 
