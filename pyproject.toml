@@ -116,7 +116,9 @@ pydantic-v2 = ["pydantic>=2"]
 # .sha256 of this release) must agree with it.
 required-version = "==0.12.18"
 # Publish-age cooldown for `uv lock`, matching Dependabot's 7-day cooldown: a
-# release is most likely to be a compromised upload in its first days.
+# release is most likely to be a compromised upload in its first days. A security
+# fix younger than that is locked with an exclude-newer-package entry here (see
+# CONTRIBUTING.md, "Dependencies").
 exclude-newer = "7 days"
 conflicts = [[{ group = "pydantic-v1" }, { group = "pydantic-v2" }]]
 

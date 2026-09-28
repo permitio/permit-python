@@ -350,6 +350,14 @@ def test_fixable_high_blocks():
     assert Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy").blocking is True
 
 
+def test_fix_instructions_cover_a_fix_uv_lock_still_filters_out():
+    # The gate resolves with --exclude-newer false, so it blocks on the day a fix
+    # is released, while `uv lock` keeps that release out for 7 days. The report
+    # must say how to lock it anyway, or the block cannot be cleared.
+    out = render([Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy")], [], "", blocking=True)
+    assert "exclude-newer-package = { <package> = false }" in out
+
+
 def test_gate_exits_1_on_fixable_high(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps(trivy_report(vuln())))

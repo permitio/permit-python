@@ -497,6 +497,14 @@ def render(
     )
     out.append("")
     out.append(
+        "This audit resolves without the 7-day publish-age cooldown (`exclude-newer`) in "
+        "`[tool.uv]`, but `uv lock` applies it. If `uv lock` says the fixed version was "
+        "filtered by `exclude-newer`, add `exclude-newer-package = { <package> = false }` "
+        "under `[tool.uv]` in `pyproject.toml`, run `uv lock` and commit both files. Once "
+        "the release is 7 days old, remove the entry and run `uv lock` again."
+    )
+    out.append("")
+    out.append(
         "An advisory with no fix available does not block the build -- it is reported "
         "here so it can be tracked, but no version bump can resolve it. Suppression "
         "files are deliberately not honoured: the scan runs with `--ignorefile "

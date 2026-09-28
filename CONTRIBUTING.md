@@ -27,6 +27,13 @@ end-to-end CI job runs on. The SDK itself supports Python 3.10 and later.
 - After changing either, run `uv lock` and commit `uv.lock` with the change. The `uv-lock`
   pre-commit hook fails while the two disagree, and CI installs with `uv sync --locked`,
   which refuses a stale lock.
+- `uv lock` leaves out releases less than 7 days old (`exclude-newer` in `[tool.uv]`), but
+  the dependency audit does not, so it can fail on an advisory whose fix `uv lock` still
+  filters out. To take that fix now, add `exclude-newer-package = { <package> = false }`
+  under `[tool.uv]`, run `uv lock` and commit both files. Passing
+  `--exclude-newer-package` to `uv lock` on the command line is not enough: `uv.lock`
+  records the options it was locked with, so `uv lock --check` and `uv sync --locked` then
+  reject it. Once the release is 7 days old, remove the entry and run `uv lock` again.
 
 ## Running the tests
 

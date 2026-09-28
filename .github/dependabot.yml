@@ -27,7 +27,9 @@ updates:
     # day-zero adoption. Security updates are exempt from this cooldown, but
     # the `uv lock` Dependabot runs still applies exclude-newer = "7 days" from
     # pyproject.toml, so a fix released less than 7 days ago cannot be locked
-    # and its update fails until the release is 7 days old.
+    # and its update fails until the release is 7 days old. To take such a fix
+    # sooner, lock it by hand with an exclude-newer-package entry (see
+    # CONTRIBUTING.md, "Dependencies").
     cooldown:
       default-days: 7
       semver-major-days: 14
