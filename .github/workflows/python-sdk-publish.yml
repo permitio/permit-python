@@ -71,21 +71,35 @@ jobs:
       # Type checkers read permit's annotations only when py.typed is in the
       # installed package, and see the blocking client as blocking only through
       # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
-      # them without any import failing. Check the artifact that gets published.
-      - name: Check the wheel ships its type information
+      # them without any import failing. Check the artifacts that get
+      # published: the wheel, and the sdist, since a wheel built from the sdist
+      # (pip install --no-binary, a distribution's packager) holds only what
+      # the sdist does.
+      - name: Check the wheel and sdist ship their type information
         run: |
           set -euo pipefail
-          python - dist/*.whl <<'PY'
+          uv run --no-project python - dist <<'PY'
           import sys
+          import tarfile
           import zipfile
+          from pathlib import Path
 
-          wheels = sys.argv[1:]
-          if len(wheels) != 1:
-              sys.exit(f"expected one wheel, found {wheels}")
-          missing = {"permit/py.typed", "permit/_sync_types.pyi"} - set(zipfile.ZipFile(wheels[0]).namelist())
-          if missing:
-              sys.exit(f"{wheels[0]} is missing {sorted(missing)}")
-          print(f"{wheels[0]} ships permit/py.typed and permit/_sync_types.pyi")
+          dist = Path(sys.argv[1])
+          wheels = sorted(dist.glob("*.whl"))
+          sdists = sorted(dist.glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              found = [path.name for path in wheels + sdists]
+              sys.exit(f"expected one wheel and one sdist in {dist}, found {found}")
+          required = ["permit/py.typed", "permit/_sync_types.pyi"]
+          contents = {wheels[0]: set(zipfile.ZipFile(wheels[0]).namelist())}
+          # Every sdist path starts with its top-level permit-<version>/ directory.
+          with tarfile.open(sdists[0]) as sdist:
+              contents[sdists[0]] = {name.partition("/")[2] for name in sdist.getnames()}
+          for artifact, names in contents.items():
+              missing = [path for path in required if path not in names]
+              if missing:
+                  sys.exit(f"{artifact.name} is missing {missing}")
+              print(f"{artifact.name} ships {' and '.join(required)}")
           PY
 
       - name: Upload distribution
@@ -113,8 +127,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          # Pinned so a new uv release cannot change which trees get scanned.
-          version: "0.12.18"
+          # No version input: setup-uv installs the one [tool.uv]
+          # required-version in pyproject.toml names, so a new uv release
+          # cannot change which trees get scanned.
           # This job resolves dependency trees for scanning and installs
           # nothing, so the cache buys nothing and only adds a poisoning
           # vector on a workflow that publishes artifacts.
@@ -136,6 +151,9 @@ jobs:
           # The migration skill's sample apps pin vulnerable versions on
           # purpose and are never installed (skills/tests/README.md).
           skip-dirs: skills/tests/fixtures
+          # uv.lock pins this repository's own CI environment, not what a
+          # consumer installs; audit-deps.sh scans the published ranges.
+          skip-files: uv.lock
 
       - name: Run dependency audit
         run: bash .github/scripts/audit-deps.sh /tmp/audit
