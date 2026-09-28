@@ -82,6 +82,18 @@ uv run python -m pytest -c skills/tests/pytest.ini skills/tests
 
 See [skills/tests/README.md](skills/tests/README.md).
 
+### The CI scripts' tests
+
+`.github/scripts` holds the dependency audit's report formatter and the schema drift check,
+with their tests. They need only pytest and the standard library, and run with their own
+pytest config, which turns every warning into an error. The command is the one the
+`Audit Script Tests` job runs:
+
+```sh
+uv run --only-dev pytest -c .github/scripts/pytest.ini \
+  .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py
+```
+
 ### End-to-end tests
 
 The tests marked `e2e` talk to a real Permit environment through a running PDP. `uv run

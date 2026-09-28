@@ -111,7 +111,9 @@ pydantic-v2 = ["pydantic>=2"]
 
 [tool.uv]
 # The one place the uv version is set: setup-uv reads it in CI. The uv-lock
-# hook rev and the uv_build bound in [build-system] must agree with it.
+# hook rev, the uv_build bound in [build-system] and the setup-uv `checksum:`
+# in python-sdk-publish.yml's build job (the uv-x86_64-unknown-linux-gnu.tar.gz
+# .sha256 of this release) must agree with it.
 required-version = "==0.12.18"
 # Publish-age cooldown for `uv lock`, matching Dependabot's 7-day cooldown: a
 # release is most likely to be a compromised upload in its first days.
@@ -128,7 +130,7 @@ module-root = ""
 # Every file under permit/ goes in, not only .py files. That includes py.typed,
 # which tells type checkers to read permit's annotations (PEP 561), and
 # _sync_types.pyi, which is how they see the blocking client. CI checks that the
-# built wheel has both.
+# built wheel and sdist have both.
 # The sdist also carries the top-level Markdown files, the migration guide
 # among them.
 source-include = ["*.md"]
