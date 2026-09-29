@@ -275,6 +275,18 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
 # The migration skill's tests are run by path with their own pytest.ini, like
 # the CI scripts' tests, not imported as a package.
 "skills/tests/*.py" = ["INP001"]
+# The migration scanner runs on Python 3.8, where builtin generics fail at runtime, and
+# keeps its annotations evaluated as written rather than add a __future__ import (FA100).
+# Each of its checks walks the syntax cases it recognizes in one function; split up, a
+# rule would be scattered over helpers that mean nothing on their own. Its literals are
+# version components (3.10's minor, the parts `~=` needs) and argument counts (PLR2004).
+"skills/permit-python-3-migration/scripts/scan.py" = [
+    "FA100",
+    "C901",
+    "PLR0911",
+    "PLR0912",
+    "PLR2004",
+]
 # A user's code as mypy sees it (tests/test_typing_surface.py): a file mypy is
 # pointed at, not a module of the tests package.
 "tests/type_check/*.py" = ["INP001"]

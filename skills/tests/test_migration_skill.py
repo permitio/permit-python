@@ -202,8 +202,8 @@ V2_FINDINGS: set[Row] = {
 }
 
 
-def test_git_tracks_every_fixture_file():
-    """A fixture file that git ignores is missing from every clone, so the tests below fail in CI."""
+def test_git_tracks_every_fixture_file() -> None:
+    """A fixture file that git ignores is missing from every clone, so CI fails the tests below."""
     if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
         pytest.skip("not a git checkout")
     files = [
@@ -213,7 +213,11 @@ def test_git_tracks_every_fixture_file():
     ]
 
     result = subprocess.run(
-        ["git", "check-ignore", *files], cwd=REPO_ROOT, capture_output=True, text=True, check=False
+        ["git", "check-ignore", *files],  # noqa: S607 - the git on PATH, as in CI
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
     assert result.returncode == 1, (
@@ -221,7 +225,7 @@ def test_git_tracks_every_fixture_file():
     )
 
 
-def test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest():
+def test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest() -> None:
     manifests = re.compile(
         r"(pyproject\.toml|setup\.py|setup\.cfg|Pipfile(\.lock)?|poetry\.lock|uv\.lock|.*requirements.*\.txt)"
     )
@@ -234,21 +238,21 @@ def test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest():
     assert named == [], f"store these as <name>.fixture: {named}"
 
 
-def test_scanner_finds_every_site_in_the_2x_app():
+def test_scanner_finds_every_site_in_the_2x_app() -> None:
     found = findings(sample_app("v2_app"))
 
     assert len(found) == len(set(found)), "a site was reported twice"
     assert set(found) == V2_FINDINGS
 
 
-def test_scanner_reports_nothing_in_the_migrated_app():
+def test_scanner_reports_nothing_in_the_migrated_app() -> None:
     project = scan.Project(sample_app("v3_app"))
 
     assert project.scan() == []
     assert project.skipped == []
 
 
-def test_safe_edits_name_the_replacement():
+def test_safe_edits_name_the_replacement() -> None:
     messages = {
         (item.path, item.line): item.message for item in scan.Project(sample_app("v2_app")).scan()
     }
@@ -265,7 +269,7 @@ def test_safe_edits_name_the_replacement():
     assert "switch it to the async permit.Permit" in messages[("app/sync_app.py", 23)]
 
 
-def test_json_report_matches_the_findings_and_names_the_changes():
+def test_json_report_matches_the_findings_and_names_the_changes() -> None:
     result = subprocess.run(
         [sys.executable, str(SCANNER), str(sample_app("v2_app")), "--json"],
         capture_output=True,
@@ -293,7 +297,7 @@ def test_json_report_matches_the_findings_and_names_the_changes():
 # ---------------------------------------------------------------------------
 
 
-def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path):
+def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -332,7 +336,7 @@ def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path):
     assert findings(tmp_path) == [("app.py", line, "A2", SAFE) for line in (18, 19, 20, 21, 23, 24)]
 
 
-def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: Path):
+def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -379,7 +383,7 @@ def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: P
         assert "(recommended)" in item.message
 
 
-def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path):
+def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -418,13 +422,15 @@ def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path):
     write(
         tmp_path,
         {
-            "test_app.py": "from unittest.mock import AsyncMock\nclient.authorized_users = AsyncMock()\n"
+            "test_app.py": (
+                "from unittest.mock import AsyncMock\nclient.authorized_users = AsyncMock()\n"
+            )
         },
     )
     assert findings(tmp_path) == []
 
 
-def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path):
+def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -451,7 +457,7 @@ def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path):
     ]
 
 
-def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path):
+def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -472,7 +478,7 @@ def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path):
     assert findings(tmp_path) == [("app.py", 4, "A3", SAFE), ("app.py", 5, "A3", SAFE)]
 
 
-def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path):
+def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -492,7 +498,7 @@ def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path):
     assert "It applied the functions registered with register_transform()" in messages[1]
 
 
-def test_untraced_receivers_are_never_safe(tmp_path: Path):
+def test_untraced_receivers_are_never_safe(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -510,7 +516,7 @@ def test_untraced_receivers_are_never_safe(tmp_path: Path):
     assert findings(tmp_path) == [("service.py", 2, "D2", REVIEW), ("service.py", 3, "A2", REVIEW)]
 
 
-def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path):
+def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -582,7 +588,7 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
     ]
 
 
-def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
+def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -604,7 +610,7 @@ def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
                     e.model_dump(),
                     loaded.model_copy(),
                 )
-            """
+            """  # noqa: E501 - sample code as a user writes it
         },
     )
 
@@ -617,7 +623,7 @@ def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
     ]
 
 
-def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
+def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -679,7 +685,7 @@ def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
         ("app.py", 26, "A2", SAFE),
         ("app.py", 34, "A2", REVIEW),
         ("app.py", 41, "A2", SAFE),
-        # Bound to both clients: .api exists on either, but asyncio.run() is right only on the async one.
+        # Bound to both clients: .api exists on either, but asyncio.run() suits only the async one.
         ("app.py", 45, "A2", REVIEW),
         ("app.py", 46, "D2", SAFE),
         # Bound to a client and to something else: nothing is safe.
@@ -690,7 +696,7 @@ def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
     ]
 
 
-def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path):
+def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -722,7 +728,7 @@ def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def test_only_visibly_optional_values_are_reported_for_w1(tmp_path: Path):
+def test_only_visibly_optional_values_are_reported_for_w1(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -746,14 +752,14 @@ def test_only_visibly_optional_values_are_reported_for_w1(tmp_path: Path):
                 if email is not None:
                     await permit.api.users.update(key, UserUpdate(email=email))
                 await permit.api.users.update(key, UserUpdate(email=email)) if email else None
-            """
+            """  # noqa: E501 - sample code as a user writes it
         },
     )
 
     assert findings(tmp_path) == [("app.py", line, "W1", REVIEW) for line in (10, 11, 12, 13, 15)]
 
 
-def test_guarded_optional_fields_are_not_reported(tmp_path: Path):
+def test_guarded_optional_fields_are_not_reported(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -779,7 +785,7 @@ def test_guarded_optional_fields_are_not_reported(tmp_path: Path):
     assert findings(tmp_path) == [("app.py", 8, "A5", REVIEW)]
 
 
-def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: Path):
+def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -797,15 +803,15 @@ def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: P
                 truthy = log.objects and log.objects.user_object
                 config = log.pdp_config_id.hex if isinstance(log.pdp_config_id, UUID) else None
                 return unguarded, not_none, typed, truthy, config
-            """
+            """  # noqa: E501 - sample code as a user writes it
         },
     )
 
     assert findings(tmp_path) == [("app.py", 8, "A4", REVIEW), ("app.py", 9, "A4", REVIEW)]
 
 
-def test_audit_log_objects_default_to_an_empty_dict():
-    """What A4 in both docs and the scanner's message say: `is not None` does not guard `objects`."""
+def test_audit_log_objects_default_to_an_empty_dict() -> None:
+    """What A4 in the docs and the scanner's message say: `is not None` does not guard `objects`."""
     field = DetailedAuditLogModel.__fields__["objects"]
 
     assert field.required is False
@@ -966,7 +972,7 @@ def test_audit_log_objects_default_to_an_empty_dict():
 )
 def test_dependency_files(
     tmp_path: Path, name: str, content: str, expected: list[tuple[int, str, str]]
-):
+) -> None:
     write(tmp_path, {name: content})
 
     assert findings(tmp_path) == [(name, line, change, safety) for line, change, safety in expected]
@@ -1033,13 +1039,13 @@ def test_dependency_files(
         pytest.param("Dockerfile", "FROM python:3.13-slim AS build\n", [], id="dockerfile-313"),
     ],
 )
-def test_python_pins_below_310(tmp_path: Path, name: str, content: str, lines: list[int]):
+def test_python_pins_below_310(tmp_path: Path, name: str, content: str, lines: list[int]) -> None:
     write(tmp_path, {name: content})
 
     assert findings(tmp_path) == [(name, line, "C1", REVIEW) for line in lines]
 
 
-def test_type_checker_settings_that_hide_permit(tmp_path: Path):
+def test_type_checker_settings_that_hide_permit(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -1093,7 +1099,7 @@ def test_type_checker_settings_that_hide_permit(tmp_path: Path):
     ]
 
 
-def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path):
+def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path) -> None:
     config = '[tool.pytest.ini_options]\nfilterwarnings = [\n    "error",\n]\n'
     write(tmp_path, {"pyproject.toml": config, "requirements.txt": "pydantic>=2.8\n"})
     assert findings(tmp_path) == []
@@ -1108,7 +1114,7 @@ def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path):
     assert ("pytest.ini", 2, "D1", REVIEW) in findings(tmp_path)
 
 
-def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
+def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -1119,7 +1125,10 @@ def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
                 "ignore:permit\\\\.api\\\\.\\\\w+\\\\(\\\\) is deprecated:DeprecationWarning",
             ]
             """,
-            "setup.cfg": "[tool:pytest]\nfilterwarnings =\n    ignore:use permit\\.elements:DeprecationWarning\n",
+            "setup.cfg": (
+                "[tool:pytest]\nfilterwarnings =\n"
+                "    ignore:use permit\\.elements:DeprecationWarning\n"
+            ),
             "conftest.py": """
             import warnings
 
@@ -1128,11 +1137,11 @@ def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
             warnings.filterwarnings("ignore", message=r"use permit\\.api", category=DeprecationWarning)
             pytest.mark.filterwarnings("ignore:use permit.api.users.get")
             EXPECTED = "permit.api.get_user() is deprecated ...; use permit.api.users.get() instead."
-            """,
+            """,  # noqa: E501 - sample code as a user writes it
         },
     )
 
-    # The 3.x filter and the 3.x message itself, where "use permit.api" is not at the start, are fine.
+    # The 3.x filter, and the 3.x message where "use permit.api" is not at the start, are fine.
     assert findings(tmp_path) == [
         ("conftest.py", 5, "D2", REVIEW),
         ("conftest.py", 6, "D2", REVIEW),
@@ -1141,7 +1150,7 @@ def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
     ]
 
 
-def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path: Path):
+def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path: Path) -> None:
     write(
         tmp_path,
         {"app.py": "import httpx\nimport anyio\n", "requirements-dev.txt": "httpx==0.28.1\n"},
@@ -1150,7 +1159,9 @@ def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path:
     assert findings(tmp_path) == [("app.py", 2, "C2", REVIEW)]
 
 
-def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(tmp_path: Path):
+def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(
+    tmp_path: Path,
+) -> None:
     packages = ["httpx", "zipp", "httpcore", "h11", "anyio", "certifi", "sniffio", "exceptiongroup"]
     write(tmp_path, {"app.py": "".join(f"import {name}\n" for name in packages)})
 
@@ -1164,7 +1175,7 @@ def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(t
         assert {name for name in packages if f"`{name}`" in section} == set(packages), path.name
 
 
-def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path):
+def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -1198,7 +1209,7 @@ def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path
 # ---------------------------------------------------------------------------
 
 
-def test_scanner_skips_environments_and_build_output(tmp_path: Path):
+def test_scanner_skips_environments_and_build_output(tmp_path: Path) -> None:
     deprecated_call = "from permit import Permit\nPermit(token='t').api.get_user('u')\n"
     write(
         tmp_path,
@@ -1217,7 +1228,7 @@ def test_scanner_skips_environments_and_build_output(tmp_path: Path):
     assert findings(tmp_path) == [("src/app.py", 2, "D2", SAFE)]
 
 
-def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path):
+def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path) -> None:
     write(tmp_path, {"broken.py": "def (:\n", "app.py": "import permit\npermit.PYDANTIC_VERSION\n"})
     project = scan.Project(tmp_path)
 
@@ -1225,7 +1236,7 @@ def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path):
     assert [item["path"] for item in project.skipped] == ["broken.py"]
 
 
-def test_scanner_does_not_modify_the_project():
+def test_scanner_does_not_modify_the_project() -> None:
     root = sample_app("v2_app")
 
     def digest() -> dict[str, str]:
@@ -1251,7 +1262,7 @@ def test_scanner_does_not_modify_the_project():
 )
 def test_exit_status_is_non_zero_only_for_usage_errors(
     tmp_path: Path, arguments: list[str], status: int
-):
+) -> None:
     values = {"fixture": str(sample_app("v2_app")), "missing": str(tmp_path / "missing")}
     command = [sys.executable, str(SCANNER), *(argument.format(**values) for argument in arguments)]
 
@@ -1260,7 +1271,7 @@ def test_exit_status_is_non_zero_only_for_usage_errors(
     assert result.returncode == status, result.stderr
 
 
-def test_scanner_uses_only_the_standard_library_and_python_38_syntax():
+def test_scanner_uses_only_the_standard_library_and_python_38_syntax() -> None:
     source = SCANNER.read_text()
     tree = ast.parse(source, feature_version=(3, 8))
     imported = {
@@ -1309,7 +1320,7 @@ def frontmatter() -> dict[str, str]:
     return fields
 
 
-def test_skill_frontmatter_has_only_a_valid_name_and_description():
+def test_skill_frontmatter_has_only_a_valid_name_and_description() -> None:
     fields = frontmatter()
 
     assert set(fields) == {"name", "description"}
@@ -1325,7 +1336,7 @@ def test_skill_frontmatter_has_only_a_valid_name_and_description():
         assert trigger in description
 
 
-def test_skill_passes_the_skill_creator_validator():
+def test_skill_passes_the_skill_creator_validator() -> None:
     quick_validate = pytest.importorskip(
         "quick_validate", reason="skill-creator's quick_validate is not on the path"
     )
@@ -1347,7 +1358,7 @@ def skill_step(number: int) -> str:
     return flat(match.group(0))
 
 
-def test_skill_stops_on_any_python_below_310_before_editing_anything():
+def test_skill_stops_on_any_python_below_310_before_editing_anything() -> None:
     preflight = skill_step(1)
 
     assert "Stop if anything says Python below 3.10:" in preflight
@@ -1358,7 +1369,7 @@ def test_skill_stops_on_any_python_below_310_before_editing_anything():
     assert "Raise the C1 pins the user approved in step 1" in skill_step(3)
 
 
-def test_skill_leaves_judgement_calls_and_checks_to_the_project():
+def test_skill_leaves_judgement_calls_and_checks_to_the_project() -> None:
     assert "Don't guess." in skill_step(5)
     assert "Remove imports an edit leaves unused" in skill_step(4)
     verify = skill_step(6)
@@ -1372,7 +1383,7 @@ def test_skill_leaves_judgement_calls_and_checks_to_the_project():
         assert check in verify, check
 
 
-def test_skill_is_self_contained_and_small():
+def test_skill_is_self_contained_and_small() -> None:
     files = sorted(
         path.relative_to(SKILL_DIR).as_posix()
         for path in SKILL_DIR.rglob("*")
@@ -1412,7 +1423,7 @@ def change_headings(path: Path) -> dict[str, str]:
     return dict(headings)
 
 
-def test_every_change_id_is_in_both_docs_under_the_same_heading():
+def test_every_change_id_is_in_both_docs_under_the_same_heading() -> None:
     catalogue = change_headings(CHANGES)
 
     assert catalogue == change_headings(MIGRATION)
@@ -1420,7 +1431,7 @@ def test_every_change_id_is_in_both_docs_under_the_same_heading():
         assert catalogue.get(change) == title, change
 
 
-def test_the_catalogue_contents_list_every_change():
+def test_the_catalogue_contents_list_every_change() -> None:
     text = CHANGES.read_text()
     contents = text.split("## Contents", 1)[1].split("\n### ", 1)[0]
 
@@ -1452,7 +1463,7 @@ def doc_mapping(path: Path) -> dict[str, tuple[str, dict[str, str] | None]]:
     return mapping
 
 
-def test_the_21_method_mapping_matches_the_sdk_in_both_docs_and_the_scanner():
+def test_the_21_method_mapping_matches_the_sdk_in_both_docs_and_the_scanner() -> None:
     sdk = deprecated_mapping()
     scanner = {
         old: (f"permit.{new}", renames) for old, (new, renames) in scan.DEPRECATED_METHODS.items()
@@ -1464,11 +1475,11 @@ def test_the_21_method_mapping_matches_the_sdk_in_both_docs_and_the_scanner():
     assert doc_mapping(MIGRATION) == scanner
 
 
-def test_the_keyword_renames_match_the_sdk_signatures():
-    """A rename is where the deprecated method and its replacement name the same position differently."""
+def test_the_keyword_renames_match_the_sdk_signatures() -> None:
+    """A rename: the deprecated method and its replacement name one position differently."""
     client = Permit(PermitConfig(token="permit_key_test"))
     for old, (new, renames) in scan.DEPRECATED_METHODS.items():
-        replacement = client
+        replacement: Any = client
         for part in new.split("."):
             replacement = getattr(replacement, part)
         old_parameters = list(inspect.signature(getattr(client.api, old)).parameters)
@@ -1485,7 +1496,7 @@ def test_the_keyword_renames_match_the_sdk_signatures():
         assert len(old_parameters) == len(new_parameters), old
 
 
-def test_the_removed_names_really_are_gone():
+def test_the_removed_names_really_are_gone() -> None:
     for module_name, name in scan.REMOVED:
         module = importlib.import_module(module_name)
         assert not hasattr(module, name), f"{module_name}.{name} still exists"
@@ -1512,14 +1523,15 @@ def removed_rows(path: Path, change: str) -> dict[tuple[str, str], str | None]:
                 continue
             module = ""
             for item in re.findall(r"`([\w.]+)`", group):
+                name = item
                 if item.startswith("permit."):
-                    module, _, item = item.rpartition(".")
+                    module, _, name = item.rpartition(".")
                 if module:
-                    rows[(module, item)] = safety
+                    rows[(module, name)] = safety
     return rows
 
 
-def test_the_removed_name_tables_match_the_scanner():
+def test_the_removed_name_tables_match_the_scanner() -> None:
     for change in ("A3", "A6"):
         scanner = {
             key: safety for key, (found, safety, _) in scan.REMOVED.items() if found == change
@@ -1533,7 +1545,7 @@ def test_the_removed_name_tables_match_the_scanner():
     assert set(removed_rows(MIGRATION, "A6")) == set(removed_rows(CHANGES, "A6"))
 
 
-def test_the_floor_tables_match_the_runtime_requirements():
+def test_the_floor_tables_match_the_runtime_requirements() -> None:
     with (REPO_ROOT / "pyproject.toml").open("rb") as file:
         dependencies = tomllib.load(file)["project"]["dependencies"]
     requirements: dict[str, list[Requirement]] = {}
@@ -1547,7 +1559,8 @@ def test_the_floor_tables_match_the_runtime_requirements():
                 {"python_version": python}
             ):
                 return requirement.specifier.contains(version, prereleases=True)
-        raise AssertionError(f"no {name} requirement applies to Python {python}")
+        msg = f"no {name} requirement applies to Python {python}"
+        raise AssertionError(msg)
 
     def below(version: str) -> str:
         """A version just below a floor: 2.8.0 -> 2.7.999, 1.10.18 -> 1.10.17, 2.13 -> 2.12."""
@@ -1592,7 +1605,7 @@ def test_the_floor_tables_match_the_runtime_requirements():
         ]
 
 
-def test_the_staying_on_2x_advice_states_what_was_verified():
+def test_the_staying_on_2x_advice_states_what_was_verified() -> None:
     for path, heading in (
         (MIGRATION, "## Staying on 2.x for now"),
         (SKILL_DIR / "SKILL.md", "## Staying on 2.x"),
@@ -1660,7 +1673,9 @@ def run_pytest_with(tmp_path: Path, options: list[str]) -> str:
 @pytest.mark.parametrize(
     "path", [SKILL_DIR / "SKILL.md", MIGRATION], ids=["SKILL.md", "MIGRATION.md"]
 )
-def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(tmp_path: Path, path: Path):
+def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(
+    tmp_path: Path, path: Path
+) -> None:
     command = re.search(
         r"^\s*python -m pytest((?: -W (?:\"[^\"]+\"|\S+))+)\s*$", path.read_text(), re.MULTILINE
     )
@@ -1673,7 +1688,7 @@ def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(tmp_path: Pa
     assert "DeprecationWarning: permit.api.get_user() is deprecated" in output, output
 
 
-def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: Path):
+def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: Path) -> None:
     for path in (SKILL_DIR / "SKILL.md", MIGRATION):
         assert '-W "error:permit.api.:DeprecationWarning"' in path.read_text(), path.name
 
@@ -1685,7 +1700,7 @@ def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: P
 
 def test_the_documented_filter_silences_the_flat_methods(
     httpserver: HTTPServer, config: PermitConfig
-):
+) -> None:
     text = MIGRATION.read_text()
     code = re.search(r"In code: `(warnings\.filterwarnings\(.+\))`\.", text)
     assert code, "MIGRATION.md has no in-code filter"
@@ -1703,7 +1718,7 @@ def test_the_documented_filter_silences_the_flat_methods(
         warnings.simplefilter("error", DeprecationWarning)
         with pytest.raises(DeprecationWarning):
             asyncio.run(client.api.get_user("user-1"))
-        exec(code.group(1), {"warnings": warnings})
+        exec(code.group(1), {"warnings": warnings})  # noqa: S102 - the guide's snippet under test
         assert asyncio.run(client.api.get_user("user-1")).key == "user-1"
 
 
@@ -1724,10 +1739,11 @@ def diff_sides(change: str) -> tuple[str, str]:
 
 def run_snippet(code: str, namespace: dict[str, Any]) -> dict[str, Any]:
     """Run a snippet from the guide, as a coroutine when it awaits, and return what it bound."""
+    # The snippets are the guide's own examples, which is what these tests check.
     if "await " not in code:
-        exec(code, namespace)
+        exec(code, namespace)  # noqa: S102
         return namespace
-    exec(
+    exec(  # noqa: S102
         f"async def _snippet():\n{textwrap.indent(code, '    ')}\n    return locals()\n", namespace
     )
     return asyncio.run(namespace["_snippet"]())
@@ -1752,7 +1768,7 @@ def user_json(key: str) -> dict[str, Any]:
     }
 
 
-def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: PermitConfig):
+def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: PermitConfig) -> None:
     relation = {
         **IDS,
         "key": "parent",
@@ -1778,7 +1794,7 @@ def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: Permit
 
 def test_the_guide_a2_diff_calls_the_blocking_method_directly(
     httpserver: HTTPServer, config: PermitConfig, monkeypatch: pytest.MonkeyPatch
-):
+) -> None:
     httpserver.expect_request("/authorized_users", method="POST").respond_with_json(
         {"resource": "document:1", "tenant": "default", "users": {}}
     )
@@ -1799,7 +1815,7 @@ def test_the_guide_a2_diff_calls_the_blocking_method_directly(
 
 
 @pytest.mark.parametrize("change", ["A3", "A6"])
-def test_the_guide_import_diffs_import_what_3_0_has(change: str):
+def test_the_guide_import_diffs_import_what_3_0_has(change: str) -> None:
     before, after = diff_sides(change)
 
     run_snippet(after, {})
@@ -1807,8 +1823,10 @@ def test_the_guide_import_diffs_import_what_3_0_has(change: str):
         run_snippet(before, {})
 
 
-def test_the_guide_a4_and_a5_diffs_handle_missing_values():
-    log = DetailedAuditLogModel.construct(pdp_config_id=None, objects={})
+def test_the_guide_a4_and_a5_diffs_handle_missing_values() -> None:
+    # construct() skips validation, so a model can hold only the fields a snippet reads; the
+    # pydantic plugin types it as if every required field had to be passed.
+    log = DetailedAuditLogModel.construct(pdp_config_id=None, objects={})  # type: ignore[call-arg, arg-type]
     before, after = diff_sides("A4")
     found = run_snippet(after, {"log": log, "AuditLogObjectsModel": AuditLogObjectsModel})
     assert (found["config_id"], found["user"]) == (None, None)
@@ -1816,8 +1834,8 @@ def test_the_guide_a4_and_a5_diffs_handle_missing_values():
         run_snippet(before, {"log": log})
 
     tuples = [
-        RelationshipTupleRead.construct(object_id=None),
-        RelationshipTupleRead.construct(object_id=UUID(int=1)),
+        RelationshipTupleRead.construct(object_id=None),  # type: ignore[call-arg]
+        RelationshipTupleRead.construct(object_id=UUID(int=1)),  # type: ignore[call-arg]
     ]
     before, after = diff_sides("A5")
     assert run_snippet(after, {"tuples": tuples})["ids"] == [UUID(int=1).hex]
@@ -1827,7 +1845,7 @@ def test_the_guide_a4_and_a5_diffs_handle_missing_values():
 
 def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(
     httpserver: HTTPServer, config: PermitConfig
-):
+) -> None:
     bodies: list[Any] = []
 
     def record(request: Request) -> Response:
@@ -1847,7 +1865,7 @@ def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(
 
 def test_the_guide_w5_diff_matches_the_header_permit_sends(
     httpserver: HTTPServer, config: PermitConfig
-):
+) -> None:
     httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
     asyncio.run(Permit(config).check("user-1", "read", "document"))
     request = httpserver.log[-1][0]
@@ -1860,7 +1878,7 @@ def test_the_guide_w5_diff_matches_the_header_permit_sends(
 
 def test_the_guide_t2_diff_uses_the_pydantic_v1_method(
     httpserver: HTTPServer, config: PermitConfig
-):
+) -> None:
     httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
         user_json("user-1")
     )
@@ -1871,7 +1889,9 @@ def test_the_guide_t2_diff_uses_the_pydantic_v1_method(
         run_snippet(before, {"permit": Permit(config)})
 
 
-def test_the_guide_d2_diff_sends_the_same_requests(httpserver: HTTPServer, config: PermitConfig):
+def test_the_guide_d2_diff_sends_the_same_requests(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     assignment = {
         **IDS,
         "user": "user-1",
@@ -1909,12 +1929,15 @@ def safety_markers(section: str) -> set[str]:
     return set(bold) | set(cells)
 
 
-def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
+def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
             "requirements-dev.txt": "permit @ git+https://github.com/permitio/permit-python\n",
-            "app.py": "import anyio\nfrom permit import Permit  # type: ignore[import-untyped, attr-defined]\n",
+            "app.py": (
+                "import anyio\n"
+                "from permit import Permit  # type: ignore[import-untyped, attr-defined]\n"
+            ),
         },
     )
     reported: dict[str, set[str]] = {}
@@ -1925,7 +1948,7 @@ def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
         assert safety_markers(doc_section(CHANGES, change)) == reported.get(change, set()), change
 
 
-def test_the_catalogue_never_calls_an_untraced_receiver_safe():
+def test_the_catalogue_never_calls_an_untraced_receiver_safe() -> None:
     items: list[list[str]] = []
     for line in CHANGES.read_text().splitlines():
         if re.match(r"^\s*- ", line):
