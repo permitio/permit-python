@@ -12,6 +12,7 @@ import sys
 import warnings
 from collections.abc import AsyncIterator, Sequence
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, get_type_hints
 from uuid import UUID, uuid4
@@ -29,6 +30,7 @@ import permit
 from permit import Permit, Resource, User, exceptions
 from permit.api.context import ApiKeyAccessLevel
 from permit.api.elements import ElementsApi
+from permit.api.encoders import jsonable_encoder
 from permit.api.environments import EnvironmentsApi
 from permit.api.models import (
     EnvironmentCopy,
@@ -703,6 +705,31 @@ def test_deprecated_decorator_keeps_async_functions_async() -> None:
     assert inspect.iscoroutinefunction(async_wrapper)
     assert not inspect.iscoroutinefunction(sync_wrapper)
     assert [str(w.message) for w in caught if "asyncio.iscoroutinefunction" in str(w.message)] == []
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (Decimal(1), 1),
+        (Decimal("1E+2"), 100),
+        (Decimal("1.0"), 1.0),
+        (Decimal("-2.5"), -2.5),
+    ],
+)
+def test_jsonable_encoder_encodes_decimals(value: Decimal, expected: float) -> None:
+    encoded = jsonable_encoder({"value": value})["value"]
+
+    assert encoded == expected
+    assert type(encoded) is type(expected)
+
+
+@pytest.mark.parametrize("value", ["NaN", "-NaN", "sNaN", "Infinity", "-Infinity"])
+def test_jsonable_encoder_rejects_non_finite_decimals(value: str) -> None:
+    # JSON has no NaN or Infinity, so the encoder refuses them instead of letting
+    # an invalid request body reach the API. It used to raise an unrelated
+    # TypeError from comparing the Decimal's str exponent with 0.
+    with pytest.raises(TypeError, match="JSON has no NaN or Infinity"):
+        jsonable_encoder({"value": Decimal(value)})
 
 
 @pytest.mark.parametrize(

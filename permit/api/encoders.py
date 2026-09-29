@@ -80,8 +80,16 @@ def decimal_encoder(dec_value: Decimal) -> int | float:
 
     >>> decimal_encoder(Decimal("1"))
     1
+
+    Raises:
+        TypeError: If ``dec_value`` is NaN or infinite. JSON has no such values, so
+            encoding one would send the API an invalid request body.
     """
-    if dec_value.as_tuple().exponent >= 0:  # type: ignore[operator]
+    exponent = dec_value.as_tuple().exponent
+    if not isinstance(exponent, int):
+        msg = f"{dec_value!r} is not JSON serializable: JSON has no NaN or Infinity"
+        raise TypeError(msg)
+    if exponent >= 0:
         return int(dec_value)
     return float(dec_value)
 
