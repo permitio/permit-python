@@ -100,7 +100,7 @@ dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-httpserver==1.1.5",
-    "ruff==0.6.9",
+    "ruff==0.16.8",
     # The offline tests and the migration skill's tests read [project].dependencies
     # from this file, and tomllib is in the standard library only from Python 3.11.
     # The marker says == "3.10" rather than < "3.11", which is the same under
