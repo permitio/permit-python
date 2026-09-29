@@ -16,10 +16,12 @@ from ipaddress import (
 from pathlib import Path, PurePath
 from re import Pattern
 from types import GeneratorType
-from typing import (
+from typing import (  # noqa: UP035 - public alias below
     TYPE_CHECKING,
     Any,
+    Dict,
     Literal,
+    Set,
     Union,
 )
 from uuid import UUID
@@ -83,7 +85,8 @@ def decimal_encoder(dec_value: Decimal) -> int | float:
     return float(dec_value)
 
 
-IncEx = Union[set[int], set[str], dict[int, Any], dict[str, Any]]
+# Public alias; runtime object kept identical (a `typing` generic, not a builtin one).
+IncEx = Union[Set[int], Set[str], Dict[int, Any], Dict[str, Any]]  # noqa: UP006, UP007
 ENCODERS_BY_TYPE: dict[type[Any], Callable[[Any], Any]] = {
     bytes: lambda o: o.decode(),
     Color: str,
