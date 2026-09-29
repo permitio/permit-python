@@ -118,6 +118,8 @@ class DriftError(Exception):
 
 @dataclass(frozen=True)
 class FieldShape:
+    """A model field, reduced to what decides what the SDK sends and accepts."""
+
     type: str
     required: bool
     default: str | None
@@ -126,6 +128,8 @@ class FieldShape:
 
 @dataclass(frozen=True)
 class ClassShape:
+    """A model or enum class: its fields, `Config.extra` and enum members."""
+
     kind: str
     fields: dict[str, FieldShape]
     extra: str
@@ -134,6 +138,8 @@ class ClassShape:
 
 @dataclass(frozen=True)
 class Difference:
+    """One way the SDK's models and the spec's differ."""
+
     kind: str
     cls: str
     name: str
@@ -142,16 +148,20 @@ class Difference:
 
     @property
     def id(self) -> str:
+        """The allowlist key: kind, class and, for a field or member, its name."""
         target = f"{self.cls}.{self.name}" if self.name else self.cls
         return f"{self.kind}:{target}"
 
     @property
     def failing(self) -> bool:
+        """Whether the SDK would send what the API rejects, or reject what it returns."""
         return self.kind in FAILING_KINDS
 
 
 @dataclass(frozen=True)
 class AllowlistEntry:
+    """A known difference, with the reason it is accepted."""
+
     id: str
     sdk: str
     spec: str
@@ -160,20 +170,25 @@ class AllowlistEntry:
 
 @dataclass
 class Result:
+    """The outcome of comparing the SDK's models with the spec's."""
+
     new: list[Difference]
     allowlisted: list[Difference]
     stale: list[AllowlistEntry]
 
     @property
     def failing(self) -> list[Difference]:
+        """New differences that fail the check."""
         return [d for d in self.new if d.failing]
 
     @property
     def informational(self) -> list[Difference]:
+        """New differences that are only reported."""
         return [d for d in self.new if not d.failing]
 
     @property
     def exit_code(self) -> int:
+        """1 for failing drift or a stale allowlist entry, else 0."""
         return 1 if self.failing or self.stale else 0
 
 
@@ -201,7 +216,7 @@ def _is_ellipsis(node: ast.expr) -> bool:
     return isinstance(node, ast.Constant) and node.value is Ellipsis
 
 
-def _field_shape(node: ast.AnnAssign) -> FieldShape:
+def _field_shape(node: ast.AnnAssign) -> FieldShape:  # noqa: C901 - one case per pydantic 1 rule
     """Read one annotated class attribute the way pydantic 1 reads a field."""
     annotation = node.annotation
     value = node.value
@@ -250,7 +265,7 @@ def _config_extra(node: ast.ClassDef) -> str | None:
     return None
 
 
-def parse_models(source: str, label: str) -> dict[str, ClassShape]:
+def parse_models(source: str, label: str) -> dict[str, ClassShape]:  # noqa: C901 - see resolve
     """Return the shape of every top-level class in a generated models module.
 
     Args:
@@ -267,18 +282,21 @@ def parse_models(source: str, label: str) -> dict[str, ClassShape]:
     try:
         tree = ast.parse(source)
     except SyntaxError as exc:
-        raise DriftError(f"{label} does not parse: {exc}") from exc
+        msg = f"{label} does not parse: {exc}"
+        raise DriftError(msg) from exc
     nodes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
     if not nodes:
-        raise DriftError(f"{label} declares no classes, so there is nothing to compare")
+        msg = f"{label} declares no classes, so there is nothing to compare"
+        raise DriftError(msg)
 
     resolved: dict[str, ClassShape] = {}
 
-    def resolve(name: str, chain: tuple[str, ...]) -> ClassShape:
+    def resolve(name: str, chain: tuple[str, ...]) -> ClassShape:  # noqa: C901 - one class per call
         if name in resolved:
             return resolved[name]
         if name in chain:
-            raise DriftError(f"{label}: class {name} inherits from itself")
+            msg = f"{label}: class {name} inherits from itself"
+            raise DriftError(msg)
         node = nodes[name]
         bases = _base_names(node)
         local_bases = [resolve(base, (*chain, name)) for base in bases if base in nodes]
@@ -419,28 +437,35 @@ def load_allowlist(path: Path) -> list[AllowlistEntry]:
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise DriftError(f"could not read the allowlist {path}: {exc}") from exc
+        msg = f"could not read the allowlist {path}: {exc}"
+        raise DriftError(msg) from exc
     except json.JSONDecodeError as exc:
-        raise DriftError(f"the allowlist {path} is not valid JSON: {exc}") from exc
+        msg = f"the allowlist {path} is not valid JSON: {exc}"
+        raise DriftError(msg) from exc
     raw_entries = doc.get("entries") if isinstance(doc, dict) else None
     if not isinstance(raw_entries, list):
-        raise DriftError(f'the allowlist {path} must be an object with an "entries" list')
+        msg = f'the allowlist {path} must be an object with an "entries" list'
+        raise DriftError(msg)
 
     entries: list[AllowlistEntry] = []
     seen: set[str] = set()
     for index, raw in enumerate(raw_entries):
         if not isinstance(raw, dict):
-            raise DriftError(f"allowlist entry {index} is not an object")
+            msg = f"allowlist entry {index} is not an object"
+            raise DriftError(msg)
         values = {key: raw.get(key) for key in ("id", "sdk", "spec", "reason")}
         for key, value in values.items():
             if not isinstance(value, str) or (key in ("id", "reason") and not value.strip()):
-                raise DriftError(f'allowlist entry {index} needs a non-empty string "{key}"')
+                msg = f'allowlist entry {index} needs a non-empty string "{key}"'
+                raise DriftError(msg)
         entry_id = str(values["id"])
         kind = entry_id.split(":", 1)[0]
         if kind not in FAILING_KINDS | INFORMATIONAL_KINDS:
-            raise DriftError(f"allowlist entry {entry_id} has an unknown kind {kind!r}")
+            msg = f"allowlist entry {entry_id} has an unknown kind {kind!r}"
+            raise DriftError(msg)
         if entry_id in seen:
-            raise DriftError(f"allowlist entry {entry_id} appears more than once")
+            msg = f"allowlist entry {entry_id} appears more than once"
+            raise DriftError(msg)
         seen.add(entry_id)
         entries.append(
             AllowlistEntry(entry_id, str(values["sdk"]), str(values["spec"]), str(values["reason"]))
@@ -490,7 +515,8 @@ def render(result: Result, compared_with: str) -> str:
     out = ["## API schema drift", ""]
     if result.exit_code == 0:
         out.append(
-            ":white_check_mark: **permit/api/models.py matches the API schema** apart from allowlisted differences."
+            ":white_check_mark: **permit/api/models.py matches the API schema** "
+            "apart from allowlisted differences."
         )
     else:
         out.append(":x: **permit/api/models.py has drifted from the API schema.**")
@@ -500,7 +526,10 @@ def render(result: Result, compared_with: str) -> str:
         "",
         "| New failing | New informational | Stale allowlist entries | Allowlisted |",
         "|---|---|---|---|",
-        f"| {len(failing)} | {len(informational)} | {len(result.stale)} | {len(result.allowlisted)} |",
+        (
+            f"| {len(failing)} | {len(informational)} "
+            f"| {len(result.stale)} | {len(result.allowlisted)} |"
+        ),
         "",
     ]
     if failing:
@@ -527,9 +556,9 @@ def render(result: Result, compared_with: str) -> str:
         out.append("")
     if result.new or result.stale:
         out.append(
-            "To resolve: regenerate the models (`bash scripts/generate_models.sh`, see the comment at the top of "
-            "that script), or add each intended difference to `.github/scripts/schema_drift_allowlist.json` "
-            "with a one-line reason."
+            "To resolve: regenerate the models (`bash scripts/generate_models.sh`, see the "
+            "comment at the top of that script), or add each intended difference to "
+            "`.github/scripts/schema_drift_allowlist.json` with a one-line reason."
         )
         out.append("")
     return "\n".join(out)
@@ -542,17 +571,21 @@ def _download(url: str, target: Path) -> None:
     """Download url to target, retrying a failed attempt after a growing pause."""
     for attempt in range(1, FETCH_ATTEMPTS + 1):
         try:
-            with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_S) as response:
+            # fetch_spec passes only http(s) URLs here.
+            with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_S) as response:  # noqa: S310
                 target.write_bytes(response.read())
-            return
-        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
+        # A retry loop: one attempt per iteration, so the try belongs inside it.
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:  # noqa: PERF203
             if attempt == FETCH_ATTEMPTS:
-                raise DriftError(
+                msg = (
                     f"could not fetch the API schema from {url} in {FETCH_ATTEMPTS} attempts: {exc}"
-                ) from exc
+                )
+                raise DriftError(msg) from exc
             pause = FETCH_BACKOFF_S * attempt
             print(f"fetching the API schema failed ({exc}); retrying in {pause}s", file=sys.stderr)
             time.sleep(pause)
+        else:
+            return
 
 
 def fetch_spec(source: str, workdir: Path) -> Path:
@@ -565,13 +598,16 @@ def fetch_spec(source: str, workdir: Path) -> Path:
     try:
         json.loads(target.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise DriftError(f"could not read the API schema at {target}: {exc}") from exc
+        msg = f"could not read the API schema at {target}: {exc}"
+        raise DriftError(msg) from exc
     except json.JSONDecodeError as exc:
-        raise DriftError(f"the API schema from {source} is not valid JSON: {exc}") from exc
+        msg = f"the API schema from {source} is not valid JSON: {exc}"
+        raise DriftError(msg) from exc
     return target
 
 
 def generator_command(spec: Path, output: Path) -> list[str]:
+    """The command that runs the pinned generator the way scripts/generate_models.sh does."""
     return [
         "uvx",
         "--python",
@@ -593,7 +629,7 @@ def generate(spec: Path, workdir: Path) -> Path:
     """Run the pinned generator on the schema and return the generated module's path."""
     output = workdir / "generated_models.py"
     try:
-        completed = subprocess.run(
+        completed = subprocess.run(  # noqa: S603 - the pinned generator, arguments built here
             generator_command(spec, output),
             capture_output=True,
             text=True,
@@ -601,14 +637,15 @@ def generate(spec: Path, workdir: Path) -> Path:
             check=False,
         )
     except FileNotFoundError as exc:
-        raise DriftError("uvx is not on PATH; it runs the pinned model generator") from exc
+        msg = "uvx is not on PATH; it runs the pinned model generator"
+        raise DriftError(msg) from exc
     except subprocess.TimeoutExpired as exc:
-        raise DriftError(
-            f"the model generator did not finish within {GENERATE_TIMEOUT_S}s"
-        ) from exc
+        msg = f"the model generator did not finish within {GENERATE_TIMEOUT_S}s"
+        raise DriftError(msg) from exc
     if completed.returncode != 0 or not output.is_file():
         tail = "\n".join((completed.stderr or completed.stdout).strip().splitlines()[-20:])
-        raise DriftError(f"the model generator failed (exit {completed.returncode}):\n{tail}")
+        msg = f"the model generator failed (exit {completed.returncode}):\n{tail}"
+        raise DriftError(msg)
     return output
 
 
@@ -616,7 +653,8 @@ def _read(path: Path, label: str) -> str:
     try:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise DriftError(f"could not read {label} at {path}: {exc}") from exc
+        msg = f"could not read {label} at {path}: {exc}"
+        raise DriftError(msg) from exc
 
 
 def run(args: argparse.Namespace) -> Result:
@@ -637,6 +675,7 @@ def run(args: argparse.Namespace) -> Result:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the check and write its reports; return the exit status (0, 1 or 2)."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument(
         "--models", required=True, help="the SDK's models module (permit/api/models.py)"
@@ -691,7 +730,8 @@ def main(argv: list[str] | None = None) -> int:
 def _did_not_run_report(reason: str) -> str:
     first_line = (reason.splitlines() or [""])[0]
     return (
-        "## API schema drift\n\n:warning: **The check did not run**, so this is not a clean result.\n\n"
+        "## API schema drift\n\n"
+        ":warning: **The check did not run**, so this is not a clean result.\n\n"
         f"`{_cell(first_line)}`\n"
     )
 

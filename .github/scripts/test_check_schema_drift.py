@@ -20,7 +20,9 @@ import shlex
 import subprocess
 import sys
 import textwrap
+import time
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -30,8 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import check_schema_drift  # noqa: E402
-from check_schema_drift import (  # noqa: E402
+from check_schema_drift import (  # noqa: E402 - importable only once sys.path has its directory
     GENERATOR_EXCLUDE_NEWER,
     GENERATOR_FLAGS,
     GENERATOR_PACKAGE,
@@ -79,12 +80,18 @@ def differences(sdk: str, spec: str) -> dict[str, tuple[str, str]]:
 
 
 def cli(*args: str | Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 - runs the script under test with this interpreter
         [sys.executable, str(SCRIPT), *map(str, args)], capture_output=True, text=True, check=False
     )
 
 
-def run(tmp_path: Path, sdk: str, spec: str, entries: list | None = None, *extra: str):
+def run(
+    tmp_path: Path,
+    sdk: str,
+    spec: str,
+    entries: list[dict[str, str]] | None = None,
+    *extra: str,
+) -> subprocess.CompletedProcess[str]:
     sdk_path = tmp_path / "models.py"
     spec_path = tmp_path / "generated.py"
     allowlist = tmp_path / "allowlist.json"
@@ -97,13 +104,13 @@ def run(tmp_path: Path, sdk: str, spec: str, entries: list | None = None, *extra
 # --- CLI contract -------------------------------------------------------------
 
 
-def test_identical_modules_pass(tmp_path: Path):
+def test_identical_modules_pass(tmp_path: Path) -> None:
     result = run(tmp_path, module(), module())
     assert result.returncode == 0, result.stderr
     assert "matches the API schema" in result.stdout
 
 
-def test_failing_drift_exits_1_and_names_it(tmp_path: Path):
+def test_failing_drift_exits_1_and_names_it(tmp_path: Path) -> None:
     spec = module().replace(
         "key: str = Field(..., title='Key')", "key: int = Field(..., title='Key')"
     )
@@ -113,14 +120,14 @@ def test_failing_drift_exits_1_and_names_it(tmp_path: Path):
     assert "field_type_changed:UserRead.key" in result.stderr
 
 
-def test_informational_drift_does_not_fail(tmp_path: Path):
+def test_informational_drift_does_not_fail(tmp_path: Path) -> None:
     spec = module() + "\n\nclass NewThing(BaseModel):\n    name: str\n"
     result = run(tmp_path, module(), spec)
     assert result.returncode == 0
     assert "class_added:NewThing" in result.stdout
 
 
-def test_github_output_carries_the_counts(tmp_path: Path):
+def test_github_output_carries_the_counts(tmp_path: Path) -> None:
     output = tmp_path / "github_output"
     spec = (
         module().replace("    blue = 'blue'\n", "")
@@ -131,7 +138,7 @@ def test_github_output_carries_the_counts(tmp_path: Path):
     assert output.read_text() == "failing=1\ninformational=1\nstale=0\n"
 
 
-def test_summary_is_written_to_the_given_file_not_stdout(tmp_path: Path):
+def test_summary_is_written_to_the_given_file_not_stdout(tmp_path: Path) -> None:
     summary = tmp_path / "summary.md"
     result = run(tmp_path, module(), module(), None, "--summary", str(summary))
     assert result.returncode == 0
@@ -139,14 +146,14 @@ def test_summary_is_written_to_the_given_file_not_stdout(tmp_path: Path):
     assert summary.read_text().startswith("## API schema drift")
 
 
-def test_unparsable_models_exit_2_and_never_read_as_clean(tmp_path: Path):
+def test_unparsable_models_exit_2_and_never_read_as_clean(tmp_path: Path) -> None:
     result = run(tmp_path, "class Broken(:\n", module())
     assert result.returncode == 2
     assert "did not run" in result.stdout
     assert "matches the API schema" not in result.stdout
 
 
-def test_missing_generated_file_exits_2(tmp_path: Path):
+def test_missing_generated_file_exits_2(tmp_path: Path) -> None:
     allowlist = tmp_path / "allowlist.json"
     allowlist.write_text('{"entries": []}')
     models = tmp_path / "models.py"
@@ -157,7 +164,7 @@ def test_missing_generated_file_exits_2(tmp_path: Path):
     assert result.returncode == 2
 
 
-def test_spec_that_is_not_json_exits_2_before_generating(tmp_path: Path):
+def test_spec_that_is_not_json_exits_2_before_generating(tmp_path: Path) -> None:
     spec = tmp_path / "openapi.json"
     spec.write_text("<html>not a schema</html>")
     allowlist = tmp_path / "allowlist.json"
@@ -169,7 +176,7 @@ def test_spec_that_is_not_json_exits_2_before_generating(tmp_path: Path):
     assert "not valid JSON" in result.stderr
 
 
-def test_an_unexpected_error_exits_2_not_1(tmp_path: Path):
+def test_an_unexpected_error_exits_2_not_1(tmp_path: Path) -> None:
     # A models file that is not UTF-8 raises UnicodeDecodeError, not DriftError. Exit 1
     # would read as drift with nothing listed.
     summary = tmp_path / "summary.md"
@@ -196,9 +203,9 @@ SPEC_URL = "https://schema.test/openapi.json"
 
 
 class FlakyUrlopen:
-    """Stands in for urllib.request.urlopen: raises each of `failures` in turn, then serves `body`."""
+    """Stands in for urlopen: raises each of `failures` in turn, then serves `body`."""
 
-    def __init__(self, failures: list[Exception], body: bytes = b"{}"):
+    def __init__(self, failures: list[Exception], body: bytes = b"{}") -> None:
         self.failures = failures
         self.body = body
         self.requests: list[tuple[str, float]] = []
@@ -213,18 +220,31 @@ class FlakyUrlopen:
 @pytest.fixture
 def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     pauses: list[float] = []
-    monkeypatch.setattr(check_schema_drift.time, "sleep", pauses.append)
+    monkeypatch.setattr(time, "sleep", pauses.append)
     return pauses
+
+
+def test_a_schema_download_that_succeeds_is_not_repeated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]
+) -> None:
+    urlopen = FlakyUrlopen([], b'{"openapi": "3"}')
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+
+    spec = fetch_spec(SPEC_URL, tmp_path)
+
+    assert spec.read_text() == '{"openapi": "3"}'
+    assert urlopen.requests == [(SPEC_URL, 60)]
+    assert sleeps == []
 
 
 def test_a_failed_schema_download_is_retried(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]
-):
+) -> None:
     urlopen = FlakyUrlopen(
         [urllib.error.URLError("connection reset"), http.client.IncompleteRead(b"{")],
         b'{"openapi": "3"}',
     )
-    monkeypatch.setattr(check_schema_drift.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
 
     spec = fetch_spec(SPEC_URL, tmp_path)
 
@@ -235,9 +255,9 @@ def test_a_failed_schema_download_is_retried(
 
 def test_a_schema_download_that_keeps_failing_is_a_drift_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]
-):
+) -> None:
     urlopen = FlakyUrlopen([urllib.error.URLError("down") for _ in range(3)])
-    monkeypatch.setattr(check_schema_drift.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
 
     with pytest.raises(DriftError, match="in 3 attempts: <urlopen error down>"):
         fetch_spec(SPEC_URL, tmp_path)
@@ -249,7 +269,7 @@ def test_a_schema_download_that_keeps_failing_is_a_drift_error(
 # --- what counts as a difference ----------------------------------------------
 
 
-def test_formatting_titles_and_field_order_are_not_differences():
+def test_formatting_titles_and_field_order_are_not_differences() -> None:
     spec = module(
         """\
         class Color(str, Enum):
@@ -299,7 +319,9 @@ def test_formatting_titles_and_field_order_are_not_differences():
         ),
     ],
 )
-def test_changed_field_is_detected(sdk_field: str, spec_field: str, expected: dict):
+def test_changed_field_is_detected(
+    sdk_field: str, spec_field: str, expected: dict[str, tuple[str, str]]
+) -> None:
     sdk = module(f"class M(BaseModel):\n    {sdk_field}\n")
     spec = module(f"class M(BaseModel):\n    {spec_field}\n")
     assert differences(sdk, spec) == expected
@@ -319,12 +341,12 @@ def test_changed_field_is_detected(sdk_field: str, spec_field: str, expected: di
         ("x: Dict[str, Any] = Field(default_factory=dict)", "optional"),
     ],
 )
-def test_required_follows_pydantic_1(declaration: str, expected: str):
+def test_required_follows_pydantic_1(declaration: str, expected: str) -> None:
     shapes = parse_models(module(f"class M(BaseModel):\n    {declaration}\n"), "m")
     assert ("required" if shapes["M"].fields["x"].required else "optional") == expected
 
 
-def test_field_in_one_module_only():
+def test_field_in_one_module_only() -> None:
     sdk = module("class M(BaseModel):\n    a: str\n    gone: str\n")
     spec = module(
         "class M(BaseModel):\n    a: str\n    needed: str\n    maybe: Optional[str] = None\n"
@@ -336,7 +358,7 @@ def test_field_in_one_module_only():
     }
 
 
-def test_enum_members_are_compared():
+def test_enum_members_are_compared() -> None:
     sdk = module("class E(str, Enum):\n    a = 'a'\n    b = 'b'\n    c = 'c'\n")
     spec = module("class E(str, Enum):\n    a = 'a'\n    b = 'B'\n    d = 'd'\n")
     assert differences(sdk, spec) == {
@@ -346,7 +368,7 @@ def test_enum_members_are_compared():
     }
 
 
-def test_class_level_differences():
+def test_class_level_differences() -> None:
     sdk = module(
         """\
         class Kind(BaseModel):
@@ -389,7 +411,7 @@ def test_class_level_differences():
     }
 
 
-def test_inherited_fields_are_compared():
+def test_inherited_fields_are_compared() -> None:
     sdk = module("class Base(BaseModel):\n    a: str\n\n\nclass Child(Base):\n    b: str\n")
     spec = module(
         "class Base(BaseModel):\n    a: str\n\n\nclass Child(BaseModel):\n    a: int\n    b: str\n"
@@ -397,18 +419,18 @@ def test_inherited_fields_are_compared():
     assert differences(sdk, spec) == {"field_type_changed:Child.a": ("str", "int")}
 
 
-def test_root_models_compare_their_root_type():
+def test_root_models_compare_their_root_type() -> None:
     sdk = module("class R(BaseModel):\n    __root__: List[str] = Field(..., title='R')\n")
     spec = module("class R(BaseModel):\n    __root__: List[int] = Field(..., title='R')\n")
     assert differences(sdk, spec) == {"field_type_changed:R.__root__": ("List[str]", "List[int]")}
 
 
-def test_a_module_without_classes_is_an_error():
+def test_a_module_without_classes_is_an_error() -> None:
     with pytest.raises(DriftError, match="no classes"):
         parse_models(HEADER, "empty")
 
 
-def test_the_sdk_models_module_parses_with_its_hand_written_header():
+def test_the_sdk_models_module_parses_with_its_hand_written_header() -> None:
     shapes = parse_models(
         (REPO_ROOT / "permit" / "api" / "models.py").read_text(encoding="utf-8"), "models.py"
     )
@@ -424,7 +446,7 @@ def test_the_sdk_models_module_parses_with_its_hand_written_header():
 # --- allowlist ----------------------------------------------------------------
 
 
-def entry(entry_id: str, sdk: str, spec: str, reason: str = "known") -> dict:
+def entry(entry_id: str, sdk: str, spec: str, reason: str = "known") -> dict[str, str]:
     return {"id": entry_id, "sdk": sdk, "spec": spec, "reason": reason}
 
 
@@ -434,7 +456,7 @@ def int_key_spec() -> str:
     )
 
 
-def test_allowlist_suppresses_an_exact_match(tmp_path: Path):
+def test_allowlist_suppresses_an_exact_match(tmp_path: Path) -> None:
     result = run(
         tmp_path, module(), int_key_spec(), [entry("field_type_changed:UserRead.key", "str", "int")]
     )
@@ -442,7 +464,7 @@ def test_allowlist_suppresses_an_exact_match(tmp_path: Path):
     assert "| 0 | 0 | 0 | 1 |" in result.stdout
 
 
-def test_allowlist_does_not_suppress_a_further_change(tmp_path: Path):
+def test_allowlist_does_not_suppress_a_further_change(tmp_path: Path) -> None:
     spec = module().replace(
         "key: str = Field(..., title='Key')", "key: float = Field(..., title='Key')"
     )
@@ -451,7 +473,7 @@ def test_allowlist_does_not_suppress_a_further_change(tmp_path: Path):
     assert "field_type_changed:UserRead.key" in result.stdout
 
 
-def test_informational_entries_match_on_id_alone(tmp_path: Path):
+def test_informational_entries_match_on_id_alone(tmp_path: Path) -> None:
     # Recorded as a model, now an enum: still the same missing class, so still allowlisted.
     spec = module() + "\n\nclass NewThing(str, Enum):\n    a = 'a'\n"
     result = run(tmp_path, module(), spec, [entry("class_added:NewThing", "(absent)", "model")])
@@ -459,7 +481,7 @@ def test_informational_entries_match_on_id_alone(tmp_path: Path):
     assert "| 0 | 0 | 0 | 1 |" in result.stdout
 
 
-def test_stale_entry_fails(tmp_path: Path):
+def test_stale_entry_fails(tmp_path: Path) -> None:
     result = run(
         tmp_path, module(), module(), [entry("field_type_changed:UserRead.key", "str", "int")]
     )
@@ -478,7 +500,7 @@ def test_stale_entry_fails(tmp_path: Path):
         (json.dumps({"entries": [entry("made_up_kind:A", "", "")]}), "unknown kind"),
     ],
 )
-def test_invalid_allowlist_exits_2(tmp_path: Path, content: str, message: str):
+def test_invalid_allowlist_exits_2(tmp_path: Path, content: str, message: str) -> None:
     (tmp_path / "models.py").write_text(module())
     (tmp_path / "allowlist.json").write_text(content)
     result = cli(
@@ -493,7 +515,7 @@ def test_invalid_allowlist_exits_2(tmp_path: Path, content: str, message: str):
     assert message in result.stderr
 
 
-def test_the_committed_allowlist_is_valid_and_every_entry_has_a_reason():
+def test_the_committed_allowlist_is_valid_and_every_entry_has_a_reason() -> None:
     entries = load_allowlist(Path(__file__).parent / "schema_drift_allowlist.json")
     assert entries
     assert all(len(e.reason.strip()) > 10 for e in entries)
@@ -502,7 +524,7 @@ def test_the_committed_allowlist_is_valid_and_every_entry_has_a_reason():
 # --- report -------------------------------------------------------------------
 
 
-def test_pipes_and_backticks_in_schema_text_cannot_break_the_table():
+def test_pipes_and_backticks_in_schema_text_cannot_break_the_table() -> None:
     sdk = module("class M(BaseModel):\n    x: constr(regex='^a$')\n")
     spec = module("class M(BaseModel):\n    x: constr(regex='^a|`b`$')\n")
     result = apply_allowlist(compare(parse_models(sdk, "sdk"), parse_models(spec, "spec")), [])
@@ -515,7 +537,7 @@ def test_pipes_and_backticks_in_schema_text_cannot_break_the_table():
 # --- the generator is the one scripts/generate_models.sh runs -----------------
 
 
-def test_generator_matches_the_generate_models_script():
+def test_generator_matches_the_generate_models_script() -> None:
     script = (REPO_ROOT / "scripts" / "generate_models.sh").read_text(encoding="utf-8")
     # The command starts on a line beginning with `uvx ` and continues over every
     # line that ends in a backslash.

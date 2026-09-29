@@ -51,10 +51,12 @@ class StubError(Exception):
 
 
 def qualified_name(cls: type) -> str:
+    """``cls``'s module and qualified name, e.g. ``permit.api.users.SyncUsersApi``."""
     return f"{cls.__module__}.{cls.__qualname__}"
 
 
 def stub_name(cls: type) -> str:
+    """The name ``cls`` has in the stub, which is one namespace for every module."""
     return STUB_NAMES.get(qualified_name(cls), cls.__name__)
 
 
@@ -80,20 +82,24 @@ def sync_classes() -> list[type]:
     names = [stub_name(cls) for cls in found.values()]
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates:
-        raise StubError(f"Stub class names collide: {duplicates}. Add an entry to STUB_NAMES.")
+        msg = f"Stub class names collide: {duplicates}. Add an entry to STUB_NAMES."
+        raise StubError(msg)
     return [found[key] for key in sorted(found)]
 
 
 def module_tree(module_name: str) -> tuple[str, ast.Module]:
+    """The source of an imported module and its syntax tree."""
     source = Path(inspect.getfile(sys.modules[module_name])).read_text()
     return source, ast.parse(source)
 
 
 def class_node(tree: ast.Module, name: str) -> ast.ClassDef:
+    """The definition of class ``name`` in ``tree``."""
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == name:
             return node
-    raise StubError(f"class {name} not found in its module's source")
+    msg = f"class {name} not found in its module's source"
+    raise StubError(msg)
 
 
 def type_checking_statements(tree: ast.Module) -> list[ast.stmt]:
@@ -108,6 +114,7 @@ def type_checking_statements(tree: ast.Module) -> list[ast.stmt]:
 
 
 def converted_names(sync_cls: type) -> set[str]:
+    """The public methods the ``SyncClass`` metaclass made blocking on ``sync_cls``."""
     return {
         name
         for name in dir(sync_cls)
@@ -118,16 +125,18 @@ def converted_names(sync_cls: type) -> set[str]:
 def async_class(sync_cls: type) -> type:
     """The async class a sync class converts, checking the shape the generator relies on."""
     if len(sync_cls.__bases__) != 1:
-        raise StubError(f"{qualified_name(sync_cls)} must have exactly one base, the async class")
+        msg = f"{qualified_name(sync_cls)} must have exactly one base, the async class"
+        raise StubError(msg)
     (async_cls,) = sync_cls.__bases__
     _, tree = module_tree(sync_cls.__module__)
     node = class_node(tree, sync_cls.__name__)
     body = node.body[1:] if ast.get_docstring(node) is not None else node.body
     if not all(isinstance(statement, ast.Pass) for statement in body):
-        raise StubError(
+        msg = (
             f"{qualified_name(sync_cls)} must have an empty body (a docstring at most); "
             "the stub only mirrors its async base"
         )
+        raise StubError(msg)
     for base in async_cls.__bases__:
         coroutines = sorted(
             name
@@ -135,23 +144,28 @@ def async_class(sync_cls: type) -> type:
             if not name.startswith("_") and iscoroutine_func(getattr(base, name))
         )
         if coroutines:
-            raise StubError(
-                f"{qualified_name(base)} has public coroutine methods {coroutines}; the stub subclasses it"
+            msg = (
+                f"{qualified_name(base)} has public coroutine methods {coroutines}; "
+                "the stub subclasses it"
             )
+            raise StubError(msg)
     return async_cls
 
 
 def is_simple_default(node: ast.expr) -> bool:
+    """Whether a default is a literal a stub can spell out (a number, string, bool or None)."""
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
         node = node.operand
     return isinstance(node, ast.Constant) and not isinstance(node.value, bytes)
 
 
 def stub_default(node: ast.expr) -> str:
+    """A default as the stub writes it: the literal itself, or ``...``."""
     return ast.unparse(node) if is_simple_default(node) else "..."
 
 
 def parameter(arg: ast.arg, default: ast.expr | None, prefix: str = "") -> str:
+    """One parameter as the stub writes it, with its annotation and default."""
     text = prefix + arg.arg
     if arg.annotation is not None:
         text += f": {ast.unparse(arg.annotation)}"
@@ -163,6 +177,7 @@ def parameter(arg: ast.arg, default: ast.expr | None, prefix: str = "") -> str:
 
 
 def parameters(args: ast.arguments) -> list[str]:
+    """Every parameter of a signature, with the ``/`` and ``*`` markers it needs."""
     positional = args.posonlyargs + args.args
     defaults: list[ast.expr | None] = [None] * (len(positional) - len(args.defaults)) + list(
         args.defaults
@@ -198,14 +213,17 @@ def signature_lines(head: str, params: list[str], tail: str, indent: str) -> lis
 def docstring_lines(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, source: str, indent: str
 ) -> list[str]:
+    """``node``'s docstring as its source spells it, re-indented for the stub, if it has one."""
     if ast.get_docstring(node, clean=False) is None:
         return []
     expr = node.body[0]
     if expr.col_offset != len(indent):
-        raise StubError(f"docstring of {node.name} is not indented {len(indent)} spaces")
+        msg = f"docstring of {node.name} is not indented {len(indent)} spaces"
+        raise StubError(msg)
     segment = ast.get_source_segment(source, expr)
     if segment is None or expr.end_lineno is None or expr.end_col_offset is None:
-        raise StubError(f"cannot read the docstring source of {node.name}")
+        msg = f"cannot read the docstring source of {node.name}"
+        raise StubError(msg)
     # Keep a trailing comment: a noqa directive there covers every line of the docstring.
     last_line = source.splitlines()[expr.end_lineno - 1].encode()
     trailing = last_line[expr.end_col_offset :].decode().strip()
@@ -214,18 +232,21 @@ def docstring_lines(
 
 
 def decorator_name(node: ast.expr) -> str:
+    """A decorator's dotted name, without the call arguments of a decorator factory."""
     target = node.func if isinstance(node, ast.Call) else node
     return ast.unparse(target)
 
 
 def function_lines(node: ast.FunctionDef | ast.AsyncFunctionDef, source: str) -> list[str]:
+    """A method as a blocking stub ``def``: its typing decorators, signature and docstring."""
     lines = []
     for decorator in node.decorator_list:
         name = decorator_name(decorator)
         if name in TYPING_DECORATORS or name.endswith(".setter"):
             lines.append(f"{INDENT}@{ast.unparse(decorator)}")
         elif name not in TRANSPARENT_DECORATORS:
-            raise StubError(f"{node.name}: unknown decorator @{name}; classify it in the generator")
+            msg = f"{node.name}: unknown decorator @{name}; classify it in the generator"
+            raise StubError(msg)
     tail = f" -> {ast.unparse(node.returns)}:" if node.returns is not None else ":"
     body_indent = INDENT * 2
     docstring = docstring_lines(node, source, body_indent)
@@ -237,6 +258,7 @@ def function_lines(node: ast.FunctionDef | ast.AsyncFunctionDef, source: str) ->
 
 
 def annotation_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr]:
+    """The annotations and typing decorators of a method, whose names the stub must import."""
     args = node.args
     every_arg = (
         args.posonlyargs + args.args + args.kwonlyargs + [a for a in (args.vararg, args.kwarg) if a]
@@ -254,16 +276,32 @@ def annotation_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.e
 
 
 def referenced_names(nodes: list[ast.expr]) -> set[str]:
+    """The bare names used in ``nodes``, which the stub must import or get from builtins."""
     names: set[str] = set()
     for root in nodes:
         for node in ast.walk(root):
             if isinstance(node, ast.Name):
                 names.add(node.id)
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-                raise StubError(
-                    f"string annotation {node.value!r} is not supported; use the name directly"
-                )
+                msg = f"string annotation {node.value!r} is not supported; use the name directly"
+                raise StubError(msg)
     return names
+
+
+def import_location(
+    node: ast.Import | ast.ImportFrom, name: str, package: str
+) -> tuple[str, str | None] | None:
+    """Where the import statement ``node`` gets ``name``, in ``resolve``'s terms, or None."""
+    if isinstance(node, ast.Import):
+        for alias in node.names:
+            if alias.asname is None and alias.name == name:
+                return alias.name, None
+        return None
+    for alias in node.names:
+        if (alias.asname or alias.name) == name:
+            source = importlib.util.resolve_name("." * node.level + (node.module or ""), package)
+            return source, alias.name
+    return None
 
 
 def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str | None] | None:
@@ -274,17 +312,10 @@ def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str | N
     """
     package = module_name.rpartition(".")[0]
     for node in type_checking_statements(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.asname is None and alias.name == name:
-                    return alias.name, None
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                if (alias.asname or alias.name) == name:
-                    source = importlib.util.resolve_name(
-                        "." * node.level + (node.module or ""), package
-                    )
-                    return source, alias.name
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            location = import_location(node, name, package)
+            if location is not None:
+                return location
         elif (
             isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
             and node.name == name
@@ -296,11 +327,12 @@ def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str | N
                 return module_name, name
     if hasattr(builtins, name):
         return None
-    raise StubError(f"cannot find where {module_name} gets {name!r}")
+    msg = f"cannot find where {module_name} gets {name!r}"
+    raise StubError(msg)
 
 
 def member_sort_key(name: str) -> tuple[int, str]:
-    """Isort's order-by-type: constants, then classes, then everything else."""
+    """The order isort's order-by-type uses: constants, then classes, then everything else."""
     if name.isupper() and len(name) > 1:
         return 0, name
     if name[0].isupper():
@@ -336,7 +368,27 @@ def import_block(imports: dict[str, set[str | None]]) -> str:
     )
 
 
+def record_imports(
+    async_cls: type,
+    tree: ast.Module,
+    annotations: list[ast.expr],
+    imports: dict[str, set[str | None]],
+) -> list[str]:
+    """Add what the stub class needs to ``imports``, and return its base class names."""
+    bases = []
+    for base in async_cls.__bases__:
+        if base is not object:
+            bases.append(base.__name__)
+            imports[base.__module__].add(base.__name__)
+    for name in sorted(referenced_names(annotations)):
+        location = resolve(async_cls.__module__, tree, name)
+        if location is not None:
+            imports[location[0]].add(location[1])
+    return bases
+
+
 def class_lines(sync_cls: type, imports: dict[str, set[str | None]]) -> list[str]:
+    """The stub class for ``sync_cls``; the imports it needs are added to ``imports``."""
     async_cls = async_class(sync_cls)
     source, tree = module_tree(async_cls.__module__)
     node = class_node(tree, async_cls.__name__)
@@ -355,25 +407,20 @@ def class_lines(sync_cls: type, imports: dict[str, set[str | None]]) -> list[str
             targets = member.targets if isinstance(member, ast.Assign) else [member.target]
             public = [ast.unparse(t) for t in targets if not ast.unparse(t).startswith("_")]
             if public:
-                raise StubError(
-                    f"{async_cls.__name__} has class attributes {public}; teach the generator to copy them"
+                msg = (
+                    f"{async_cls.__name__} has class attributes {public}; "
+                    "teach the generator to copy them"
                 )
+                raise StubError(msg)
     missing = sorted(converted - emitted)
     if missing:
-        raise StubError(
-            f"{qualified_name(sync_cls)} converts {missing}, which {async_cls.__name__} does not define"
+        msg = (
+            f"{qualified_name(sync_cls)} converts {missing}, "
+            f"which {async_cls.__name__} does not define"
         )
+        raise StubError(msg)
 
-    bases = []
-    for base in async_cls.__bases__:
-        if base is not object:
-            bases.append(base.__name__)
-            imports[base.__module__].add(base.__name__)
-    for name in sorted(referenced_names(annotations)):
-        location = resolve(async_cls.__module__, tree, name)
-        if location is not None:
-            imports[location[0]].add(location[1])
-
+    bases = record_imports(async_cls, tree, annotations, imports)
     head = (
         f"class {stub_name(sync_cls)}({', '.join(bases)}):"
         if bases
@@ -388,7 +435,8 @@ def render_stub() -> str:
     if imported_from != STUB_PATH.parent:
         msg = (
             f"imported permit from {imported_from}, not {STUB_PATH.parent}; run "
-            f"`uv run python scripts/generate_sync_stubs.py` in {REPO_ROOT}, or set PYTHONPATH={REPO_ROOT}"
+            f"`uv run python scripts/generate_sync_stubs.py` in {REPO_ROOT}, "
+            f"or set PYTHONPATH={REPO_ROOT}"
         )
         raise StubError(msg)
     imports: dict[str, set[str | None]] = defaultdict(set)
@@ -399,6 +447,7 @@ def render_stub() -> str:
 
 
 def main() -> None:
+    """Write the stub for the SDK in this working tree."""
     STUB_PATH.write_text(render_stub())
 
 

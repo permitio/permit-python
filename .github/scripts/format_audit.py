@@ -52,11 +52,17 @@ SEVERITY_EMOJI = {
 # the string render as markdown/HTML in the comment and the job summary.
 FENCE = "~~~~~~"
 
+# GitHub truncates annotation text; cut it ourselves so the ellipsis is visible.
+_ANNOTATION_MAX_CHARS = 200
+# The Slack message is two header lines, then one line per package.
+_SLACK_HEADER_LINES = 2
+_SLACK_MAX_PACKAGES = 10
+
 
 class Finding:
     """One vulnerability, normalized across scanners."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - one field per scanner column; built positionally
         self,
         vuln_id: str,
         package: str,
@@ -66,7 +72,7 @@ class Finding:
         title: str,
         url: str,
         source: str,
-    ):
+    ) -> None:
         self.id = vuln_id
         self.package = package
         self.installed = installed
@@ -78,6 +84,7 @@ class Finding:
 
     @property
     def key(self) -> tuple[str, str]:
+        """Identity used to merge the same advisory reported by several scanners."""
         return (self.package, self.id)
 
     @property
@@ -131,7 +138,7 @@ def _split_spec(spec: str, scanner: str) -> tuple[str, str]:
     return f"{scanner}:{label}", path
 
 
-def trivy_scanned_nothing(doc: Any) -> bool:
+def trivy_scanned_nothing(doc: object) -> bool:
     """True when Trivy produced no package Result at all.
 
     Trivy writes {"Results": null} and exits 0 when it recognises no package
@@ -148,7 +155,8 @@ def trivy_scanned_nothing(doc: Any) -> bool:
     return not any(isinstance(r, dict) and r.get("Target") for r in results)
 
 
-def parse_trivy(doc: Any, source: str = "trivy") -> list[Finding]:
+def parse_trivy(doc: object, source: str = "trivy") -> list[Finding]:
+    """Extract the findings of a Trivy JSON report; malformed entries are skipped."""
     findings: list[Finding] = []
     if not isinstance(doc, dict):
         return findings
@@ -174,12 +182,12 @@ def parse_trivy(doc: Any, source: str = "trivy") -> list[Finding]:
     return findings
 
 
-def _pip_audit_dependencies(doc: Any) -> list[Any]:
+def _pip_audit_dependencies(doc: object) -> list[Any]:
     deps = doc.get("dependencies") if isinstance(doc, dict) else doc
     return deps if isinstance(deps, list) else []
 
 
-def parse_pip_audit(doc: Any, source: str = "pip-audit") -> list[Finding]:
+def parse_pip_audit(doc: object, source: str = "pip-audit") -> list[Finding]:
     """pip-audit carries no severity at all, so everything lands in UNKNOWN.
 
     That is why pip-audit is advisory-only here and never gates the build: it
@@ -283,11 +291,12 @@ def _annotation_escape(text: str) -> str:
     later replacements introduce.
     """
     text = str(text)
-    text = text if len(text) <= 200 else text[:199] + "…"
+    text = text if len(text) <= _ANNOTATION_MAX_CHARS else text[: _ANNOTATION_MAX_CHARS - 1] + "…"
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
 def render_annotations(findings: list[Finding]) -> str:
+    """Render one GitHub `::error` workflow command per blocking finding."""
     lines = []
     for finding in findings:
         if not finding.blocking:
@@ -337,8 +346,10 @@ def _slack_body(findings: list[Finding], errors: list[str], repo: str) -> list[s
     if errors:
         return [
             f":warning: *{_slack_escape(repo)} — weekly dependency audit could not complete*",
-            ">A scanner report could not be parsed, so the tree was not fully scanned. "
-            "A clean history is not evidence of a clean tree.",
+            (
+                ">A scanner report could not be parsed, so the tree was not fully scanned. "
+                "A clean history is not evidence of a clean tree."
+            ),
         ]
 
     blockers = [f for f in findings if f.blocking]
@@ -346,7 +357,10 @@ def _slack_body(findings: list[Finding], errors: list[str], repo: str) -> list[s
     if not findings:
         return [
             f":white_check_mark: *{_slack_escape(repo)} — weekly dependency audit clean*",
-            ">No known advisories in either the resolved tree or the lowest versions the published specs permit.",
+            (
+                ">No known advisories in either the resolved tree or the lowest versions "
+                "the published specs permit."
+            ),
         ]
 
     # Collapse to one line per package: a package with 30 advisories should not
@@ -381,12 +395,19 @@ def _slack_body(findings: list[Finding], errors: list[str], repo: str) -> list[s
         )
 
     # Slack truncates long messages; keep it to something a human will read.
-    if len(lines) > 12:
-        lines = lines[:12] + [f">…and {len(by_package) - 10} more packages."]
+    limit = _SLACK_HEADER_LINES + _SLACK_MAX_PACKAGES
+    if len(lines) > limit:
+        lines = [*lines[:limit], f">…and {len(by_package) - _SLACK_MAX_PACKAGES} more packages."]
     return lines
 
 
-def render(
+def _advisory_link(finding: Finding) -> str:
+    if finding.url.startswith("http"):
+        return f"[{_md_cell(finding.id)}]({finding.url})"
+    return _md_cell(finding.id)
+
+
+def render(  # noqa: C901, PLR0915 - one linear pass appending each report section
     findings: list[Finding],
     errors: list[str],
     context: str,
@@ -394,6 +415,7 @@ def render(
     blocking: bool,
     pip_audit_gaps: list[tuple[str, str]] | None = None,
 ) -> str:
+    """Render the markdown PR comment body."""
     out: list[str] = [MARKER, "", "## Dependency Security Audit", ""]
 
     if context:
@@ -446,7 +468,8 @@ def render(
         if unfixable:
             out.append("")
             out.append(
-                f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet and do not block."
+                f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet "
+                "and do not block."
             )
     elif severe:
         # Do not say "none at HIGH or CRITICAL" here: there are some, they
@@ -459,32 +482,30 @@ def render(
         )
     else:
         out.append(
-            ":warning: Advisories found, but none at HIGH or CRITICAL. This does not block the build."
+            ":warning: Advisories found, but none at HIGH or CRITICAL. "
+            "This does not block the build."
         )
     out.append("")
 
     out.append("| Severity | Count |")
     out.append("| --- | --- |")
-    for severity in SEVERITY_ORDER:
-        if counts.get(severity):
-            out.append(f"| {SEVERITY_EMOJI[severity]} {severity} | {counts[severity]} |")
+    out.extend(
+        f"| {SEVERITY_EMOJI[severity]} {severity} | {counts[severity]} |"
+        for severity in SEVERITY_ORDER
+        if counts.get(severity)
+    )
     out.append("")
 
     out.append("| Severity | Package | Installed | Fixed in | Advisory |")
     out.append("| --- | --- | --- | --- | --- |")
-    for finding in findings:
-        link = (
-            f"[{_md_cell(finding.id)}]({finding.url})"
-            if finding.url.startswith("http")
-            else _md_cell(finding.id)
-        )
-        out.append(
-            f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
-            f"| `{_md_cell(finding.package)}` "
-            f"| `{_md_cell(finding.installed)}` "
-            f"| `{_md_cell(finding.fixed)}` "
-            f"| {link} |"
-        )
+    out.extend(
+        f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
+        f"| `{_md_cell(finding.package)}` "
+        f"| `{_md_cell(finding.installed)}` "
+        f"| `{_md_cell(finding.fixed)}` "
+        f"| {_advisory_link(finding)} |"
+        for finding in findings
+    )
     out.append("")
 
     out.append("<details><summary>Advisory details</summary>")
@@ -532,7 +553,8 @@ def render(
     return "\n".join(out) + "\n"
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901 - argument handling, then one pass per output mode
+    """Parse the scanner reports and print the requested output; return the exit status."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "trivy_json",
@@ -549,7 +571,10 @@ def main() -> int:
         dest="pip_audit_json",
         action="append",
         default=[],
-        help="pip-audit JSON report, as LABEL=PATH like the Trivy reports. Repeat it once per dependency tree.",
+        help=(
+            "pip-audit JSON report, as LABEL=PATH like the Trivy reports. "
+            "Repeat it once per dependency tree."
+        ),
     )
     parser.add_argument("--context", default="", help="human label for what was scanned")
     parser.add_argument(
