@@ -1,4 +1,5 @@
 import functools
+import warnings
 from collections.abc import Awaitable, Callable, Coroutine
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -34,20 +35,26 @@ class PermitException(PermitError):  # noqa: N818 - public name, kept for existi
     """Permit base exception (deprecated, use PermitError instead)."""
 
 
-class PermitConnectionError(PermitException):  # type: ignore[deprecated] # kept, see docstring
-    """Permit connection exception.
+# Subclassing a `@deprecated` class warns (typing_extensions hooks `__init_subclass__`).
+# This subclass is the SDK's own, so the warning is silenced here: importing the SDK
+# stays warning-free, while code that subclasses or raises `PermitException` still warns.
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
 
-    Note: this deliberately still inherits from the deprecated `PermitException`
-    rather than from `PermitError`. Re-parenting it looks like tidying, but it
-    silently breaks every consumer whose handler is `except PermitException` --
-    a connection blip would stop being caught and become an unhandled crash.
-    That is a breaking change worth making, but it belongs in a major version
-    with a changelog entry, not in a dependency-security patch.
-    """
+    class PermitConnectionError(PermitException):  # type: ignore[deprecated] # kept, see docstring
+        """Permit connection exception.
 
-    def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
-        super().__init__(message)
-        self.original_error = error
+        Note: this deliberately still inherits from the deprecated `PermitException`
+        rather than from `PermitError`. Re-parenting it looks like tidying, but it
+        silently breaks every consumer whose handler is `except PermitException` --
+        a connection blip would stop being caught and become an unhandled crash.
+        That is a breaking change worth making, but it belongs in a major version
+        with a changelog entry, not in a dependency-security patch.
+        """
+
+        def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
+            super().__init__(message)
+            self.original_error = error
 
 
 class PermitContextError(PermitError):

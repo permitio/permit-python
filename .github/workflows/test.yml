@@ -344,8 +344,7 @@ jobs:
       # The filter fails the run on Python 3.14's deprecation of
       # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
       # It is deliberately narrow: a blanket error::DeprecationWarning would
-      # also trip on PermitConnectionError, which still subclasses the
-      # deprecated PermitException on purpose.
+      # also trip on the warning `import permit` issues on pydantic 1, on purpose.
       - name: Offline tests
         run: |
           python -m pytest -q -m "not e2e" \
