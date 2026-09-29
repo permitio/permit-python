@@ -31,7 +31,7 @@ from permit.utils.sync import SYNC_WRAPPER_MARKER, SyncClass, iscoroutine_func
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STUB_PATH = REPO_ROOT / "permit" / "_sync_types.pyi"
-LINE_LENGTH = 120
+LINE_LENGTH = 100
 INDENT = "    "
 
 # The stub is a single namespace, so runtime classes that share a name need distinct stub names.
@@ -64,7 +64,9 @@ def introduces_sync_class(value: object) -> bool:
     Subclasses of such a class inherit the metaclass (``SyncPermitApiClient`` does), but
     they are ordinary classes whose own source type checkers can read.
     """
-    return isinstance(value, SyncClass) and not any(isinstance(base, SyncClass) for base in value.__bases__)
+    return isinstance(value, SyncClass) and not any(
+        isinstance(base, SyncClass) for base in value.__bases__
+    )
 
 
 def sync_classes() -> list[type]:
@@ -121,13 +123,19 @@ def async_class(sync_cls: type) -> type:
     _, tree = module_tree(sync_cls.__module__)
     body = class_node(tree, sync_cls.__name__).body
     if not all(isinstance(node, ast.Pass) for node in body):
-        raise StubError(f"{qualified_name(sync_cls)} must have an empty body; the stub only mirrors its async base")
+        raise StubError(
+            f"{qualified_name(sync_cls)} must have an empty body; the stub only mirrors its async base"
+        )
     for base in async_cls.__bases__:
         coroutines = sorted(
-            name for name in dir(base) if not name.startswith("_") and iscoroutine_func(getattr(base, name))
+            name
+            for name in dir(base)
+            if not name.startswith("_") and iscoroutine_func(getattr(base, name))
         )
         if coroutines:
-            raise StubError(f"{qualified_name(base)} has public coroutine methods {coroutines}; the stub subclasses it")
+            raise StubError(
+                f"{qualified_name(base)} has public coroutine methods {coroutines}; the stub subclasses it"
+            )
     return async_cls
 
 
@@ -154,7 +162,9 @@ def parameter(arg: ast.arg, default: ast.expr | None, prefix: str = "") -> str:
 
 def parameters(args: ast.arguments) -> list[str]:
     positional = args.posonlyargs + args.args
-    defaults: list[ast.expr | None] = [None] * (len(positional) - len(args.defaults)) + list(args.defaults)
+    defaults: list[ast.expr | None] = [None] * (len(positional) - len(args.defaults)) + list(
+        args.defaults
+    )
     parts = [parameter(arg, default) for arg, default in zip(positional, defaults, strict=True)]
     if args.posonlyargs:
         parts.insert(len(args.posonlyargs), "/")
@@ -162,7 +172,10 @@ def parameters(args: ast.arguments) -> list[str]:
         parts.append(parameter(args.vararg, None, "*"))
     elif args.kwonlyargs:
         parts.append("*")
-    parts.extend(parameter(arg, default) for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True))
+    parts.extend(
+        parameter(arg, default)
+        for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True)
+    )
     if args.kwarg is not None:
         parts.append(parameter(args.kwarg, None, "**"))
     return parts
@@ -180,7 +193,9 @@ def signature_lines(head: str, params: list[str], tail: str, indent: str) -> lis
     return [f"{indent}{head}(", *(f"{inner}{param}," for param in params), f"{indent}){tail}"]
 
 
-def docstring_lines(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, source: str, indent: str) -> list[str]:
+def docstring_lines(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, source: str, indent: str
+) -> list[str]:
     if ast.get_docstring(node, clean=False) is None:
         return []
     expr = node.body[0]
@@ -221,14 +236,17 @@ def function_lines(node: ast.FunctionDef | ast.AsyncFunctionDef, source: str) ->
 
 def annotation_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr]:
     args = node.args
-    every_arg = args.posonlyargs + args.args + args.kwonlyargs + [a for a in (args.vararg, args.kwarg) if a]
+    every_arg = (
+        args.posonlyargs + args.args + args.kwonlyargs + [a for a in (args.vararg, args.kwarg) if a]
+    )
     nodes = [arg.annotation for arg in every_arg if arg.annotation is not None]
     if node.returns is not None:
         nodes.append(node.returns)
     nodes.extend(
         decorator
         for decorator in node.decorator_list
-        if decorator_name(decorator) in TYPING_DECORATORS or decorator_name(decorator).endswith(".setter")
+        if decorator_name(decorator) in TYPING_DECORATORS
+        or decorator_name(decorator).endswith(".setter")
     )
     return nodes
 
@@ -240,7 +258,9 @@ def referenced_names(nodes: list[ast.expr]) -> set[str]:
             if isinstance(node, ast.Name):
                 names.add(node.id)
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-                raise StubError(f"string annotation {node.value!r} is not supported; use the name directly")
+                raise StubError(
+                    f"string annotation {node.value!r} is not supported; use the name directly"
+                )
     return names
 
 
@@ -251,9 +271,14 @@ def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str] | 
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
                 if (alias.asname or alias.name) == name:
-                    source = importlib.util.resolve_name("." * node.level + (node.module or ""), package)
+                    source = importlib.util.resolve_name(
+                        "." * node.level + (node.module or ""), package
+                    )
                     return source, alias.name
-        elif isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+        elif (
+            isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
             return module_name, name
         elif isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -284,7 +309,9 @@ def import_block(imports: dict[str, set[str]]) -> str:
         if len(line) <= LINE_LENGTH:
             sections[section].append(line)
         else:
-            sections[section].append(f"from {module} import (\n" + "".join(f"{INDENT}{n},\n" for n in names) + ")")
+            sections[section].append(
+                f"from {module} import (\n" + "".join(f"{INDENT}{n},\n" for n in names) + ")"
+            )
     return "\n\n".join("\n".join(sections[key]) for key in sorted(sections))
 
 
@@ -307,10 +334,14 @@ def class_lines(sync_cls: type, imports: dict[str, set[str]]) -> list[str]:
             targets = member.targets if isinstance(member, ast.Assign) else [member.target]
             public = [ast.unparse(t) for t in targets if not ast.unparse(t).startswith("_")]
             if public:
-                raise StubError(f"{async_cls.__name__} has class attributes {public}; teach the generator to copy them")
+                raise StubError(
+                    f"{async_cls.__name__} has class attributes {public}; teach the generator to copy them"
+                )
     missing = sorted(converted - emitted)
     if missing:
-        raise StubError(f"{qualified_name(sync_cls)} converts {missing}, which {async_cls.__name__} does not define")
+        raise StubError(
+            f"{qualified_name(sync_cls)} converts {missing}, which {async_cls.__name__} does not define"
+        )
 
     bases = []
     for base in async_cls.__bases__:
@@ -322,7 +353,11 @@ def class_lines(sync_cls: type, imports: dict[str, set[str]]) -> list[str]:
         if location is not None:
             imports[location[0]].add(location[1])
 
-    head = f"class {stub_name(sync_cls)}({', '.join(bases)}):" if bases else f"class {stub_name(sync_cls)}:"
+    head = (
+        f"class {stub_name(sync_cls)}({', '.join(bases)}):"
+        if bases
+        else f"class {stub_name(sync_cls)}:"
+    )
     return [head, *(body or [f"{INDENT}..."])]
 
 

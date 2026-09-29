@@ -134,7 +134,9 @@ class ResourcesApi(BasePermitApi):
         return await self.__resources.post("", model=ResourceRead, json=resource_data)
 
     @validate_arguments
-    async def update(self, resource_key: str, resource_data: ModelInput[ResourceUpdate]) -> ResourceRead:
+    async def update(
+        self, resource_key: str, resource_data: ModelInput[ResourceUpdate]
+    ) -> ResourceRead:
         """
         Updates a resource.
 
@@ -158,7 +160,9 @@ class ResourcesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def replace(self, resource_key: str, resource_data: ModelInput[ResourceReplace]) -> ResourceRead:
+    async def replace(
+        self, resource_key: str, resource_data: ModelInput[ResourceReplace]
+    ) -> ResourceRead:
         """
         Creates a resource if no such resource exists, otherwise completely replaces the resource in place.
 

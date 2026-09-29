@@ -81,7 +81,9 @@ async def test_resources(permit: Permit):
 
         # create existing -> 409
         with pytest.raises(PermitApiError) as e:
-            await permit.api.resources.create({"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}})
+            await permit.api.resources.create(
+                {"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}}
+            )
         assert e.value.status_code == 409
 
         # create empty item

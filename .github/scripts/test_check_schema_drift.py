@@ -79,7 +79,9 @@ def differences(sdk: str, spec: str) -> dict[str, tuple[str, str]]:
 
 
 def cli(*args: str | Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(SCRIPT), *map(str, args)], capture_output=True, text=True, check=False)
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *map(str, args)], capture_output=True, text=True, check=False
+    )
 
 
 def run(tmp_path: Path, sdk: str, spec: str, entries: list | None = None, *extra: str):
@@ -102,7 +104,9 @@ def test_identical_modules_pass(tmp_path: Path):
 
 
 def test_failing_drift_exits_1_and_names_it(tmp_path: Path):
-    spec = module().replace("key: str = Field(..., title='Key')", "key: int = Field(..., title='Key')")
+    spec = module().replace(
+        "key: str = Field(..., title='Key')", "key: int = Field(..., title='Key')"
+    )
     result = run(tmp_path, module(), spec)
     assert result.returncode == 1
     assert "field_type_changed:UserRead.key" in result.stdout
@@ -118,7 +122,10 @@ def test_informational_drift_does_not_fail(tmp_path: Path):
 
 def test_github_output_carries_the_counts(tmp_path: Path):
     output = tmp_path / "github_output"
-    spec = module().replace("    blue = 'blue'\n", "") + "\n\nclass NewThing(BaseModel):\n    name: str\n"
+    spec = (
+        module().replace("    blue = 'blue'\n", "")
+        + "\n\nclass NewThing(BaseModel):\n    name: str\n"
+    )
     result = run(tmp_path, module(), spec, None, "--github-output", str(output))
     assert result.returncode == 1
     assert output.read_text() == "failing=1\ninformational=1\nstale=0\n"
@@ -144,7 +151,9 @@ def test_missing_generated_file_exits_2(tmp_path: Path):
     allowlist.write_text('{"entries": []}')
     models = tmp_path / "models.py"
     models.write_text(module())
-    result = cli("--models", models, "--generated", tmp_path / "absent.py", "--allowlist", allowlist)
+    result = cli(
+        "--models", models, "--generated", tmp_path / "absent.py", "--allowlist", allowlist
+    )
     assert result.returncode == 2
 
 
@@ -208,9 +217,12 @@ def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return pauses
 
 
-def test_a_failed_schema_download_is_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]):
+def test_a_failed_schema_download_is_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleeps: list[float]
+):
     urlopen = FlakyUrlopen(
-        [urllib.error.URLError("connection reset"), http.client.IncompleteRead(b"{")], b'{"openapi": "3"}'
+        [urllib.error.URLError("connection reset"), http.client.IncompleteRead(b"{")],
+        b'{"openapi": "3"}',
     )
     monkeypatch.setattr(check_schema_drift.urllib.request, "urlopen", urlopen)
 
@@ -270,7 +282,11 @@ def test_formatting_titles_and_field_order_are_not_differences():
             "x: Optional[str] = Field(...)",
             {"field_required_changed:M.x": ("optional", "required")},
         ),
-        ("x: str = Field(default='a')", "x: str = Field(default='b')", {"field_default_changed:M.x": ("'a'", "'b'")}),
+        (
+            "x: str = Field(default='a')",
+            "x: str = Field(default='b')",
+            {"field_default_changed:M.x": ("'a'", "'b'")},
+        ),
         (
             "x: str = Field(default=None, alias='a')",
             "x: str = Field(default=None, alias='b')",
@@ -310,7 +326,9 @@ def test_required_follows_pydantic_1(declaration: str, expected: str):
 
 def test_field_in_one_module_only():
     sdk = module("class M(BaseModel):\n    a: str\n    gone: str\n")
-    spec = module("class M(BaseModel):\n    a: str\n    needed: str\n    maybe: Optional[str] = None\n")
+    spec = module(
+        "class M(BaseModel):\n    a: str\n    needed: str\n    maybe: Optional[str] = None\n"
+    )
     assert differences(sdk, spec) == {
         "field_removed_from_spec:M.gone": ("required str", "(absent)"),
         "field_added_required:M.needed": ("(absent)", "required str"),
@@ -373,7 +391,9 @@ def test_class_level_differences():
 
 def test_inherited_fields_are_compared():
     sdk = module("class Base(BaseModel):\n    a: str\n\n\nclass Child(Base):\n    b: str\n")
-    spec = module("class Base(BaseModel):\n    a: str\n\n\nclass Child(BaseModel):\n    a: int\n    b: str\n")
+    spec = module(
+        "class Base(BaseModel):\n    a: str\n\n\nclass Child(BaseModel):\n    a: int\n    b: str\n"
+    )
     assert differences(sdk, spec) == {"field_type_changed:Child.a": ("str", "int")}
 
 
@@ -389,7 +409,9 @@ def test_a_module_without_classes_is_an_error():
 
 
 def test_the_sdk_models_module_parses_with_its_hand_written_header():
-    shapes = parse_models((REPO_ROOT / "permit" / "api" / "models.py").read_text(encoding="utf-8"), "models.py")
+    shapes = parse_models(
+        (REPO_ROOT / "permit" / "api" / "models.py").read_text(encoding="utf-8"), "models.py"
+    )
     assert len(shapes) > 300
     assert shapes["UserRead"].kind == "model"
     assert shapes["UserRead"].fields["key"].required is True
@@ -407,17 +429,23 @@ def entry(entry_id: str, sdk: str, spec: str, reason: str = "known") -> dict:
 
 
 def int_key_spec() -> str:
-    return module().replace("key: str = Field(..., title='Key')", "key: int = Field(..., title='Key')")
+    return module().replace(
+        "key: str = Field(..., title='Key')", "key: int = Field(..., title='Key')"
+    )
 
 
 def test_allowlist_suppresses_an_exact_match(tmp_path: Path):
-    result = run(tmp_path, module(), int_key_spec(), [entry("field_type_changed:UserRead.key", "str", "int")])
+    result = run(
+        tmp_path, module(), int_key_spec(), [entry("field_type_changed:UserRead.key", "str", "int")]
+    )
     assert result.returncode == 0, result.stdout
     assert "| 0 | 0 | 0 | 1 |" in result.stdout
 
 
 def test_allowlist_does_not_suppress_a_further_change(tmp_path: Path):
-    spec = module().replace("key: str = Field(..., title='Key')", "key: float = Field(..., title='Key')")
+    spec = module().replace(
+        "key: str = Field(..., title='Key')", "key: float = Field(..., title='Key')"
+    )
     result = run(tmp_path, module(), spec, [entry("field_type_changed:UserRead.key", "str", "int")])
     assert result.returncode == 1
     assert "field_type_changed:UserRead.key" in result.stdout
@@ -432,7 +460,9 @@ def test_informational_entries_match_on_id_alone(tmp_path: Path):
 
 
 def test_stale_entry_fails(tmp_path: Path):
-    result = run(tmp_path, module(), module(), [entry("field_type_changed:UserRead.key", "str", "int")])
+    result = run(
+        tmp_path, module(), module(), [entry("field_type_changed:UserRead.key", "str", "int")]
+    )
     assert result.returncode == 1
     assert "Stale allowlist entries" in result.stdout
     assert "stale allowlist entry: field_type_changed:UserRead.key" in result.stderr

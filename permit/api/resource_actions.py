@@ -29,7 +29,9 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionRead]:
+    async def list(
+        self, resource_key: str, page: int = 1, per_page: int = 100
+    ) -> List[ResourceActionRead]:
         """
         Retrieves a list of actions.
 
@@ -54,7 +56,9 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        return await self.__actions.get(f"/{resource_key}/actions/{action_key}", model=ResourceActionRead)
+        return await self.__actions.get(
+            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
+        )
 
     @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
@@ -119,7 +123,9 @@ class ResourceActionsApi(BasePermitApi):
         return await self._get(resource_id, action_id)
 
     @validate_arguments
-    async def create(self, resource_key: str, action_data: ModelInput[ResourceActionCreate]) -> ResourceActionRead:
+    async def create(
+        self, resource_key: str, action_data: ModelInput[ResourceActionCreate]
+    ) -> ResourceActionRead:
         """
         Creates a new action.
 

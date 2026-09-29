@@ -129,7 +129,9 @@ async def test_environment_creation_with_org_level_api_key(
         )  # each project has 2 default `dev` and `prod` environments
 
         # create first item
-        test_environment = await permit.api.environments.get(CREATED_PROJECTS[0].key, CREATED_ENVIRONMENTS[0].key)
+        test_environment = await permit.api.environments.get(
+            CREATED_PROJECTS[0].key, CREATED_ENVIRONMENTS[0].key
+        )
 
         assert test_environment is not None
         assert test_environment.key == CREATED_ENVIRONMENTS[0].key

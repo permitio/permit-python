@@ -36,9 +36,13 @@ MISSING_KEY = (
 @pytest.fixture
 def permit_config() -> PermitConfig:
     default_pdp_address = (
-        "https://cloudpdp.api.permit.io" if os.getenv("CLOUD_PDP") == "true" else "http://localhost:7766"
+        "https://cloudpdp.api.permit.io"
+        if os.getenv("CLOUD_PDP") == "true"
+        else "http://localhost:7766"
     )
-    default_api_address = "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
+    default_api_address = (
+        "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
+    )
 
     token = os.getenv("PDP_API_KEY", "")
     pdp_address = os.getenv("PDP_URL", default_pdp_address)
@@ -152,7 +156,9 @@ def _retry_on_rate_limit(method):
                 if delay is None:
                     delay = min(_BASE_BACKOFF_S * (2**attempt), _MAX_BACKOFF_S)
                     delay *= 0.5 + random.random() / 2
-                logger.warning(f"rate limited (429); retrying in {delay:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                logger.warning(
+                    f"rate limited (429); retrying in {delay:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})"
+                )
                 await asyncio.sleep(delay)
         raise AssertionError("unreachable")  # pragma: no cover
 

@@ -190,7 +190,9 @@ def _is_optional(annotation: ast.expr) -> bool:
     if text.startswith("Optional["):
         return True
     if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value) == "Union":
-        members = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+        members = (
+            annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+        )
         return any(ast.unparse(member) == "None" for member in members)
     return False
 
@@ -362,7 +364,9 @@ def _compare_members(cls: str, ours: dict[str, str], theirs: dict[str, str]) -> 
     return out
 
 
-def _compare_fields(cls: str, ours: dict[str, FieldShape], theirs: dict[str, FieldShape]) -> list[Difference]:
+def _compare_fields(
+    cls: str, ours: dict[str, FieldShape], theirs: dict[str, FieldShape]
+) -> list[Difference]:
     out = []
     for field in sorted(set(ours) | set(theirs)):
         if field not in ours:
@@ -370,7 +374,11 @@ def _compare_fields(cls: str, ours: dict[str, FieldShape], theirs: dict[str, Fie
             out.append(Difference(kind, cls, field, ABSENT, _describe_field(theirs[field])))
             continue
         if field not in theirs:
-            out.append(Difference("field_removed_from_spec", cls, field, _describe_field(ours[field]), ABSENT))
+            out.append(
+                Difference(
+                    "field_removed_from_spec", cls, field, _describe_field(ours[field]), ABSENT
+                )
+            )
             continue
         mine, spec = ours[field], theirs[field]
         if mine.type != spec.type:
@@ -386,9 +394,15 @@ def _compare_fields(cls: str, ours: dict[str, FieldShape], theirs: dict[str, Fie
                 )
             )
         elif mine.default != spec.default:
-            out.append(Difference("field_default_changed", cls, field, str(mine.default), str(spec.default)))
+            out.append(
+                Difference(
+                    "field_default_changed", cls, field, str(mine.default), str(spec.default)
+                )
+            )
         if mine.alias != spec.alias:
-            out.append(Difference("field_alias_changed", cls, field, str(mine.alias), str(spec.alias)))
+            out.append(
+                Difference("field_alias_changed", cls, field, str(mine.alias), str(spec.alias))
+            )
     return out
 
 
@@ -428,7 +442,9 @@ def load_allowlist(path: Path) -> list[AllowlistEntry]:
         if entry_id in seen:
             raise DriftError(f"allowlist entry {entry_id} appears more than once")
         seen.add(entry_id)
-        entries.append(AllowlistEntry(entry_id, str(values["sdk"]), str(values["spec"]), str(values["reason"])))
+        entries.append(
+            AllowlistEntry(entry_id, str(values["sdk"]), str(values["spec"]), str(values["reason"]))
+        )
     return entries
 
 
@@ -441,7 +457,8 @@ def apply_allowlist(differences: list[Difference], entries: list[AllowlistEntry]
     for difference in differences:
         entry = by_id.get(difference.id)
         if entry is not None and (
-            not difference.failing or (entry.sdk == difference.sdk and entry.spec == difference.spec)
+            not difference.failing
+            or (entry.sdk == difference.sdk and entry.spec == difference.spec)
         ):
             matched.add(entry.id)
             allowlisted.append(difference)
@@ -487,7 +504,12 @@ def render(result: Result, compared_with: str) -> str:
         "",
     ]
     if failing:
-        out += ["### New failing differences", "", "| Difference | SDK | API schema |", "|---|---|---|"]
+        out += [
+            "### New failing differences",
+            "",
+            "| Difference | SDK | API schema |",
+            "|---|---|---|",
+        ]
         out += [f"| `{_cell(d.id)}` | `{_cell(d.sdk)}` | `{_cell(d.spec)}` |" for d in failing]
         out.append("")
     if informational:
@@ -495,7 +517,12 @@ def render(result: Result, compared_with: str) -> str:
         out += [f"- `{_cell(d.id)}`: `{_cell(d.spec)}`" for d in informational]
         out.append("")
     if result.stale:
-        out += ["### Stale allowlist entries", "", "These match no current difference. Remove them.", ""]
+        out += [
+            "### Stale allowlist entries",
+            "",
+            "These match no current difference. Remove them.",
+            "",
+        ]
         out += [f"- `{_cell(entry.id)}`" for entry in result.stale]
         out.append("")
     if result.new or result.stale:
@@ -576,7 +603,9 @@ def generate(spec: Path, workdir: Path) -> Path:
     except FileNotFoundError as exc:
         raise DriftError("uvx is not on PATH; it runs the pinned model generator") from exc
     except subprocess.TimeoutExpired as exc:
-        raise DriftError(f"the model generator did not finish within {GENERATE_TIMEOUT_S}s") from exc
+        raise DriftError(
+            f"the model generator did not finish within {GENERATE_TIMEOUT_S}s"
+        ) from exc
     if completed.returncode != 0 or not output.is_file():
         tail = "\n".join((completed.stderr or completed.stdout).strip().splitlines()[-20:])
         raise DriftError(f"the model generator failed (exit {completed.returncode}):\n{tail}")
@@ -596,19 +625,33 @@ def run(args: argparse.Namespace) -> Result:
     sdk = parse_models(_read(Path(args.models), "the SDK models"), str(args.models))
     with tempfile.TemporaryDirectory() as tmp:
         workdir = Path(tmp)
-        generated = Path(args.generated) if args.generated else generate(fetch_spec(args.spec, workdir), workdir)
-        spec = parse_models(_read(generated, "the generated models"), "the models generated from the API schema")
+        generated = (
+            Path(args.generated)
+            if args.generated
+            else generate(fetch_spec(args.spec, workdir), workdir)
+        )
+        spec = parse_models(
+            _read(generated, "the generated models"), "the models generated from the API schema"
+        )
     return apply_allowlist(compare(sdk, spec), entries)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("--models", required=True, help="the SDK's models module (permit/api/models.py)")
+    parser.add_argument(
+        "--models", required=True, help="the SDK's models module (permit/api/models.py)"
+    )
     parser.add_argument("--allowlist", required=True, help="JSON allowlist of known differences")
-    parser.add_argument("--spec", default=DEFAULT_SPEC, help="API schema URL or path (default: %(default)s)")
-    parser.add_argument("--generated", help="compare this generated module instead of running the generator")
+    parser.add_argument(
+        "--spec", default=DEFAULT_SPEC, help="API schema URL or path (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--generated", help="compare this generated module instead of running the generator"
+    )
     parser.add_argument("--summary", help="write the markdown report here instead of stdout")
-    parser.add_argument("--github-output", help="append failing=, informational= and stale= counts here")
+    parser.add_argument(
+        "--github-output", help="append failing=, informational= and stale= counts here"
+    )
     args = parser.parse_args(argv)
 
     if args.generated:
@@ -636,7 +679,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"stale={len(result.stale)}\n"
             )
     for difference in result.failing:
-        print(f"new drift: {difference.id}: SDK {difference.sdk!r}, API schema {difference.spec!r}", file=sys.stderr)
+        print(
+            f"new drift: {difference.id}: SDK {difference.sdk!r}, API schema {difference.spec!r}",
+            file=sys.stderr,
+        )
     for entry in result.stale:
         print(f"stale allowlist entry: {entry.id}", file=sys.stderr)
     return result.exit_code

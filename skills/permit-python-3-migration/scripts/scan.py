@@ -62,7 +62,10 @@ DEPRECATED_METHODS: Dict[str, Tuple[str, Optional[Dict[str, str]]]] = {
     "get_user": ("api.users.get", {}),
     "get_role": ("api.roles.get", {}),
     "get_tenant": ("api.tenants.get", {}),
-    "get_assigned_roles": ("api.users.get_assigned_roles", {"user_key": "user", "tenant_key": "tenant"}),
+    "get_assigned_roles": (
+        "api.users.get_assigned_roles",
+        {"user_key": "user", "tenant_key": "tenant"},
+    ),
     "get_resource": ("api.resources.get", {}),
     "list_roles": ("api.roles.list", {}),
     "sync_user": ("api.users.sync", {}),
@@ -85,7 +88,14 @@ ASSIGNMENT_KEYS = {"user_key": "user", "role_key": "role", "tenant_key": "tenant
 
 NOW_SYNC_METHODS = {"authorized_users", "get_user_permissions", "filter_objects"}
 PAGE_FIELDS = {"data", "total_count", "page_count"}
-COROUTINE_RUNNERS = {"run", "run_until_complete", "gather", "create_task", "ensure_future", "wait_for"}
+COROUTINE_RUNNERS = {
+    "run",
+    "run_until_complete",
+    "gather",
+    "create_task",
+    "ensure_future",
+    "wait_for",
+}
 # Modules whose import aliases the scan follows: permit, and asyncio for its runners.
 TRACED_MODULES = {"permit", "asyncio"}
 
@@ -98,7 +108,11 @@ _TYPING_FIX = "import it from typing"
 _PYDANTIC_FIX = "import it from pydantic.v1, which permit 3's pydantic floors always provide"
 _VERSION_FIX = "import PYDANTIC_VERSION from permit.utils.pydantic_version"
 REMOVED: Dict[Tuple[str, str], Tuple[str, str, str]] = {
-    ("permit.api.context", "ApiKeyLevel"): ("A3", SAFE, "use ApiKeyAccessLevel, which has the same members"),
+    ("permit.api.context", "ApiKeyLevel"): (
+        "A3",
+        SAFE,
+        "use ApiKeyAccessLevel, which has the same members",
+    ),
     ("permit.enforcement.interfaces", "JWT"): ("A3", SAFE, "JWT was an alias of str; use str"),
     ("permit.utils.context", "ContextTransform"): (
         "A3",
@@ -119,7 +133,11 @@ REMOVED: Dict[Tuple[str, str], Tuple[str, str, str]] = {
     ("permit", "PYDANTIC_VERSION"): ("A6", SAFE, _VERSION_FIX),
     ("permit.api.models", "PYDANTIC_VERSION"): ("A6", SAFE, _VERSION_FIX),
     ("permit.pdp_api.base", "PYDANTIC_VERSION"): ("A6", SAFE, _VERSION_FIX),
-    ("permit.enforcement.enforcer", "set_if_not_none"): ("A6", SAFE, "removed; copy the three-line helper"),
+    ("permit.enforcement.enforcer", "set_if_not_none"): (
+        "A6",
+        SAFE,
+        "removed; copy the three-line helper",
+    ),
     ("permit.pdp_api.base", "T"): ("A6", SAFE, _TYPEVAR_FIX),
     ("permit.pdp_api.base", "TModel"): ("A6", SAFE, _TYPEVAR_FIX),
     ("permit.pdp_api.base", "TData"): ("A6", SAFE, _TYPEVAR_FIX),
@@ -132,14 +150,27 @@ REMOVED: Dict[Tuple[str, str], Tuple[str, str, str]] = {
     ("permit.utils.context", "List"): ("A6", SAFE, _TYPING_FIX),
     ("permit.api.resource_relations", "List"): ("A6", SAFE, _TYPING_FIX),
     ("permit.api.elements", "Enum"): ("A6", SAFE, "import it from enum"),
-    ("permit.api.deprecated", "RoleAssignmentsApi"): ("A6", SAFE, "import it from permit.api.role_assignments"),
+    ("permit.api.deprecated", "RoleAssignmentsApi"): (
+        "A6",
+        SAFE,
+        "import it from permit.api.role_assignments",
+    ),
     ("permit.utils.sync", "iscoroutinefunction"): ("A6", SAFE, "import it from inspect"),
 }
 
 AUDIT_LOG_MODELS = {"AuditLogModel", "DetailedAuditLogModel"}
 TUPLE_MODELS = {"RelationshipTupleRead", "RelationshipTupleDetailedRead"}
-TUPLE_OPTIONAL_FIELDS = {"object_id", "subject_details", "relation_details", "object_details", "tenant_details"}
-NEW_ENUM_MEMBERS = {"Engine": ("A4", "Engine.GENERIC"), "APIKeyOwnerType": ("A5", "APIKeyOwnerType.nats_pdp_config")}
+TUPLE_OPTIONAL_FIELDS = {
+    "object_id",
+    "subject_details",
+    "relation_details",
+    "object_details",
+    "tenant_details",
+}
+NEW_ENUM_MEMBERS = {
+    "Engine": ("A4", "Engine.GENERIC"),
+    "APIKeyOwnerType": ("A5", "APIKeyOwnerType.nats_pdp_config"),
+}
 
 # pydantic 2 method -> (pydantic 1 method, keywords the two share).
 V2_METHODS: Dict[str, Tuple[str, Set[str]]] = {
@@ -149,14 +180,26 @@ V2_METHODS: Dict[str, Tuple[str, Set[str]]] = {
     ),
     "model_dump_json": (
         "json",
-        {"include", "exclude", "by_alias", "exclude_unset", "exclude_defaults", "exclude_none", "indent"},
+        {
+            "include",
+            "exclude",
+            "by_alias",
+            "exclude_unset",
+            "exclude_defaults",
+            "exclude_none",
+            "indent",
+        },
     ),
     "model_validate": ("parse_obj", set()),
     "model_validate_json": ("parse_raw", set()),
     "model_copy": ("copy", {"update", "deep"}),
     "model_json_schema": ("schema", {"by_alias", "ref_template"}),
 }
-V2_ATTRIBUTES = {"model_fields_set": "__fields_set__", "model_fields": "__fields__", "model_config": "__config__"}
+V2_ATTRIBUTES = {
+    "model_fields_set": "__fields_set__",
+    "model_fields": "__fields__",
+    "model_config": "__config__",
+}
 REQUEST_MODEL_SUFFIXES = ("Create", "Update", "Remove", "Delete", "Replace")
 
 # Packages permit 2.x installed and 3.0.0 does not: httpx and zipp, which it declared, and the
@@ -332,7 +375,9 @@ def _intersects(bounds: List[Bound], low: Optional[Version], high: Optional[Vers
     return order < 0 or (order == 0 and lower[1] and upper[1])
 
 
-def intersects(alternatives: List[List[Bound]], low: Optional[Version], high: Optional[Version]) -> bool:
+def intersects(
+    alternatives: List[List[Bound]], low: Optional[Version], high: Optional[Version]
+) -> bool:
     """Whether some version in [low, high) satisfies the parsed specifier."""
     return any(_intersects(bounds, low, high) for bounds in alternatives)
 
@@ -437,7 +482,11 @@ def scan_requirements_txt(facts: ProjectFacts, rel: str, lines: List[str]) -> No
         # was compiled from, and `httpx==...  # via permit` is not the project declaring httpx.
         for number, text in requirement_lines(lines):
             parsed = split_requirement(text)
-            pinned = re.match(r"^===?\s*([^\s,;]+)$", parsed[1]) if parsed and parsed[0] == "permit" else None
+            pinned = (
+                re.match(r"^===?\s*([^\s,;]+)$", parsed[1])
+                if parsed and parsed[0] == "permit"
+                else None
+            )
             if pinned:
                 _locked_permit(facts, rel, number, pinned.group(1), compiled=True)
         return
@@ -514,14 +563,21 @@ def scan_toml(facts: ProjectFacts, rel: str, lines: List[str], *, pipfile: bool)
                 array_key = key
         current_key = array_key if array_key is not None else key
 
-        if pipfile and table in ("packages", "dev-packages") and key is not None and array_key is None:
+        if (
+            pipfile
+            and table in ("packages", "dev-packages")
+            and key is not None
+            and array_key is None
+        ):
             spec = _table_value_spec(value)
             if spec is not None:
                 facts.add_requirement(rel, number, f"{key} {'' if spec == '*' else spec}")
         elif not pipfile and _poetry_table(table) and key is not None and array_key is None:
             spec = _table_value_spec(value)
             if key == "python" and spec is not None:
-                facts.add_python_pin(rel, number, f'python = "{spec}"', below=python_below_310(spec))
+                facts.add_python_pin(
+                    rel, number, f'python = "{spec}"', below=python_below_310(spec)
+                )
             elif spec is not None:
                 facts.add_requirement(rel, number, f"{key} {'' if spec == '*' else spec}")
         elif current_key is not None and _requirement_key(table, current_key):
@@ -530,7 +586,9 @@ def scan_toml(facts: ProjectFacts, rel: str, lines: List[str], *, pipfile: bool)
 
         if table == "project" and key == "requires-python":
             for spec in _quoted(value):
-                facts.add_python_pin(rel, number, f'requires-python = "{spec}"', below=python_below_310(spec))
+                facts.add_python_pin(
+                    rel, number, f'requires-python = "{spec}"', below=python_below_310(spec)
+                )
         if table == "project" and current_key == "classifiers":
             scan_classifiers(facts, rel, number, text)
         if (pipfile and table == "requires") or table in ("tool.mypy", "tool.pyright"):
@@ -553,13 +611,18 @@ def scan_classifiers(facts: ProjectFacts, rel: str, number: int, text: str) -> N
 def scan_version_setting(facts: ProjectFacts, rel: str, number: int, raw: str) -> None:
     """python_version (mypy, Pipfile), pythonVersion (pyright) and python_full_version."""
     match = re.match(
-        r"^\s*[\"']?(python_version|pythonVersion|python_full_version)[\"']?\s*[:=]\s*[\"']?(\d+\.\d+)", raw
+        r"^\s*[\"']?(python_version|pythonVersion|python_full_version)[\"']?\s*[:=]\s*[\"']?(\d+\.\d+)",
+        raw,
     )
     if match:
-        facts.add_python_pin(rel, number, raw.strip().rstrip(","), below=bool(minors_below_310(match.group(2))))
+        facts.add_python_pin(
+            rel, number, raw.strip().rstrip(","), below=bool(minors_below_310(match.group(2)))
+        )
 
 
-_ERROR_FILTER_RE = re.compile(r"(?:^|[\s\"',\[=])(?:-W\s*)?error(?:::(?:DeprecationWarning|Warning))?(?=$|[\s\"',\]])")
+_ERROR_FILTER_RE = re.compile(
+    r"(?:^|[\s\"',\[=])(?:-W\s*)?error(?:::(?:DeprecationWarning|Warning))?(?=$|[\s\"',\]])"
+)
 
 
 # A warning filter for permit 2.x's deprecation text, "use permit.api.users.get() instead". Filters
@@ -584,12 +647,20 @@ def scan_pytest_setting(facts: ProjectFacts, rel: str, number: int, text: str) -
 def scan_mypy_override_block(facts: ProjectFacts, rel: str, block: List[Tuple[int, str]]) -> None:
     permit_lines = [number for number, raw in block if re.search(r"[\"']permit(\.\*)?[\"']", raw)]
     hides = any(
-        re.match(r"^\s*(ignore_missing_imports\s*=\s*true|follow_imports\s*=\s*[\"']skip[\"'])", raw)
+        re.match(
+            r"^\s*(ignore_missing_imports\s*=\s*true|follow_imports\s*=\s*[\"']skip[\"'])", raw
+        )
         for _, raw in block
     )
     if permit_lines and hides:
         facts.findings.append(
-            Finding(rel, permit_lines[0], "T1", SAFE, "permit ships py.typed now: remove permit from this override")
+            Finding(
+                rel,
+                permit_lines[0],
+                "T1",
+                SAFE,
+                "permit ships py.typed now: remove permit from this override",
+            )
         )
 
 
@@ -604,7 +675,13 @@ def scan_ini(facts: ProjectFacts, rel: str, lines: List[str]) -> None:
     def close_section() -> None:
         if hides_permit:
             facts.findings.append(
-                Finding(rel, section_line, "T1", SAFE, "permit ships py.typed now: remove permit from this section")
+                Finding(
+                    rel,
+                    section_line,
+                    "T1",
+                    SAFE,
+                    "permit ships py.typed now: remove permit from this section",
+                )
             )
 
     for number, raw in enumerate(lines, 1):
@@ -628,13 +705,21 @@ def scan_ini(facts: ProjectFacts, rel: str, lines: List[str]) -> None:
             value = stripped
 
         modules = (
-            [module.strip() for module in section[len("mypy-") :].split(",")] if section.startswith("mypy-") else []
+            [module.strip() for module in section[len("mypy-") :].split(",")]
+            if section.startswith("mypy-")
+            else []
         )
-        if any(module == "permit" or module.startswith("permit.") for module in modules) and re.match(
-            r"^(ignore_missing_imports\s*=\s*true|follow_imports\s*=\s*skip)", stripped, re.IGNORECASE
+        if any(
+            module == "permit" or module.startswith("permit.") for module in modules
+        ) and re.match(
+            r"^(ignore_missing_imports\s*=\s*true|follow_imports\s*=\s*skip)",
+            stripped,
+            re.IGNORECASE,
         ):
             hides_permit = True
-        requirement_value = (section == "options" and key == "install_requires") or section == "options.extras_require"
+        requirement_value = (
+            section == "options" and key == "install_requires"
+        ) or section == "options.extras_require"
         if requirement_value and value:
             facts.add_requirement(rel, number, value)
         if section == "options" and key == "python_requires" and not continuation:
@@ -658,7 +743,13 @@ def scan_setup_py(facts: ProjectFacts, rel: str, tree: ast.AST) -> None:
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+        name = (
+            func.attr
+            if isinstance(func, ast.Attribute)
+            else func.id
+            if isinstance(func, ast.Name)
+            else ""
+        )
         if name != "setup":
             continue
         for keyword in node.keywords:
@@ -672,7 +763,10 @@ def scan_setup_py(facts: ProjectFacts, rel: str, tree: ast.AST) -> None:
             elif keyword.arg == "python_requires" and isinstance(keyword.value, ast.Constant):
                 spec = str(keyword.value.value)
                 facts.add_python_pin(
-                    rel, keyword.value.lineno, f'python_requires="{spec}"', below=python_below_310(spec)
+                    rel,
+                    keyword.value.lineno,
+                    f'python_requires="{spec}"',
+                    below=python_below_310(spec),
                 )
             elif keyword.arg == "classifiers":
                 for element in _string_elements(keyword.value):
@@ -682,7 +776,9 @@ def scan_setup_py(facts: ProjectFacts, rel: str, tree: ast.AST) -> None:
 def _string_elements(node: ast.AST) -> List[ast.Constant]:
     if isinstance(node, (ast.List, ast.Tuple)):
         return [
-            element for element in node.elts if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            element
+            for element in node.elts
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
         ]
     return []
 
@@ -704,7 +800,9 @@ def scan_lock(facts: ProjectFacts, rel: str, lines: List[str]) -> None:
                     break
 
 
-def _locked_permit(facts: ProjectFacts, rel: str, number: int, version_text: str, *, compiled: bool = False) -> None:
+def _locked_permit(
+    facts: ProjectFacts, rel: str, number: int, version_text: str, *, compiled: bool = False
+) -> None:
     facts.locked_permit.append((rel, number, version_text))
     version = parse_version(version_text)
     if version is None or compare(version, (3,)) >= 0:
@@ -732,7 +830,9 @@ def scan_python_version_file(facts: ProjectFacts, rel: str, lines: List[str]) ->
 
 
 _IMAGE_RE = re.compile(r"python:(\d+)\.(\d+)")
-_CI_KEY_RE = re.compile(r"^\s*-?\s*[\"']?(python[-_ ]?versions?|python)[\"']?\s*:\s*(.*)$", re.IGNORECASE)
+_CI_KEY_RE = re.compile(
+    r"^\s*-?\s*[\"']?(python[-_ ]?versions?|python)[\"']?\s*:\s*(.*)$", re.IGNORECASE
+)
 
 
 def scan_ci_or_dockerfile(facts: ProjectFacts, rel: str, lines: List[str]) -> None:
@@ -746,7 +846,9 @@ def scan_ci_or_dockerfile(facts: ProjectFacts, rel: str, lines: List[str]) -> No
         if list_indent is not None:
             if stripped.startswith("-") and indent >= list_indent:
                 if re.search(r"(?<![\w.])3\.\d+", stripped):
-                    facts.add_python_pin(rel, number, stripped, below=bool(minors_below_310(stripped)))
+                    facts.add_python_pin(
+                        rel, number, stripped, below=bool(minors_below_310(stripped))
+                    )
                 continue
             list_indent = None
         versions: List[str] = []
@@ -762,7 +864,9 @@ def scan_ci_or_dockerfile(facts: ProjectFacts, rel: str, lines: List[str]) -> No
         if env:
             versions.extend(re.findall(r"(?<![\w.])3\.\d+", env.group(1)))
         if versions:
-            facts.add_python_pin(rel, number, stripped, below=bool(minors_below_310(" ".join(versions))))
+            facts.add_python_pin(
+                rel, number, stripped, below=bool(minors_below_310(" ".join(versions)))
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -869,7 +973,12 @@ def guards(test: ast.AST, key: str, *, none_check: bool = True) -> bool:
         and is_none(test.comparators[0])
     ):
         return none_check and dotted(test.left) == key
-    if isinstance(test, ast.Call) and isinstance(test.func, ast.Name) and test.func.id == "isinstance" and test.args:
+    if (
+        isinstance(test, ast.Call)
+        and isinstance(test.func, ast.Name)
+        and test.func.id == "isinstance"
+        and test.args
+    ):
         return dotted(test.args[0]) == key
     return dotted(test) == key
 
@@ -974,7 +1083,10 @@ class SourceScan:
         parent = self.parents.get(node)
         while parent is not None:
             if (
-                (isinstance(parent, ast.arguments) and (child in parent.defaults or child in parent.kw_defaults))
+                (
+                    isinstance(parent, ast.arguments)
+                    and (child in parent.defaults or child in parent.kw_defaults)
+                )
                 or (isinstance(parent, ast.arg) and child is parent.annotation)
                 or (
                     isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -982,7 +1094,11 @@ class SourceScan:
                 )
                 or (
                     isinstance(parent, ast.ClassDef)
-                    and (child in parent.bases or child in parent.keywords or child in parent.decorator_list)
+                    and (
+                        child in parent.bases
+                        or child in parent.keywords
+                        or child in parent.decorator_list
+                    )
                 )
             ):
                 skip = True
@@ -1057,7 +1173,9 @@ class SourceScan:
         """Which names each scope binds, and every site that binds a slot."""
         for node in ast.walk(self.tree):
             if isinstance(node, (ast.Global, ast.Nonlocal)):
-                declared = self.declared_global if isinstance(node, ast.Global) else self.declared_nonlocal
+                declared = (
+                    self.declared_global if isinstance(node, ast.Global) else self.declared_nonlocal
+                )
                 declared.setdefault(id(self.innermost_scope(node)), set()).update(node.names)
         sites: List[Tuple[str, ast.AST]] = []
         for node in ast.walk(self.tree):
@@ -1066,7 +1184,9 @@ class SourceScan:
                 continue
             sites.append((name, node))
             scope = id(self.innermost_scope(node))
-            elsewhere = self.declared_global.get(scope, set()) | self.declared_nonlocal.get(scope, set())
+            elsewhere = self.declared_global.get(scope, set()) | self.declared_nonlocal.get(
+                scope, set()
+            )
             if name not in elsewhere:
                 self.bound.setdefault(scope, set()).add(name)
         for name, node in sites:
@@ -1077,7 +1197,11 @@ class SourceScan:
             for slot in slots:
                 self.sites.setdefault(slot, set()).add(id(node))
         for node in ast.walk(self.tree):
-            if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store) and not self.binds_none(node):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.ctx, ast.Store)
+                and not self.binds_none(node)
+            ):
                 for slot in self.target_slots(node):
                     self.sites.setdefault(slot, set()).add(id(node))
 
@@ -1107,7 +1231,11 @@ class SourceScan:
 
     def holds_only(self, slot: Optional[Slot], site_ids: Optional[Set[int]]) -> bool:
         """Whether the traced sites account for every site that binds the slot."""
-        return slot is not None and bool(site_ids) and self.sites.get(slot, set()) <= (site_ids or set())
+        return (
+            slot is not None
+            and bool(site_ids)
+            and self.sites.get(slot, set()) <= (site_ids or set())
+        )
 
     def client_kind(self, node: ast.AST) -> Optional[str]:
         """ASYNC, SYNC, EITHER or MAYBE when `node` is traced to a permit client, otherwise None."""
@@ -1181,7 +1309,12 @@ class SourceScan:
     def sdk_class(self, node: ast.AST) -> Optional[str]:
         """The qualified name when `node` is a class imported from permit, other than the clients."""
         name = self.qualname(node)
-        if name is None or not name.startswith("permit.") or name in ASYNC_CLIENTS or name in SYNC_CLIENTS:
+        if (
+            name is None
+            or not name.startswith("permit.")
+            or name in ASYNC_CLIENTS
+            or name in SYNC_CLIENTS
+        ):
             return None
         return name if name.rsplit(".", 1)[-1][:1].isupper() else None
 
@@ -1242,7 +1375,13 @@ class SourceScan:
             codes = {code.strip() for code in (match.group(1) or "").split(",") if code.strip()}
             if codes <= IMPORT_IGNORE_CODES:
                 self.findings.append(
-                    Finding(self.rel, number, "T1", SAFE, "permit ships py.typed now: remove this ignore comment")
+                    Finding(
+                        self.rel,
+                        number,
+                        "T1",
+                        SAFE,
+                        "permit ships py.typed now: remove this ignore comment",
+                    )
                 )
             else:
                 self.findings.append(
@@ -1260,7 +1399,12 @@ class SourceScan:
         if top not in TRANSITIVE_PACKAGES or top in self.project.declared:
             return
         if top == "httpx":
-            self.add(node, "C2", SAFE, "permit 3 no longer installs httpx: declare httpx>=0.24.1,<1 yourself")
+            self.add(
+                node,
+                "C2",
+                SAFE,
+                "permit 3 no longer installs httpx: declare httpx>=0.24.1,<1 yourself",
+            )
         else:
             self.add(
                 node,
@@ -1280,7 +1424,9 @@ class SourceScan:
         """ApiKeyLevel after `from permit.api.context import *`, unless the file binds the name itself."""
         if not self.star_imports or not isinstance(node.ctx, ast.Load):
             return
-        if self.resolve(node, node.id) is not self.tree or node.id in self.bound.get(id(self.tree), set()):
+        if self.resolve(node, node.id) is not self.tree or node.id in self.bound.get(
+            id(self.tree), set()
+        ):
             return
         for module in sorted(self.star_imports):
             if (module, node.id) in REMOVED:
@@ -1292,9 +1438,17 @@ class SourceScan:
             return
         change, member = NEW_ENUM_MEMBERS[name]
         new_member = member.rsplit(".", 1)[-1]
-        if any(isinstance(other, ast.Attribute) and other.attr == new_member for other in ast.walk(self.tree)):
+        if any(
+            isinstance(other, ast.Attribute) and other.attr == new_member
+            for other in ast.walk(self.tree)
+        ):
             return
-        self.add(node, change, REVIEW, f"{member} is new in 3.0: check code that handles every member of {name}")
+        self.add(
+            node,
+            change,
+            REVIEW,
+            f"{member} is new in 3.0: check code that handles every member of {name}",
+        )
 
     # -- tracing ---------------------------------------------------------------
 
@@ -1364,7 +1518,11 @@ class SourceScan:
         child: ast.AST = node
         parent = self.parents.get(node)
         while parent is not None and not isinstance(parent, GUARD_LIMITS):
-            if isinstance(parent, ast.If) and child in parent.body and guards(parent.test, key, none_check=none_check):
+            if (
+                isinstance(parent, ast.If)
+                and child in parent.body
+                and guards(parent.test, key, none_check=none_check)
+            ):
                 return True
             if (
                 isinstance(parent, ast.IfExp)
@@ -1382,7 +1540,9 @@ class SourceScan:
                     return True
             if isinstance(parent, COMPREHENSIONS):
                 tests = [test for generator in parent.generators for test in generator.ifs]
-                if child not in parent.generators and any(guards(test, key, none_check=none_check) for test in tests):
+                if child not in parent.generators and any(
+                    guards(test, key, none_check=none_check) for test in tests
+                ):
                     return True
             child, parent = parent, self.parents.get(parent)
         return False
@@ -1410,13 +1570,18 @@ class SourceScan:
         kind = self.client_kind(value)
         if kind is not None:
             self.bind_client(target, kind)
-        elif isinstance(value, ast.Attribute) and value.attr == "api" and self.is_client(value.value):
-            self.bind(self.handle_sites, target)
-        elif (isinstance(value, ast.Call) and self.qualname(value.func) == "permit.utils.context.ContextStore") or (
-            isinstance(value, ast.Attribute) and value.attr == "context_store"
+        elif (
+            isinstance(value, ast.Attribute) and value.attr == "api" and self.is_client(value.value)
         ):
+            self.bind(self.handle_sites, target)
+        elif (
+            isinstance(value, ast.Call)
+            and self.qualname(value.func) == "permit.utils.context.ContextStore"
+        ) or (isinstance(value, ast.Attribute) and value.attr == "context_store"):
             self.mark(self.context_stores, target)
-        elif self.is_api_call(value) or (isinstance(value, ast.Call) and self.is_model_construction(value)):
+        elif self.is_api_call(value) or (
+            isinstance(value, ast.Call) and self.is_model_construction(value)
+        ):
             self.bind(self.sdk_sites, target)
 
     def is_model_construction(self, call: ast.Call) -> bool:
@@ -1435,7 +1600,9 @@ class SourceScan:
         if not isinstance(func, ast.Attribute):
             return
         self.check_deprecated_call(node, func)
-        relations = isinstance(func.value, ast.Attribute) and func.value.attr == "resource_relations"
+        relations = (
+            isinstance(func.value, ast.Attribute) and func.value.attr == "resource_relations"
+        )
         if func.attr == "list" and relations and not self.reads_page(node):
             self.add(
                 node,
@@ -1453,7 +1620,9 @@ class SourceScan:
                 "to a check: delete the call, or apply the transform to the context you pass to check()",
             )
         context_store = isinstance(func.value, ast.Attribute) and func.value.attr == "context_store"
-        if func.attr == "transform" and (context_store or self.slot(func.value) in self.context_stores):
+        if func.attr == "transform" and (
+            context_store or self.slot(func.value) in self.context_stores
+        ):
             self.add(
                 node,
                 "A3",
@@ -1476,7 +1645,9 @@ class SourceScan:
         targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
         assigned = {self.slot(target) for target in targets} - {None}
         return any(
-            isinstance(other, ast.Attribute) and other.attr in PAGE_FIELDS and self.slot(other.value) in assigned
+            isinstance(other, ast.Attribute)
+            and other.attr in PAGE_FIELDS
+            and self.slot(other.value) in assigned
             for other in ast.walk(self.tree)
         )
 
@@ -1492,7 +1663,11 @@ class SourceScan:
                 untraced = f"`{client}` is not traced to a permit client in this file"
         elif self.is_api_handle(func.value):
             client = f"<the client behind {self.source_of(func.value)}>"
-        elif isinstance(func.value, ast.Name) and func.value.id.endswith("api") and self.imports_permit:
+        elif (
+            isinstance(func.value, ast.Name)
+            and func.value.id.endswith("api")
+            and self.imports_permit
+        ):
             # Named like a `client.api` handle, but bound to something this file doesn't trace.
             client = f"<the client behind {func.value.id}>"
             untraced = f"`{func.value.id}` is not traced to a permit client's .api in this file"
@@ -1512,13 +1687,20 @@ class SourceScan:
             detail = f"use {target}({argument or '...'})"
             safe = traced and argument is not None
         else:
-            renamed = [f"{kw.arg}= to {renames[kw.arg]}=" for kw in node.keywords if kw.arg in renames]
+            renamed = [
+                f"{kw.arg}= to {renames[kw.arg]}=" for kw in node.keywords if kw.arg in renames
+            ]
             detail = f"use {target}(...)" + (f" and rename {', '.join(renamed)}" if renamed else "")
             safe = traced and not starred
         if not traced:
             detail = f"{untraced}; if it is one, {detail}"
         old = f"permit.api.{func.attr}()"
-        self.add(node, "D2", SAFE if safe else REVIEW, f"{old} is deprecated and will be removed in 4.0: {detail}")
+        self.add(
+            node,
+            "D2",
+            SAFE if safe else REVIEW,
+            f"{old} is deprecated and will be removed in 4.0: {detail}",
+        )
 
     def assignment_argument(self, node: ast.Call) -> Optional[str]:
         """The dict that replaces assign_role(user_key, role_key, tenant_key)'s three arguments."""
@@ -1614,7 +1796,9 @@ class SourceScan:
         values = list(node.args) + [keyword.value for keyword in node.keywords]
         if not any(is_async_mock(value) for value in values):
             return
-        if node.args and (self.client_kind(node.args[0]) == ASYNC or self.qualname(node.args[0]) in ASYNC_CLIENTS):
+        if node.args and (
+            self.client_kind(node.args[0]) == ASYNC or self.qualname(node.args[0]) in ASYNC_CLIENTS
+        ):
             return
         for arg in node.args:
             if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
@@ -1641,7 +1825,9 @@ class SourceScan:
         if func.attr not in V2_METHODS or not self.is_sdk_value(func.value):
             return
         v1_name, shared = V2_METHODS[func.attr]
-        unsupported = [keyword.arg or "**" for keyword in node.keywords if keyword.arg not in shared]
+        unsupported = [
+            keyword.arg or "**" for keyword in node.keywords if keyword.arg not in shared
+        ]
         if func.attr in ("model_validate", "model_validate_json") and len(node.args) != 1:
             unsupported.append("the arguments")
         message = f"SDK models are pydantic v1 models, with no .{func.attr}(): use .{v1_name}()"
@@ -1658,7 +1844,12 @@ class SourceScan:
         if node.attr in V2_ATTRIBUTES and self.is_sdk_value(node.value):
             safety = SAFE if node.attr == "model_fields_set" else REVIEW
             replacement = V2_ATTRIBUTES[node.attr]
-            self.add(node, "T2", safety, f"SDK models are pydantic v1 models: use .{replacement}, not .{node.attr}")
+            self.add(
+                node,
+                "T2",
+                safety,
+                f"SDK models are pydantic v1 models: use .{replacement}, not .{node.attr}",
+            )
         inner = node.value
         if not isinstance(inner, ast.Attribute):
             return
@@ -1676,9 +1867,15 @@ class SourceScan:
         if self.guarded(inner):
             return
         if inner.attr == "pdp_config_id" and self.names_imported & AUDIT_LOG_MODELS:
-            self.add(node, "A4", REVIEW, "pdp_config_id may be None in 3.0: check it before using it")
-        elif inner.attr in TUPLE_OPTIONAL_FIELDS and (self.mentions_tuples or self.names_imported & TUPLE_MODELS):
-            self.add(node, "A5", REVIEW, f"{inner.attr} may be None in 3.0: check it before using it")
+            self.add(
+                node, "A4", REVIEW, "pdp_config_id may be None in 3.0: check it before using it"
+            )
+        elif inner.attr in TUPLE_OPTIONAL_FIELDS and (
+            self.mentions_tuples or self.names_imported & TUPLE_MODELS
+        ):
+            self.add(
+                node, "A5", REVIEW, f"{inner.attr} may be None in 3.0: check it before using it"
+            )
 
     def check_string(self, node: ast.Constant) -> None:
         if OLD_D2_TEXT_RE.search(str(node.value)):
@@ -1699,7 +1896,9 @@ class SourceScan:
         short = name.rsplit(".", 1)[-1]
         if not short.endswith(REQUEST_MODEL_SUFFIXES):
             return
-        explicit = [keyword.arg for keyword in node.keywords if keyword.arg and is_none(keyword.value)]
+        explicit = [
+            keyword.arg for keyword in node.keywords if keyword.arg and is_none(keyword.value)
+        ]
         optional = [
             keyword.arg
             for keyword in node.keywords
@@ -1730,7 +1929,9 @@ class SourceScan:
         for arg in list(node.args) + [keyword.value for keyword in node.keywords]:
             if not isinstance(arg, ast.Dict):
                 continue
-            values = [value for index, value in enumerate(arg.values) if arg.keys[index] is not None]
+            values = [
+                value for index, value in enumerate(arg.values) if arg.keys[index] is not None
+            ]
             if any(self.maybe_none(value) for value in values):
                 self.add(
                     arg,
@@ -1820,7 +2021,9 @@ class Project:
                 source = path.read_bytes()
                 tree = ast.parse(source, filename=str(path))
             except (OSError, SyntaxError, ValueError) as error:
-                self.skipped.append({"path": self.rel(path), "reason": f"{type(error).__name__}: {error}"})
+                self.skipped.append(
+                    {"path": self.rel(path), "reason": f"{type(error).__name__}: {error}"}
+                )
                 continue
             trees.append((path, source, tree))
             if path.name == "setup.py":
@@ -1833,7 +2036,10 @@ class Project:
         findings.extend(self.requirement_findings())
         for path, source, tree in trees:
             findings.extend(SourceScan(self.rel(path), source, tree, self).run())
-        return sorted(set(findings), key=lambda finding: (finding.path, finding.line, finding.change, finding.message))
+        return sorted(
+            set(findings),
+            key=lambda finding: (finding.path, finding.line, finding.change, finding.message),
+        )
 
     def config_kind(self, path: Path) -> Optional[str]:
         name = path.name
@@ -1854,7 +2060,11 @@ class Project:
             return "version-file"
         if name == "pyrightconfig.json":
             return "pyright"
-        if name in ("Dockerfile", "Containerfile") or name.startswith("Dockerfile.") or name.endswith(".Dockerfile"):
+        if (
+            name in ("Dockerfile", "Containerfile")
+            or name.startswith("Dockerfile.")
+            or name.endswith(".Dockerfile")
+        ):
             return "docker"
         workflow = parent == "workflows" and path.parent.parent.name == ".github"
         if (workflow and name.endswith((".yml", ".yaml"))) or name in CI_FILE_NAMES:
@@ -1872,11 +2082,23 @@ class Project:
                 if alternatives is None:
                     findings.append(
                         Finding(
-                            *where, "P1", REVIEW, f"`{requirement.text}`: make sure it resolves to permit>=3.0.0,<4"
+                            *where,
+                            "P1",
+                            REVIEW,
+                            f"`{requirement.text}`: make sure it resolves to permit>=3.0.0,<4",
                         )
                     )
-                elif intersects(alternatives, None, (3,)) or not intersects(alternatives, (3,), (4,)):
-                    findings.append(Finding(*where, "P1", SAFE, f"`{requirement.text}`: change it to permit>=3.0.0,<4"))
+                elif intersects(alternatives, None, (3,)) or not intersects(
+                    alternatives, (3,), (4,)
+                ):
+                    findings.append(
+                        Finding(
+                            *where,
+                            "P1",
+                            SAFE,
+                            f"`{requirement.text}`: change it to permit>=3.0.0,<4",
+                        )
+                    )
             if alternatives is None:
                 continue
             ranges = FLOORS.get(requirement.name)
@@ -1915,21 +2137,33 @@ class Project:
 
     def summary(self) -> Dict[str, object]:
         def requirement_list(name: str) -> List[str]:
-            return [f"{item.path}:{item.line}: {item.text}" for item in self.facts.requirements if item.name == name]
+            return [
+                f"{item.path}:{item.line}: {item.text}"
+                for item in self.facts.requirements
+                if item.name == name
+            ]
 
         return {
             "permit_requirements": requirement_list("permit"),
-            "permit_locked": [f"{path}:{line}: {version}" for path, line, version in self.facts.locked_permit],
+            "permit_locked": [
+                f"{path}:{line}: {version}" for path, line, version in self.facts.locked_permit
+            ],
             "pydantic_requirements": requirement_list("pydantic"),
-            "python_pins": [f"{path}:{line}: {text}" for path, line, text in self.facts.python_pins],
+            "python_pins": [
+                f"{path}:{line}: {text}" for path, line, text in self.facts.python_pins
+            ],
             "uses_sync_client": self.uses_sync_client,
             "httpx_declared": "httpx" in self.declared,
         }
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Find what a permit 2.x -> 3.0.0 upgrade touches in a project.")
-    parser.add_argument("path", nargs="?", default=".", help="project directory (default: the current directory)")
+    parser = argparse.ArgumentParser(
+        description="Find what a permit 2.x -> 3.0.0 upgrade touches in a project."
+    )
+    parser.add_argument(
+        "path", nargs="?", default=".", help="project directory (default: the current directory)"
+    )
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
     arguments = parser.parse_args(argv)
     root = Path(arguments.path)
@@ -1938,7 +2172,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     project = Project(root.resolve())
     findings = project.scan()
-    changes = {change: TITLES[change] for change in sorted({finding.change for finding in findings})}
+    changes = {
+        change: TITLES[change] for change in sorted({finding.change for finding in findings})
+    }
     if arguments.json:
         report = {
             "root": str(project.root),
@@ -1959,7 +2195,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             out.append(f"{key}: {value}")
     out.append("")
     out.extend(
-        f"{finding.path}:{finding.line}: {finding.change} {finding.safety} {finding.message}" for finding in findings
+        f"{finding.path}:{finding.line}: {finding.change} {finding.safety} {finding.message}"
+        for finding in findings
     )
     safe = sum(1 for finding in findings if finding.safety == SAFE)
     out.append(f"{len(findings)} findings: {safe} SAFE, {len(findings) - safe} NEEDS-REVIEW")

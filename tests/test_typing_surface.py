@@ -62,7 +62,10 @@ def test_sync_stub_matches_the_async_classes():
 
     diff = "".join(
         difflib.unified_diff(
-            committed.splitlines(keepends=True), expected.splitlines(keepends=True), "committed", "generated"
+            committed.splitlines(keepends=True),
+            expected.splitlines(keepends=True),
+            "committed",
+            "generated",
         )
     )
     regenerate = "uv run python scripts/generate_sync_stubs.py"
@@ -91,7 +94,9 @@ def stub_plain_methods() -> dict[str, set[str]]:
             classes[node.name] = {
                 member.name
                 for member in node.body
-                if isinstance(member, ast.FunctionDef) and not member.name.startswith("_") and not member.decorator_list
+                if isinstance(member, ast.FunctionDef)
+                and not member.name.startswith("_")
+                and not member.decorator_list
             }
     return classes
 
@@ -106,7 +111,9 @@ def test_sync_stub_declares_exactly_the_methods_sync_class_makes_blocking():
         (async_cls,) = sync_cls.__bases__
         # SyncClass's own rule: every public attribute whose call returns an awaitable.
         converted = {
-            name for name in dir(async_cls) if not name.startswith("_") and iscoroutine_func(getattr(async_cls, name))
+            name
+            for name in dir(async_cls)
+            if not name.startswith("_") and iscoroutine_func(getattr(async_cls, name))
         }
         assert stub[generator.stub_name(sync_cls)] == converted, sync_cls
         for name in converted:

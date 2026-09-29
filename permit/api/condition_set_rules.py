@@ -87,7 +87,9 @@ class ConditionSetRulesApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__condition_set_rules.post("", model=List[ConditionSetRuleRead], json=rule)
+        return await self.__condition_set_rules.post(
+            "", model=List[ConditionSetRuleRead], json=rule
+        )
 
     @validate_arguments
     async def delete(self, rule: ModelInput[ConditionSetRuleRemove]) -> None:

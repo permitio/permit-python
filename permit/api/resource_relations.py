@@ -29,7 +29,9 @@ class ResourceRelationsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultRelationRead:
+    async def list(
+        self, resource_key: str, page: int = 1, per_page: int = 100
+    ) -> PaginatedResultRelationRead:
         """
         Retrieves a list of outgoing relations originating in a specific (object) resource.
 
@@ -55,7 +57,9 @@ class ResourceRelationsApi(BasePermitApi):
         )
 
     async def _get(self, resource_key: str, relation_key: str) -> RelationRead:
-        return await self.__relations.get(f"/{resource_key}/relations/{relation_key}", model=RelationRead)
+        return await self.__relations.get(
+            f"/{resource_key}/relations/{relation_key}", model=RelationRead
+        )
 
     @validate_arguments
     async def get(self, resource_key: str, relation_key: str) -> RelationRead:
@@ -121,7 +125,9 @@ class ResourceRelationsApi(BasePermitApi):
         return await self._get(resource_id, relation_id)
 
     @validate_arguments
-    async def create(self, resource_key: str, relation_data: ModelInput[RelationCreate]) -> RelationRead:
+    async def create(
+        self, resource_key: str, relation_data: ModelInput[RelationCreate]
+    ) -> RelationRead:
         """
         Creates a new relation.
 

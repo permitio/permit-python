@@ -13,8 +13,12 @@ else:
 
 
 class LoggerConfig(BaseModel):
-    enable: bool = Field(default=False, description="Whether or not to enable logging from the Permit library")
-    level: str = Field(default="info", description="Sets the log level configured for the Permit SDK Logger.")
+    enable: bool = Field(
+        default=False, description="Whether or not to enable logging from the Permit library"
+    )
+    level: str = Field(
+        default="info", description="Sets the log level configured for the Permit SDK Logger."
+    )
     label: str = Field(
         default="Permit",
         description="Sets the label configured for logs emitted by the Permit SDK Logger.",
@@ -50,7 +54,9 @@ class PermitConfig(BaseModel):
         description="Configures the Policy Decision Point (PDP) url.",
     )
     api_url: str = Field(default="https://api.permit.io", description="The url of Permit REST API")
-    log: LoggerConfig = Field(default=LoggerConfig(), description="the logger configuration used by the SDK")
+    log: LoggerConfig = Field(
+        default=LoggerConfig(), description="the logger configuration used by the SDK"
+    )
     multi_tenancy: MultiTenancyConfig = Field(
         default=MultiTenancyConfig(),
         description="configuration of default tenant assignment for RBAC",

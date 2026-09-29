@@ -68,7 +68,9 @@ async def test_authorized_users_parses_pdp_response(httpserver: HTTPServer, enfo
             ]
         },
     }
-    httpserver.expect_request("/authorized_users", method="POST").respond_with_handler(_recorder(bodies, pdp_response))
+    httpserver.expect_request("/authorized_users", method="POST").respond_with_handler(
+        _recorder(bodies, pdp_response)
+    )
 
     result = await enforcer.authorized_users("read", "document:readme", {"attr": 1})
 
@@ -123,7 +125,9 @@ async def test_bulk_check_sends_per_check_context(httpserver: HTTPServer, enforc
 
 
 @pytest.mark.asyncio
-async def test_bulk_check_merges_per_check_context_over_method_context(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_bulk_check_merges_per_check_context_over_method_context(
+    httpserver: HTTPServer, enforcer: Enforcer
+):
     """Precedence: per-check context wins over the method-level context."""
     bodies: List[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
@@ -150,7 +154,9 @@ async def test_bulk_check_merges_per_check_context_over_method_context(httpserve
 
 
 @pytest.mark.asyncio
-async def test_bulk_check_uses_method_context_when_check_has_none(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_bulk_check_uses_method_context_when_check_has_none(
+    httpserver: HTTPServer, enforcer: Enforcer
+):
     bodies: List[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
         _recorder(bodies, {"allow": [{"allow": True}]})
@@ -180,7 +186,9 @@ async def test_filter_objects_forwards_caller_context(httpserver: HTTPServer, en
         {"type": "document", "key": "a", "tenant": "t1", "attributes": {"owner": "user_a"}},
         {"type": "document", "key": "b", "tenant": "t1", "attributes": {"owner": "user_b"}},
     ]
-    allowed = await enforcer.filter_objects("user_a", "read", {"location": "eu", "mfa": True}, resources)
+    allowed = await enforcer.filter_objects(
+        "user_a", "read", {"location": "eu", "mfa": True}, resources
+    )
 
     assert allowed == [resources[0]]
     assert [entry["context"] for entry in bodies[0]] == [
@@ -190,7 +198,9 @@ async def test_filter_objects_forwards_caller_context(httpserver: HTTPServer, en
 
 
 @pytest.mark.asyncio
-async def test_filter_objects_keeps_per_resource_context_on_the_resource(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_filter_objects_keeps_per_resource_context_on_the_resource(
+    httpserver: HTTPServer, enforcer: Enforcer
+):
     """A resource-level ``context`` stays on the resource, not on the query."""
     bodies: List[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
@@ -229,7 +239,9 @@ async def test_get_user_permissions_unwraps_both_pdp_response_shapes(
 ):
     """The PDP answers with the permissions map itself or with it under ``result.permissions``."""
     bodies: List[Any] = []
-    httpserver.expect_request("/user-permissions", method="POST").respond_with_handler(_recorder(bodies, pdp_response))
+    httpserver.expect_request("/user-permissions", method="POST").respond_with_handler(
+        _recorder(bodies, pdp_response)
+    )
 
     result = await enforcer.get_user_permissions("user_a", ["t1"], ["document:doc-1"], ["document"])
 
@@ -248,7 +260,9 @@ async def test_get_user_permissions_unwraps_both_pdp_response_shapes(
 
 
 def test_user_input_accepts_snake_case_and_alias():
-    assert UserInput(key="u1", first_name="John", last_name="Doe", email="a@b.c").dict(exclude_unset=True) == {
+    assert UserInput(key="u1", first_name="John", last_name="Doe", email="a@b.c").dict(
+        exclude_unset=True
+    ) == {
         "key": "u1",
         "first_name": "John",
         "last_name": "Doe",
@@ -265,7 +279,9 @@ def test_user_input_accepts_snake_case_and_alias():
 async def test_check_sends_snake_case_user_fields(httpserver: HTTPServer, enforcer: Enforcer):
     """The PDP reads ``first_name``/``last_name``; both spellings must reach it."""
     bodies: List[Any] = []
-    httpserver.expect_request("/allowed", method="POST").respond_with_handler(_recorder(bodies, {"allow": True}))
+    httpserver.expect_request("/allowed", method="POST").respond_with_handler(
+        _recorder(bodies, {"allow": True})
+    )
 
     decision = await enforcer.check(
         {"key": "u1", "first_name": "John", "last_name": "Doe", "attributes": {"tier": "gold"}},

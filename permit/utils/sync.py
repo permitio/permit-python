@@ -7,7 +7,19 @@ from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from functools import wraps
 from types import FrameType
-from typing import Any, Awaitable, Callable, Coroutine, Dict, NamedTuple, Optional, Set, Type, TypeVar, cast
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Dict,
+    NamedTuple,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from typing_extensions import ParamSpec, TypeGuard
 
@@ -65,7 +77,9 @@ class _CallSite(NamedTuple):
         )
 
 
-_blocking_call_site: ContextVar[Optional[_CallSite]] = ContextVar("permit_blocking_call_site", default=None)
+_blocking_call_site: ContextVar[Optional[_CallSite]] = ContextVar(
+    "permit_blocking_call_site", default=None
+)
 """The line that made the blocking call whose coroutine runs in this context, otherwise None.
 
 The coroutine runs under asyncio, whose frames stand between it and that line, so code in it

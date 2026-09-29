@@ -134,7 +134,9 @@ class RoleAssignmentsApi(BasePermitApi):
         return await self.__role_assignments.delete("", json=unassignment)
 
     @validate_arguments
-    async def bulk_assign(self, assignments: ModelListInput[RoleAssignmentCreate]) -> BulkRoleAssignmentReport:
+    async def bulk_assign(
+        self, assignments: ModelListInput[RoleAssignmentCreate]
+    ) -> BulkRoleAssignmentReport:
         """
         Assigns multiple roles in bulk using the provided role assignments data.
         Each role assignment is a tuple of (user, role, tenant).
@@ -158,7 +160,9 @@ class RoleAssignmentsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def bulk_unassign(self, unassignments: ModelListInput[RoleAssignmentRemove]) -> BulkRoleUnAssignmentReport:
+    async def bulk_unassign(
+        self, unassignments: ModelListInput[RoleAssignmentRemove]
+    ) -> BulkRoleUnAssignmentReport:
         """
         Removes multiple role assignments in bulk using the provided unassignment data.
         Each role to unassign is a tuple of (user, role, tenant).

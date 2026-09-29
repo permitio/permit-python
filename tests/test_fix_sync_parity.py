@@ -107,7 +107,9 @@ def test_the_walk_reaches_every_sub_api(async_client: AsyncPermit, async_surface
     below it to find.
     """
     api_sub_apis = property_names(async_client.api)
-    assert len(api_sub_apis) >= API_SUB_API_COUNT, f"permit.Permit().api properties: {sorted(api_sub_apis)}"
+    assert len(api_sub_apis) >= API_SUB_API_COUNT, (
+        f"permit.Permit().api properties: {sorted(api_sub_apis)}"
+    )
 
     for prefix, ancestors in (
         ("", (async_client,)),
@@ -131,27 +133,39 @@ def test_sync_client_has_every_async_attribute(async_surface: Surface, sync_surf
     assert not missing, f"on permit.Permit but not on permit.sync.Permit: {missing}"
 
 
-def test_sync_client_keeps_every_async_method_callable(async_surface: Surface, sync_surface: Surface):
+def test_sync_client_keeps_every_async_method_callable(
+    async_surface: Surface, sync_surface: Surface
+):
     not_callable = sorted(
         path
         for path, value in async_surface.items()
         if callable(value) and path in sync_surface and not callable(sync_surface[path])
     )
 
-    assert not not_callable, f"callable on permit.Permit but not on permit.sync.Permit: {not_callable}"
+    assert not not_callable, (
+        f"callable on permit.Permit but not on permit.sync.Permit: {not_callable}"
+    )
 
 
 def test_nothing_reachable_from_the_sync_client_is_async(sync_surface: Surface):
-    still_async = sorted(path for path, value in sync_surface.items() if callable(value) and iscoroutine_func(value))
+    still_async = sorted(
+        path for path, value in sync_surface.items() if callable(value) and iscoroutine_func(value)
+    )
 
     assert not still_async, f"permit.sync.Permit still returns awaitables from: {still_async}"
 
 
-def test_sync_client_uses_a_sync_class_for_every_async_api(async_surface: Surface, sync_surface: Surface):
+def test_sync_client_uses_a_sync_class_for_every_async_api(
+    async_surface: Surface, sync_surface: Surface
+):
     not_sync_class = sorted(
         f"{path} is {type(sync_surface[path]).__qualname__}"
         for path, value in async_surface.items()
-        if is_async_api(value) and path in sync_surface and not isinstance(type(sync_surface[path]), SyncClass)
+        if is_async_api(value)
+        and path in sync_surface
+        and not isinstance(type(sync_surface[path]), SyncClass)
     )
 
-    assert not not_sync_class, f"permit.sync.Permit exposes API objects not built with SyncClass: {not_sync_class}"
+    assert not not_sync_class, (
+        f"permit.sync.Permit exposes API objects not built with SyncClass: {not_sync_class}"
+    )

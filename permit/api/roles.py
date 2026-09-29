@@ -56,7 +56,9 @@ class RolesApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__roles.get("", model=List[RoleRead], params=pagination_params(page, per_page))
+        return await self.__roles.get(
+            "", model=List[RoleRead], params=pagination_params(page, per_page)
+        )
 
     async def _get(self, role_key: str) -> RoleRead:
         return await self.__roles.get(f"/{role_key}", model=RoleRead)

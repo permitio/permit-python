@@ -72,7 +72,9 @@ class ElementsApi(BasePermitApi):
         super().__init__(config)
         self.__auth = self._build_http_client("/v2/auth")
 
-    async def login_as(self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]) -> UserLoginAsResponse:
+    async def login_as(
+        self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]
+    ) -> UserLoginAsResponse:
         if isinstance(user_id, UUID):
             user_id = str(user_id)
         if isinstance(tenant_id, UUID):

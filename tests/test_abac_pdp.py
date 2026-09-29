@@ -77,7 +77,11 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit):
 
     try:
         await permit_cloud.get_user_permissions(
-            user={"key": user_test.key, "email": user_test.email, "attributes": user_test.attributes},
+            user={
+                "key": user_test.key,
+                "email": user_test.email,
+                "attributes": user_test.attributes,
+            },
             tenants=["default"],
             resources=["Blog:dddddd"],
             resource_types=["Blog"],
@@ -97,7 +101,9 @@ async def test_filter_objects_cloud_error(permit_cloud: Permit):
     ]
 
     try:
-        await permit_cloud.filter_objects(user=user_test, action="read", context={}, resources=test_resources)
+        await permit_cloud.filter_objects(
+            user=user_test, action="read", context={}, resources=test_resources
+        )
     except (PermitConnectionError, aiohttp.ClientError) as error:
         assert isinstance(error, PermitConnectionError)
     else:

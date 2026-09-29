@@ -35,7 +35,9 @@ class UserInvitesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultElementsUserInviteRead:
+    async def list(
+        self, page: int = 1, per_page: int = 100
+    ) -> PaginatedResultElementsUserInviteRead:
         """
         Retrieves a list of user invites.
 
@@ -78,7 +80,9 @@ class UserInvitesApi(BasePermitApi):
         return await self.__user_invites.get(f"/{user_invite_id}", model=ElementsUserInviteRead)
 
     @validate_arguments
-    async def create(self, user_invite_data: ModelInput[ElementsUserInviteCreate]) -> ElementsUserInviteRead:
+    async def create(
+        self, user_invite_data: ModelInput[ElementsUserInviteCreate]
+    ) -> ElementsUserInviteRead:
         """
         Creates a new user invite.
 
@@ -94,7 +98,9 @@ class UserInvitesApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__user_invites.post("", model=ElementsUserInviteRead, json=user_invite_data)
+        return await self.__user_invites.post(
+            "", model=ElementsUserInviteRead, json=user_invite_data
+        )
 
     @validate_arguments
     async def delete(self, user_invite_id: str) -> None:
@@ -116,7 +122,9 @@ class UserInvitesApi(BasePermitApi):
         await self.__user_invites.delete(f"/{user_invite_id}")
 
     @validate_arguments
-    async def approve(self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]) -> UserRead:
+    async def approve(
+        self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]
+    ) -> UserRead:
         """
         Approves a user invite.
 

@@ -44,7 +44,9 @@ class ProjectsApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
-        return await self.__projects.get("", model=List[ProjectRead], params=pagination_params(page, per_page))
+        return await self.__projects.get(
+            "", model=List[ProjectRead], params=pagination_params(page, per_page)
+        )
 
     async def _get(self, project_key: str) -> ProjectRead:
         return await self.__projects.get(f"/{project_key}", model=ProjectRead)
@@ -128,7 +130,9 @@ class ProjectsApi(BasePermitApi):
         return await self.__projects.post("", model=ProjectRead, json=project_data)
 
     @validate_arguments
-    async def update(self, project_key: str, project_data: ModelInput[ProjectUpdate]) -> ProjectRead:
+    async def update(
+        self, project_key: str, project_data: ModelInput[ProjectUpdate]
+    ) -> ProjectRead:
         """
         Updates a project.
 

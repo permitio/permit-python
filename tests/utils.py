@@ -91,7 +91,8 @@ def handle_cleanup_error(error: PermitApiError, message: str):
     """
     if error.status_code in _CLEANUP_TOLERATED_STATUSES:
         logger.warning(
-            f"{message}: tolerated during cleanup (status={error.status_code}), continuing. " f"url={error.request_url}"
+            f"{message}: tolerated during cleanup (status={error.status_code}), continuing. "
+            f"url={error.request_url}"
         )
         return
     handle_api_error(error, message)

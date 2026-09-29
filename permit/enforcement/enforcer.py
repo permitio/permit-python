@@ -67,9 +67,7 @@ class CheckQuery(TypedDict):
     context: NotRequired[Optional[Context]]
 
 
-SETUP_PDP_DOCS_LINK = (
-    "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
-)
+SETUP_PDP_DOCS_LINK = "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
 
 
 class Enforcer:
@@ -132,7 +130,9 @@ class Enforcer:
         context = context or {}
 
         normalized_resource: ResourceInput = self._normalize_resource(
-            self._resource_from_string(resource) if isinstance(resource, str) else ResourceInput(**resource)
+            self._resource_from_string(resource)
+            if isinstance(resource, str)
+            else ResourceInput(**resource)
         )
         query_context = self._context_store.get_derived_context(context)
         input = {
@@ -243,7 +243,9 @@ class Enforcer:
         input = []
         for check in checks:
             normalized_user: UserInput = (
-                UserInput(key=check["user"]) if isinstance(check["user"], str) else UserInput(**check["user"])
+                UserInput(key=check["user"])
+                if isinstance(check["user"], str)
+                else UserInput(**check["user"])
             )
             normalized_resource: ResourceInput = self._normalize_resource(
                 self._resource_from_string(check["resource"])
@@ -251,7 +253,9 @@ class Enforcer:
                 else ResourceInput(**check["resource"])
             )
             check_context: Context = check.get("context") or {}
-            query_context = self._context_store.get_derived_context(deep_merge(context, check_context))
+            query_context = self._context_store.get_derived_context(
+                deep_merge(context, check_context)
+            )
             input.append(
                 {
                     "user": normalized_user.dict(exclude_unset=True),
@@ -349,9 +353,13 @@ class Enforcer:
         """
         context = context or {}
 
-        normalized_user: UserInput = UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        normalized_user: UserInput = (
+            UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        )
         normalized_resource: ResourceInput = self._normalize_resource(
-            self._resource_from_string(resource) if isinstance(resource, str) else ResourceInput(**resource)
+            self._resource_from_string(resource)
+            if isinstance(resource, str)
+            else ResourceInput(**resource)
         )
         query_context = self._context_store.get_derived_context(context)
         body = {
@@ -448,7 +456,11 @@ class Enforcer:
                         )
 
                     content = await response.json()
-                    permissions = content.get("result", {}).get("permissions", {}) if "result" in content else content
+                    permissions = (
+                        content.get("result", {}).get("permissions", {})
+                        if "result" in content
+                        else content
+                    )
 
                     logger.debug(
                         f"permit.get_user_permissions() response:\n"
@@ -491,7 +503,12 @@ class Enforcer:
                 "attributes": resource.get("attributes", {}),
                 "tenant": resource.get("tenant"),
             }
-            check_query: CheckQuery = {"user": user, "action": action, "resource": permit_resource, "context": context}
+            check_query: CheckQuery = {
+                "user": user,
+                "action": action,
+                "resource": permit_resource,
+                "context": context,
+            }
             requests.append(check_query)
 
         results = await self.bulk_check(requests, context=context)
@@ -507,11 +524,17 @@ class Enforcer:
             normalized_resource.context = {}
 
         # if tenant is empty, we migth auto-set the default tenant according to config
-        if normalized_resource.tenant is None and self._config.multi_tenancy.use_default_tenant_if_empty:
+        if (
+            normalized_resource.tenant is None
+            and self._config.multi_tenancy.use_default_tenant_if_empty
+        ):
             normalized_resource.tenant = self._config.multi_tenancy.default_tenant
 
         # copy tenant from resource.tenant to resource.context.tenant (until we change RBAC policy)
-        if normalized_resource.context.get("tenant", None) is None and normalized_resource.tenant is not None:
+        if (
+            normalized_resource.context.get("tenant", None) is None
+            and normalized_resource.tenant is not None
+        ):
             normalized_resource.context["tenant"] = normalized_resource.tenant
         return normalized_resource
 

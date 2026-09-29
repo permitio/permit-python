@@ -200,7 +200,9 @@ def test_pip_audit_is_passed_by_flag_not_position(tmp_path: Path):
     trivy = tmp_path / "trivy.json"
     pa = tmp_path / "pa.json"
     trivy.write_text(json.dumps(clean_report()))
-    pa.write_text(json.dumps({"dependencies": [{"name": "x", "version": "1", "vulns": [{"id": "PYSEC-1"}]}]}))
+    pa.write_text(
+        json.dumps({"dependencies": [{"name": "x", "version": "1", "vulns": [{"id": "PYSEC-1"}]}]})
+    )
     result = run(str(trivy), "--pip-audit", str(pa))
     assert result.returncode == 0
     assert "PYSEC-1" in result.stdout
@@ -212,7 +214,13 @@ def test_parse_pip_audit_marks_severity_unknown():
             {
                 "name": "aiohttp",
                 "version": "3.12.14",
-                "vulns": [{"id": "PYSEC-2026-1", "fix_versions": ["3.14.3"], "aliases": ["CVE-2026-69244"]}],
+                "vulns": [
+                    {
+                        "id": "PYSEC-2026-1",
+                        "fix_versions": ["3.14.3"],
+                        "aliases": ["CVE-2026-69244"],
+                    }
+                ],
             }
         ]
     }
@@ -304,7 +312,9 @@ def test_annotations_escape_newlines_so_they_cannot_forge_commands():
     nasty = "line one\n::error::forged command\rmore"
     findings = [Finding("CVE-1", "pkg", "1.0", "CRITICAL", "2.0", nasty, "", "trivy")]
     out = render_annotations(findings)
-    assert "\n" not in out and "\r" not in out, "a raw terminator would let advisory text forge a command"
+    assert "\n" not in out and "\r" not in out, (
+        "a raw terminator would let advisory text forge a command"
+    )
     assert len([line for line in out.split("\n") if line.startswith("::error")]) == 1
     assert "%0A" in out
     assert "%0D" in out
@@ -354,7 +364,9 @@ def test_fix_instructions_cover_a_fix_uv_lock_still_filters_out():
     # The gate resolves with --exclude-newer false, so it blocks on the day a fix
     # is released, while `uv lock` keeps that release out for 7 days. The report
     # must say how to lock it anyway, or the block cannot be cleared.
-    out = render([Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy")], [], "", blocking=True)
+    out = render(
+        [Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy")], [], "", blocking=True
+    )
     assert "exclude-newer-package = { <package> = false }" in out
 
 
@@ -407,9 +419,9 @@ def test_missing_pip_audit_is_named_in_the_report_not_a_parse_failure(tmp_path: 
     assert "pip-audit:runtime-floor: no report at" in result.stdout
     assert "does not affect the gate" in result.stdout
     assert "could not be parsed" not in result.stdout
-    assert (
-        "No known vulnerabilities found" in result.stdout
-    ), "a missing advisory scanner must not suppress the clean verdict from the gating one"
+    assert "No known vulnerabilities found" in result.stdout, (
+        "a missing advisory scanner must not suppress the clean verdict from the gating one"
+    )
 
 
 # --- pip-audit, one report per tree -----------------------------------------
@@ -425,10 +437,18 @@ def test_pip_audit_is_repeatable_and_tags_findings_with_their_tree(tmp_path: Pat
     floor = tmp_path / "pa-floor.json"
     trivy.write_text(json.dumps(clean_report()))
     ceiling.write_text(
-        json.dumps(pip_audit_report({"name": "werkzeug", "version": "3.1.6", "vulns": [{"id": "PYSEC-2026-2"}]}))
+        json.dumps(
+            pip_audit_report(
+                {"name": "werkzeug", "version": "3.1.6", "vulns": [{"id": "PYSEC-2026-2"}]}
+            )
+        )
     )
     floor.write_text(
-        json.dumps(pip_audit_report({"name": "aiohttp", "version": "3.12.14", "vulns": [{"id": "PYSEC-2026-1"}]}))
+        json.dumps(
+            pip_audit_report(
+                {"name": "aiohttp", "version": "3.12.14", "vulns": [{"id": "PYSEC-2026-1"}]}
+            )
+        )
     )
     result = run(
         str(trivy),
@@ -438,8 +458,14 @@ def test_pip_audit_is_repeatable_and_tags_findings_with_their_tree(tmp_path: Pat
         f"runtime-floor={floor}",
     )
     assert result.returncode == 0
-    assert "**UNKNOWN -- PYSEC-2026-2** (`werkzeug` 3.1.6)\n\nFound by: pip-audit:runtime-ceiling" in result.stdout
-    assert "**UNKNOWN -- PYSEC-2026-1** (`aiohttp` 3.12.14)\n\nFound by: pip-audit:runtime-floor" in result.stdout
+    assert (
+        "**UNKNOWN -- PYSEC-2026-2** (`werkzeug` 3.1.6)\n\nFound by: pip-audit:runtime-ceiling"
+        in result.stdout
+    )
+    assert (
+        "**UNKNOWN -- PYSEC-2026-1** (`aiohttp` 3.12.14)\n\nFound by: pip-audit:runtime-floor"
+        in result.stdout
+    )
     assert "pip-audit did not check everything" not in result.stdout
 
 
@@ -473,14 +499,20 @@ def test_package_pip_audit_skipped_is_named(tmp_path: Path):
         json.dumps(
             pip_audit_report(
                 {"name": "aiohttp", "version": "3.14.3", "vulns": []},
-                {"name": "private-pkg", "skip_reason": "Dependency not found on PyPI and could not be audited"},
+                {
+                    "name": "private-pkg",
+                    "skip_reason": "Dependency not found on PyPI and could not be audited",
+                },
             )
         )
     )
     result = run(str(trivy), "--pip-audit", f"runtime-ceiling={report}")
     assert result.returncode == 0
     assert "pip-audit did not check everything" in result.stdout
-    assert "pip-audit:runtime-ceiling: skipped private-pkg: Dependency not found on PyPI" in result.stdout
+    assert (
+        "pip-audit:runtime-ceiling: skipped private-pkg: Dependency not found on PyPI"
+        in result.stdout
+    )
 
 
 @pytest.mark.parametrize("content", ["", "{{{ truncated", json.dumps({})])
@@ -508,7 +540,9 @@ def test_slack_names_the_trees_pip_audit_did_not_check(findings, errors):
         ("pip-audit:dev-ceiling", "pip-audit:dev-ceiling: skipped a: b"),
         ("pip-audit:dev-ceiling", "pip-audit:dev-ceiling: skipped c: d"),
     ]
-    lines = render_slack(findings, errors, "https://example.invalid/run", "repo", pip_audit_gaps=gaps).split("\n")
+    lines = render_slack(
+        findings, errors, "https://example.invalid/run", "repo", pip_audit_gaps=gaps
+    ).split("\n")
     assert lines[-2] == (
         ">:warning: pip-audit did not fully check dev-ceiling, runtime-floor, so an advisory "
         "only pip-audit reports could be missing."
@@ -550,7 +584,10 @@ def test_reports_with_no_scanned_target_are_detected(doc):
 
 def test_real_report_is_not_flagged_as_empty():
     assert trivy_scanned_nothing(trivy_report(vuln())) is False
-    assert trivy_scanned_nothing({"Results": [{"Target": "requirements.txt", "Vulnerabilities": []}]}) is False
+    assert (
+        trivy_scanned_nothing({"Results": [{"Target": "requirements.txt", "Vulnerabilities": []}]})
+        is False
+    )
 
 
 def test_gate_fails_closed_when_trivy_scanned_nothing(tmp_path: Path):
@@ -577,17 +614,25 @@ def test_empty_scan_does_not_render_as_clean(tmp_path: Path):
 
 
 def test_unfixable_critical_is_not_reported_as_none_at_high_or_critical():
-    findings = [Finding("CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy")]
+    findings = [
+        Finding(
+            "CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy"
+        )
+    ]
     out = render(findings, [], "", blocking=True)
-    assert (
-        "none at HIGH or CRITICAL" not in out
-    ), "the severity table directly below says CRITICAL 1; the headline must not contradict it"
+    assert "none at HIGH or CRITICAL" not in out, (
+        "the severity table directly below says CRITICAL 1; the headline must not contradict it"
+    )
     assert "no fix available" in out
     assert "CRITICAL" in out
 
 
 def test_unfixable_critical_slack_message_is_not_reassuring():
-    findings = [Finding("CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy")]
+    findings = [
+        Finding(
+            "CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy"
+        )
+    ]
     out = render_slack(findings, [], "", "repo")
     assert "none HIGH/CRITICAL" not in out
     assert ":rotating_light:" in out

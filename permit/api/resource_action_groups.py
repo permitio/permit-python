@@ -33,7 +33,9 @@ class ResourceActionGroupsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionGroupRead]:
+    async def list(
+        self, resource_key: str, page: int = 1, per_page: int = 100
+    ) -> List[ResourceActionGroupRead]:
         """
         Retrieves a list of action groups.
 

@@ -50,10 +50,17 @@ async def async_client() -> None:
 
     assert_type(await permit.check("user", "read", "document"), bool)
     assert_type(
-        await permit.check({"key": "u", "attributes": {"dept": "eng"}}, "read", {"type": "document", "tenant": "t1"}),
+        await permit.check(
+            {"key": "u", "attributes": {"dept": "eng"}},
+            "read",
+            {"type": "document", "tenant": "t1"},
+        ),
         bool,
     )
-    assert_type(await permit.bulk_check([{"user": "u", "action": "read", "resource": "document"}]), List[bool])
+    assert_type(
+        await permit.bulk_check([{"user": "u", "action": "read", "resource": "document"}]),
+        List[bool],
+    )
     assert_type(await permit.get_user_permissions("u"), Dict[str, Any])
 
     # Optional model fields are optional to the type checker too.
@@ -71,14 +78,23 @@ async def async_client() -> None:
     assert_type(await permit.api.users.create({"key": "u2"}), UserRead)
     assignment = RoleAssignmentCreate(user="u", role="admin", tenant="t1")
     assert_type(await permit.api.users.assign_role(assignment), RoleAssignmentRead)
-    assert_type(await permit.api.users.assign_role({"user": "u", "role": "admin", "tenant": "t1"}), RoleAssignmentRead)
-    assert_type(await permit.api.users.bulk_create([user, {"key": "u3"}]), UserCreateBulkOperationResult)
+    assert_type(
+        await permit.api.users.assign_role({"user": "u", "role": "admin", "tenant": "t1"}),
+        RoleAssignmentRead,
+    )
+    assert_type(
+        await permit.api.users.bulk_create([user, {"key": "u3"}]), UserCreateBulkOperationResult
+    )
     assert_type(await permit.api.tenants.create(tenant), TenantRead)
     await permit.api.tenants.bulk_create([{"key": "t2", "name": "T2"}])
     assert_type(await permit.api.roles.create(role), RoleRead)
-    await permit.api.resources.create({"key": "document", "name": "Document", "actions": {"read": {}}})
+    await permit.api.resources.create(
+        {"key": "document", "name": "Document", "actions": {"read": {}}}
+    )
     assert_type(
-        await permit.api.role_assignments.bulk_assign([{"user": "u", "role": "admin", "tenant": "t1"}]),
+        await permit.api.role_assignments.bulk_assign(
+            [{"user": "u", "role": "admin", "tenant": "t1"}]
+        ),
         BulkRoleAssignmentReport,
     )
     await permit.api.users.sync({"key": "u", "email": "u@example.com"})
@@ -88,7 +104,9 @@ async def async_client() -> None:
     await permit.api.users.bulk_create(users)
     tenant_dicts: List[Dict[str, Any]] = [{"key": "t3", "name": "T3"}]
     await permit.api.tenants.bulk_create(tenant_dicts)
-    assignments = [RoleAssignmentCreate(user=key, role="admin", tenant="t1") for key in ("u4", "u5")]
+    assignments = [
+        RoleAssignmentCreate(user=key, role="admin", tenant="t1") for key in ("u4", "u5")
+    ]
     await permit.api.role_assignments.bulk_assign(assignments)
 
     # The deprecated facade keeps the signatures of the methods it wraps.

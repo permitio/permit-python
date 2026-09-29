@@ -143,7 +143,9 @@ async def test_list_filter_by_role_multiple(permit: Permit):
         await create_role_assignments(permit, role_2, users_2)
         await create_role_assignments(permit, role_3, users_3)
 
-        role_assignments = await list_assignments(permit, [role_1, role_2], expected_count=len(users_1) + len(users_2))
+        role_assignments = await list_assignments(
+            permit, [role_1, role_2], expected_count=len(users_1) + len(users_2)
+        )
 
         # a multi-valued role filter is a union of the roles asked for, and
         # excludes role_3 which was created in the same environment

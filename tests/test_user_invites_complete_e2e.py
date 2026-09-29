@@ -41,7 +41,9 @@ class SetupUserInvites(NamedTuple):
 async def setup_user_invites(permit: Permit):
     run_id = uuid.uuid4()
     # Test data
-    test_tenant = TenantCreate(key=f"test_tenant_invites_{run_id.hex}", name="Test Tenant for Invites")
+    test_tenant = TenantCreate(
+        key=f"test_tenant_invites_{run_id.hex}", name="Test Tenant for Invites"
+    )
 
     # Test user invites data (will be populated with actual IDs in the test)
     test_invite_data_1 = {
@@ -77,8 +79,12 @@ async def setup_user_invites(permit: Permit):
             name="Test Resource for Invites",
             description="Resource for testing user invites",
             actions={
-                "read": ActionBlockEditable(name="Read Access", description="Read access to the resource"),
-                "write": ActionBlockEditable(name="Write Access", description="Write access to the resource"),
+                "read": ActionBlockEditable(
+                    name="Read Access", description="Read access to the resource"
+                ),
+                "write": ActionBlockEditable(
+                    name="Write Access", description="Write access to the resource"
+                ),
             },
         )
         created_resource = await permit.api.resources.create(test_resource)
@@ -100,7 +106,9 @@ async def setup_user_invites(permit: Permit):
             tenant=created_tenant.key,
             attributes={"test": "invites"},
         )
-        created_resource_instance = await permit.api.resource_instances.create(test_resource_instance)
+        created_resource_instance = await permit.api.resource_instances.create(
+            test_resource_instance
+        )
         assert created_resource_instance is not None
         assert created_resource_instance.key == test_resource_instance.key
         logger.info(f"Created test resource instance: {created_resource_instance.key}")
@@ -109,7 +117,10 @@ async def setup_user_invites(permit: Permit):
         test_role = RoleCreate(
             key=f"test_role_invites-{run_id.hex}",
             name="Test Role for Invites",
-            permissions=[f"{created_resource.key}:read", f"{created_resource.key}:write"],  # Use our resource actions
+            permissions=[
+                f"{created_resource.key}:read",
+                f"{created_resource.key}:write",
+            ],  # Use our resource actions
         )
         created_role = await permit.api.roles.create(test_role)
         assert created_role is not None
@@ -150,7 +161,9 @@ async def setup_user_invites(permit: Permit):
             # Delete test resource instance first: it belongs to the tenant and the resource below.
             # The API identifies an instance as "resource:key" (or its id); a bare key is rejected.
             if created_resource_instance:
-                instance_ident = f"{created_resource_instance.resource}:{created_resource_instance.key}"
+                instance_ident = (
+                    f"{created_resource_instance.resource}:{created_resource_instance.key}"
+                )
                 try:
                     await permit.api.resource_instances.delete(instance_ident)
                     logger.info(f"Cleaned up resource instance: {instance_ident}")
@@ -264,9 +277,13 @@ async def test_user_invites_complete_e2e(
         assert invites_list.total_count >= 2  # At least our 2 invites
 
         # Find our created invites in the list
-        our_invites = [invite for invite in invites_list.data if invite.id in [invite_1.id, invite_2.id]]
+        our_invites = [
+            invite for invite in invites_list.data if invite.id in [invite_1.id, invite_2.id]
+        ]
         assert len(our_invites) == 2
-        logger.info(f"✅ Listed invites: found {invites_list.total_count} total, including our 2 test invites")
+        logger.info(
+            f"✅ Listed invites: found {invites_list.total_count} total, including our 2 test invites"
+        )
 
         print_break()
 
@@ -281,7 +298,9 @@ async def test_user_invites_complete_e2e(
         assert retrieved_invite.email == invite_1.email
         assert retrieved_invite.key == invite_1.key
         assert retrieved_invite.status == UserInviteStatus.pending
-        logger.info(f"✅ Retrieved invite: {retrieved_invite.email} (Status: {retrieved_invite.status})")
+        logger.info(
+            f"✅ Retrieved invite: {retrieved_invite.email} (Status: {retrieved_invite.status})"
+        )
 
         print_break()
 
@@ -293,7 +312,11 @@ async def test_user_invites_complete_e2e(
         approve_data = ElementsUserInviteApprove(
             email=invite_1.email,
             key=invite_1.key,
-            attributes={"department": "Engineering", "role": "Developer", "test": "complete_e2e_test"},
+            attributes={
+                "department": "Engineering",
+                "role": "Developer",
+                "test": "complete_e2e_test",
+            },
         )
 
         approved_user = await permit.api.user_invites.approve(
@@ -347,7 +370,9 @@ async def test_user_invites_complete_e2e(
 
         # Should have 1 invite remaining (invite_1 which was approved)
         # Note: approved invites might still be in the list or might be removed depending on API behavior
-        logger.info(f"✅ Final verification: {len(final_invites_list.data)} of our test invites remain in the list")
+        logger.info(
+            f"✅ Final verification: {len(final_invites_list.data)} of our test invites remain in the list"
+        )
     finally:
         # Delete remaining user invites
         for invite in created_invites:

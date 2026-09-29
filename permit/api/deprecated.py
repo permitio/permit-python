@@ -66,7 +66,9 @@ class DeprecatedApi(BasePermitApi):
         page: int = 1,
         per_page: int = 100,
     ) -> List[RoleAssignmentRead]:
-        return await self.__users.get_assigned_roles(user_key, tenant=tenant_key, page=page, per_page=per_page)
+        return await self.__users.get_assigned_roles(
+            user_key, tenant=tenant_key, page=page, per_page=per_page
+        )
 
     @deprecated(_removal_notice("get_resource", "permit.api.resources.get"))
     async def get_resource(self, resource_key: str) -> ResourceRead:
@@ -94,7 +96,9 @@ class DeprecatedApi(BasePermitApi):
         return await self.__tenants.create(tenant_data)
 
     @deprecated(_removal_notice("update_tenant", "permit.api.tenants.update"))
-    async def update_tenant(self, tenant_key: str, tenant: Union[TenantUpdate, Dict[str, Any]]) -> TenantRead:
+    async def update_tenant(
+        self, tenant_key: str, tenant: Union[TenantUpdate, Dict[str, Any]]
+    ) -> TenantRead:
         tenant_data = tenant if isinstance(tenant, TenantUpdate) else TenantUpdate(**tenant)
         return await self.__tenants.update(tenant_key, tenant_data)
 
@@ -113,25 +117,39 @@ class DeprecatedApi(BasePermitApi):
         return await self.__roles.update(role_key, role_data)
 
     @deprecated(_removal_notice("assign_role", "permit.api.users.assign_role"))
-    async def assign_role(self, user_key: str, role_key: str, tenant_key: str) -> RoleAssignmentRead:
-        return await self.__users.assign_role(RoleAssignmentCreate(user=user_key, role=role_key, tenant=tenant_key))
+    async def assign_role(
+        self, user_key: str, role_key: str, tenant_key: str
+    ) -> RoleAssignmentRead:
+        return await self.__users.assign_role(
+            RoleAssignmentCreate(user=user_key, role=role_key, tenant=tenant_key)
+        )
 
     @deprecated(_removal_notice("unassign_role", "permit.api.users.unassign_role"))
     async def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
-        return await self.__users.unassign_role(RoleAssignmentRemove(user=user_key, role=role_key, tenant=tenant_key))
+        return await self.__users.unassign_role(
+            RoleAssignmentRemove(user=user_key, role=role_key, tenant=tenant_key)
+        )
 
     @deprecated(_removal_notice("delete_role", "permit.api.roles.delete"))
     async def delete_role(self, role_key: str) -> None:
         return await self.__roles.delete(role_key)
 
     @deprecated(_removal_notice("create_resource", "permit.api.resources.create"))
-    async def create_resource(self, resource: Union[ResourceCreate, Dict[str, Any]]) -> ResourceRead:
-        resource_data = resource if isinstance(resource, ResourceCreate) else ResourceCreate(**resource)
+    async def create_resource(
+        self, resource: Union[ResourceCreate, Dict[str, Any]]
+    ) -> ResourceRead:
+        resource_data = (
+            resource if isinstance(resource, ResourceCreate) else ResourceCreate(**resource)
+        )
         return await self.__resources.create(resource_data)
 
     @deprecated(_removal_notice("update_resource", "permit.api.resources.update"))
-    async def update_resource(self, resource_key: str, resource: Union[ResourceUpdate, Dict[str, Any]]) -> ResourceRead:
-        resource_data = resource if isinstance(resource, ResourceUpdate) else ResourceUpdate(**resource)
+    async def update_resource(
+        self, resource_key: str, resource: Union[ResourceUpdate, Dict[str, Any]]
+    ) -> ResourceRead:
+        resource_data = (
+            resource if isinstance(resource, ResourceUpdate) else ResourceUpdate(**resource)
+        )
         return await self.__resources.update(resource_key, resource_data)
 
     @deprecated(_removal_notice("delete_resource", "permit.api.resources.delete"))

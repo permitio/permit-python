@@ -115,7 +115,9 @@ async def test_abac_e2e(permit: Permit):
         name="Admin",
         permissions=[f"{resource_key}:create", f"{resource_key}:read"],
     )
-    viewer = RoleCreate(key=unique_ident("viewer"), name="Viewer", permissions=[f"{resource_key}:read"])
+    viewer = RoleCreate(
+        key=unique_ident("viewer"), name="Viewer", permissions=[f"{resource_key}:read"]
+    )
     tesla = TenantCreate(key=unique_ident("tesla"), name="Tesla Inc")
     user_a = UserCreate(
         key=unique_ident("alice"),
@@ -201,7 +203,9 @@ async def test_abac_e2e(permit: Permit):
         listed_document = await find_by_key(
             lambda page: permit.api.resources.list(page=page, per_page=PER_PAGE), resource_key
         )
-        assert listed_document is not None, f"resource '{resource_key}' is missing from the resource list"
+        assert listed_document is not None, (
+            f"resource '{resource_key}' is missing from the resource list"
+        )
         assert listed_document.id == document.id
         assert listed_document.key == document.key
         assert listed_document.name == document.name
@@ -320,7 +324,9 @@ async def test_abac_e2e(permit: Permit):
                 lambda page: permit.api.condition_sets.list(page=page, per_page=PER_PAGE),
                 condition_set_data.key,
             )
-            assert listed_set is not None, f"condition set '{condition_set_data.key}' is missing from the list"
+            assert listed_set is not None, (
+                f"condition set '{condition_set_data.key}' is missing from the list"
+            )
             assert listed_set.type == condition_set_data.type
 
         await permit.api.condition_set_rules.create(
@@ -352,7 +358,10 @@ async def test_abac_e2e(permit: Permit):
         # PER-16209. Skipped rather than xfailed so it reports honestly instead
         # of looking covered. pytest.Skipped derives from BaseException, so it
         # escapes the `except Exception` below and the `finally` teardown runs.
-        pytest.skip("ABAC decision assertions are pending PER-16209; " "the control-plane assertions above still run.")
+        pytest.skip(
+            "ABAC decision assertions are pending PER-16209; "
+            "the control-plane assertions above still run."
+        )
 
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
@@ -375,19 +384,26 @@ async def test_abac_e2e(permit: Permit):
             "condition set rule",
         )
         for role in created_roles:
-            await cleanup_step(lambda key=role.key: permit.api.roles.delete(key), f"role '{role.key}'")
+            await cleanup_step(
+                lambda key=role.key: permit.api.roles.delete(key), f"role '{role.key}'"
+            )
         for user in created_users:
-            await cleanup_step(lambda key=user.key: permit.api.users.delete(key), f"user '{user.key}'")
+            await cleanup_step(
+                lambda key=user.key: permit.api.users.delete(key), f"user '{user.key}'"
+            )
         for tenant_data in created_tenants:
             await cleanup_step(
-                lambda key=tenant_data.key: permit.api.tenants.delete(key), f"tenant '{tenant_data.key}'"
+                lambda key=tenant_data.key: permit.api.tenants.delete(key),
+                f"tenant '{tenant_data.key}'",
             )
         for condition_set_data in condition_sets:
             await cleanup_step(
                 lambda key=condition_set_data.key: permit.api.condition_sets.delete(key),
                 f"condition set '{condition_set_data.key}'",
             )
-        await cleanup_step(lambda: permit.api.resources.delete(resource_key), f"resource '{resource_key}'")
+        await cleanup_step(
+            lambda: permit.api.resources.delete(resource_key), f"resource '{resource_key}'"
+        )
         await cleanup_step(
             lambda: permit.api.resource_attributes.delete("__user", age_attribute),
             f"user attribute '{age_attribute}'",
@@ -399,5 +415,7 @@ async def test_abac_e2e(permit: Permit):
         for tenant_data in created_tenants:
             await assert_gone(permit.api.tenants.get, tenant_data.key, "tenant")
         for condition_set_data in condition_sets:
-            await assert_gone(permit.api.condition_sets.get, condition_set_data.key, "condition set")
+            await assert_gone(
+                permit.api.condition_sets.get, condition_set_data.key, "condition set"
+            )
         await assert_gone(permit.api.resources.get, resource_key, "resource")

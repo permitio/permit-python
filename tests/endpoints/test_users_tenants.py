@@ -163,13 +163,17 @@ async def test_users_tenants(permit: Permit):
     assert len(roles_a2) == 0
 
     # assign role
-    ra = await permit.api.users.assign_role(RoleAssignmentCreate(user=USER_C.key, role=ADMIN.key, tenant=TENANT_2.key))
+    ra = await permit.api.users.assign_role(
+        RoleAssignmentCreate(user=USER_C.key, role=ADMIN.key, tenant=TENANT_2.key)
+    )
     assert ra.user == USER_C.key or ra.user == USER_C.email  # TODO: fix bug in api
     assert ra.role == ADMIN.key
     assert ra.tenant == TENANT_2.key
 
     # add user a to another tenant
-    ra = await permit.api.users.assign_role(RoleAssignmentCreate(user=USER_A.key, role=ADMIN.key, tenant=TENANT_2.key))
+    ra = await permit.api.users.assign_role(
+        RoleAssignmentCreate(user=USER_A.key, role=ADMIN.key, tenant=TENANT_2.key)
+    )
 
     # get assigned roles
     roles_a = await permit.api.users.get_assigned_roles(USER_A.key)

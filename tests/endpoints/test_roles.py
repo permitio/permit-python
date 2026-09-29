@@ -149,11 +149,15 @@ async def test_roles(permit: Permit):
         assert len(empty.permissions) == 0
 
         # both of this test's roles are now listed, and nothing else of its own
-        assert await list_own_role_keys(permit) == sorted([TEST_ADMIN_ROLE_KEY, TEST_EMPTY_ROLE_KEY])
+        assert await list_own_role_keys(permit) == sorted(
+            [TEST_ADMIN_ROLE_KEY, TEST_EMPTY_ROLE_KEY]
+        )
 
         # assign permissions to roles
         assigned_empty = await retry_while_permissions_propagate(
-            lambda: permit.api.roles.assign_permissions(TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"])
+            lambda: permit.api.roles.assign_permissions(
+                TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"]
+            )
         )
 
         assert assigned_empty.key == empty.key
@@ -161,7 +165,9 @@ async def test_roles(permit: Permit):
         assert f"{TEST_RESOURCE_KEY}:delete" in assigned_empty.permissions
 
         # remove permissions from role
-        await permit.api.roles.remove_permissions(TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"])
+        await permit.api.roles.remove_permissions(
+            TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"]
+        )
 
         # get
         admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)

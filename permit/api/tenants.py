@@ -67,10 +67,14 @@ class TenantsApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__tenants.get("", model=List[TenantRead], params=pagination_params(page, per_page))
+        return await self.__tenants.get(
+            "", model=List[TenantRead], params=pagination_params(page, per_page)
+        )
 
     @validate_arguments
-    async def list_tenant_users(self, tenant_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
+    async def list_tenant_users(
+        self, tenant_key: str, page: int = 1, per_page: int = 100
+    ) -> PaginatedResultUserRead:
         """
         Retrieves a list of users for a given tenant.
 
@@ -232,7 +236,9 @@ class TenantsApi(BasePermitApi):
         return await self.__tenants.delete(f"/{tenant_key}/users/{user_key}")
 
     @validate_arguments
-    async def bulk_create(self, tenants: ModelListInput[TenantCreate]) -> TenantCreateBulkOperationResult:
+    async def bulk_create(
+        self, tenants: ModelListInput[TenantCreate]
+    ) -> TenantCreateBulkOperationResult:
         """
         Creates tenants in bulk.
 

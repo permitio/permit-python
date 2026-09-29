@@ -56,7 +56,9 @@ class SimpleHttpClient:
     def _log_response(self, url: str, method: str, status: int) -> None:
         logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
-    def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[Union[dict, list]]:
+    def _prepare_json(
+        self, json: Optional[Union[TData, dict, list]] = None
+    ) -> Optional[Union[dict, list]]:
         """Normalize a request body into JSON-serializable primitives.
 
         Models, dicts and lists all go through the same encoder so that nested
@@ -210,7 +212,9 @@ class BasePermitApi:
             self.config.api_context._save_api_key_accessible_scope(
                 org=str(scope.organization_id),
                 project=(str(scope.project_id) if scope.project_id is not None else None),
-                environment=(str(scope.environment_id) if scope.environment_id is not None else None),
+                environment=(
+                    str(scope.environment_id) if scope.environment_id is not None else None
+                ),
             )
 
             if scope.project_id is not None:
@@ -224,7 +228,9 @@ class BasePermitApi:
                     return
 
                 # Set project level context
-                self.config.api_context.set_project_level_context(str(scope.organization_id), str(scope.project_id))
+                self.config.api_context.set_project_level_context(
+                    str(scope.organization_id), str(scope.project_id)
+                )
                 return
 
             # Set org level context

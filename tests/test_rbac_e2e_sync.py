@@ -134,7 +134,9 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         listed_document = find_by_key(
             lambda page: permit.api.resources.list(page=page, per_page=PER_PAGE), resource_key
         )
-        assert listed_document is not None, f"resource '{resource_key}' is missing from the resource list"
+        assert listed_document is not None, (
+            f"resource '{resource_key}' is missing from the resource list"
+        )
         assert listed_document.id == document.id
         assert listed_document.key == document.key
         assert listed_document.name == document.name
@@ -320,7 +322,9 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         )
 
         # list user roles in all tenants
-        assigned_roles: List[RoleAssignmentRead] = permit.api.users.get_assigned_roles(user=user.key)
+        assigned_roles: List[RoleAssignmentRead] = permit.api.users.get_assigned_roles(
+            user=user.key
+        )
 
         assert len(assigned_roles) == 1
         assert assigned_roles[0].user_id == user.id
@@ -330,7 +334,9 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         # run the same negative permission check again, this time it's True
         logger.info("testing previously negative permission check, should now be positive")
         wait_until(
-            lambda: permit.check(user.dict(), "create", {"type": document.key, "tenant": tenant.key}),
+            lambda: permit.check(
+                user.dict(), "create", {"type": document.key, "tenant": tenant.key}
+            ),
             f"user '{user_key}' to be allowed to create '{resource_key}' after the role change",
         )
 

@@ -33,7 +33,9 @@ class ResourceAttributesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceAttributeRead]:
+    async def list(
+        self, resource_key: str, page: int = 1, per_page: int = 100
+    ) -> List[ResourceAttributeRead]:
         """
         Retrieves a list of attributes.
 
@@ -58,7 +60,9 @@ class ResourceAttributesApi(BasePermitApi):
         )
 
     async def _get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
-        return await self.__attributes.get(f"/{resource_key}/attributes/{attribute_key}", model=ResourceAttributeRead)
+        return await self.__attributes.get(
+            f"/{resource_key}/attributes/{attribute_key}", model=ResourceAttributeRead
+        )
 
     @validate_arguments
     async def get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:

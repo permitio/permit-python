@@ -71,7 +71,9 @@ class Permit:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
         """
         if not self._config.proxy_facts_via_pdp:
-            logger.warning("Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring...")
+            logger.warning(
+                "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
+            )
             yield self
             return
         contextualized_config = self.config  # this copies the config

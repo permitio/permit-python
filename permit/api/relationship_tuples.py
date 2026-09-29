@@ -87,7 +87,9 @@ class RelationshipTuplesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def create(self, tuple_data: ModelInput[RelationshipTupleCreate]) -> RelationshipTupleRead:
+    async def create(
+        self, tuple_data: ModelInput[RelationshipTupleCreate]
+    ) -> RelationshipTupleRead:
         """
         Creates a new relationship tuple, that states that a relationship (of type: relation)
         exists between two resource instances: the subject and the object.
@@ -104,7 +106,9 @@ class RelationshipTuplesApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__relationship_tuples.post("", model=RelationshipTupleRead, json=tuple_data)
+        return await self.__relationship_tuples.post(
+            "", model=RelationshipTupleRead, json=tuple_data
+        )
 
     @validate_arguments
     async def delete(self, tuple_data: ModelInput[RelationshipTupleDelete]) -> None:

@@ -262,7 +262,9 @@ class UsersApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def bulk_replace(self, users: ModelListInput[UserCreate]) -> UserReplaceBulkOperationResult:
+    async def bulk_replace(
+        self, users: ModelListInput[UserCreate]
+    ) -> UserReplaceBulkOperationResult:
         """
         Replaces users in bulk.
 

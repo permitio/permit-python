@@ -34,7 +34,9 @@ class EnvironmentsApi(BasePermitApi):
         self.__environments = self._build_http_client("")
 
     @validate_arguments
-    async def list(self, project_key: str, page: int = 1, per_page: int = 100) -> List[EnvironmentRead]:
+    async def list(
+        self, project_key: str, page: int = 1, per_page: int = 100
+    ) -> List[EnvironmentRead]:
         """
         Retrieves a list of environments.
 
@@ -170,7 +172,9 @@ class EnvironmentsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def create(self, project_key: str, environment_data: ModelInput[EnvironmentCreate]) -> EnvironmentRead:
+    async def create(
+        self, project_key: str, environment_data: ModelInput[EnvironmentCreate]
+    ) -> EnvironmentRead:
         """
         Creates a new environment.
 
@@ -265,4 +269,6 @@ class EnvironmentsApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
-        return await self.__environments.delete(f"/v2/projects/{project_key}/envs/{environment_key}")
+        return await self.__environments.delete(
+            f"/v2/projects/{project_key}/envs/{environment_key}"
+        )

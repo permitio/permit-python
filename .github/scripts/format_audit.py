@@ -197,7 +197,9 @@ def parse_pip_audit(doc: Any, source: str = "pip-audit") -> list[Finding]:
             if not isinstance(vuln, dict):
                 continue
             fixes = vuln.get("fix_versions") or []
-            fixed = ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
+            fixed = (
+                ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
+            )
             # Sorted because pip-audit keeps aliases in a set and lists them in
             # a different order on each run. The id is half of the merge key,
             # so an unsorted one would list the same advisory once per tree.
@@ -231,7 +233,9 @@ def load_pip_audit(spec: str) -> tuple[list[Finding], list[tuple[str, str]]]:
     """
     label, path = _split_spec(spec, "pip-audit")
     if not Path(path).is_file():
-        return [], [(label, f"{label}: no report at {path}; pip-audit did not run or did not finish")]
+        return [], [
+            (label, f"{label}: no report at {path}; pip-audit did not run or did not finish")
+        ]
     doc, err = _load(path, label)
     if err:
         return [], [(label, err)]
@@ -289,7 +293,9 @@ def render_annotations(findings: list[Finding]) -> str:
         if not finding.blocking:
             continue
         title = _annotation_escape(f"{finding.severity}: {finding.id} in {finding.package}")
-        body = _annotation_escape(f"{finding.package} {finding.installed} -- fixed in {finding.fixed}. {finding.title}")
+        body = _annotation_escape(
+            f"{finding.package} {finding.installed} -- fixed in {finding.fixed}. {finding.title}"
+        )
         lines.append(f"::error title={title}::{body}")
     return "\n".join(lines)
 
@@ -364,7 +370,9 @@ def _slack_body(findings: list[Finding], errors: list[str], repo: str) -> list[s
         # Highest fix target across the group -- upgrading to anything lower
         # would leave part of the group unresolved.
         targets = sorted({f.fixed for f in group if f.fixed != NO_FIX})
-        target = f" — upgrade to `{_slack_escape(targets[-1])}`" if targets else " — no fix available"
+        target = (
+            f" — upgrade to `{_slack_escape(targets[-1])}`" if targets else " — no fix available"
+        )
         installed = _slack_escape(worst.installed)
         lines.append(
             f">• `{_slack_escape(package)}` {installed} — "
@@ -437,7 +445,9 @@ def render(
         out.append(f":x: **{len(blockers)} fixable HIGH/CRITICAL {noun}** -- {verb}.")
         if unfixable:
             out.append("")
-            out.append(f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet and do not block.")
+            out.append(
+                f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet and do not block."
+            )
     elif severe:
         # Do not say "none at HIGH or CRITICAL" here: there are some, they
         # just cannot be fixed by bumping a bound. Saying otherwise would
@@ -448,7 +458,9 @@ def render(
             "but they are real exposure and need a decision."
         )
     else:
-        out.append(":warning: Advisories found, but none at HIGH or CRITICAL. This does not block the build.")
+        out.append(
+            ":warning: Advisories found, but none at HIGH or CRITICAL. This does not block the build."
+        )
     out.append("")
 
     out.append("| Severity | Count |")
@@ -461,7 +473,11 @@ def render(
     out.append("| Severity | Package | Installed | Fixed in | Advisory |")
     out.append("| --- | --- | --- | --- | --- |")
     for finding in findings:
-        link = f"[{_md_cell(finding.id)}]({finding.url})" if finding.url.startswith("http") else _md_cell(finding.id)
+        link = (
+            f"[{_md_cell(finding.id)}]({finding.url})"
+            if finding.url.startswith("http")
+            else _md_cell(finding.id)
+        )
         out.append(
             f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
             f"| `{_md_cell(finding.package)}` "
@@ -474,7 +490,9 @@ def render(
     out.append("<details><summary>Advisory details</summary>")
     out.append("")
     for finding in findings:
-        out.append(f"**{finding.severity} -- {finding.id}** (`{finding.package}` {finding.installed})")
+        out.append(
+            f"**{finding.severity} -- {finding.id}** (`{finding.package}` {finding.installed})"
+        )
         out.append("")
         out.append(f"Found by: {', '.join(sorted(finding.sources))}")
         out.append("")
@@ -549,8 +567,12 @@ def main() -> int:
         action="store_true",
         help="emit a single-line Slack message body carrying the findings",
     )
-    parser.add_argument("--run-url", default="", help="workflow run URL to link from the Slack message")
-    parser.add_argument("--repo", default="permit-python", help="repository name for the Slack message")
+    parser.add_argument(
+        "--run-url", default="", help="workflow run URL to link from the Slack message"
+    )
+    parser.add_argument(
+        "--repo", default="permit-python", help="repository name for the Slack message"
+    )
     parser.add_argument(
         "--gate",
         action="store_true",
@@ -595,14 +617,17 @@ def main() -> int:
         print(message, file=sys.stderr)
 
     if args.slack:
-        print(render_slack(findings, errors, args.run_url, args.repo, pip_audit_gaps=pip_audit_gaps))
+        print(
+            render_slack(findings, errors, args.run_url, args.repo, pip_audit_gaps=pip_audit_gaps)
+        )
         return 0
 
     if args.gate:
         blockers = [f for f in findings if f.blocking]
         for finding in blockers:
             print(
-                f"{finding.severity} {finding.id} {finding.package} " f"{finding.installed} -> {finding.fixed}",
+                f"{finding.severity} {finding.id} {finding.package} "
+                f"{finding.installed} -> {finding.fixed}",
                 file=sys.stderr,
             )
         if errors:
@@ -616,7 +641,11 @@ def main() -> int:
             print(rendered)
         return 0
 
-    sys.stdout.write(render(findings, errors, args.context, blocking=args.blocking, pip_audit_gaps=pip_audit_gaps))
+    sys.stdout.write(
+        render(
+            findings, errors, args.context, blocking=args.blocking, pip_audit_gaps=pip_audit_gaps
+        )
+    )
     return 0
 
 

@@ -103,7 +103,11 @@ def _role_response(permissions: List[str]) -> Dict[str, Any]:
 
 def _sent_body(httpserver: HTTPServer, path: str, method: str) -> Dict[str, Any]:
     """The JSON body of the single request the SDK made to ``path``."""
-    requests = [request for request, _response in httpserver.log if request.path == path and request.method == method]
+    requests = [
+        request
+        for request, _response in httpserver.log
+        if request.path == path and request.method == method
+    ]
     assert len(requests) == 1, f"expected exactly one {method} {path}, got {len(requests)}"
     return json.loads(requests[0].get_data(as_text=True))
 
@@ -142,7 +146,9 @@ async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(http
         ResourceRoleCreate(key=ROLE_KEY, name="Editor", permissions=[f"{RESOURCE_KEY}:read"]),
     )
 
-    assert _sent_body(httpserver, RESOURCE_ROLES_PATH, "POST")["permissions"] == [f"{RESOURCE_KEY}:read"]
+    assert _sent_body(httpserver, RESOURCE_ROLES_PATH, "POST")["permissions"] == [
+        f"{RESOURCE_KEY}:read"
+    ]
     httpserver.check_assertions()
 
 
@@ -155,7 +161,9 @@ async def test_resource_role_assign_permissions_sends_bare_action_keys(httpserve
 
     granted = await permit.api.resource_roles.assign_permissions(RESOURCE_KEY, ROLE_KEY, ["update"])
 
-    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "POST") == {"permissions": ["update"]}
+    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "POST") == {
+        "permissions": ["update"]
+    }
     assert granted.permissions == ["read", "update"]
     httpserver.check_assertions()
 
@@ -169,7 +177,9 @@ async def test_resource_role_remove_permissions_sends_bare_action_keys(httpserve
 
     revoked = await permit.api.resource_roles.remove_permissions(RESOURCE_KEY, ROLE_KEY, ["update"])
 
-    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "DELETE") == {"permissions": ["update"]}
+    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "DELETE") == {
+        "permissions": ["update"]
+    }
     assert revoked.permissions == ["read"]
     httpserver.check_assertions()
 
@@ -177,10 +187,14 @@ async def test_resource_role_remove_permissions_sends_bare_action_keys(httpserve
 async def test_top_level_role_create_keeps_the_resource_qualified_form(httpserver: HTTPServer):
     """A tenant role's permissions are ``resource:action`` and must not be rewritten."""
     permissions = [f"{RESOURCE_KEY}:read", f"{RESOURCE_KEY}:update", "folder:read"]
-    httpserver.expect_request(ROLES_PATH, method="POST").respond_with_json(_role_response(permissions))
+    httpserver.expect_request(ROLES_PATH, method="POST").respond_with_json(
+        _role_response(permissions)
+    )
     permit = _make_permit(httpserver)
 
-    created = await permit.api.roles.create(RoleCreate(key="admin", name="Admin", permissions=permissions))
+    created = await permit.api.roles.create(
+        RoleCreate(key="admin", name="Admin", permissions=permissions)
+    )
 
     assert _sent_body(httpserver, ROLES_PATH, "POST")["permissions"] == permissions
     assert created.permissions == permissions
@@ -203,7 +217,9 @@ async def test_role_assignment_filters_send_the_instance_ident_verbatim(httpserv
         per_page=50,
     )
 
-    requests = [request for request, _response in httpserver.log if request.path == ROLE_ASSIGNMENTS_PATH]
+    requests = [
+        request for request, _response in httpserver.log if request.path == ROLE_ASSIGNMENTS_PATH
+    ]
     assert len(requests) == 1
     assert requests[0].args["resource_instance"] == f"{RESOURCE_KEY}:readme"
     assert requests[0].args["resource"] == RESOURCE_KEY

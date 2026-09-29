@@ -90,7 +90,9 @@ async def test_tenants_bulk_delete_targets_the_pdp_tenants_endpoint(httpserver: 
 
     await permit.api.tenants.bulk_delete(["tenant-1", "tenant-2"])
 
-    assert _facts_requests(httpserver) == [("DELETE", "/facts/bulk/tenants", {"idents": ["tenant-1", "tenant-2"]})]
+    assert _facts_requests(httpserver) == [
+        ("DELETE", "/facts/bulk/tenants", {"idents": ["tenant-1", "tenant-2"]})
+    ]
     httpserver.check_assertions()
 
 
@@ -109,7 +111,9 @@ async def test_users_bulk_create_targets_the_pdp_users_endpoint(httpserver: HTTP
 
     await permit.api.users.bulk_create([UserCreate(key="user-1")])
 
-    assert _facts_requests(httpserver) == [("POST", "/facts/bulk/users", {"operations": [{"key": "user-1"}]})]
+    assert _facts_requests(httpserver) == [
+        ("POST", "/facts/bulk/users", {"operations": [{"key": "user-1"}]})
+    ]
 
 
 async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(httpserver: HTTPServer):
@@ -159,9 +163,17 @@ def _read_payload(**fields: Any) -> Dict[str, Any]:
 
 ROLE_ASSIGNMENT = {"user": "user-1", "role": "admin", "tenant": "tenant-1"}
 ROLE_ASSIGNMENT_READ = _read_payload(
-    **ROLE_ASSIGNMENT, user_id=str(uuid.uuid4()), role_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())
+    **ROLE_ASSIGNMENT,
+    user_id=str(uuid.uuid4()),
+    role_id=str(uuid.uuid4()),
+    tenant_id=str(uuid.uuid4()),
 )
-RELATIONSHIP_TUPLE = {"subject": "folder:f-1", "relation": "parent", "object": "document:doc-1", "tenant": "tenant-1"}
+RELATIONSHIP_TUPLE = {
+    "subject": "folder:f-1",
+    "relation": "parent",
+    "object": "document:doc-1",
+    "tenant": "tenant-1",
+}
 RESOURCE_INSTANCE = {"key": "doc-1", "resource": "document", "tenant": "tenant-1"}
 
 # Each single-object write the SDK proxies through the PDP, called on ``permit.api``; the one
@@ -182,7 +194,9 @@ SINGLE_WRITES = [
     pytest.param(
         call("resource_instances.create", RESOURCE_INSTANCE),
         ("POST", "/facts/resource_instances", RESOURCE_INSTANCE),
-        _read_payload(**RESOURCE_INSTANCE, resource_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())),
+        _read_payload(
+            **RESOURCE_INSTANCE, resource_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())
+        ),
         id="resource_instances.create",
     ),
     pytest.param(

@@ -158,7 +158,9 @@ class ResourceInstancesApi(BasePermitApi):
         return await self._get(instance_id)
 
     @validate_arguments
-    async def create(self, instance_data: ModelInput[ResourceInstanceCreate]) -> ResourceInstanceRead:
+    async def create(
+        self, instance_data: ModelInput[ResourceInstanceCreate]
+    ) -> ResourceInstanceRead:
         """
         Creates a new resource instance.
 
@@ -174,7 +176,9 @@ class ResourceInstancesApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__resource_instances.post("", model=ResourceInstanceRead, json=instance_data)
+        return await self.__resource_instances.post(
+            "", model=ResourceInstanceRead, json=instance_data
+        )
 
     @validate_arguments
     async def update(
@@ -254,7 +258,9 @@ class ResourceInstancesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def bulk_delete(self, resource_instances: List[str]) -> ResourceInstanceDeleteBulkOperationResult:
+    async def bulk_delete(
+        self, resource_instances: List[str]
+    ) -> ResourceInstanceDeleteBulkOperationResult:
         """
         Deletes resource instances in bulk.
 

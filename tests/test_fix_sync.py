@@ -142,7 +142,9 @@ def test_every_public_method_of_the_api_client_is_synchronous():
 
 def test_deprecated_facade_get_user_issues_a_request(httpserver: HTTPServer, config: PermitConfig):
     payload = user_payload("user-1")
-    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(payload)
+    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        payload
+    )
 
     client = SyncPermitApiClient(config)
     with pytest.warns(DeprecationWarning):
@@ -152,7 +154,9 @@ def test_deprecated_facade_get_user_issues_a_request(httpserver: HTTPServer, con
     httpserver.check_assertions()
 
 
-def test_deprecated_facade_list_roles_issues_a_request(httpserver: HTTPServer, config: PermitConfig):
+def test_deprecated_facade_list_roles_issues_a_request(
+    httpserver: HTTPServer, config: PermitConfig
+):
     httpserver.expect_oneshot_request(f"{SCHEMA}/roles", method="GET").respond_with_json([])
 
     client = SyncPermitApiClient(config)
@@ -179,7 +183,9 @@ def test_deprecated_facade_warns_at_a_call_made_inside_a_running_event_loop(
     httpserver: HTTPServer, config: PermitConfig
 ):
     """With a loop already running, the call's coroutine runs in a worker thread of its own."""
-    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_payload("user-1"))
+    httpserver.expect_oneshot_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        user_payload("user-1")
+    )
     client = SyncPermitApiClient(config)
 
     async def main() -> None:
@@ -219,7 +225,9 @@ def test_concurrent_blocking_calls_each_warn_at_their_own_call():
             for future in futures:
                 future.result()
 
-    assert sorted(deprecation_sites(caught)) == sorted([first_line_of(first_caller), first_line_of(second_caller)])
+    assert sorted(deprecation_sites(caught)) == sorted(
+        [first_line_of(first_caller), first_line_of(second_caller)]
+    )
 
 
 NO_CALLER_SCRIPT = """\
@@ -250,11 +258,20 @@ def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would(t
     """
     script = tmp_path / "script.py"
     script.write_text(NO_CALLER_SCRIPT)
-    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")
+    }
     env["PYTHONPATH"] = str(Path(permit.__file__).resolve().parents[1])
 
     result = subprocess.run(
-        [sys.executable, str(script)], env=env, capture_output=True, text=True, timeout=120, check=False
+        [sys.executable, str(script)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
     )
 
     assert (result.returncode, result.stdout) == (0, "ran\n"), result.stderr
@@ -353,7 +370,9 @@ def test_sync_permit_get_user_permissions(httpserver: HTTPServer, config: Permit
             "resources": None,
             "resource_types": None,
         },
-    ).respond_with_json({"default": {"tenant": {"key": "default"}, "permissions": ["document:read"]}})
+    ).respond_with_json(
+        {"default": {"tenant": {"key": "default"}, "permissions": ["document:read"]}}
+    )
 
     result = SyncPermit(config).get_user_permissions("user-1")
 
@@ -402,13 +421,18 @@ def test_sync_permit_check_from_a_worker_thread(httpserver: HTTPServer, config: 
 
     permit = SyncPermit(config)
     with ThreadPoolExecutor(max_workers=2) as executor:
-        results = [future.result() for future in [executor.submit(permit.check, "u", "read", "document")] * 2]
+        results = [
+            future.result()
+            for future in [executor.submit(permit.check, "u", "read", "document")] * 2
+        ]
 
     assert results == [True, True]
     httpserver.check_assertions()
 
 
-def test_sync_permit_check_from_inside_a_running_event_loop(httpserver: HTTPServer, config: PermitConfig):
+def test_sync_permit_check_from_inside_a_running_event_loop(
+    httpserver: HTTPServer, config: PermitConfig
+):
     """Calling the sync client from async code used to raise
     ``RuntimeError: This event loop is already running``."""
     httpserver.expect_oneshot_request("/allowed", method="POST").respond_with_json({"allow": True})

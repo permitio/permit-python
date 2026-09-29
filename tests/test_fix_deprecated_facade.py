@@ -55,11 +55,23 @@ IDS = {
 
 
 def user(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "email": f"{key}@example.com", "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+    return {
+        **IDS,
+        "key": key,
+        "email": f"{key}@example.com",
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
 def role(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "name": key.title(), "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+    return {
+        **IDS,
+        "key": key,
+        "name": key.title(),
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
 def tenant(key: str) -> Dict[str, Any]:
@@ -74,7 +86,13 @@ def tenant(key: str) -> Dict[str, Any]:
 
 
 def resource(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "name": key.title(), "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+    return {
+        **IDS,
+        "key": key,
+        "name": key.title(),
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
 def assignment() -> Dict[str, Any]:
@@ -142,7 +160,9 @@ CASES = [
     ),
     FacadeCase(
         facade=call("permit.api.get_assigned_roles", "user-1", "tenant-1", page=2, per_page=10),
-        replacement=call("permit.api.users.get_assigned_roles", "user-1", tenant="tenant-1", page=2, per_page=10),
+        replacement=call(
+            "permit.api.users.get_assigned_roles", "user-1", tenant="tenant-1", page=2, per_page=10
+        ),
         request=("GET", f"{FACTS}/role_assignments"),
         response=[assignment()],
         model=RoleAssignmentRead,
@@ -296,7 +316,9 @@ CASES = [
     ),
     FacadeCase(
         facade=call("permit.api.update_resource", "document", ResourceUpdate(**RESOURCE_CHANGES)),
-        replacement=call("permit.api.resources.update", "document", ResourceUpdate(**RESOURCE_CHANGES)),
+        replacement=call(
+            "permit.api.resources.update", "document", ResourceUpdate(**RESOURCE_CHANGES)
+        ),
         request=("PATCH", f"{SCHEMA}/resources/document"),
         response=resource("document"),
         model=ResourceRead,
@@ -319,9 +341,7 @@ CASES = [
 
 
 def removal_warning(case: FacadeCase) -> str:
-    return (
-        f"{case.facade.path}() is deprecated and will be removed in permit 4.0; use {case.replacement.path}() instead."
-    )
+    return f"{case.facade.path}() is deprecated and will be removed in permit 4.0; use {case.replacement.path}() instead."
 
 
 def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str, str, int]]:
@@ -331,7 +351,9 @@ def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str,
     collection and can land in whichever test happens to be running.
     """
     return [
-        (w.category, str(w.message), w.filename, w.lineno) for w in caught if issubclass(w.category, DeprecationWarning)
+        (w.category, str(w.message), w.filename, w.lineno)
+        for w in caught
+        if issubclass(w.category, DeprecationWarning)
     ]
 
 
@@ -339,7 +361,9 @@ def call_blocking(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dic
     return method(*args, **kwargs)
 
 
-async def call_awaiting(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
+async def call_awaiting(
+    method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]
+) -> Any:
     return await method(*args, **kwargs)
 
 
@@ -359,7 +383,15 @@ CALL_SITES = {
 }
 
 
-MODEL_INPUTS = (UserCreate, TenantCreate, TenantUpdate, RoleCreate, RoleUpdate, ResourceCreate, ResourceUpdate)
+MODEL_INPUTS = (
+    UserCreate,
+    TenantCreate,
+    TenantUpdate,
+    RoleCreate,
+    RoleUpdate,
+    ResourceCreate,
+    ResourceUpdate,
+)
 
 
 def case_id(case: FacadeCase) -> str:
@@ -381,7 +413,9 @@ def assert_parsed(result: Any, case: FacadeCase) -> None:
 
 def test_the_table_covers_every_deprecated_method():
     deprecated = {
-        f"permit.api.{name}" for name, value in vars(DeprecatedApi).items() if inspect.iscoroutinefunction(value)
+        f"permit.api.{name}"
+        for name, value in vars(DeprecatedApi).items()
+        if inspect.iscoroutinefunction(value)
     }
 
     assert deprecated == {case.facade.path for case in CASES}
@@ -419,7 +453,9 @@ def test_deprecated_method_warns_and_matches_its_replacement(
         result = invoke(case.facade)
 
     assert deprecations(replacement_warnings) == []
-    assert deprecations(facade_warnings) == [(DeprecationWarning, removal_warning(case), *CALL_SITES[flavour])]
+    assert deprecations(facade_warnings) == [
+        (DeprecationWarning, removal_warning(case), *CALL_SITES[flavour])
+    ]
 
     assert len(httpserver.log) == 2, [sent(request) for request, _ in httpserver.log]
     replacement_request, facade_request = (sent(request) for request, _ in httpserver.log)
@@ -490,7 +526,11 @@ def test_a_script_gets_one_warning_per_call_at_the_call(httpserver: HTTPServer, 
     httpserver.expect_request(path, method=http_method).respond_with_json(case.response)
     script = tmp_path / "script.py"
     script.write_text(SCRIPT)
-    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")
+    }
     env["PYTHONPATH"] = os.pathsep.join([str(PERMIT_PARENT), str(TESTS_PARENT)])
 
     result = subprocess.run(

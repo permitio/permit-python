@@ -136,7 +136,11 @@ CASES = {
         model=ResourceActionRead,
     ),
     "actions.create-from-dict": Case(
-        call=call(f"{ACTIONS}.create", "document", {"key": "write", "name": "Write", "attributes": {"risk": "high"}}),
+        call=call(
+            f"{ACTIONS}.create",
+            "document",
+            {"key": "write", "name": "Write", "attributes": {"risk": "high"}},
+        ),
         method="POST",
         path=f"{RESOURCES}/document/actions",
         query=[],
@@ -145,7 +149,9 @@ CASES = {
         model=ResourceActionRead,
     ),
     "actions.update": Case(
-        call=call(f"{ACTIONS}.update", "document", "write", ResourceActionUpdate(name="Write access")),
+        call=call(
+            f"{ACTIONS}.update", "document", "write", ResourceActionUpdate(name="Write access")
+        ),
         method="PATCH",
         path=f"{RESOURCES}/document/actions/write",
         query=[],
@@ -239,7 +245,9 @@ CASES = {
         model=ResourceActionGroupRead,
     ),
     "action_groups.update": Case(
-        call=call(f"{GROUPS}.update", "document", "editors", ResourceActionGroupUpdate(actions=["read"])),
+        call=call(
+            f"{GROUPS}.update", "document", "editors", ResourceActionGroupUpdate(actions=["read"])
+        ),
         method="PATCH",
         path=f"{RESOURCES}/document/action_groups/editors",
         query=[],
@@ -248,7 +256,9 @@ CASES = {
         model=ResourceActionGroupRead,
     ),
     "action_groups.update-clears-a-field": Case(
-        call=call(f"{GROUPS}.update", "document", "editors", {"name": "Editors", "description": None}),
+        call=call(
+            f"{GROUPS}.update", "document", "editors", {"name": "Editors", "description": None}
+        ),
         method="PATCH",
         path=f"{RESOURCES}/document/action_groups/editors",
         query=[],
@@ -269,7 +279,9 @@ CASES = {
 
 
 def public_methods(api: type) -> set:
-    return {name for name, value in vars(api).items() if not name.startswith("_") and callable(value)}
+    return {
+        name for name, value in vars(api).items() if not name.startswith("_") and callable(value)
+    }
 
 
 def test_every_public_method_has_a_case():
@@ -283,7 +295,9 @@ def test_every_public_method_has_a_case():
 
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
-def test_request_and_response(httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str):
+def test_request_and_response(
+    httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str
+):
     handler = httpserver.expect_request(case.path, method=case.method)
     if case.response is None:
         handler.respond_with_data("", status=204)

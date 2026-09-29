@@ -439,19 +439,23 @@ ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
                         "tenant": TENANT_PERMIT.key,
                     },
                     expected_decision=True,
-                    pre_assertion_hook=lambda permit: permit.api.resource_roles.update_role_derivation_conditions(
-                        resource_key=FOLDER.key,
-                        role_key=EDITOR,
-                        conditions=PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings(
-                            no_direct_roles_on_object=False
-                        ),
+                    pre_assertion_hook=lambda permit: (
+                        permit.api.resource_roles.update_role_derivation_conditions(
+                            resource_key=FOLDER.key,
+                            role_key=EDITOR,
+                            conditions=PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings(
+                                no_direct_roles_on_object=False
+                            ),
+                        )
                     ),
-                    post_assertion_hook=lambda permit: permit.api.resource_roles.update_role_derivation_conditions(
-                        resource_key=FOLDER.key,
-                        role_key=EDITOR,
-                        conditions=PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings(
-                            no_direct_roles_on_object=True
-                        ),
+                    post_assertion_hook=lambda permit: (
+                        permit.api.resource_roles.update_role_derivation_conditions(
+                            resource_key=FOLDER.key,
+                            role_key=EDITOR,
+                            conditions=PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings(
+                                no_direct_roles_on_object=True
+                            ),
+                        )
                     ),
                 )
                 for action in ["read", "comment", "update", "delete"]
@@ -653,12 +657,16 @@ async def wait_for_decision(permit: Permit, q: CheckAssertion) -> bool:
 
 
 async def assert_permit_check(permit: Permit, q: CheckAssertion):
-    logger.info(f"asserting: permit.check({q.user}, {q.action}, {q.resource!s}) === {q.expected_decision!s}")
+    logger.info(
+        f"asserting: permit.check({q.user}, {q.action}, {q.resource!s}) === {q.expected_decision!s}"
+    )
     decision = await wait_for_decision(permit, q)
     assert q.expected_decision == decision
 
 
-async def assert_permit_authorized_users(permit: Permit, q: CheckAssertion, assignments: list[RoleAssignmentCreate]):
+async def assert_permit_authorized_users(
+    permit: Permit, q: CheckAssertion, assignments: list[RoleAssignmentCreate]
+):
     logger.info(
         f"asserting: permit.authorized_users({q.action}, {q.resource}) === {q.expected_decision}",
     )
@@ -699,7 +707,8 @@ async def own_relationship_tuples(permit: Permit, tenant_key: str) -> List[Any]:
     return [
         rel_tuple
         for rel_tuple in tuples
-        if rel_tuple.subject.split(":")[0] in own_resource_keys and rel_tuple.object.split(":")[0] in own_resource_keys
+        if rel_tuple.subject.split(":")[0] in own_resource_keys
+        and rel_tuple.object.split(":")[0] in own_resource_keys
     ]
 
 
@@ -729,7 +738,9 @@ async def test_rebac_policy(permit: Permit):
         for resource_key, resource_roles in iter(RESOURCE_ROLES.items()):
             for role_data in resource_roles:
                 logger.debug(f"creating resource role: {resource_key}#{role_data.key}")
-                role = await permit.api.resource_roles.create(resource_key=resource_key, role_data=role_data)
+                role = await permit.api.resource_roles.create(
+                    resource_key=resource_key, role_data=role_data
+                )
                 assert role is not None
                 assert role.key == role_data.key
                 assert role.name == role_data.name
@@ -795,9 +806,13 @@ async def test_rebac_policy(permit: Permit):
         # relationship tuples
         for tuple_data in RELATIONSHIPS:
             subject, relation, object, tenant = tuple_data
-            logger.debug(f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})")
+            logger.debug(
+                f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})"
+            )
             rel_tuple = await permit.api.relationship_tuples.create(
-                RelationshipTupleCreate(subject=subject, relation=relation, object=object, tenant=tenant)
+                RelationshipTupleCreate(
+                    subject=subject, relation=relation, object=object, tenant=tenant
+                )
             )
             assert rel_tuple is not None
             assert rel_tuple.subject == subject
@@ -807,11 +822,15 @@ async def test_rebac_policy(permit: Permit):
 
         own_tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
         len_tuples = len(own_tuples)
-        logger.debug(f"this test currently owns {len_tuples} relationship tuples in {TENANT_PERMIT.key}")
+        logger.debug(
+            f"this test currently owns {len_tuples} relationship tuples in {TENANT_PERMIT.key}"
+        )
 
         # bulk create relationship tuples
         bulk_relationships_to_create = [
-            RelationshipTupleCreate(subject=subject, relation=relation, object=object, tenant=tenant)
+            RelationshipTupleCreate(
+                subject=subject, relation=relation, object=object, tenant=tenant
+            )
             for (subject, relation, object, tenant) in BULK_RELATIONSHIPS
         ]
         bulk_relationships_to_delete = [
@@ -831,7 +850,9 @@ async def test_rebac_policy(permit: Permit):
 
             tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
             assert len(tuples) == len_tuples + len(BULK_RELATIONSHIPS)
-            created = {(rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples}
+            created = {
+                (rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples
+            }
             for subject, relation, object, _tenant in BULK_RELATIONSHIPS:
                 assert (subject, relation, object) in created
 
@@ -840,14 +861,20 @@ async def test_rebac_policy(permit: Permit):
 
             tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
             assert len(tuples) == len_tuples
-            remaining = {(rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples}
+            remaining = {
+                (rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples
+            }
             for subject, relation, object, _tenant in BULK_RELATIONSHIPS:
                 assert (subject, relation, object) not in remaining
 
-        logger.debug(f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}")
+        logger.debug(
+            f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}"
+        )
         await create_relationships_in_bulk()
 
-        logger.debug(f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}")
+        logger.debug(
+            f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}"
+        )
         await remove_relationships_in_bulk()
 
         # assign roles and then run permission checks

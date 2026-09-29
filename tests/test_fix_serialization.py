@@ -116,7 +116,9 @@ async def test_null_inside_attributes_dict_is_preserved(client: SimpleHttpClient
         json=UserUpdate(attributes={"department": None, "age": 30, "nested": {"expired": None}}),
     )
 
-    assert captured == [{"attributes": {"department": None, "age": 30, "nested": {"expired": None}}}]
+    assert captured == [
+        {"attributes": {"department": None, "age": 30, "nested": {"expired": None}}}
+    ]
 
 
 async def test_attributes_set_to_null_wholesale(client: SimpleHttpClient, captured: list):
@@ -130,7 +132,9 @@ async def test_attributes_set_to_null_wholesale(client: SimpleHttpClient, captur
     assert captured == [{"attributes": None}]
 
 
-async def test_raw_dict_with_datetime_uuid_and_enum_is_encoded(client: SimpleHttpClient, captured: list):
+async def test_raw_dict_with_datetime_uuid_and_enum_is_encoded(
+    client: SimpleHttpClient, captured: list
+):
     """A raw dict body is now encoded.
 
     Before the fix ``_prepare_json`` returned dicts unchanged, and aiohttp raised
@@ -249,7 +253,9 @@ def hostile_attributes() -> Dict[str, Any]:
         "key-with-dashes": "dashes",
         "cleared": None,
         "nested": {
-            "level2": {"level3": [{"flag": False, "cleared": None}, {"name": UNICODE_NAME, "count": 1}]},
+            "level2": {
+                "level3": [{"flag": False, "cleared": None}, {"name": UNICODE_NAME, "count": 1}]
+            },
             "matrix": [[1, 2], [3, 4]],
         },
     }
@@ -266,11 +272,21 @@ def user_body() -> Dict[str, Any]:
 
 
 def tenant_body() -> Dict[str, Any]:
-    return {"key": "tenant-1", "name": UNICODE_NAME, "description": MIXED_TEXT, "attributes": hostile_attributes()}
+    return {
+        "key": "tenant-1",
+        "name": UNICODE_NAME,
+        "description": MIXED_TEXT,
+        "attributes": hostile_attributes(),
+    }
 
 
 def resource_instance_body() -> Dict[str, Any]:
-    return {"key": "doc-1", "resource": "document", "tenant": "tenant-1", "attributes": hostile_attributes()}
+    return {
+        "key": "doc-1",
+        "resource": "document",
+        "tenant": "tenant-1",
+        "attributes": hostile_attributes(),
+    }
 
 
 def resource_body() -> Dict[str, Any]:
@@ -280,14 +296,26 @@ def resource_body() -> Dict[str, Any]:
         "description": MIXED_TEXT,
         "actions": {
             "read": {},
-            "update": {"name": "Update ✓", "description": MIXED_TEXT, "attributes": hostile_attributes()},
+            "update": {
+                "name": "Update ✓",
+                "description": MIXED_TEXT,
+                "attributes": hostile_attributes(),
+            },
         },
-        "attributes": {"private": {"type": "bool"}, "level": {"type": "number", "description": MIXED_TEXT}},
+        "attributes": {
+            "private": {"type": "bool"},
+            "level": {"type": "number", "description": MIXED_TEXT},
+        },
     }
 
 
 def relationship_tuple_body() -> Dict[str, Any]:
-    return {"subject": "folder:f-1", "relation": "parent", "object": "document:doc-1", "tenant": "tenant-1"}
+    return {
+        "subject": "folder:f-1",
+        "relation": "parent",
+        "object": "document:doc-1",
+        "tenant": "tenant-1",
+    }
 
 
 # Each model is built inside the test, so a model that fails to build fails its own case
@@ -308,7 +336,9 @@ WIRE_BODIES: List[Any] = [
         id="RelationshipTupleCreate",
     ),
     pytest.param(
-        lambda: ResourceAttributeCreate(key="level", type=AttributeType.number, description=MIXED_TEXT),
+        lambda: ResourceAttributeCreate(
+            key="level", type=AttributeType.number, description=MIXED_TEXT
+        ),
         {"key": "level", "type": "number", "description": MIXED_TEXT},
         id="ResourceAttributeCreate",
     ),
@@ -318,7 +348,10 @@ WIRE_BODIES: List[Any] = [
             name=UNICODE_NAME,
             type=ConditionSetType.userset,
             conditions={
-                "allOf": [{"user.attributes.tier": {"equals": "gold"}}, {"user.attributes.true": {"equals": True}}]
+                "allOf": [
+                    {"user.attributes.tier": {"equals": "gold"}},
+                    {"user.attributes.true": {"equals": True}},
+                ]
             },
         ),
         {
@@ -326,7 +359,10 @@ WIRE_BODIES: List[Any] = [
             "name": UNICODE_NAME,
             "type": "userset",
             "conditions": {
-                "allOf": [{"user.attributes.tier": {"equals": "gold"}}, {"user.attributes.true": {"equals": True}}]
+                "allOf": [
+                    {"user.attributes.tier": {"equals": "gold"}},
+                    {"user.attributes.true": {"equals": True}},
+                ]
             },
         },
         id="ConditionSetCreate",

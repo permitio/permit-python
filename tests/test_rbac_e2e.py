@@ -81,7 +81,9 @@ async def find_by_key(list_page: Callable[[int], Awaitable[List[Any]]], key: str
         page += 1
 
 
-async def delete_quietly(delete: Callable[[str], Awaitable[None]], key: str, description: str) -> None:
+async def delete_quietly(
+    delete: Callable[[str], Awaitable[None]], key: str, description: str
+) -> None:
     """Delete one object during teardown, tolerating one that is already gone."""
     try:
         await delete(key)
@@ -226,7 +228,9 @@ async def setup_env(
         listed_document = await find_by_key(
             lambda page: permit.api.resources.list(page=page, per_page=PER_PAGE), resource_key
         )
-        assert listed_document is not None, f"resource '{resource_key}' is missing from the resource list"
+        assert listed_document is not None, (
+            f"resource '{resource_key}' is missing from the resource list"
+        )
         assert listed_document.id == document.id
         assert listed_document.key == document.key
         assert listed_document.name == document.name
@@ -266,7 +270,9 @@ async def setup_env(
         assert len(viewer.permissions) == 0
 
         # assign permissions to roles
-        assigned_viewer = await permit.api.roles.assign_permissions(viewer_role_key, viewer_role_permissions)
+        assigned_viewer = await permit.api.roles.assign_permissions(
+            viewer_role_key, viewer_role_permissions
+        )
 
         assert assigned_viewer.key == viewer_role_key
         assert len(assigned_viewer.permissions or []) == len(viewer_role_permissions)
@@ -446,7 +452,9 @@ async def test_permission_check_e2e(
         )
 
         # list user roles in all tenants
-        assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(user=user.key)
+        assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
+            user=user.key
+        )
 
         assert len(assigned_roles) == 1
         assert assigned_roles[0].user_id == user.id
@@ -650,7 +658,9 @@ async def test_local_facts_uploader_permission_check_e2e(
             )
 
             # list user roles in all tenants
-            assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(user=user.key)
+            assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
+                user=user.key
+            )
 
             assert len(assigned_roles) == 1
             assert assigned_roles[0].user_id == user.id
