@@ -7,6 +7,7 @@ replacement sends and return what it returns. Every request is served by a local
 ``/v2/api-key/scope`` lookup are needed.
 """
 
+import ast
 import asyncio
 import copy
 import inspect
@@ -342,11 +343,19 @@ async def call_awaiting(method: Callable[..., Any], args: Tuple[Any, ...], kwarg
     return await method(*args, **kwargs)
 
 
+def statement_line(helper: Callable[..., Any]) -> int:
+    """The line of the one statement in ``helper``'s body, however its signature is laid out."""
+    (function,) = ast.parse(inspect.getsource(helper)).body
+    assert isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+    (statement,) = function.body
+    return helper.__code__.co_firstlineno + statement.lineno - 1
+
+
 # Where each client's deprecation warning must point: the line in this file that calls
-# the method, which is the first line of the helper above that calls it for that client.
+# the method, which is the statement in the helper above that calls it for that client.
 CALL_SITES = {
-    "sync": (__file__, call_blocking.__code__.co_firstlineno + 1),
-    "async": (__file__, call_awaiting.__code__.co_firstlineno + 1),
+    "sync": (__file__, statement_line(call_blocking)),
+    "async": (__file__, statement_line(call_awaiting)),
 }
 
 
