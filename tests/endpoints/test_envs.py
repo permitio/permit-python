@@ -113,7 +113,7 @@ async def test_environment_creation_with_org_level_api_key(
         for environment_data in CREATED_ENVIRONMENTS:
             print(f"creating environment: {environment_data.key}")
             environment: EnvironmentRead = await permit.api.environments.create(
-                project_key=project.key, environment_data=environment_data
+                project_key=projects[0].key, environment_data=environment_data
             )
             assert environment is not None
             assert environment.key == environment_data.key
