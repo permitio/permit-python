@@ -2,6 +2,7 @@
 import dataclasses
 import datetime
 from collections import defaultdict, deque
+from collections.abc import Callable
 from decimal import Decimal
 from enum import Enum
 from ipaddress import (
@@ -18,14 +19,7 @@ from types import GeneratorType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
     Literal,
-    Optional,
-    Set,
-    Tuple,
-    Type,
     Union,
 )
 from uuid import UUID
@@ -66,13 +60,12 @@ def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kw
     return model.dict(**kwargs)
 
 
-def isoformat(o: Union[datetime.date, datetime.time]) -> str:
+def isoformat(o: datetime.date | datetime.time) -> str:
     return o.isoformat()
 
 
-def decimal_encoder(dec_value: Decimal) -> Union[int, float]:
-    """
-    Encodes a Decimal as int of there's no exponent, otherwise float
+def decimal_encoder(dec_value: Decimal) -> int | float:
+    """Encodes a Decimal as int of there's no exponent, otherwise float
 
     This is useful when we use ConstrainedDecimal to represent Numeric(x,0)
     where a integer (but not int typed) is used. Encoding this as a float
@@ -87,12 +80,11 @@ def decimal_encoder(dec_value: Decimal) -> Union[int, float]:
     """
     if dec_value.as_tuple().exponent >= 0:  # type: ignore[operator]
         return int(dec_value)
-    else:
-        return float(dec_value)
+    return float(dec_value)
 
 
-IncEx = Union[Set[int], Set[str], Dict[int, Any], Dict[str, Any]]
-ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
+IncEx = Union[set[int], set[str], dict[int, Any], dict[str, Any]]
+ENCODERS_BY_TYPE: dict[type[Any], Callable[[Any], Any]] = {
     bytes: lambda o: o.decode(),
     Color: str,
     datetime.date: isoformat,
@@ -122,9 +114,9 @@ ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
 
 
 def generate_encoders_by_class_tuples(
-    type_encoder_map: Dict[Any, Callable[[Any], Any]],
-) -> Dict[Callable[[Any], Any], Tuple[Any, ...]]:
-    encoders_by_class_tuples: Dict[Callable[[Any], Any], Tuple[Any, ...]] = defaultdict(tuple)
+    type_encoder_map: dict[Any, Callable[[Any], Any]],
+) -> dict[Callable[[Any], Any], tuple[Any, ...]]:
+    encoders_by_class_tuples: dict[Callable[[Any], Any], tuple[Any, ...]] = defaultdict(tuple)
     for type_, encoder in type_encoder_map.items():
         encoders_by_class_tuples[encoder] += (type_,)
     return encoders_by_class_tuples
@@ -136,17 +128,16 @@ encoders_by_class_tuples = generate_encoders_by_class_tuples(ENCODERS_BY_TYPE)
 def jsonable_encoder(
     obj: Any,
     *,
-    include: Optional[IncEx] = None,
-    exclude: Optional[IncEx] = None,
+    include: IncEx | None = None,
+    exclude: IncEx | None = None,
     by_alias: bool = True,
     exclude_unset: bool = False,
     exclude_defaults: bool = False,
     exclude_none: bool = False,
-    custom_encoder: Optional[Dict[Any, Callable[[Any], Any]]] = None,
+    custom_encoder: dict[Any, Callable[[Any], Any]] | None = None,
     sqlalchemy_safe: bool = True,
 ) -> Any:
-    """
-    Convert any object to something that can be encoded in JSON.
+    """Convert any object to something that can be encoded in JSON.
 
     This is used internally by FastAPI to make sure anything you return can be
     encoded as JSON before it is sent to the client.
@@ -161,10 +152,9 @@ def jsonable_encoder(
     if custom_encoder:
         if type(obj) in custom_encoder:
             return custom_encoder[type(obj)](obj)
-        else:
-            for encoder_type, encoder_instance in custom_encoder.items():
-                if isinstance(obj, encoder_type):
-                    return encoder_instance(obj)
+        for encoder_type, encoder_instance in custom_encoder.items():
+            if isinstance(obj, encoder_type):
+                return encoder_instance(obj)
     if include is not None and not isinstance(include, (set, dict)):
         include = set(include)  # type: ignore[unreachable]
     if exclude is not None and not isinstance(exclude, (set, dict)):
@@ -271,7 +261,7 @@ def jsonable_encoder(
     try:
         data = dict(obj)
     except Exception as e:  # noqa: BLE001
-        errors: List[Exception] = []
+        errors: list[Exception] = []
         errors.append(e)
         try:
             data = vars(obj)

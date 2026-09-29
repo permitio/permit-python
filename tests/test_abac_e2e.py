@@ -1,6 +1,7 @@
 import asyncio
 import time
-from typing import Any, Awaitable, Callable, Final, List, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any, Final
 
 import pytest
 from loguru import logger
@@ -25,7 +26,7 @@ pytestmark = pytest.mark.e2e
 
 
 def print_break():
-    print("\n\n ----------- \n\n")  # noqa: T201
+    print("\n\n ----------- \n\n")
 
 
 PER_PAGE: Final[int] = 100
@@ -66,7 +67,7 @@ async def wait_until(
         await asyncio.sleep(interval)
 
 
-async def find_by_key(list_page: Callable[[int], Awaitable[List[Any]]], key: str) -> Optional[Any]:
+async def find_by_key(list_page: Callable[[int], Awaitable[list[Any]]], key: str) -> Any | None:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -91,7 +92,7 @@ async def cleanup_step(action: Callable[[], Awaitable[Any]], description: str) -
         handle_cleanup_error(error, f"Got API Error during cleanup of {description}")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error during cleanup of {description}: {error}")
         pytest.fail(f"Got error during cleanup of {description}: {error}")
 
@@ -367,7 +368,7 @@ async def test_abac_e2e(permit: Permit):
         handle_api_error(error, "Got API Error")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:

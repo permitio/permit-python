@@ -16,9 +16,10 @@ import os
 import subprocess
 import sys
 import warnings
+from collections.abc import Callable
 from operator import attrgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -54,7 +55,7 @@ IDS = {
 }
 
 
-def user(key: str) -> Dict[str, Any]:
+def user(key: str) -> dict[str, Any]:
     return {
         **IDS,
         "key": key,
@@ -64,7 +65,7 @@ def user(key: str) -> Dict[str, Any]:
     }
 
 
-def role(key: str) -> Dict[str, Any]:
+def role(key: str) -> dict[str, Any]:
     return {
         **IDS,
         "key": key,
@@ -74,7 +75,7 @@ def role(key: str) -> Dict[str, Any]:
     }
 
 
-def tenant(key: str) -> Dict[str, Any]:
+def tenant(key: str) -> dict[str, Any]:
     return {
         **IDS,
         "key": key,
@@ -85,7 +86,7 @@ def tenant(key: str) -> Dict[str, Any]:
     }
 
 
-def resource(key: str) -> Dict[str, Any]:
+def resource(key: str) -> dict[str, Any]:
     return {
         **IDS,
         "key": key,
@@ -95,7 +96,7 @@ def resource(key: str) -> Dict[str, Any]:
     }
 
 
-def assignment() -> Dict[str, Any]:
+def assignment() -> dict[str, Any]:
     return {
         **IDS,
         "user": "user-1",
@@ -121,9 +122,9 @@ class FacadeCase(NamedTuple):
 
     facade: Call
     replacement: Call
-    request: Tuple[str, str]
-    response: Union[Dict[str, Any], List[Dict[str, Any]], None]
-    model: Optional[type]
+    request: tuple[str, str]
+    response: dict[str, Any] | list[dict[str, Any]] | None
+    model: type | None
 
 
 NEW_USER = {"key": "user-1", "email": "user-1@example.com"}
@@ -344,7 +345,7 @@ def removal_warning(case: FacadeCase) -> str:
     return f"{case.facade.path}() is deprecated and will be removed in permit 4.0; use {case.replacement.path}() instead."
 
 
-def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str, str, int]]:
+def deprecations(caught: list[warnings.WarningMessage]) -> list[tuple[type, str, str, int]]:
     """Every DeprecationWarning in ``caught``, whoever raised it, and the line it points at.
 
     Other categories are left out: a ResourceWarning, for one, comes from garbage
@@ -357,12 +358,12 @@ def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str,
     ]
 
 
-def call_blocking(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
+def call_blocking(method: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
     return method(*args, **kwargs)
 
 
 async def call_awaiting(
-    method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]
+    method: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
 ) -> Any:
     return await method(*args, **kwargs)
 

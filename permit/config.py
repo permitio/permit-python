@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal
 
 from .api.context import ApiContext
 from .utils.pydantic_version import PYDANTIC_VERSION
@@ -38,7 +38,7 @@ class MultiTenancyConfig(BaseModel):
     use_default_tenant_if_empty: bool = Field(
         default=True,
         description="whether or not the SDK should automatically associate a resource with the defaultTenant "
-        + "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
+        "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
     )
 
 
@@ -64,11 +64,11 @@ class PermitConfig(BaseModel):
     api_context: ApiContext = Field(
         default=ApiContext(), description="represents the current API key authorization level."
     )
-    api_timeout: Optional[int] = Field(
+    api_timeout: int | None = Field(
         default=None,
         description="The timeout in seconds for requests to the Permit REST API.",
     )
-    pdp_timeout: Optional[int] = Field(
+    pdp_timeout: int | None = Field(
         default=None,
         description="The timeout in seconds for requests to the PDP.",
     )
@@ -76,12 +76,12 @@ class PermitConfig(BaseModel):
         default=False,
         description="Create facts via the PDP API instead of using the default Permit REST API.",
     )
-    facts_sync_timeout: Optional[float] = Field(
+    facts_sync_timeout: float | None = Field(
         default=None,
         description="The amount of time in seconds to wait for facts to be available "
         "in the PDP cache before returning the response.",
     )
-    facts_sync_timeout_policy: Optional[Literal["ignore", "fail"]] = Field(
+    facts_sync_timeout_policy: Literal["ignore", "fail"] | None = Field(
         default=None,
         description="The policy to apply when the facts sync timeout is reached.",
     )

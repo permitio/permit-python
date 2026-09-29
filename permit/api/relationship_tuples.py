@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -34,23 +34,21 @@ class RelationshipTuplesApi(BasePermitApi):
     def __relationship_tuples(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/relationship_tuples", use_pdp=True)
-        else:
-            return self._build_http_client(
-                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
-            )
+        return self._build_http_client(
+            f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/relationship_tuples"
+        )
 
     @validate_arguments
     async def list(
         self,
         page: int = 1,
         per_page: int = 100,
-        subject_key: Optional[str] = None,
-        relation_key: Optional[str] = None,
-        object_key: Optional[str] = None,
-        tenant_key: Optional[str] = None,
-    ) -> List[RelationshipTupleRead]:
-        """
-        Retrieves a list of relationship tuples based on the specified filters.
+        subject_key: str | None = None,
+        relation_key: str | None = None,
+        object_key: str | None = None,
+        tenant_key: str | None = None,
+    ) -> list[RelationshipTupleRead]:
+        """Retrieves a list of relationship tuples based on the specified filters.
 
         Args:
             page: The page number to fetch (default: 1).
@@ -82,7 +80,7 @@ class RelationshipTuplesApi(BasePermitApi):
 
         return await self.__relationship_tuples.get(
             "",
-            model=List[RelationshipTupleRead],
+            model=list[RelationshipTupleRead],
             params=params,
         )
 
@@ -90,8 +88,7 @@ class RelationshipTuplesApi(BasePermitApi):
     async def create(
         self, tuple_data: ModelInput[RelationshipTupleCreate]
     ) -> RelationshipTupleRead:
-        """
-        Creates a new relationship tuple, that states that a relationship (of type: relation)
+        """Creates a new relationship tuple, that states that a relationship (of type: relation)
         exists between two resource instances: the subject and the object.
 
         Args:
@@ -112,8 +109,7 @@ class RelationshipTuplesApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, tuple_data: ModelInput[RelationshipTupleDelete]) -> None:
-        """
-        Removes a relationship tuple.
+        """Removes a relationship tuple.
 
         Args:
             tuple_data: The relationship tuple to delete.
@@ -130,8 +126,7 @@ class RelationshipTuplesApi(BasePermitApi):
     async def bulk_create(
         self, tuples: ModelListInput[RelationshipTupleCreate]
     ) -> RelationshipTupleCreateBulkOperationResult:
-        """
-        Creates multiple relationship tuples at once using the provided tuple data.
+        """Creates multiple relationship tuples at once using the provided tuple data.
 
         Args:
             tuples: The relationship tuples to create.
@@ -165,8 +160,7 @@ class RelationshipTuplesApi(BasePermitApi):
     async def bulk_delete(
         self, tuples: ModelListInput[RelationshipTupleDelete]
     ) -> RelationshipTupleDeleteBulkOperationResult:
-        """
-        Deletes multiple relationship tuples at once using the provided tuple data.
+        """Deletes multiple relationship tuples at once using the provided tuple data.
 
         Args:
             tuples: The relationship tuples to delete.

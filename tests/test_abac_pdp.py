@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 import pytest
@@ -95,7 +95,7 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit):
 async def test_filter_objects_cloud_error(permit_cloud: Permit):
     user_test = {"key": "maya@permit.io", "email": "maya@permit.io", "attributes": {"age": 23}}
 
-    test_resources: List[Dict[str, Any]] = [
+    test_resources: list[dict[str, Any]] = [
         {"type": "Blog", "key": "doc1", "context": {}, "attributes": {}, "tenant": "default"},
         {"type": "Document", "key": "doc2", "context": {}, "attributes": {}, "tenant": "default"},
     ]

@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from functools import wraps
 from inspect import iscoroutinefunction
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
 from warnings import warn
 
 from permit.utils.sync import _blocking_call_site
@@ -28,8 +29,7 @@ def deprecated(message: str) -> Callable[[_F], _F]:
 
         # Either wrapper takes and returns what func does, so callers keep func's type.
         if iscoroutinefunction(func):
-            return cast(_F, async_wrapper)
-        else:
-            return cast(_F, wrapper)
+            return cast("_F", async_wrapper)
+        return cast("_F", wrapper)
 
     return decorator

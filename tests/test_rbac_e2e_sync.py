@@ -1,5 +1,6 @@
 import time
-from typing import Any, Callable, Final, List, Optional
+from collections.abc import Callable
+from typing import Any, Final
 
 import pytest
 from loguru import logger
@@ -15,7 +16,7 @@ pytestmark = pytest.mark.e2e
 
 
 def print_break():
-    print("\n\n ----------- \n\n")  # noqa: T201
+    print("\n\n ----------- \n\n")
 
 
 # Every object below is created with a key derived from unique_key(): the whole
@@ -47,7 +48,7 @@ def wait_until(
         time.sleep(interval)
 
 
-def find_by_key(list_page: Callable[[int], List[Any]], key: str) -> Optional[Any]:
+def find_by_key(list_page: Callable[[int], list[Any]], key: str) -> Any | None:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -72,7 +73,7 @@ def delete_quietly(delete: Callable[[str], None], key: str, description: str) ->
         handle_cleanup_error(error, f"Got API Error during cleanup of {description} '{key}'")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error during cleanup of {description} '{key}': {error}")
         pytest.fail(f"Got error during cleanup of {description} '{key}': {error}")
 
@@ -293,7 +294,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         logger.info("testing list role assignments")
         # scoped to this test's user and tenant: the environment is shared, so
         # the unfiltered list contains every other test's assignments too.
-        assignments_returned: List[RoleAssignment] = permit.pdp_api.role_assignments.list(
+        assignments_returned: list[RoleAssignment] = permit.pdp_api.role_assignments.list(
             user_key=user.key, tenant_key=tenant.key
         )
         assert len(assignments_returned) == 1
@@ -322,7 +323,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         )
 
         # list user roles in all tenants
-        assigned_roles: List[RoleAssignmentRead] = permit.api.users.get_assigned_roles(
+        assigned_roles: list[RoleAssignmentRead] = permit.api.users.get_assigned_roles(
             user=user.key
         )
 
@@ -346,7 +347,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         handle_api_error(error, "Got API Error")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:

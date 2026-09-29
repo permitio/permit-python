@@ -1,9 +1,9 @@
 import asyncio
-from typing import Awaitable, Callable, List, Sequence, TypeVar, Union
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TypeVar
 
 import pytest
 from loguru import logger
-from tests.utils import handle_cleanup_error, unique_key
 
 from permit import (
     Permit,
@@ -14,6 +14,7 @@ from permit import (
     UserCreate,
 )
 from permit.exceptions import PermitApiDetailedError
+from tests.utils import handle_cleanup_error, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -27,7 +28,7 @@ PROPAGATION_TIMEOUT_SECONDS = 30.0
 PROPAGATION_POLL_INTERVAL_SECONDS = 0.5
 
 
-def user_keys(prefix: str, count: int = USER_COUNT) -> List[str]:
+def user_keys(prefix: str, count: int = USER_COUNT) -> list[str]:
     return [f"{prefix}-user-{index}" for index in range(count)]
 
 
@@ -74,9 +75,9 @@ async def create_role_assignments(permit: Permit, role_key: str, users: Sequence
 
 async def list_assignments(
     permit: Permit,
-    role_key: Union[str, List[str]],
+    role_key: str | list[str],
     expected_count: int,
-) -> List[RoleAssignmentRead]:
+) -> list[RoleAssignmentRead]:
     """List the assignments of the given role(s), polling until they are all visible.
 
     Returns whatever the last call reported once the count matches or the

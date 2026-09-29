@@ -10,7 +10,7 @@ body) and the model the response parses into. Every request is served by a local
 import asyncio
 import inspect
 from operator import attrgetter
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -39,7 +39,7 @@ DEFAULT_PAGE = [("page", "1"), ("per_page", "100")]
 SECOND_PAGE = [("page", "2"), ("per_page", "10")]
 
 
-def common(key: str, object_id: str) -> Dict[str, Any]:
+def common(key: str, object_id: str) -> dict[str, Any]:
     return {
         "key": key,
         "name": key.title(),
@@ -53,11 +53,11 @@ def common(key: str, object_id: str) -> Dict[str, Any]:
     }
 
 
-def action(key: str) -> Dict[str, Any]:
+def action(key: str) -> dict[str, Any]:
     return {**common(key, ACTION_ID), "permission_name": f"document:{key}"}
 
 
-def group(key: str) -> Dict[str, Any]:
+def group(key: str) -> dict[str, Any]:
     return {**common(key, GROUP_ID), "actions": ["read", "write"]}
 
 
@@ -71,10 +71,10 @@ class Case(NamedTuple):
     call: Call
     method: str
     path: str
-    query: List[Tuple[str, str]]
+    query: list[tuple[str, str]]
     body: Any
-    response: Union[Dict[str, Any], List[Dict[str, Any]], None]
-    model: Optional[type]
+    response: dict[str, Any] | list[dict[str, Any]] | None
+    model: type | None
 
 
 ACTIONS = "permit.api.resource_actions"

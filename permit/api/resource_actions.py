@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -31,9 +31,8 @@ class ResourceActionsApi(BasePermitApi):
     @validate_arguments
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceActionRead]:
-        """
-        Retrieves a list of actions.
+    ) -> list[ResourceActionRead]:
+        """Retrieves a list of actions.
 
         Args:
             resource_key: The key of the resource to filter on.
@@ -51,7 +50,7 @@ class ResourceActionsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__actions.get(
             f"/{resource_key}/actions",
-            model=List[ResourceActionRead],
+            model=list[ResourceActionRead],
             params=pagination_params(page, per_page),
         )
 
@@ -62,8 +61,7 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        """
-        Retrieves a action by its key.
+        """Retrieves a action by its key.
 
         Args:
             resource_key: The key of the resource the action belongs to.
@@ -82,8 +80,7 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        """
-        Retrieves a action by its key.
+        """Retrieves a action by its key.
         Alias for the get method.
 
         Args:
@@ -103,8 +100,7 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
-        """
-        Retrieves a action by its ID.
+        """Retrieves a action by its ID.
         Alias for the get method.
 
         Args:
@@ -126,8 +122,7 @@ class ResourceActionsApi(BasePermitApi):
     async def create(
         self, resource_key: str, action_data: ModelInput[ResourceActionCreate]
     ) -> ResourceActionRead:
-        """
-        Creates a new action.
+        """Creates a new action.
 
         Args:
             resource_key: The key of the resource under which the action should be created.
@@ -152,8 +147,7 @@ class ResourceActionsApi(BasePermitApi):
     async def update(
         self, resource_key: str, action_key: str, action_data: ModelInput[ResourceActionUpdate]
     ) -> ResourceActionRead:
-        """
-        Updates a action.
+        """Updates a action.
 
         Args:
             resource_key: The key of the resource the action belongs to.
@@ -177,8 +171,7 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str, action_key: str) -> None:
-        """
-        Deletes a action.
+        """Deletes a action.
 
         Args:
             resource_key: The key of the resource the action belongs to.

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List  # noqa: UP035 - used where UP006 is suppressed
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -31,11 +31,13 @@ class UserInput(UserKey):
     class Config:
         allow_population_by_field_name = True
 
-    first_name: Optional[str] = Field(default=None, alias="firstName")
-    last_name: Optional[str] = Field(default=None, alias="lastName")
-    email: Optional[str] = None
-    roles: Optional[List[AssignedRole]] = None
-    attributes: Optional[Dict] = None
+    first_name: str | None = Field(default=None, alias="firstName")
+    last_name: str | None = Field(default=None, alias="lastName")
+    email: str | None = None
+    roles: list[AssignedRole] | None = None
+    # typing.Dict, not dict: pydantic v1 validates a typing.Dict value into a copy, and
+    # keeps the caller's object for a bare dict.
+    attributes: Dict | None = None  # noqa: UP006
 
     if TYPE_CHECKING:
         # Type checkers derive the constructor from the fields and know only the
@@ -44,23 +46,24 @@ class UserInput(UserKey):
             self,
             *,
             key: str,
-            first_name: Optional[str] = None,
-            firstName: Optional[str] = None,  # noqa: N803 - the field's wire alias
-            last_name: Optional[str] = None,
-            lastName: Optional[str] = None,  # noqa: N803 - the field's wire alias
-            email: Optional[str] = None,
-            roles: Optional[List[AssignedRole]] = None,
-            attributes: Optional[Dict] = None,
+            first_name: str | None = None,
+            firstName: str | None = None,  # noqa: N803 - the field's wire alias
+            last_name: str | None = None,
+            lastName: str | None = None,  # noqa: N803 - the field's wire alias
+            email: str | None = None,
+            roles: list[AssignedRole] | None = None,
+            attributes: dict | None = None,
         ) -> None: ...
 
 
 class ResourceInput(BaseModel):
     type: str  # namespace/type of resources/objects
-    id: Optional[str] = None  # id of individual object
-    key: Optional[str] = None  # key of individual object
-    tenant: Optional[str] = None  # tenant the resource belongs to
-    attributes: Optional[Dict] = None  # extra resources attributes
-    context: Optional[Dict] = None  # extra context
+    id: str | None = None  # id of individual object
+    key: str | None = None  # key of individual object
+    tenant: str | None = None  # tenant the resource belongs to
+    # typing.Dict, not dict: see UserInput.attributes.
+    attributes: Dict | None = None  # noqa: UP006 - extra resources attributes
+    context: Dict | None = None  # noqa: UP006 - extra context
 
 
 class AuthorizedUserAssignment(BaseModel):
@@ -70,7 +73,8 @@ class AuthorizedUserAssignment(BaseModel):
     role: str = Field(..., description="The role that the user is assigned to")
 
 
-AuthorizedUsersDict = Dict[str, List[AuthorizedUserAssignment]]
+# Public alias; runtime object kept identical (a `typing` generic, not a builtin one).
+AuthorizedUsersDict = Dict[str, List[AuthorizedUserAssignment]]  # noqa: UP006
 
 
 class AuthorizedUsersResult(BaseModel):

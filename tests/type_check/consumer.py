@@ -6,7 +6,8 @@ a type checker. The lines marked ``# type: ignore[...]`` are real mistakes that 
 errors: with warn_unused_ignores, the check fails if one of them stops being reported.
 """
 
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from collections.abc import Callable
+from typing import Any, Optional, TypeVar, Union
 
 from typing_extensions import assert_type
 
@@ -59,9 +60,9 @@ async def async_client() -> None:
     )
     assert_type(
         await permit.bulk_check([{"user": "u", "action": "read", "resource": "document"}]),
-        List[bool],
+        list[bool],
     )
-    assert_type(await permit.get_user_permissions("u"), Dict[str, Any])
+    assert_type(await permit.get_user_permissions("u"), dict[str, Any])
 
     # Optional model fields are optional to the type checker too.
     user = UserCreate(key="u")
@@ -102,7 +103,7 @@ async def async_client() -> None:
     # A list built before a bulk call is accepted too, whether of models or of dicts.
     users = [UserCreate(key=key) for key in ("u4", "u5")]
     await permit.api.users.bulk_create(users)
-    tenant_dicts: List[Dict[str, Any]] = [{"key": "t3", "name": "T3"}]
+    tenant_dicts: list[dict[str, Any]] = [{"key": "t3", "name": "T3"}]
     await permit.api.tenants.bulk_create(tenant_dicts)
     assignments = [
         RoleAssignmentCreate(user=key, role="admin", tenant="t1") for key in ("u4", "u5")
@@ -115,7 +116,7 @@ async def async_client() -> None:
 
     # Results are pydantic v1 models under either pydantic major.
     fetched = await permit.api.users.get("u")
-    assert_type(fetched.dict(), Dict[str, Any])
+    assert_type(fetched.dict(), dict[str, Any])
     assert_type(fetched.key, str)
     assert_type(fetched.email, Optional[str])
 
@@ -129,31 +130,31 @@ def dict_parameters(query: CheckQuery) -> None:
     permit = Permit(CONFIG)
     sync_permit = SyncPermit(CONFIG)
 
-    assert_type(query["user"], Union[Dict[str, Any], str])
-    assert_type(query["resource"], Union[Dict[str, Any], str])
-    assert_type(parameter_type(permit.api.users.sync), Union[UserCreate, Dict[str, Any]])
-    assert_type(parameter_type(sync_permit.api.users.sync), Union[UserCreate, Dict[str, Any]])
-    assert_type(parameter_type(sync_permit.api.create_tenant), Union[TenantCreate, Dict[str, Any]])
+    assert_type(query["user"], Union[dict[str, Any], str])
+    assert_type(query["resource"], Union[dict[str, Any], str])
+    assert_type(parameter_type(permit.api.users.sync), Union[UserCreate, dict[str, Any]])
+    assert_type(parameter_type(sync_permit.api.users.sync), Union[UserCreate, dict[str, Any]])
+    assert_type(parameter_type(sync_permit.api.create_tenant), Union[TenantCreate, dict[str, Any]])
 
 
 def sync_client() -> None:
     permit = SyncPermit(CONFIG)
 
     assert_type(permit.check("user", "read", "document"), bool)
-    assert_type(permit.get_user_permissions("u"), Dict[str, Any])
+    assert_type(permit.get_user_permissions("u"), dict[str, Any])
     assert_type(permit.api.users.get("u"), UserRead)
     assert_type(permit.api.users.list(), PaginatedResultUserRead)
     assert_type(permit.api.tenants.create(TenantCreate(key="t1", name="T1")), TenantRead)
-    assert_type(permit.api.tenants.list(), List[TenantRead])
+    assert_type(permit.api.tenants.list(), list[TenantRead])
     assert_type(permit.api.users.create({"key": "u2"}), UserRead)
     permit.api.users.assign_role({"user": "u", "role": "admin", "tenant": "t1"})
     permit.api.users.bulk_create([UserCreate(key="u3"), {"key": "u4"}])
-    users: List[UserCreate] = [UserCreate(key="u5")]
+    users: list[UserCreate] = [UserCreate(key="u5")]
     permit.api.users.bulk_replace(users)
     assert_type(permit.api.get_user("u"), UserRead)
     assert_type(permit.elements.login_as("u", "t1"), UserLoginAsResponse)
     pdp_role_assignments: SyncRoleAssignmentsApi = permit.pdp_api.role_assignments
-    assert_type(pdp_role_assignments.list(), List[RoleAssignment])
+    assert_type(pdp_role_assignments.list(), list[RoleAssignment])
     for listed in permit.api.users.list().data:
         assert_type(listed.key, str)
 

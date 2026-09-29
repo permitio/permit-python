@@ -12,7 +12,7 @@ import sys
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Union, get_type_hints
+from typing import Union, get_type_hints
 from uuid import UUID, uuid4
 
 import aiohttp
@@ -235,7 +235,7 @@ def test_model_input_parameters_are_the_bare_model_at_runtime():
     # ModelInput and ModelListInput widen these annotations for type checkers only.
     # validate_arguments reads the runtime annotation and must still see the model.
     assert get_type_hints(UsersApi.create.raw_function)["user_data"] is UserCreate
-    assert get_type_hints(UsersApi.bulk_create.raw_function)["users"] == List[UserCreate]
+    assert get_type_hints(UsersApi.bulk_create.raw_function)["users"] == list[UserCreate]
     # sync() passes an invalid dict through as it is, which a bare dict keeps doing.
     assert get_type_hints(UsersApi.sync.raw_function)["user"] == Union[UserCreate, dict]
 
@@ -492,7 +492,7 @@ def test_context_store_derives_context_by_deep_merging_the_base_context():
 
 
 async def _response_for(
-    httpserver: HTTPServer, status: int, body: str, content_type: Optional[str] = None
+    httpserver: HTTPServer, status: int, body: str, content_type: str | None = None
 ):
     """Perform one real (localhost) request and hand the live aiohttp response to the caller."""
     httpserver.expect_request("/probe", method="GET").respond_with_data(
@@ -728,7 +728,7 @@ PYDANTIC_VERSION_PROBE = PERMIT_PACKAGE / "utils" / "pydantic_version.py"
 PYDANTIC_1_BRANCH_TESTS = {"PYDANTIC_VERSION < (2, 0)", "_PYDANTIC_VERSION < (2, 0)"}
 
 
-def unguarded_pydantic_imports(node: ast.AST, *, in_pydantic_1_branch: bool = False) -> List[int]:
+def unguarded_pydantic_imports(node: ast.AST, *, in_pydantic_1_branch: bool = False) -> list[int]:
     """Return the lines that import the top-level ``pydantic`` namespace outside a pydantic 1 branch."""
     if isinstance(node, (ast.Import, ast.ImportFrom)):
         modules = (
@@ -753,7 +753,8 @@ def unguarded_pydantic_imports(node: ast.AST, *, in_pydantic_1_branch: bool = Fa
 def test_sdk_imports_the_pydantic_namespace_only_in_its_pydantic_1_branches():
     """Under pydantic 2 the SDK's models are pydantic.v1 models. A top-level ``pydantic`` import
     beside them mixes the two APIs and fails under pydantic 2 alone: parse_obj_as on a v1 model
-    raises TypeError."""
+    raises TypeError.
+    """
     offenders = {}
     for path in sorted(PERMIT_PACKAGE.rglob("*.py")):
         lines = unguarded_pydantic_imports(ast.parse(path.read_text(encoding="utf-8")))

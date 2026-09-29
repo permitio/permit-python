@@ -3,25 +3,20 @@ import functools
 import inspect
 import sys
 import warnings
+from collections.abc import Awaitable, Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from functools import wraps
 from types import FrameType
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Dict,
     NamedTuple,
-    Optional,
-    Set,
-    Type,
+    TypeGuard,
     TypeVar,
     cast,
 )
 
-from typing_extensions import ParamSpec, TypeGuard
+from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -40,10 +35,10 @@ class _CallSite(NamedTuple):
 
     filename: str
     lineno: int
-    module_globals: Dict[str, Any]
+    module_globals: dict[str, Any]
 
     @classmethod
-    def from_frame(cls, frame: Optional[FrameType]) -> "_CallSite":
+    def from_frame(cls, frame: FrameType | None) -> "_CallSite":
         """The line `frame` is running, or, with no frame, the place `warnings.warn` blames then.
 
         There is no frame when C code calls the blocking method directly, as it does an
@@ -53,7 +48,7 @@ class _CallSite(NamedTuple):
             return cls("<sys>", 0, sys.__dict__)
         return cls(frame.f_code.co_filename, frame.f_lineno, frame.f_globals)
 
-    def warn(self, message: str, category: Type[Warning]) -> None:
+    def warn(self, message: str, category: type[Warning]) -> None:
         """Issue a warning attributed to this line, exactly as `warnings.warn` would from its frame.
 
         The module name and the once-per-line registry come from the calling module, as
@@ -77,7 +72,7 @@ class _CallSite(NamedTuple):
         )
 
 
-_blocking_call_site: ContextVar[Optional[_CallSite]] = ContextVar(
+_blocking_call_site: ContextVar[_CallSite | None] = ContextVar(
     "permit_blocking_call_site", default=None
 )
 """The line that made the blocking call whose coroutine runs in this context, otherwise None.
@@ -167,8 +162,8 @@ def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
     Returns:
         True if calling it returns an awaitable.
     """
-    candidate: Optional[Any] = callable
-    seen: Set[int] = set()
+    candidate: Any | None = callable
+    seen: set[int] = set()
     while candidate is not None and id(candidate) not in seen:
         seen.add(id(candidate))
         if getattr(candidate, SYNC_WRAPPER_MARKER, False):
@@ -205,7 +200,7 @@ class SyncClass(type):
                 continue
 
             # monkey-patch public async method using the async_to_sync decorator
-            coroutine_function = cast(Callable[..., Coroutine[Any, Any, Any]], attr)
+            coroutine_function = cast("Callable[..., Coroutine[Any, Any, Any]]", attr)
             setattr(class_obj, attr_name, async_to_sync(coroutine_function))
 
         return class_obj

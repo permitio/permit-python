@@ -1,6 +1,6 @@
 import json
 import uuid
-from typing import Any, Dict, NamedTuple, Tuple
+from typing import Any, NamedTuple
 
 import pytest
 from loguru import logger
@@ -39,15 +39,15 @@ class Call(NamedTuple):
     """A method, by the dotted path a user writes, and the arguments to call it with."""
 
     path: str
-    args: Tuple[Any, ...]
-    kwargs: Dict[str, Any]
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
 
 
 def call(path: str, *args: Any, **kwargs: Any) -> Call:
     return Call(path, args, kwargs)
 
 
-def sent(request: Request) -> Dict[str, Any]:
+def sent(request: Request) -> dict[str, Any]:
     """What a request put on the wire, in a form two requests can be compared by."""
     body = request.get_data()
     return {

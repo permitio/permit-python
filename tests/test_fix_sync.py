@@ -13,10 +13,10 @@ import subprocess
 import sys
 import threading
 import warnings
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, List, Tuple
 from uuid import uuid4
 
 import pytest
@@ -101,7 +101,8 @@ def test_genuinely_sync_method_is_left_untouched():
 
 def test_method_wrapped_by_a_plain_decorator_is_still_converted():
     """A sync decorator that returns the inner coroutine (e.g. pydantic's
-    ``validate_arguments``) must not hide the fact that the method is async."""
+    ``validate_arguments``) must not hide the fact that the method is async.
+    """
 
     def passthrough(func: Callable) -> Callable:
         def wrapper(*args, **kwargs):
@@ -170,11 +171,11 @@ def test_deprecated_facade_list_roles_issues_a_request(
 # --- warnings from a blocking call's coroutine ------------------------------
 
 
-def deprecation_sites(caught: List[warnings.WarningMessage]) -> List[Tuple[str, int]]:
+def deprecation_sites(caught: list[warnings.WarningMessage]) -> list[tuple[str, int]]:
     return [(w.filename, w.lineno) for w in caught if issubclass(w.category, DeprecationWarning)]
 
 
-def first_line_of(func: Callable) -> Tuple[str, int]:
+def first_line_of(func: Callable) -> tuple[str, int]:
     """The file and first body line of ``func``, where each helper below makes its call."""
     return func.__code__.co_filename, func.__code__.co_firstlineno + 1
 
@@ -282,7 +283,8 @@ def test_a_blocking_call_with_no_python_caller_warns_where_warnings_warn_would(t
 
 def test_run_coroutine_sync_takes_just_the_coroutine():
     """A public name since 2.x: called directly, it still drives re-entrant awaits of converted
-    methods, and a deprecated one warns at the line that called it."""
+    methods, and a deprecated one warns at the line that called it.
+    """
 
     class Api(metaclass=SyncClass):
         @deprecated("old_fetch() is deprecated")
@@ -383,7 +385,8 @@ def test_sync_permit_get_user_permissions(httpserver: HTTPServer, config: Permit
 
 def test_sync_permit_filter_objects(httpserver: HTTPServer, config: PermitConfig):
     """``Enforcer.filter_objects`` awaits ``self.bulk_check``, which the sync
-    client has already converted - the re-entrant call has to keep working."""
+    client has already converted - the re-entrant call has to keep working.
+    """
     httpserver.expect_oneshot_request("/allowed/bulk", method="POST").respond_with_json(
         {"allow": [{"allow": True}, {"allow": False}, {"allow": True}]}
     )
@@ -434,7 +437,8 @@ def test_sync_permit_check_from_inside_a_running_event_loop(
     httpserver: HTTPServer, config: PermitConfig
 ):
     """Calling the sync client from async code used to raise
-    ``RuntimeError: This event loop is already running``."""
+    ``RuntimeError: This event loop is already running``.
+    """
     httpserver.expect_oneshot_request("/allowed", method="POST").respond_with_json({"allow": True})
 
     permit = SyncPermit(config)
@@ -448,7 +452,8 @@ def test_sync_permit_check_from_inside_a_running_event_loop(
 
 def test_sync_pdp_api_role_assignments_list(httpserver: HTTPServer, config: PermitConfig):
     """``RoleAssignmentsApi.list`` is decorated with pydantic's ``validate_arguments``,
-    which hides the ``async def`` behind a plain function."""
+    which hides the ``async def`` behind a plain function.
+    """
     httpserver.expect_oneshot_request(
         "/local/role_assignments",
         method="GET",

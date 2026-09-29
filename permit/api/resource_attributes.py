@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -35,9 +35,8 @@ class ResourceAttributesApi(BasePermitApi):
     @validate_arguments
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceAttributeRead]:
-        """
-        Retrieves a list of attributes.
+    ) -> list[ResourceAttributeRead]:
+        """Retrieves a list of attributes.
 
         Args:
             resource_key: The key of the resource to filter on.
@@ -55,7 +54,7 @@ class ResourceAttributesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__attributes.get(
             f"/{resource_key}/attributes",
-            model=List[ResourceAttributeRead],
+            model=list[ResourceAttributeRead],
             params=pagination_params(page, per_page),
         )
 
@@ -66,8 +65,7 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
-        """
-        Retrieves a attribute by its key.
+        """Retrieves a attribute by its key.
 
         Args:
             resource_key: The key of the resource the attribute belongs to.
@@ -86,8 +84,7 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
-        """
-        Retrieves a attribute by its key.
+        """Retrieves a attribute by its key.
         Alias for the get method.
 
         Args:
@@ -107,8 +104,7 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str, attribute_id: str) -> ResourceAttributeRead:
-        """
-        Retrieves a attribute by its ID.
+        """Retrieves a attribute by its ID.
         Alias for the get method.
 
         Args:
@@ -130,8 +126,7 @@ class ResourceAttributesApi(BasePermitApi):
     async def create(
         self, resource_key: str, attribute_data: ModelInput[ResourceAttributeCreate]
     ) -> ResourceAttributeRead:
-        """
-        Creates a new attribute.
+        """Creates a new attribute.
 
         Args:
             resource_key: The key of the resource under which the attribute should be created.
@@ -159,8 +154,7 @@ class ResourceAttributesApi(BasePermitApi):
         attribute_key: str,
         attribute_data: ModelInput[ResourceAttributeUpdate],
     ) -> ResourceAttributeRead:
-        """
-        Updates a attribute.
+        """Updates a attribute.
 
         Args:
             resource_key: The key of the resource the attribute belongs to.
@@ -184,8 +178,7 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str, attribute_key: str) -> None:
-        """
-        Deletes a attribute.
+        """Deletes a attribute.
 
         Args:
             resource_key: The key of the resource the attribute belongs to.

@@ -1,8 +1,9 @@
-from typing import Any, Dict
+from typing import Any, Dict  # noqa: UP035 - public alias below
 
 from .dicts import deep_merge
 
-Context = Dict[str, Any]
+# Public alias; runtime object kept identical (a `typing` generic, not a builtin one).
+Context = Dict[str, Any]  # noqa: UP006
 
 
 class ContextStore:

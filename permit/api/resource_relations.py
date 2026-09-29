@@ -32,8 +32,7 @@ class ResourceRelationsApi(BasePermitApi):
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> PaginatedResultRelationRead:
-        """
-        Retrieves a list of outgoing relations originating in a specific (object) resource.
+        """Retrieves a list of outgoing relations originating in a specific (object) resource.
 
         Args:
             resource_key: The key of the resource to filter on.
@@ -63,8 +62,7 @@ class ResourceRelationsApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, resource_key: str, relation_key: str) -> RelationRead:
-        """
-        Retrieves a relation by its key.
+        """Retrieves a relation by its key.
 
         Args:
             resource_key: The key of the resource the relation belongs to.
@@ -77,15 +75,13 @@ class ResourceRelationsApi(BasePermitApi):
             PermitApiError: If the API returns an error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
-
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_key, relation_key)
 
     @validate_arguments
     async def get_by_key(self, resource_key: str, relation_key: str) -> RelationRead:
-        """
-        Retrieves a relation by its key.
+        """Retrieves a relation by its key.
         Alias for the get method.
 
         Args:
@@ -105,8 +101,7 @@ class ResourceRelationsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str, relation_id: str) -> RelationRead:
-        """
-        Retrieves a relation by its ID.
+        """Retrieves a relation by its ID.
         Alias for the get method.
 
         Args:
@@ -128,8 +123,7 @@ class ResourceRelationsApi(BasePermitApi):
     async def create(
         self, resource_key: str, relation_data: ModelInput[RelationCreate]
     ) -> RelationRead:
-        """
-        Creates a new relation.
+        """Creates a new relation.
 
         Args:
             resource_key: The key of the resource under which the relation should be created.
@@ -152,8 +146,7 @@ class ResourceRelationsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str, relation_key: str) -> None:
-        """
-        Deletes a relation.
+        """Deletes a relation.
 
         Args:
             resource_key: The key of the resource the relation belongs to.

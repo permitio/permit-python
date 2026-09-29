@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from permit.api.base import SimpleHttpClient
 from permit.pdp_api.base import BasePdpPermitApi, pagination_params
@@ -22,16 +22,15 @@ class RoleAssignmentsApi(BasePdpPermitApi):
     @validate_arguments
     async def list(
         self,
-        user_key: Optional[str] = None,
-        role_key: Optional[str] = None,
-        tenant_key: Optional[str] = None,
-        resource_key: Optional[str] = None,
-        resource_instance_key: Optional[str] = None,
+        user_key: str | None = None,
+        role_key: str | None = None,
+        tenant_key: str | None = None,
+        resource_key: str | None = None,
+        resource_instance_key: str | None = None,
         page: int = 1,
         per_page: int = 100,
-    ) -> List[RoleAssignment]:
-        """
-        Retrieves a list of role assignments based on the specified filters.
+    ) -> list[RoleAssignment]:
+        """Retrieves a list of role assignments based on the specified filters.
 
         Args:
             user_key: optional user filter, will only return role assignments granted to this user.
@@ -62,6 +61,6 @@ class RoleAssignmentsApi(BasePdpPermitApi):
             params.update(resource_instance=resource_instance_key)
         return await self.__role_assignments.get(
             "",
-            model=List[RoleAssignment],
+            model=list[RoleAssignment],
             params=params,
         )

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -27,9 +27,8 @@ class ProjectsApi(BasePermitApi):
         self.__projects = self._build_http_client("/v2/projects")
 
     @validate_arguments
-    async def list(self, page: int = 1, per_page: int = 100) -> List[ProjectRead]:
-        """
-        Retrieves a list of projects.
+    async def list(self, page: int = 1, per_page: int = 100) -> list[ProjectRead]:
+        """Retrieves a list of projects.
 
         Args:
             page: The page number to fetch (default: 1).
@@ -45,7 +44,7 @@ class ProjectsApi(BasePermitApi):
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__projects.get(
-            "", model=List[ProjectRead], params=pagination_params(page, per_page)
+            "", model=list[ProjectRead], params=pagination_params(page, per_page)
         )
 
     async def _get(self, project_key: str) -> ProjectRead:
@@ -53,8 +52,7 @@ class ProjectsApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, project_key: str) -> ProjectRead:
-        """
-        Retrieves a project by its key.
+        """Retrieves a project by its key.
 
         Args:
             project_key: The key of the project.
@@ -72,8 +70,7 @@ class ProjectsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, project_key: str) -> ProjectRead:
-        """
-        Retrieves a project by its key.
+        """Retrieves a project by its key.
         Alias for the get method.
 
         Args:
@@ -92,8 +89,7 @@ class ProjectsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, project_id: str) -> ProjectRead:
-        """
-        Retrieves a project by its ID.
+        """Retrieves a project by its ID.
         Alias for the get method.
 
         Args:
@@ -112,8 +108,7 @@ class ProjectsApi(BasePermitApi):
 
     @validate_arguments
     async def create(self, project_data: ModelInput[ProjectCreate]) -> ProjectRead:
-        """
-        Creates a new project.
+        """Creates a new project.
 
         Args:
             project_data: The data for the new project.
@@ -133,8 +128,7 @@ class ProjectsApi(BasePermitApi):
     async def update(
         self, project_key: str, project_data: ModelInput[ProjectUpdate]
     ) -> ProjectRead:
-        """
-        Updates a project.
+        """Updates a project.
 
         Args:
             project_key: The key of the project.
@@ -153,8 +147,7 @@ class ProjectsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, project_key: str) -> None:
-        """
-        Deletes a project.
+        """Deletes a project.
 
         Args:
             project_key: The key of the project to delete.

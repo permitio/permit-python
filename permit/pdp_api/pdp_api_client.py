@@ -21,8 +21,7 @@ else:
 
 class PermitPdpApiClient:
     def __init__(self, config: PermitConfig):
-        """
-        Constructs a new instance of the PdpApiClient class with the specified SDK configuration.
+        """Constructs a new instance of the PdpApiClient class with the specified SDK configuration.
 
         Args:
             config: The configuration for the Permit SDK.

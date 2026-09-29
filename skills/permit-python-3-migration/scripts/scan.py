@@ -500,7 +500,7 @@ _QUOTED_RE = re.compile(r"\"([^\"]*)\"|'([^']*)'")
 
 
 def _quoted(text: str) -> List[str]:
-    return [double if double else single for double, single in _QUOTED_RE.findall(text)]
+    return [double or single for double, single in _QUOTED_RE.findall(text)]
 
 
 def _unquoted(text: str) -> str:
@@ -963,7 +963,8 @@ def optional_annotation(node: Optional[ast.AST]) -> bool:
 
 def guards(test: ast.AST, key: str, *, none_check: bool = True) -> bool:
     """Whether `test` being true means the value at `key` is usable: truthy, an isinstance()
-    match, or (when `none_check`) `is not None`."""
+    match, or (when `none_check`) `is not None`.
+    """
     if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And):
         return any(guards(value, key, none_check=none_check) for value in test.values)
     if (

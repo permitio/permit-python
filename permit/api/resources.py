@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -29,9 +29,8 @@ class ResourcesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, page: int = 1, per_page: int = 100) -> List[ResourceRead]:
-        """
-        Retrieves a list of resources.
+    async def list(self, page: int = 1, per_page: int = 100) -> list[ResourceRead]:
+        """Retrieves a list of resources.
 
         Args:
             page: The page number to fetch (default: 1).
@@ -48,7 +47,7 @@ class ResourcesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resources.get(
             "",
-            model=List[ResourceRead],
+            model=list[ResourceRead],
             params=pagination_params(page, per_page),
         )
 
@@ -57,8 +56,7 @@ class ResourcesApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, resource_key: str) -> ResourceRead:
-        """
-        Retrieves a resource by its key.
+        """Retrieves a resource by its key.
 
         Args:
             resource_key: The key of the resource.
@@ -76,8 +74,7 @@ class ResourcesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, resource_key: str) -> ResourceRead:
-        """
-        Retrieves a resource by its key.
+        """Retrieves a resource by its key.
         Alias for the get method.
 
         Args:
@@ -96,8 +93,7 @@ class ResourcesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str) -> ResourceRead:
-        """
-        Retrieves a resource by its ID.
+        """Retrieves a resource by its ID.
         Alias for the get method.
 
         Args:
@@ -116,8 +112,7 @@ class ResourcesApi(BasePermitApi):
 
     @validate_arguments
     async def create(self, resource_data: ModelInput[ResourceCreate]) -> ResourceRead:
-        """
-        Creates a new resource.
+        """Creates a new resource.
 
         Args:
             resource_data: The data for the new resource.
@@ -137,8 +132,7 @@ class ResourcesApi(BasePermitApi):
     async def update(
         self, resource_key: str, resource_data: ModelInput[ResourceUpdate]
     ) -> ResourceRead:
-        """
-        Updates a resource.
+        """Updates a resource.
 
         Args:
             resource_key: The key of the resource.
@@ -163,8 +157,7 @@ class ResourcesApi(BasePermitApi):
     async def replace(
         self, resource_key: str, resource_data: ModelInput[ResourceReplace]
     ) -> ResourceRead:
-        """
-        Creates a resource if no such resource exists, otherwise completely replaces the resource in place.
+        """Creates a resource if no such resource exists, otherwise completely replaces the resource in place.
 
         Args:
             resource_key: The key of the resource.
@@ -187,8 +180,7 @@ class ResourcesApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str) -> None:
-        """
-        Deletes a resource.
+        """Deletes a resource.
 
         Args:
             resource_key: The key of the resource to delete.

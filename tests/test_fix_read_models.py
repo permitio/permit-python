@@ -13,7 +13,7 @@ PDP or network is involved.
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -29,11 +29,11 @@ from tests.utils import FACTS
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc).isoformat()
 
 
-def ids(*names: str) -> Dict[str, str]:
+def ids(*names: str) -> dict[str, str]:
     return {name: str(uuid4()) for name in names}
 
 
-def tuple_payload(**fields: Any) -> Dict[str, Any]:
+def tuple_payload(**fields: Any) -> dict[str, Any]:
     """A relationship tuple read with every field the schema requires, plus ``fields``."""
     return {
         "subject": "folder:f-1",
@@ -64,7 +64,7 @@ WILDCARD_OBJECT_ID = [
 
 @pytest.mark.parametrize("object_id", WILDCARD_OBJECT_ID)
 async def test_relationship_tuples_list_parses_a_tuple_without_an_object_id(
-    httpserver: HTTPServer, config: PermitConfig, object_id: Dict[str, Any]
+    httpserver: HTTPServer, config: PermitConfig, object_id: dict[str, Any]
 ):
     concrete = tuple_payload(object="document:doc-1", object_id=str(uuid4()))
     httpserver.expect_request(f"{FACTS}/relationship_tuples", method="GET").respond_with_json(
@@ -80,7 +80,7 @@ async def test_relationship_tuples_list_parses_a_tuple_without_an_object_id(
 
 @pytest.mark.parametrize("object_id", WILDCARD_OBJECT_ID)
 async def test_relationship_tuples_create_parses_a_tuple_without_an_object_id(
-    httpserver: HTTPServer, config: PermitConfig, object_id: Dict[str, Any]
+    httpserver: HTTPServer, config: PermitConfig, object_id: dict[str, Any]
 ):
     httpserver.expect_request(f"{FACTS}/relationship_tuples", method="POST").respond_with_json(
         tuple_payload(**object_id)
@@ -95,7 +95,7 @@ async def test_relationship_tuples_create_parses_a_tuple_without_an_object_id(
 
 @pytest.mark.parametrize("object_id", WILDCARD_OBJECT_ID)
 def test_detailed_relationship_tuple_parses_without_an_object_id_or_details(
-    object_id: Dict[str, Any],
+    object_id: dict[str, Any],
 ):
     # No SDK method returns this model, so it is parsed directly.
     detailed = RelationshipTupleDetailedRead.parse_obj(tuple_payload(**object_id))

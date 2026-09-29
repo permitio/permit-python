@@ -12,7 +12,7 @@ parses it, keeps the pagination query string, and preserves every relation field
 
 import re
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -29,7 +29,7 @@ RESOURCE_KEY = "document"
 RELATIONS_PATH = f"/v2/schema/{PROJECT_ID}/{ENV_ID}/resources/{RESOURCE_KEY}/relations"
 
 
-def _relation(key: str) -> Dict[str, Any]:
+def _relation(key: str) -> dict[str, Any]:
     """One ``RelationRead`` exactly as the backend serializes it."""
     return {
         "id": str(uuid.uuid4()),

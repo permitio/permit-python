@@ -1,11 +1,9 @@
-from typing import List
-
 import pytest
 from loguru import logger
-from tests.utils import handle_cleanup_error, unique_key
 
 from permit import ActionBlockEditable, Permit, ResourceCreate
 from permit.exceptions import PermitApiError
+from tests.utils import handle_cleanup_error, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -22,7 +20,7 @@ TEST_RESOURCE_FOLDER_KEY = f"{TEST_PREFIX}-folder"
 TEST_RESOURCE_DOC_URN = f"prn:gdrive:{TEST_PREFIX}"
 
 
-async def list_own_resource_keys(permit: Permit) -> List[str]:
+async def list_own_resource_keys(permit: Permit) -> list[str]:
     """The keys of resources created by this test, sorted, across all pages.
 
     The shared environment can easily hold more resources than fit on a single
@@ -31,7 +29,7 @@ async def list_own_resource_keys(permit: Permit) -> List[str]:
     """
     per_page = 100
     page = 1
-    keys: List[str] = []
+    keys: list[str] = []
     while True:
         resources = await permit.api.resources.list(page=page, per_page=per_page)
         keys.extend(resource.key for resource in resources if resource.key.startswith(TEST_PREFIX))

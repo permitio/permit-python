@@ -23,7 +23,7 @@ helpful strip can be added without CI noticing. The same applies to the
 
 import json
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 from pytest_httpserver import HTTPServer
 
@@ -63,7 +63,7 @@ def _make_permit(httpserver: HTTPServer) -> Permit:
     )
 
 
-def _resource_role_response(permissions: List[str]) -> Dict[str, Any]:
+def _resource_role_response(permissions: list[str]) -> dict[str, Any]:
     """One ``ResourceRoleRead`` as the backend serializes it (bare action keys)."""
     return {
         "id": str(uuid.uuid4()),
@@ -83,7 +83,7 @@ def _resource_role_response(permissions: List[str]) -> Dict[str, Any]:
     }
 
 
-def _role_response(permissions: List[str]) -> Dict[str, Any]:
+def _role_response(permissions: list[str]) -> dict[str, Any]:
     """One ``RoleRead`` as the backend serializes it (``resource:action`` strings)."""
     return {
         "id": str(uuid.uuid4()),
@@ -101,7 +101,7 @@ def _role_response(permissions: List[str]) -> Dict[str, Any]:
     }
 
 
-def _sent_body(httpserver: HTTPServer, path: str, method: str) -> Dict[str, Any]:
+def _sent_body(httpserver: HTTPServer, path: str, method: str) -> dict[str, Any]:
     """The JSON body of the single request the SDK made to ``path``."""
     requests = [
         request

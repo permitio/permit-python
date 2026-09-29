@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -21,7 +21,7 @@ class RoleAssignment(BaseModel):
     user: str = Field(..., description="the user the role is assigned to", title="User")
     role: str = Field(..., description="the role that is assigned", title="Role")
     tenant: str = Field(..., description="the tenant the role is associated with", title="Tenant")
-    resource_instance: Optional[str] = Field(
+    resource_instance: str | None = Field(
         default=None,
         description="the resource instance the role is associated with",
         title="Resource Instance",

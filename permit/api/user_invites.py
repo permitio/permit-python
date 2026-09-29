@@ -38,8 +38,7 @@ class UserInvitesApi(BasePermitApi):
     async def list(
         self, page: int = 1, per_page: int = 100
     ) -> PaginatedResultElementsUserInviteRead:
-        """
-        Retrieves a list of user invites.
+        """Retrieves a list of user invites.
 
         Args:
             page: The page number to retrieve (default: 1).
@@ -62,8 +61,7 @@ class UserInvitesApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, user_invite_id: str) -> ElementsUserInviteRead:
-        """
-        Retrieves a single user invite by ID.
+        """Retrieves a single user invite by ID.
 
         Args:
             user_invite_id: The ID of the user invite to retrieve.
@@ -83,8 +81,7 @@ class UserInvitesApi(BasePermitApi):
     async def create(
         self, user_invite_data: ModelInput[ElementsUserInviteCreate]
     ) -> ElementsUserInviteRead:
-        """
-        Creates a new user invite.
+        """Creates a new user invite.
 
         Args:
             user_invite_data: The user invite data to create.
@@ -104,8 +101,7 @@ class UserInvitesApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, user_invite_id: str) -> None:
-        """
-        Deletes a user invite.
+        """Deletes a user invite.
 
         Args:
             user_invite_id: The ID of the user invite to delete.
@@ -125,8 +121,7 @@ class UserInvitesApi(BasePermitApi):
     async def approve(
         self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]
     ) -> UserRead:
-        """
-        Approves a user invite.
+        """Approves a user invite.
 
         Args:
             user_invite_id: The ID of the user invite to approve.

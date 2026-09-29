@@ -1,9 +1,10 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence, TypeVar, Union
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 if TYPE_CHECKING:
     _Model = TypeVar("_Model")
 
-    ModelInput = Union[_Model, Dict[str, Any]]
+    ModelInput = Union[_Model, dict[str, Any]]
     """Annotation for an SDK method parameter that takes a model or an equivalent dict.
 
     Methods decorated with ``validate_arguments`` validate a dict argument into the
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
     that call if the annotation also allows a dict.
     """
 
-    ModelListInput = Sequence[Union[_Model, Dict[str, Any]]]
+    ModelListInput = Sequence[_Model | dict[str, Any]]
     """Annotation for a bulk parameter that takes a list of models or equivalent dicts.
 
     A ``Sequence``, not a ``List``: ``List`` is invariant, so a type checker would
@@ -41,4 +42,4 @@ else:
         """
 
         def __class_getitem__(cls, model: type) -> Any:
-            return List[model]
+            return list[model]

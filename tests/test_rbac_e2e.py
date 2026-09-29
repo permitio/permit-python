@@ -2,7 +2,8 @@ import asyncio
 import http.client
 import threading
 import time
-from typing import Any, AsyncIterable, Awaitable, Callable, Final, Iterator, List, Optional
+from collections.abc import AsyncIterable, Awaitable, Callable, Iterator
+from typing import Any, Final
 
 import pytest
 from loguru import logger
@@ -17,7 +18,7 @@ from .utils import handle_api_error, handle_cleanup_error, unique_key
 
 
 def print_break():
-    print("\n\n ----------- \n\n")  # noqa: T201
+    print("\n\n ----------- \n\n")
 
 
 TEST_TIMEOUT = 1
@@ -28,7 +29,7 @@ RESOURCE_CREATE_ACTION: Final[str] = "create"
 RESOURCE_READ_ACTION: Final[str] = "read"
 RESOURCE_UPDATE_ACTION: Final[str] = "update"
 RESOURCE_DELETE_ACTION: Final[str] = "delete"
-RESOURCE_ACTIONS: Final[List[str]] = [
+RESOURCE_ACTIONS: Final[list[str]] = [
     RESOURCE_CREATE_ACTION,
     RESOURCE_READ_ACTION,
     RESOURCE_UPDATE_ACTION,
@@ -64,7 +65,7 @@ async def wait_until(
         await asyncio.sleep(interval)
 
 
-async def find_by_key(list_page: Callable[[int], Awaitable[List[Any]]], key: str) -> Optional[Any]:
+async def find_by_key(list_page: Callable[[int], Awaitable[list[Any]]], key: str) -> Any | None:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -91,7 +92,7 @@ async def delete_quietly(
         handle_cleanup_error(error, f"Got API Error during cleanup of {description} '{key}'")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error during cleanup of {description} '{key}': {error}")
         pytest.fail(f"Got error during cleanup of {description} '{key}': {error}")
 
@@ -423,7 +424,7 @@ async def test_permission_check_e2e(
         logger.info("testing list role assignments")
         # scoped to this test's user and tenant: the environment is shared, so
         # the unfiltered list contains every other test's assignments too.
-        assignments_returned: List[RoleAssignment] = await permit.pdp_api.role_assignments.list(
+        assignments_returned: list[RoleAssignment] = await permit.pdp_api.role_assignments.list(
             user_key=user.key, tenant_key=tenant.key
         )
         assert len(assignments_returned) == 1
@@ -452,7 +453,7 @@ async def test_permission_check_e2e(
         )
 
         # list user roles in all tenants
-        assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
+        assigned_roles: list[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
             user=user.key
         )
 
@@ -494,7 +495,7 @@ async def test_permission_check_e2e(
         handle_api_error(error, "Got API Error")
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -658,7 +659,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             )
 
             # list user roles in all tenants
-            assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
+            assigned_roles: list[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
                 user=user.key
             )
 

@@ -9,7 +9,7 @@ from permit.sync import Permit
 pytestmark = pytest.mark.e2e
 
 
-@pytest.fixture()
+@pytest.fixture
 def permit(permit_config: PermitConfig) -> Permit:
     return Permit(permit_config)
 

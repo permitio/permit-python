@@ -130,7 +130,7 @@ def _retry_after_seconds(err: PermitApiError) -> float | None:
     """The server's own Retry-After, when it sends one."""
     try:
         raw = err.response.headers.get("Retry-After")
-    except Exception:  # noqa: BLE001 - a missing/odd header must never mask the 429
+    except Exception:
         return None
     if not raw:
         return None

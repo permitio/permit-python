@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -36,9 +36,8 @@ class EnvironmentsApi(BasePermitApi):
     @validate_arguments
     async def list(
         self, project_key: str, page: int = 1, per_page: int = 100
-    ) -> List[EnvironmentRead]:
-        """
-        Retrieves a list of environments.
+    ) -> list[EnvironmentRead]:
+        """Retrieves a list of environments.
 
         Args:
             params: The filters and pagination options.
@@ -54,7 +53,7 @@ class EnvironmentsApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
         return await self.__environments.get(
             f"/v2/projects/{project_key}/envs",
-            model=List[EnvironmentRead],
+            model=list[EnvironmentRead],
             params=pagination_params(page, per_page),
         )
 
@@ -65,8 +64,7 @@ class EnvironmentsApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
-        """
-        Gets an environment by project key and environment key.
+        """Gets an environment by project key and environment key.
 
         Args:
             project_key: The project key.
@@ -85,8 +83,7 @@ class EnvironmentsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, project_key: str, environment_key: str) -> EnvironmentRead:
-        """
-        Gets an environment by project key and environment key.
+        """Gets an environment by project key and environment key.
         Alias for the get method.
 
         Args:
@@ -106,8 +103,7 @@ class EnvironmentsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, project_id: str, environment_id: str) -> EnvironmentRead:
-        """
-        Gets an environment by project ID and environment ID.
+        """Gets an environment by project ID and environment ID.
         Alias for the get method.
 
         Args:
@@ -127,8 +123,7 @@ class EnvironmentsApi(BasePermitApi):
 
     @validate_arguments
     async def get_stats(self, project_key: str, environment_key: str) -> EnvironmentStats:
-        """
-        Retrieves statistics and metadata for an environment.
+        """Retrieves statistics and metadata for an environment.
 
         Args:
             project_key: The project key.
@@ -150,8 +145,7 @@ class EnvironmentsApi(BasePermitApi):
 
     @validate_arguments
     async def get_api_key(self, project_key: str, environment_key: str) -> APIKeyRead:
-        """
-        Retrieves the API key that grants access for an environment.
+        """Retrieves the API key that grants access for an environment.
 
         Args:
             project_key: The project key.
@@ -175,8 +169,7 @@ class EnvironmentsApi(BasePermitApi):
     async def create(
         self, project_key: str, environment_data: ModelInput[EnvironmentCreate]
     ) -> EnvironmentRead:
-        """
-        Creates a new environment.
+        """Creates a new environment.
 
         Args:
             project_key: The project key.
@@ -204,8 +197,7 @@ class EnvironmentsApi(BasePermitApi):
         environment_key: str,
         environment_data: ModelInput[EnvironmentUpdate],
     ) -> EnvironmentRead:
-        """
-        Updates an existing environment.
+        """Updates an existing environment.
 
         Args:
             project_key: The project key.
@@ -231,8 +223,7 @@ class EnvironmentsApi(BasePermitApi):
     async def copy(
         self, project_key: str, environment_key: str, copy_params: ModelInput[EnvironmentCopy]
     ) -> EnvironmentRead:
-        """
-        Clones data from a source specified environment into a different target environment in the same project.
+        """Clones data from a source specified environment into a different target environment in the same project.
 
         Args:
             project_key: The project key.
@@ -256,8 +247,7 @@ class EnvironmentsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, project_key: str, environment_key: str) -> None:
-        """
-        Deletes an environment.
+        """Deletes an environment.
 
         Args:
             project_key: The project key.

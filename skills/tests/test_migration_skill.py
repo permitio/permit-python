@@ -33,7 +33,7 @@ import textwrap
 import warnings
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -88,7 +88,7 @@ def config(httpserver: HTTPServer) -> PermitConfig:
     return PermitConfig(token="test-token", api_url=base_url, pdp=base_url, api_context=api_context)
 
 
-def sent(request: Request) -> Dict[str, Any]:
+def sent(request: Request) -> dict[str, Any]:
     """What a request put on the wire, in a form two requests can be compared by."""
     body = request.get_data()
     return {
@@ -99,7 +99,7 @@ def sent(request: Request) -> Dict[str, Any]:
     }
 
 
-Row = Tuple[str, int, str, str]
+Row = tuple[str, int, str, str]
 
 
 def load_scanner() -> ModuleType:
@@ -121,11 +121,11 @@ def load_scanner() -> ModuleType:
 scan = load_scanner()
 
 
-def findings(root: Path) -> List[Row]:
+def findings(root: Path) -> list[Row]:
     return [(item.path, item.line, item.change, item.safety) for item in scan.Project(root).scan()]
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def sample_app(name: str) -> Path:
     """Copy a sample app out of the repo and give its *.fixture files their real names."""
     target = Path(tempfile.mkdtemp(prefix="permit-migration-")) / name
@@ -136,7 +136,7 @@ def sample_app(name: str) -> Path:
     return target
 
 
-def write(root: Path, files: Dict[str, str]) -> Path:
+def write(root: Path, files: dict[str, str]) -> Path:
     for name, content in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +148,7 @@ def write(root: Path, files: Dict[str, str]) -> Path:
 # The sample apps
 # ---------------------------------------------------------------------------
 
-V2_FINDINGS: Set[Row] = {
+V2_FINDINGS: set[Row] = {
     (".gitlab-ci.yml", 2, "C1", REVIEW),
     (".gitlab-ci.yml", 5, "C1", REVIEW),
     (".python-version", 1, "C1", REVIEW),
@@ -965,7 +965,7 @@ def test_audit_log_objects_default_to_an_empty_dict():
     ],
 )
 def test_dependency_files(
-    tmp_path: Path, name: str, content: str, expected: List[Tuple[int, str, str]]
+    tmp_path: Path, name: str, content: str, expected: list[tuple[int, str, str]]
 ):
     write(tmp_path, {name: content})
 
@@ -1033,7 +1033,7 @@ def test_dependency_files(
         pytest.param("Dockerfile", "FROM python:3.13-slim AS build\n", [], id="dockerfile-313"),
     ],
 )
-def test_python_pins_below_310(tmp_path: Path, name: str, content: str, lines: List[int]):
+def test_python_pins_below_310(tmp_path: Path, name: str, content: str, lines: list[int]):
     write(tmp_path, {name: content})
 
     assert findings(tmp_path) == [(name, line, "C1", REVIEW) for line in lines]
@@ -1228,7 +1228,7 @@ def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path):
 def test_scanner_does_not_modify_the_project():
     root = sample_app("v2_app")
 
-    def digest() -> Dict[str, str]:
+    def digest() -> dict[str, str]:
         return {
             str(path): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in root.rglob("*")
@@ -1250,7 +1250,7 @@ def test_scanner_does_not_modify_the_project():
     ],
 )
 def test_exit_status_is_non_zero_only_for_usage_errors(
-    tmp_path: Path, arguments: List[str], status: int
+    tmp_path: Path, arguments: list[str], status: int
 ):
     values = {"fixture": str(sample_app("v2_app")), "missing": str(tmp_path / "missing")}
     command = [sys.executable, str(SCANNER), *(argument.format(**values) for argument in arguments)]
@@ -1297,7 +1297,7 @@ def test_scanner_uses_only_the_standard_library_and_python_38_syntax():
 # ---------------------------------------------------------------------------
 
 
-def frontmatter() -> Dict[str, str]:
+def frontmatter() -> dict[str, str]:
     text = (SKILL_DIR / "SKILL.md").read_text()
     match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
     assert match, "SKILL.md must start with YAML frontmatter"
@@ -1405,7 +1405,7 @@ def doc_section(path: Path, change: str) -> str:
     return match.group(0)
 
 
-def change_headings(path: Path) -> Dict[str, str]:
+def change_headings(path: Path) -> dict[str, str]:
     headings = re.findall(r"^#{2,4} ([A-Z]\d+)\. (.+)$", path.read_text(), re.MULTILINE)
     ids = [change for change, _ in headings]
     assert len(ids) == len(set(ids)), f"{path.name} has a change ID twice"
@@ -1428,7 +1428,7 @@ def test_the_catalogue_contents_list_every_change():
         assert f"[{change}" in contents, change
 
 
-def deprecated_mapping() -> Dict[str, str]:
+def deprecated_mapping() -> dict[str, str]:
     source = (REPO_ROOT / "permit" / "api" / "deprecated.py").read_text()
     mapping = {}
     for node in ast.walk(ast.parse(source)):
@@ -1438,13 +1438,13 @@ def deprecated_mapping() -> Dict[str, str]:
     return mapping
 
 
-def doc_mapping(path: Path) -> Dict[str, Tuple[str, Optional[Dict[str, str]]]]:
+def doc_mapping(path: Path) -> dict[str, tuple[str, dict[str, str] | None]]:
     rows = re.findall(
         r"^\| `permit\.api\.(\w+)\(\)` \| `(permit\.[\w.]+)\(\)` \|(.*)\|$",
         path.read_text(),
         re.MULTILINE,
     )
-    mapping: Dict[str, Tuple[str, Optional[Dict[str, str]]]] = {}
+    mapping: dict[str, tuple[str, dict[str, str] | None]] = {}
     for old, new, keywords in rows:
         assert old not in mapping, f"{path.name} lists {old} twice"
         renames = dict(re.findall(r"`(\w+)=` (?:to|becomes) `(\w+)=`", keywords))
@@ -1491,13 +1491,13 @@ def test_the_removed_names_really_are_gone():
         assert not hasattr(module, name), f"{module_name}.{name} still exists"
 
 
-def removed_rows(path: Path, change: str) -> Dict[Tuple[str, str], Optional[str]]:
+def removed_rows(path: Path, change: str) -> dict[tuple[str, str], str | None]:
     """(module, name) -> the Safety cell, or None, for each removed name a change's table lists.
 
     A cell names them as `permit.module.name`, or as `name`, `name` from `module`, `module`,
     with `;` between groups. Rows that name no module (methods, say) are skipped.
     """
-    rows: Dict[Tuple[str, str], Optional[str]] = {}
+    rows: dict[tuple[str, str], str | None] = {}
     for line in doc_section(path, change).splitlines():
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if not line.lstrip().startswith("|") or len(cells) < 2 or set(cells[0]) <= {"-", " "}:
@@ -1536,7 +1536,7 @@ def test_the_removed_name_tables_match_the_scanner():
 def test_the_floor_tables_match_the_runtime_requirements():
     with (REPO_ROOT / "pyproject.toml").open("rb") as file:
         dependencies = tomllib.load(file)["project"]["dependencies"]
-    requirements: Dict[str, List[Requirement]] = {}
+    requirements: dict[str, list[Requirement]] = {}
     for dependency in dependencies:
         requirement = Requirement(dependency)
         requirements.setdefault(requirement.name.lower().replace("_", "-"), []).append(requirement)
@@ -1628,7 +1628,7 @@ def test_flat_call():
 """
 
 
-def run_pytest_with(tmp_path: Path, options: List[str]) -> str:
+def run_pytest_with(tmp_path: Path, options: list[str]) -> str:
     """Run a test that makes one flat permit.api call under the given -W options."""
     if PYDANTIC_VERSION < (2, 0):
         # SKILL.md step 6 and D1: on pydantic 1, `import permit` warns once, so add this filter too.
@@ -1707,12 +1707,12 @@ def test_the_documented_filter_silences_the_flat_methods(
         assert asyncio.run(client.api.get_user("user-1")).key == "user-1"
 
 
-def diff_sides(change: str) -> Tuple[str, str]:
+def diff_sides(change: str) -> tuple[str, str]:
     """The code before and after the first diff under a change's heading in MIGRATION.md."""
     block = re.search(r"```diff\n(.*?)```", doc_section(MIGRATION, change), re.DOTALL)
     assert block, f"MIGRATION.md {change} has no diff"
-    before: List[str] = []
-    after: List[str] = []
+    before: list[str] = []
+    after: list[str] = []
     for line in block.group(1).splitlines():
         marker, code = line[:2], line[2:]
         if marker in ("- ", "  ", ""):
@@ -1722,7 +1722,7 @@ def diff_sides(change: str) -> Tuple[str, str]:
     return "\n".join(before), "\n".join(after)
 
 
-def run_snippet(code: str, namespace: Dict[str, Any]) -> Dict[str, Any]:
+def run_snippet(code: str, namespace: dict[str, Any]) -> dict[str, Any]:
     """Run a snippet from the guide, as a coroutine when it awaits, and return what it bound."""
     if "await " not in code:
         exec(code, namespace)
@@ -1742,7 +1742,7 @@ IDS = {
 }
 
 
-def user_json(key: str) -> Dict[str, Any]:
+def user_json(key: str) -> dict[str, Any]:
     return {
         **IDS,
         "key": key,
@@ -1828,7 +1828,7 @@ def test_the_guide_a4_and_a5_diffs_handle_missing_values():
 def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(
     httpserver: HTTPServer, config: PermitConfig
 ):
-    bodies: List[Any] = []
+    bodies: list[Any] = []
 
     def record(request: Request) -> Response:
         bodies.append(json.loads(request.get_data()))
@@ -1903,7 +1903,7 @@ def test_the_guide_d2_diff_sends_the_same_requests(httpserver: HTTPServer, confi
     ]
 
 
-def safety_markers(section: str) -> Set[str]:
+def safety_markers(section: str) -> set[str]:
     bold = re.findall(r"\*\*(SAFE|NEEDS-REVIEW)\b", section)
     cells = re.findall(r"\| (SAFE|NEEDS-REVIEW) \|", section)
     return set(bold) | set(cells)
@@ -1917,7 +1917,7 @@ def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
             "app.py": "import anyio\nfrom permit import Permit  # type: ignore[import-untyped, attr-defined]\n",
         },
     )
-    reported: Dict[str, Set[str]] = {}
+    reported: dict[str, set[str]] = {}
     for _, _, change, safety in findings(sample_app("v2_app")) + findings(tmp_path):
         reported.setdefault(change, set()).add(safety)
 
@@ -1926,7 +1926,7 @@ def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
 
 
 def test_the_catalogue_never_calls_an_untraced_receiver_safe():
-    items: List[List[str]] = []
+    items: list[list[str]] = []
     for line in CHANGES.read_text().splitlines():
         if re.match(r"^\s*- ", line):
             items.append([line.strip()])

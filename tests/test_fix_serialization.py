@@ -16,9 +16,10 @@ Three behaviours are pinned here:
 
 import datetime
 import json
+from collections.abc import Callable
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, List
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -171,7 +172,8 @@ async def test_raw_dict_with_datetime_uuid_and_enum_is_encoded(
 
 async def test_raw_dict_keys_are_never_dropped(client: SimpleHttpClient, captured: list):
     """Encoding a dict must not remove keys -- the API schemas use ``Extra.forbid``,
-    and a silently dropped key is how the original ``exclude_none`` bug manifested."""
+    and a silently dropped key is how the original ``exclude_none`` bug manifested.
+    """
     body = {"key": "user-1", "email": None, "first_name": None}
 
     await client.post("/echo", model=Ack, json=body)
@@ -230,9 +232,10 @@ UNICODE_NAME = "Ünïcødé ✓ 名前 🔐 مرحبا"
 MIXED_TEXT = "emoji ✅🚀 · combining e\u0301 vs \u00e9 · rtl \u202eabc\u202c · tab\tend"
 
 
-def hostile_attributes() -> Dict[str, Any]:
+def hostile_attributes() -> dict[str, Any]:
     """Legal attribute values a lossy encoder would change: a bool beside ints, a whole float,
-    unicode with bidi controls, keys with separators, empty containers, nesting and nulls."""
+    unicode with bidi controls, keys with separators, empty containers, nesting and nulls.
+    """
     return {
         "unicode": UNICODE_NAME,
         "mixed": MIXED_TEXT,
@@ -261,7 +264,7 @@ def hostile_attributes() -> Dict[str, Any]:
     }
 
 
-def user_body() -> Dict[str, Any]:
+def user_body() -> dict[str, Any]:
     return {
         "key": "user-1",
         "email": "user-1@example.com",
@@ -271,7 +274,7 @@ def user_body() -> Dict[str, Any]:
     }
 
 
-def tenant_body() -> Dict[str, Any]:
+def tenant_body() -> dict[str, Any]:
     return {
         "key": "tenant-1",
         "name": UNICODE_NAME,
@@ -280,7 +283,7 @@ def tenant_body() -> Dict[str, Any]:
     }
 
 
-def resource_instance_body() -> Dict[str, Any]:
+def resource_instance_body() -> dict[str, Any]:
     return {
         "key": "doc-1",
         "resource": "document",
@@ -289,7 +292,7 @@ def resource_instance_body() -> Dict[str, Any]:
     }
 
 
-def resource_body() -> Dict[str, Any]:
+def resource_body() -> dict[str, Any]:
     return {
         "key": "document",
         "name": UNICODE_NAME,
@@ -309,7 +312,7 @@ def resource_body() -> Dict[str, Any]:
     }
 
 
-def relationship_tuple_body() -> Dict[str, Any]:
+def relationship_tuple_body() -> dict[str, Any]:
     return {
         "subject": "folder:f-1",
         "relation": "parent",
@@ -321,7 +324,7 @@ def relationship_tuple_body() -> Dict[str, Any]:
 # Each model is built inside the test, so a model that fails to build fails its own case
 # and not the whole module. Each is built from its own copy of the payload, so a
 # serializer that edited the caller's dicts in place could not also edit the expected body.
-WIRE_BODIES: List[Any] = [
+WIRE_BODIES: list[Any] = [
     pytest.param(lambda: UserCreate(**user_body()), user_body(), id="UserCreate"),
     pytest.param(lambda: TenantCreate(**tenant_body()), tenant_body(), id="TenantCreate"),
     pytest.param(
@@ -395,7 +398,7 @@ WIRE_BODIES: List[Any] = [
 
 @pytest.mark.parametrize(("build", "expected"), WIRE_BODIES)
 async def test_request_body_reaches_the_wire_exactly_as_given(
-    client: SimpleHttpClient, captured: list, build: Callable[[], Any], expected: Dict[str, Any]
+    client: SimpleHttpClient, captured: list, build: Callable[[], Any], expected: dict[str, Any]
 ):
     """Every value arrives with its JSON type and every key survives, nulls included.
 

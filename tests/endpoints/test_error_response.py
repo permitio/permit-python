@@ -19,6 +19,6 @@ async def test_api_error(permit: Permit):
         assert error.content_type == "application/json"
     except PermitConnectionError:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")

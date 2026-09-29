@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -9,6 +9,8 @@ elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+import builtins
 
 from permit.utils.model_input import ModelInput
 
@@ -31,14 +33,13 @@ class ConditionSetRulesApi(BasePermitApi):
     @validate_arguments
     async def list(
         self,
-        user_set_key: Optional[str] = None,
-        permission_key: Optional[str] = None,
-        resource_set_key: Optional[str] = None,
+        user_set_key: str | None = None,
+        permission_key: str | None = None,
+        resource_set_key: str | None = None,
         page: int = 1,
         per_page: int = 100,
-    ) -> List[ConditionSetRuleRead]:
-        """
-        Retrieves a list of condition set rule rules.
+    ) -> list[ConditionSetRuleRead]:
+        """Retrieves a list of condition set rule rules.
 
         Args:
             user_set_key: the key of the userset, if used only rules matching that userset will be fetched.
@@ -66,14 +67,15 @@ class ConditionSetRulesApi(BasePermitApi):
             params.update(resource_set=resource_set_key)
         return await self.__condition_set_rules.get(
             "",
-            model=List[ConditionSetRuleRead],
+            model=list[ConditionSetRuleRead],
             params=params,
         )
 
     @validate_arguments
-    async def create(self, rule: ModelInput[ConditionSetRuleCreate]) -> List[ConditionSetRuleRead]:
-        """
-        Creates a new condition set rule.
+    async def create(
+        self, rule: ModelInput[ConditionSetRuleCreate]
+    ) -> builtins.list[ConditionSetRuleRead]:
+        """Creates a new condition set rule.
 
         Args:
             rule: The condition set rule to create.
@@ -88,13 +90,12 @@ class ConditionSetRulesApi(BasePermitApi):
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_set_rules.post(
-            "", model=List[ConditionSetRuleRead], json=rule
+            "", model=list[ConditionSetRuleRead], json=rule
         )
 
     @validate_arguments
     async def delete(self, rule: ModelInput[ConditionSetRuleRemove]) -> None:
-        """
-        Deletes a condition set rule.
+        """Deletes a condition set rule.
 
         Args:
             rule: The condition set rule to delete.

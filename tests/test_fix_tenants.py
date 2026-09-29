@@ -12,7 +12,7 @@ import json
 import re
 import uuid
 from operator import attrgetter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -28,11 +28,11 @@ NOW = "2024-01-01T00:00:00+00:00"
 
 SCOPE_PATH = "/v2/api-key/scope"
 
-RecordedRequest = Tuple[str, str, dict]
+RecordedRequest = tuple[str, str, dict]
 
 
 def _make_permit(
-    httpserver: HTTPServer, *, proxy_facts_via_pdp: bool, response: Optional[Dict[str, Any]] = None
+    httpserver: HTTPServer, *, proxy_facts_via_pdp: bool, response: dict[str, Any] | None = None
 ) -> Permit:
     """Build a Permit client whose PDP *and* REST API both point at ``httpserver``.
 
@@ -59,7 +59,7 @@ def _make_permit(
     )
 
 
-def _facts_requests(httpserver: HTTPServer) -> List[RecordedRequest]:
+def _facts_requests(httpserver: HTTPServer) -> list[RecordedRequest]:
     """Every request the SDK made, except the api-key scope bootstrap call."""
     requests = []
     for request, _response in httpserver.log:
@@ -148,7 +148,7 @@ async def test_tenants_bulk_create_without_pdp_proxy_targets_the_rest_api(httpse
     ]
 
 
-def _read_payload(**fields: Any) -> Dict[str, Any]:
+def _read_payload(**fields: Any) -> dict[str, Any]:
     """A facts read-model response: the ids and timestamps they all require, plus ``fields``."""
     return {
         "id": str(uuid.uuid4()),
@@ -228,7 +228,7 @@ SINGLE_WRITES = [
 
 @pytest.mark.parametrize(("target", "expected", "response"), SINGLE_WRITES)
 async def test_single_fact_writes_target_their_pdp_endpoint(
-    httpserver: HTTPServer, target: Call, expected: RecordedRequest, response: Dict[str, Any]
+    httpserver: HTTPServer, target: Call, expected: RecordedRequest, response: dict[str, Any]
 ):
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True, response=response)
     # A copy, so an SDK that edited the caller's dict could not also edit the expected body.

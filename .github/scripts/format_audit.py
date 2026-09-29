@@ -29,7 +29,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 MARKER = "<!-- permit-python:audit:deps -->"
 
@@ -102,7 +102,7 @@ def _md_cell(text: str) -> str:
     return _truncate(text, 140).replace("|", "\\|").replace("`", "'")
 
 
-def _load(path: Optional[str], label: str) -> tuple[Optional[Any], Optional[str]]:
+def _load(path: str | None, label: str) -> tuple[Any | None, str | None]:
     """Return (parsed, error). Never raises -- a bad report must not kill the run."""
     if not path:
         return None, None
@@ -311,7 +311,7 @@ def render_slack(
     run_url: str,
     repo: str,
     *,
-    pip_audit_gaps: Optional[list[tuple[str, str]]] = None,
+    pip_audit_gaps: list[tuple[str, str]] | None = None,
 ) -> str:
     """One line of Slack `text`, carrying the findings rather than a verdict.
 
@@ -392,7 +392,7 @@ def render(
     context: str,
     *,
     blocking: bool,
-    pip_audit_gaps: Optional[list[tuple[str, str]]] = None,
+    pip_audit_gaps: list[tuple[str, str]] | None = None,
 ) -> str:
     out: list[str] = [MARKER, "", "## Dependency Security Audit", ""]
 

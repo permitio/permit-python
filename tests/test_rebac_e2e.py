@@ -1,7 +1,8 @@
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, List, Optional
+from typing import Any
 
 import pytest
 from loguru import logger
@@ -57,14 +58,14 @@ class CheckAssertion:
     action: str
     resource: dict
     expected_decision: bool
-    pre_assertion_hook: Optional[Callable[[Permit], Awaitable[Any]]] = None
-    post_assertion_hook: Optional[Callable[[Permit], Awaitable[Any]]] = None
+    pre_assertion_hook: Callable[[Permit], Awaitable[Any]] | None = None
+    post_assertion_hook: Callable[[Permit], Awaitable[Any]] | None = None
 
 
 @dataclass
 class PermissionAssertions:
-    assignments: List[RoleAssignmentCreate]
-    assertions: List[CheckAssertion]
+    assignments: list[RoleAssignmentCreate]
+    assertions: list[CheckAssertion]
 
 
 # Graph Schema ----------------------------------------------------------------
@@ -308,7 +309,7 @@ BULK_RELATIONSHIPS_INSTANCES = [
     f"{DOCUMENT.key}:movie2",
 ]
 
-ASSIGNMENTS_AND_ASSERTIONS: List[PermissionAssertions] = [
+ASSIGNMENTS_AND_ASSERTIONS: list[PermissionAssertions] = [
     # direct access
     PermissionAssertions(
         assignments=[
@@ -626,7 +627,7 @@ async def cleanup(permit: Permit):
                 handle_cleanup_error(error, f"Could not delete resource {resource.key}")
     except PermitApiError as error:
         handle_api_error(error, "Got API Error during cleanup")
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error during cleanup: {error}")
         pytest.fail(f"Got error during cleanup: {error}")
     logger.debug("Cleanup finished.")
@@ -693,7 +694,7 @@ async def assert_permit_authorized_users(
         assert q.user not in authorized_users.users
 
 
-async def own_relationship_tuples(permit: Permit, tenant_key: str) -> List[Any]:
+async def own_relationship_tuples(permit: Permit, tenant_key: str) -> list[Any]:
     """The relationship tuples this test created inside one of its own tenants.
 
     relationship_tuples.list() is environment-wide and paginated, so counting
@@ -928,7 +929,7 @@ async def test_rebac_policy(permit: Permit):
                         )
     except PermitApiError as error:
         handle_api_error(error, "Got API Error")
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:

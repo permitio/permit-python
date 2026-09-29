@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional, cast
+from typing import cast
 
 import pytest
 from loguru import logger
@@ -26,7 +26,7 @@ pytestmark = pytest.mark.e2e
 
 
 def print_break():
-    print("\n\n ----------- \n\n")  # noqa: T201
+    print("\n\n ----------- \n\n")
 
 
 class SetupUserInvites(NamedTuple):
@@ -34,7 +34,7 @@ class SetupUserInvites(NamedTuple):
     created_resource_instance: ResourceInstanceRead
     created_role: RoleRead
     created_tenant: TenantRead
-    to_create_invites: List[ElementsUserInviteCreate]
+    to_create_invites: list[ElementsUserInviteCreate]
 
 
 @pytest.fixture(scope="function")
@@ -61,11 +61,11 @@ async def setup_user_invites(permit: Permit):
         "first_name": "Test",
         "last_name": "User2",
     }
-    created_role: Optional[RoleRead] = None
-    created_tenant: Optional[TenantRead] = None
-    created_resource: Optional[ResourceRead] = None
-    created_resource_instance: Optional[ResourceInstanceRead] = None
-    to_create_invites: List[ElementsUserInviteCreate] = []
+    created_role: RoleRead | None = None
+    created_tenant: TenantRead | None = None
+    created_resource: ResourceRead | None = None
+    created_resource_instance: ResourceInstanceRead | None = None
+    to_create_invites: list[ElementsUserInviteCreate] = []
 
     try:
         # ==========================================
@@ -146,10 +146,10 @@ async def setup_user_invites(permit: Permit):
 
         print_break()
         yield SetupUserInvites(
-            created_resource=cast(ResourceRead, created_resource),
-            created_resource_instance=cast(ResourceInstanceRead, created_resource_instance),
-            created_role=cast(RoleRead, created_role),
-            created_tenant=cast(TenantRead, created_tenant),
+            created_resource=cast("ResourceRead", created_resource),
+            created_resource_instance=cast("ResourceInstanceRead", created_resource_instance),
+            created_role=cast("RoleRead", created_role),
+            created_tenant=cast("TenantRead", created_tenant),
             to_create_invites=to_create_invites,
         )
     finally:
@@ -210,8 +210,7 @@ async def test_user_invites_complete_e2e(
     permit: Permit,
     setup_user_invites: SetupUserInvites,
 ):
-    """
-    Complete end-to-end test for User Invites API functionality.
+    """Complete end-to-end test for User Invites API functionality.
 
     Tests the complete lifecycle:
     1. Setup (create resource, tenant, resource instance, role)
@@ -222,7 +221,6 @@ async def test_user_invites_complete_e2e(
     6. Delete user invite
     7. Cleanup
     """
-
     logger.info("Starting User Invites Complete E2E test")
 
     created_role = setup_user_invites.created_role

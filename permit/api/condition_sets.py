@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -29,9 +29,8 @@ class ConditionSetsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, page: int = 1, per_page: int = 100) -> List[ConditionSetRead]:
-        """
-        Retrieves a list of condition sets.
+    async def list(self, page: int = 1, per_page: int = 100) -> list[ConditionSetRead]:
+        """Retrieves a list of condition sets.
 
         Args:
             page: The page number to fetch (default: 1).
@@ -47,7 +46,7 @@ class ConditionSetsApi(BasePermitApi):
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__condition_sets.get(
-            "", model=List[ConditionSetRead], params=pagination_params(page, per_page)
+            "", model=list[ConditionSetRead], params=pagination_params(page, per_page)
         )
 
     async def _get(self, condition_set_key: str) -> ConditionSetRead:
@@ -55,8 +54,7 @@ class ConditionSetsApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, condition_set_key: str) -> ConditionSetRead:
-        """
-        Retrieves a condition set by its key.
+        """Retrieves a condition set by its key.
 
         Args:
             condition_set_key: The key of the condition set.
@@ -74,8 +72,7 @@ class ConditionSetsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
-        """
-        Retrieves a condition set by its key.
+        """Retrieves a condition set by its key.
         Alias for the get method.
 
         Args:
@@ -94,8 +91,7 @@ class ConditionSetsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
-        """
-        Retrieves a condition set by its ID.
+        """Retrieves a condition set by its ID.
         Alias for the get method.
 
         Args:
@@ -114,8 +110,7 @@ class ConditionSetsApi(BasePermitApi):
 
     @validate_arguments
     async def create(self, condition_set_data: ModelInput[ConditionSetCreate]) -> ConditionSetRead:
-        """
-        Creates a new condition set.
+        """Creates a new condition set.
 
         Args:
             condition_set_data: The data for the new condition set.
@@ -135,8 +130,7 @@ class ConditionSetsApi(BasePermitApi):
     async def update(
         self, condition_set_key: str, condition_set_data: ModelInput[ConditionSetUpdate]
     ) -> ConditionSetRead:
-        """
-        Updates a condition set.
+        """Updates a condition set.
 
         Args:
             condition_set_key: The key of the condition set.
@@ -159,8 +153,7 @@ class ConditionSetsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, condition_set_key: str) -> None:
-        """
-        Deletes a condition set.
+        """Deletes a condition set.
 
         Args:
             condition_set_key: The key of the condition set to delete.

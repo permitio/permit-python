@@ -298,7 +298,7 @@ def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str | N
 
 
 def member_sort_key(name: str) -> tuple[int, str]:
-    """isort's order-by-type: constants, then classes, then everything else."""
+    """Isort's order-by-type: constants, then classes, then everything else."""
     if name.isupper() and len(name) > 1:
         return 0, name
     if name[0].isupper():

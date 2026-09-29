@@ -1,6 +1,7 @@
 import json
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, List, Literal, Optional
+from typing import Any, Literal
 
 from loguru import logger
 from typing_extensions import Self
@@ -22,7 +23,7 @@ from .utils.context import Context
 
 
 class Permit:
-    def __init__(self, config: Optional[PermitConfig] = None, **options):
+    def __init__(self, config: PermitConfig | None = None, **options):
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
 
         configure_logger(self._config)
@@ -37,8 +38,7 @@ class Permit:
 
     @property
     def config(self) -> PermitConfig:
-        """
-        Access the SDK configuration using this property.
+        """Access the SDK configuration using this property.
         Once the SDK is initialized, the configuration is read-only.
 
         Usage example:
@@ -50,10 +50,9 @@ class Permit:
 
     @contextmanager
     def wait_for_sync(
-        self, timeout: float = 10.0, policy: Optional[Literal["ignore", "fail"]] = None
+        self, timeout: float = 10.0, policy: Literal["ignore", "fail"] | None = None
     ) -> Generator[Self, None, None]:
-        """
-        Context manager that returns a client that is configured
+        """Context manager that returns a client that is configured
         to wait for facts to be synced before proceeding.
 
 
@@ -84,8 +83,7 @@ class Permit:
 
     @property
     def api(self) -> PermitApiClient:
-        """
-        Access the Permit REST API using this property.
+        """Access the Permit REST API using this property.
 
         Usage example:
 
@@ -96,8 +94,7 @@ class Permit:
 
     @property
     def elements(self) -> ElementsApi:
-        """
-        Access the Permit Elements API using this property.
+        """Access the Permit Elements API using this property.
 
         Usage example:
 
@@ -108,8 +105,7 @@ class Permit:
 
     @property
     def pdp_api(self) -> PermitPdpApiClient:
-        """
-        Access the Permit PDP API using this property.
+        """Access the Permit PDP API using this property.
 
         Usage example:
 
@@ -122,10 +118,9 @@ class Permit:
         self,
         action: Action,
         resource: Resource,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> AuthorizedUsersResult:
-        """
-        Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+        """Queries to get all the users that are authorized to perform an action on a resource within the specified context.
 
         Args:
             action: The action to be performed on the resource.
@@ -139,7 +134,6 @@ class Permit:
             PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
         Examples:
-
             # all the users that can close any issue?
             await permit.authorized_users('close', 'issue')
 
@@ -154,11 +148,10 @@ class Permit:
 
     async def bulk_check(
         self,
-        checks: List[CheckQuery],
-        context: Optional[Context] = None,
-    ) -> List[bool]:
-        """
-        Checks if a user is authorized to perform an action on a list of resources within the specified context.
+        checks: list[CheckQuery],
+        context: Context | None = None,
+    ) -> list[bool]:
+        """Checks if a user is authorized to perform an action on a list of resources within the specified context.
 
         Args:
             checks: A list of check queries, each query contain user, action, and resource.
@@ -171,7 +164,6 @@ class Permit:
             PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
         Examples:
-
             # Bulk query of multiple check conventions
             await permit.bulk_check([
                 {
@@ -198,10 +190,9 @@ class Permit:
         user: User,
         action: Action,
         resource: Resource,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> bool:
-        """
-        Checks if a user is authorized to perform an action on a resource within the specified context.
+        """Checks if a user is authorized to perform an action on a resource within the specified context.
 
         Args:
             user: The user object representing the user.
@@ -216,7 +207,6 @@ class Permit:
             PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
         Examples:
-
             # can the user close any issue?
             await permit.check(user, 'close', 'issue')
 
@@ -232,12 +222,11 @@ class Permit:
     async def get_user_permissions(
         self,
         user: User,
-        tenants: Optional[List[str]] = None,
-        resources: Optional[List[str]] = None,
-        resource_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Get all permissions for a user.
+        tenants: list[str] | None = None,
+        resources: list[str] | None = None,
+        resource_types: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Get all permissions for a user.
 
         Args:
             user: The user object or user key
@@ -254,10 +243,9 @@ class Permit:
         return await self._enforcer.get_user_permissions(user, tenants, resources, resource_types)
 
     async def filter_objects(
-        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Filter a list of resources, keeping only those the user is permitted to act on.
+        self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Filter a list of resources, keeping only those the user is permitted to act on.
 
         Args:
             user: The user object or user key

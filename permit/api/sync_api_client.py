@@ -101,8 +101,7 @@ else:
 
 class SyncPermitApiClient(SyncDeprecatedApi):
     def __init__(self, config: PermitConfig):
-        """
-        Constructs a new instance of the SyncPermitApiClient class with the specified SDK configuration.
+        """Constructs a new instance of the SyncPermitApiClient class with the specified SDK configuration.
 
         Args:
             config: The configuration for the Permit SDK.
@@ -129,136 +128,119 @@ class SyncPermitApiClient(SyncDeprecatedApi):
 
     @property
     def condition_set_rules(self) -> SyncConditionSetRulesApi:
-        """
-        API for managing condition set rules.
+        """API for managing condition set rules.
         See: https://api.permit.io/v2/redoc#tag/Condition-Set-Rules
         """
         return self._condition_set_rules
 
     @property
     def condition_sets(self) -> SyncConditionSetsApi:
-        """
-        API for managing condition sets.
+        """API for managing condition sets.
         See: https://api.permit.io/v2/redoc#tag/Condition-Sets
         """
         return self._condition_sets
 
     @property
     def projects(self) -> SyncProjectsApi:
-        """
-        API for managing projects.
+        """API for managing projects.
         See: https://api.permit.io/v2/redoc#tag/Projects
         """
         return self._projects
 
     @property
     def environments(self) -> SyncEnvironmentsApi:
-        """
-        API for managing environments.
+        """API for managing environments.
         See: https://api.permit.io/v2/redoc#tag/Environments
         """
         return self._environments
 
     @property
     def action_groups(self) -> SyncResourceActionGroupsApi:
-        """
-        API for managing resource action groups.
+        """API for managing resource action groups.
         See: https://api.permit.io/v2/redoc#tag/Resource-Action-Groups
         """
         return self._action_groups
 
     @property
     def resource_actions(self) -> SyncResourceActionsApi:
-        """
-        API for managing resource actions.
+        """API for managing resource actions.
         See: https://api.permit.io/v2/redoc#tag/Resource-Actions
         """
         return self._resource_actions
 
     @property
     def resource_attributes(self) -> SyncResourceAttributesApi:
-        """
-        API for managing resource attributes.
+        """API for managing resource attributes.
         See: https://api.permit.io/v2/redoc#tag/Resource-Attributes
         """
         return self._resource_attributes
 
     @property
     def resource_roles(self) -> SyncResourceRolesApi:
-        """
-        API for managing resource roles.
+        """API for managing resource roles.
         See: https://api.permit.io/v2/redoc#tag/Resource-Roles
         """
         return self._resource_roles
 
     @property
     def resource_relations(self) -> SyncResourceRelationsApi:
-        """
-        API for managing resource relations.
+        """API for managing resource relations.
         See: https://api.permit.io/v2/redoc#tag/Resource-Relations
         """
         return self._resource_relations
 
     @property
     def resource_instances(self) -> SyncResourceInstancesApi:
-        """
-        API for managing resource instances.
+        """API for managing resource instances.
         See: https://api.permit.io/v2/redoc#tag/Resource-Instances
         """
         return self._resource_instances
 
     @property
     def resources(self) -> SyncResourcesApi:
-        """
-        API for managing resources.
+        """API for managing resources.
         See: https://api.permit.io/v2/redoc#tag/Resources
         """
         return self._resources
 
     @property
     def role_assignments(self) -> SyncRoleAssignmentsApi:
-        """
-        API for managing role assignments.
+        """API for managing role assignments.
         See: https://api.permit.io/v2/redoc#tag/Role-Assignments
         """
         return self._role_assignments
 
     @property
     def relationship_tuples(self) -> SyncRelationshipTuplesApi:
-        """
-        API for managing relationship tuples.
+        """API for managing relationship tuples.
         See: https://api.permit.io/v2/redoc#tag/Relationship-tuples
         """
         return self._relationship_tuples
 
     @property
     def roles(self) -> SyncRolesApi:
-        """
-        API for managing roles.
+        """API for managing roles.
         See: https://api.permit.io/v2/redoc#tag/Roles
         """
         return self._roles
 
     @property
     def tenants(self) -> SyncTenantsApi:
-        """
-        API for managing tenants.
+        """API for managing tenants.
         See: https://api.permit.io/v2/redoc#tag/Tenants
         """
         return self._tenants
 
     @property
     def user_invites(self) -> SyncUserInvitesApi:
-        """
-        API for managing user invites.
+        """API for managing user invites.
         See: https://api.permit.io/v2/redoc#tag/User-Invites
         """
         return self._user_invites
 
     @property
     def users(self) -> SyncUsersApi:
-        """
-        API for managing users.
+        """API for managing users.
         See: https://api.permit.io/v2/redoc#tag/Users
         """
         return self._users

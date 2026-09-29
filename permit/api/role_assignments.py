@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -32,24 +32,22 @@ class RoleAssignmentsApi(BasePermitApi):
     def __role_assignments(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/role_assignments", use_pdp=True)
-        else:
-            return self._build_http_client(
-                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
-            )
+        return self._build_http_client(
+            f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/role_assignments"
+        )
 
     @validate_arguments
     async def list(
         self,
-        user_key: Optional[Union[str, List[str]]] = None,
-        role_key: Optional[Union[str, List[str]]] = None,
-        tenant_key: Optional[Union[str, List[str]]] = None,
-        resource_key: Optional[str] = None,
-        resource_instance_key: Optional[str] = None,
+        user_key: str | list[str] | None = None,
+        role_key: str | list[str] | None = None,
+        tenant_key: str | list[str] | None = None,
+        resource_key: str | None = None,
+        resource_instance_key: str | None = None,
         page: int = 1,
         per_page: int = 100,
-    ) -> List[RoleAssignmentRead]:
-        """
-        Retrieves a list of role assignments based on the specified filters.
+    ) -> list[RoleAssignmentRead]:
+        """Retrieves a list of role assignments based on the specified filters.
 
         Args:
             user_key: if specified, only role granted to this user will be fetched.
@@ -94,14 +92,13 @@ class RoleAssignmentsApi(BasePermitApi):
             params.append(("resource_instance", resource_instance_key))
         return await self.__role_assignments.get(
             "",
-            model=List[RoleAssignmentRead],
+            model=list[RoleAssignmentRead],
             params=params,
         )
 
     @validate_arguments
     async def assign(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
-        """
-        Assigns a role to a user in the scope of a given tenant.
+        """Assigns a role to a user in the scope of a given tenant.
 
         Args:
             assignment: The role assignment details.
@@ -119,8 +116,7 @@ class RoleAssignmentsApi(BasePermitApi):
 
     @validate_arguments
     async def unassign(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
-        """
-        Unassigns a role from a user in the scope of a given tenant.
+        """Unassigns a role from a user in the scope of a given tenant.
 
         Args:
             unassignment: The role unassignment details.
@@ -137,8 +133,7 @@ class RoleAssignmentsApi(BasePermitApi):
     async def bulk_assign(
         self, assignments: ModelListInput[RoleAssignmentCreate]
     ) -> BulkRoleAssignmentReport:
-        """
-        Assigns multiple roles in bulk using the provided role assignments data.
+        """Assigns multiple roles in bulk using the provided role assignments data.
         Each role assignment is a tuple of (user, role, tenant).
 
         Args:
@@ -163,8 +158,7 @@ class RoleAssignmentsApi(BasePermitApi):
     async def bulk_unassign(
         self, unassignments: ModelListInput[RoleAssignmentRemove]
     ) -> BulkRoleUnAssignmentReport:
-        """
-        Removes multiple role assignments in bulk using the provided unassignment data.
+        """Removes multiple role assignments in bulk using the provided unassignment data.
         Each role to unassign is a tuple of (user, role, tenant).
 
         Args:

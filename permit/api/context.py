@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Optional
 
 from loguru import logger
 
@@ -7,9 +6,7 @@ from ..exceptions import PermitContextChangeError
 
 
 class ApiKeyAccessLevel(str, Enum):
-    """
-    The `ApiKeyAccessLevel` enum represents the access level of a Permit API Key.
-    """
+    """The `ApiKeyAccessLevel` enum represents the access level of a Permit API Key."""
 
     WAIT_FOR_INIT = "WAIT_FOR_INIT"
     """
@@ -42,9 +39,7 @@ API_ACCESS_LEVELS = [
 
 
 class ApiContextLevel(int, Enum):
-    """
-    The `ApiContextLevel` enum represents the context level in which the SDK is running.
-    """
+    """The `ApiContextLevel` enum represents the context level in which the SDK is running."""
 
     WAIT_FOR_INIT = 0
     """
@@ -68,8 +63,7 @@ class ApiContextLevel(int, Enum):
 
 
 class ApiContext:
-    """
-    The `ApiContext` class represents the required known context for an API method.
+    """The `ApiContext` class represents the required known context for an API method.
 
     Since the Permit API hierarchy is deeply nested, it is less convenient to specify
     the full object hierarchy in every request.
@@ -107,7 +101,7 @@ class ApiContext:
         self._environment = None
 
     def _save_api_key_accessible_scope(
-        self, org: str, project: Optional[str] = None, environment: Optional[str] = None
+        self, org: str, project: str | None = None, environment: str | None = None
     ):
         """Do not call this method directly!"""
         self._permitted_organization = org  # cannot be none
@@ -127,8 +121,7 @@ class ApiContext:
 
     @property
     def permitted_access_level(self) -> ApiKeyAccessLevel:
-        """
-        Get the current API key level.
+        """Get the current API key level.
 
         Returns:
             The current API key level.
@@ -137,8 +130,7 @@ class ApiContext:
 
     @property
     def level(self) -> ApiContextLevel:
-        """
-        Get the current SDK context level.
+        """Get the current SDK context level.
 
         Returns:
             The current SDK context level.
@@ -146,9 +138,8 @@ class ApiContext:
         return self._context_level
 
     @property
-    def organization(self) -> Optional[str]:
-        """
-        Get the current organization from the SDK context or None if unset.
+    def organization(self) -> str | None:
+        """Get the current organization from the SDK context or None if unset.
 
         Returns:
             The current organization in the context.
@@ -156,9 +147,8 @@ class ApiContext:
         return self._organization
 
     @property
-    def project(self) -> Optional[str]:
-        """
-        Get the current project from the SDK context or None if unset.
+    def project(self) -> str | None:
+        """Get the current project from the SDK context or None if unset.
 
         Returns:
             The current project in the context.
@@ -166,9 +156,8 @@ class ApiContext:
         return self._project
 
     @property
-    def environment(self) -> Optional[str]:
-        """
-        Get the current environment from the SDK context or None if unset.
+    def environment(self) -> str | None:
+        """Get the current environment from the SDK context or None if unset.
 
         Returns:
             The current environment in the context.
@@ -197,8 +186,7 @@ class ApiContext:
             )
 
     def set_organization_level_context(self, org: str):
-        """
-        Set the current context of the SDK to a specific organization.
+        """Set the current context of the SDK to a specific organization.
 
         Args:
             org: The organization key.
@@ -211,8 +199,7 @@ class ApiContext:
         self._environment = None
 
     def set_project_level_context(self, org: str, project: str):
-        """
-        Set the current context of the SDK to a specific organization and project.
+        """Set the current context of the SDK to a specific organization and project.
 
         Args:
             org: The organization key.
@@ -226,8 +213,7 @@ class ApiContext:
         self._environment = None
 
     def set_environment_level_context(self, org: str, project: str, environment: str):
-        """
-        Set the current context of the SDK to a specific organization, project and environment.
+        """Set the current context of the SDK to a specific organization, project and environment.
 
         Args:
             org: The organization key.

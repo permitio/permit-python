@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
@@ -20,22 +20,22 @@ class EmbeddedLoginRequestOutput(BaseModel):
     class Config:
         extra = Extra.allow
 
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None,
         description="If the login request failed, this field will contain the error message",
         title="Error",
     )
-    error_code: Optional[int] = Field(
+    error_code: int | None = Field(
         default=None,
         description="If the login request failed, this field will contain the error code",
         title="Error Code",
     )
-    token: Optional[str] = Field(
+    token: str | None = Field(
         default=None,
         description="The auth token that lets your users login into permit elements",
         title="Token",
     )
-    extra: Optional[str] = Field(
+    extra: str | None = Field(
         default=None,
         description="Extra data that you can pass to the login request",
         title="Extra",
@@ -48,20 +48,18 @@ class EmbeddedLoginRequestOutput(BaseModel):
 
 
 class LoginAsSchema(BaseModel):
-    """
-    Represents the schema for the loginAs request.
-    """
+    """Represents the schema for the loginAs request."""
 
     user_id: str = Field(..., description="The key (or ID) of the user the element will log in as.")
     tenant_id: str = Field(
         ...,
         description="The key (or ID) of the active tenant for the logged in user."
-        + "The embedded user will only be able to access the active tenant.",
+        "The embedded user will only be able to access the active tenant.",
     )
 
 
 class UserLoginAsResponse(EmbeddedLoginRequestOutput):
-    content: Optional[dict] = Field(
+    content: dict | None = Field(
         default=None,
         description="Content to return in the response body for header/bearer login",
     )
@@ -72,9 +70,7 @@ class ElementsApi(BasePermitApi):
         super().__init__(config)
         self.__auth = self._build_http_client("/v2/auth")
 
-    async def login_as(
-        self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]
-    ) -> UserLoginAsResponse:
+    async def login_as(self, user_id: str | UUID, tenant_id: str | UUID) -> UserLoginAsResponse:
         if isinstance(user_id, UUID):
             user_id = str(user_id)
         if isinstance(tenant_id, UUID):

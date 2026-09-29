@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 from uuid import UUID
 
 from ..config import PermitConfig
@@ -32,8 +32,7 @@ def _removal_notice(method: str, replacement: str) -> str:
 
 
 class DeprecatedApi(BasePermitApi):
-    """
-    The flat methods on permit.api that predate the per-resource APIs.
+    """The flat methods on permit.api that predate the per-resource APIs.
 
     Each one warns and calls the method named in its warning. They will be removed in permit 4.0.
     """
@@ -62,10 +61,10 @@ class DeprecatedApi(BasePermitApi):
     async def get_assigned_roles(
         self,
         user_key: str,
-        tenant_key: Optional[str],
+        tenant_key: str | None,
         page: int = 1,
         per_page: int = 100,
-    ) -> List[RoleAssignmentRead]:
+    ) -> list[RoleAssignmentRead]:
         return await self.__users.get_assigned_roles(
             user_key, tenant=tenant_key, page=page, per_page=per_page
         )
@@ -75,11 +74,11 @@ class DeprecatedApi(BasePermitApi):
         return await self.__resources.get(resource_key)
 
     @deprecated(_removal_notice("list_roles", "permit.api.roles.list"))
-    async def list_roles(self, page: int = 1, per_page: int = 100) -> List[RoleRead]:
+    async def list_roles(self, page: int = 1, per_page: int = 100) -> list[RoleRead]:
         return await self.__roles.list(page=page, per_page=per_page)
 
     @deprecated(_removal_notice("sync_user", "permit.api.users.sync"))
-    async def sync_user(self, user: Union[UserCreate, Dict[str, Any]]) -> UserRead:
+    async def sync_user(self, user: UserCreate | dict[str, Any]) -> UserRead:
         return await self.__users.sync(user)
 
     @deprecated(_removal_notice("delete_user", "permit.api.users.delete"))
@@ -87,17 +86,17 @@ class DeprecatedApi(BasePermitApi):
         return await self.__users.delete(user_key)
 
     @deprecated(_removal_notice("list_tenants", "permit.api.tenants.list"))
-    async def list_tenants(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
+    async def list_tenants(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
         return await self.__tenants.list(page=page, per_page=per_page)
 
     @deprecated(_removal_notice("create_tenant", "permit.api.tenants.create"))
-    async def create_tenant(self, tenant: Union[TenantCreate, Dict[str, Any]]) -> TenantRead:
+    async def create_tenant(self, tenant: TenantCreate | dict[str, Any]) -> TenantRead:
         tenant_data = tenant if isinstance(tenant, TenantCreate) else TenantCreate(**tenant)
         return await self.__tenants.create(tenant_data)
 
     @deprecated(_removal_notice("update_tenant", "permit.api.tenants.update"))
     async def update_tenant(
-        self, tenant_key: str, tenant: Union[TenantUpdate, Dict[str, Any]]
+        self, tenant_key: str, tenant: TenantUpdate | dict[str, Any]
     ) -> TenantRead:
         tenant_data = tenant if isinstance(tenant, TenantUpdate) else TenantUpdate(**tenant)
         return await self.__tenants.update(tenant_key, tenant_data)
@@ -107,12 +106,12 @@ class DeprecatedApi(BasePermitApi):
         return await self.__tenants.delete(tenant_key)
 
     @deprecated(_removal_notice("create_role", "permit.api.roles.create"))
-    async def create_role(self, role: Union[RoleCreate, Dict[str, Any]]) -> RoleRead:
+    async def create_role(self, role: RoleCreate | dict[str, Any]) -> RoleRead:
         role_data = role if isinstance(role, RoleCreate) else RoleCreate(**role)
         return await self.__roles.create(role_data)
 
     @deprecated(_removal_notice("update_role", "permit.api.roles.update"))
-    async def update_role(self, role_key: str, role: Union[RoleUpdate, Dict[str, Any]]) -> RoleRead:
+    async def update_role(self, role_key: str, role: RoleUpdate | dict[str, Any]) -> RoleRead:
         role_data = role if isinstance(role, RoleUpdate) else RoleUpdate(**role)
         return await self.__roles.update(role_key, role_data)
 
@@ -135,9 +134,7 @@ class DeprecatedApi(BasePermitApi):
         return await self.__roles.delete(role_key)
 
     @deprecated(_removal_notice("create_resource", "permit.api.resources.create"))
-    async def create_resource(
-        self, resource: Union[ResourceCreate, Dict[str, Any]]
-    ) -> ResourceRead:
+    async def create_resource(self, resource: ResourceCreate | dict[str, Any]) -> ResourceRead:
         resource_data = (
             resource if isinstance(resource, ResourceCreate) else ResourceCreate(**resource)
         )
@@ -145,7 +142,7 @@ class DeprecatedApi(BasePermitApi):
 
     @deprecated(_removal_notice("update_resource", "permit.api.resources.update"))
     async def update_resource(
-        self, resource_key: str, resource: Union[ResourceUpdate, Dict[str, Any]]
+        self, resource_key: str, resource: ResourceUpdate | dict[str, Any]
     ) -> ResourceRead:
         resource_data = (
             resource if isinstance(resource, ResourceUpdate) else ResourceUpdate(**resource)
@@ -158,6 +155,6 @@ class DeprecatedApi(BasePermitApi):
 
     @deprecated(_removal_notice("elements_login_as", "permit.elements.login_as"))
     async def elements_login_as(
-        self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]
+        self, user_id: str | UUID, tenant_id: str | UUID
     ) -> EmbeddedLoginRequestOutput:
         return await self.__elements.login_as(user_id=user_id, tenant_id=tenant_id)

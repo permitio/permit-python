@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ..utils.pydantic_version import PYDANTIC_VERSION
 
@@ -9,6 +9,8 @@ elif PYDANTIC_VERSION < (2, 0):
     from pydantic import validate_arguments
 else:
     from pydantic.v1 import validate_arguments
+
+import builtins
 
 from permit.utils.model_input import ModelInput
 
@@ -32,9 +34,7 @@ from .models import (
 
 
 class ResourceRolesApi(BasePermitApi):
-    """
-    Represents the interface for managing resource roles.
-    """
+    """Represents the interface for managing resource roles."""
 
     @property
     def __resource_roles(self) -> SimpleHttpClient:
@@ -45,9 +45,8 @@ class ResourceRolesApi(BasePermitApi):
     @validate_arguments
     async def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> List[ResourceRoleRead]:
-        """
-        Retrieves a list of resource roles.
+    ) -> list[ResourceRoleRead]:
+        """Retrieves a list of resource roles.
 
         Args:
             resource_key: The key of the resource to filter on.
@@ -65,7 +64,7 @@ class ResourceRolesApi(BasePermitApi):
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_roles.get(
             f"/{resource_key}/roles",
-            model=List[ResourceRoleRead],
+            model=list[ResourceRoleRead],
             params=pagination_params(page, per_page),
         )
 
@@ -76,8 +75,7 @@ class ResourceRolesApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, resource_key: str, role_key: str) -> ResourceRoleRead:
-        """
-        Retrieves a resource role by its key.
+        """Retrieves a resource role by its key.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -96,8 +94,7 @@ class ResourceRolesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, resource_key: str, role_key: str) -> ResourceRoleRead:
-        """
-        Retrieves a resource role by its key.
+        """Retrieves a resource role by its key.
         Alias for the get method.
 
         Args:
@@ -117,8 +114,7 @@ class ResourceRolesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str, role_id: str) -> ResourceRoleRead:
-        """
-        Retrieves a resource role by its ID.
+        """Retrieves a resource role by its ID.
         Alias for the get method.
 
         Args:
@@ -140,8 +136,7 @@ class ResourceRolesApi(BasePermitApi):
     async def create(
         self, resource_key: str, role_data: ModelInput[ResourceRoleCreate]
     ) -> ResourceRoleRead:
-        """
-        Creates a new resource role.
+        """Creates a new resource role.
 
         Args:
             resource_key: The key of the resource under which the role should be created.
@@ -164,8 +159,7 @@ class ResourceRolesApi(BasePermitApi):
     async def update(
         self, resource_key: str, role_key: str, role_data: ModelInput[ResourceRoleUpdate]
     ) -> ResourceRoleRead:
-        """
-        Updates a resource role.
+        """Updates a resource role.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -187,8 +181,7 @@ class ResourceRolesApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str, role_key: str) -> None:
-        """
-        Deletes a resource role.
+        """Deletes a resource role.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -204,10 +197,9 @@ class ResourceRolesApi(BasePermitApi):
 
     @validate_arguments
     async def assign_permissions(
-        self, resource_key: str, role_key: str, permissions: List[str]
+        self, resource_key: str, role_key: str, permissions: builtins.list[str]
     ) -> ResourceRoleRead:
-        """
-        Assigns permissions to a resource role.
+        """Assigns permissions to a resource role.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -235,10 +227,9 @@ class ResourceRolesApi(BasePermitApi):
 
     @validate_arguments
     async def remove_permissions(
-        self, resource_key: str, role_key: str, permissions: List[str]
+        self, resource_key: str, role_key: str, permissions: builtins.list[str]
     ) -> ResourceRoleRead:
-        """
-        Removes permissions from a resource role.
+        """Removes permissions from a resource role.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -266,8 +257,7 @@ class ResourceRolesApi(BasePermitApi):
     async def create_role_derivation(
         self, resource_key: str, role_key: str, derivation_rule: ModelInput[DerivedRoleRuleCreate]
     ) -> DerivedRoleRuleRead:
-        """
-        Create a conditional derivation from another role.
+        """Create a conditional derivation from another role.
 
         The derivation states that users with some other role on a related object will implicitly also be granted this role.
 
@@ -295,8 +285,7 @@ class ResourceRolesApi(BasePermitApi):
     async def delete_role_derivation(
         self, resource_key: str, role_key: str, derivation_rule: ModelInput[DerivedRoleRuleDelete]
     ) -> None:
-        """
-        Delete a role derivation.
+        """Delete a role derivation.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -321,8 +310,7 @@ class ResourceRolesApi(BasePermitApi):
         role_key: str,
         conditions: ModelInput[PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings],
     ) -> PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings:
-        """
-        Update the optional (ABAC) conditions when to derive this role from other roles.
+        """Update the optional (ABAC) conditions when to derive this role from other roles.
 
         Args:
             resource_key: The key of the resource the role belongs to.

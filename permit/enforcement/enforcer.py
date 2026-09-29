@@ -1,6 +1,6 @@
 import json
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -31,8 +31,8 @@ RESOURCE_DELIMITER = ":"
 # `Dict[str, Any]`, since pyright's strict mode reports a bare `dict` in a
 # signature as partially unknown.
 if TYPE_CHECKING:
-    User = Union[Dict[str, Any], str]
-    Resource = Union[Dict[str, Any], str]
+    User = Union[dict[str, Any], str]
+    Resource = Union[dict[str, Any], str]
 else:
     User = Union[dict, str]
     Resource = Union[dict, str]
@@ -64,7 +64,7 @@ class CheckQuery(TypedDict):
     user: User
     action: Action
     resource: Resource
-    context: NotRequired[Optional[Context]]
+    context: NotRequired[Context | None]
 
 
 SETUP_PDP_DOCS_LINK = "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
@@ -82,8 +82,7 @@ class Enforcer:
 
     @property
     def context_store(self) -> ContextStore:
-        """
-        we let context store be accessed from the outside so that the
+        """We let context store be accessed from the outside so that the
         using app can setup a flexible contextual behavior for authorization queries
         """
         return self._context_store
@@ -99,10 +98,9 @@ class Enforcer:
         self,
         action: Action,
         resource: Resource,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> AuthorizedUsersResult:
-        """
-        Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+        """Queries to get all the users that are authorized to perform an action on a resource within the specified context.
 
         Args:
             action: The action to be performed on the resource.
@@ -116,7 +114,6 @@ class Enforcer:
             PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
         Examples:
-
             # all the users that can close any issue?
             await permit.authorized_users('close', 'issue')
 
@@ -200,11 +197,10 @@ class Enforcer:
 
     async def bulk_check(
         self,
-        checks: List[CheckQuery],
-        context: Optional[Context] = None,
-    ) -> List[bool]:
-        """
-        Checks if a user is authorized to perform an action on a resource within the specified context.
+        checks: list[CheckQuery],
+        context: Context | None = None,
+    ) -> list[bool]:
+        """Checks if a user is authorized to perform an action on a resource within the specified context.
 
         Args:
             checks: A list of CheckQuery objects representing the authorization queries to be performed.
@@ -219,7 +215,6 @@ class Enforcer:
             PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
         Examples:
-
             # Bulk query of multiple check conventions
             await permit.bulk_check([
                 {
@@ -298,7 +293,7 @@ class Enforcer:
                         f"response data: {pformat(content, indent=2)}"
                     )
                     data = content.get("allow", content.get("result", {}).get("allow", []))
-                    decisions: List[bool] = [bool(item.get("allow", False)) for item in data]
+                    decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
             except aiohttp.ClientError as err:
                 msg = "error in permit.check({}):\n{}".format(
                     (
@@ -322,10 +317,9 @@ class Enforcer:
         user: User,
         action: Action,
         resource: Resource,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> bool:
-        """
-        Checks if a user is authorized to perform an action on a resource within the specified context.
+        """Checks if a user is authorized to perform an action on a resource within the specified context.
 
         Args:
             user: The user object representing the user.
@@ -340,7 +334,6 @@ class Enforcer:
             PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
 
         Examples:
-
             # can the user close any issue?
             await permit.check(user, 'close', 'issue')
 
@@ -429,11 +422,11 @@ class Enforcer:
 
     async def get_user_permissions(
         self,
-        user: Union[Dict[str, Any], str],
-        tenants: Optional[List[str]] = None,
-        resources: Optional[List[str]] = None,
-        resource_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        user: dict[str, Any] | str,
+        tenants: list[str] | None = None,
+        resources: list[str] | None = None,
+        resource_types: list[str] | None = None,
+    ) -> dict[str, Any]:
         input_data = {
             "user": {"key": user} if isinstance(user, str) else user,
             "tenants": tenants,
@@ -480,8 +473,8 @@ class Enforcer:
                 ) from err
 
     async def filter_objects(
-        self, user: User, action: Action, context: Context, resources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Filter the given resources down to the ones the user is allowed to act on.
 
         Args:
@@ -494,9 +487,9 @@ class Enforcer:
         Returns:
             list[dict]: The subset of ``resources`` the user is authorized for, in input order.
         """
-        requests: List[CheckQuery] = []
+        requests: list[CheckQuery] = []
         for resource in resources:
-            permit_resource: Dict[str, Any] = {
+            permit_resource: dict[str, Any] = {
                 "type": resource.get("type"),
                 "key": resource.get("key"),
                 "context": resource.get("context", {}),
@@ -512,7 +505,7 @@ class Enforcer:
             requests.append(check_query)
 
         results = await self.bulk_check(requests, context=context)
-        filtered_resources: List[Dict[str, Any]] = []
+        filtered_resources: list[dict[str, Any]] = []
         for i, result in enumerate(results):
             if result:
                 filtered_resources.append(resources[i])

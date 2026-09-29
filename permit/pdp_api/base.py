@@ -5,13 +5,10 @@ __all__ = ["BasePdpPermitApi", "ClientConfig", "pagination_params"]
 
 
 class BasePdpPermitApi:
-    """
-    The base class for Permit APIs.
-    """
+    """The base class for Permit APIs."""
 
     def __init__(self, config: PermitConfig):
-        """
-        Initialize a BasePermitApi.
+        """Initialize a BasePermitApi.
 
         Args:
             config: The Permit SDK configuration.

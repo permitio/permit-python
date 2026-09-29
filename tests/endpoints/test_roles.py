@@ -1,12 +1,13 @@
 import asyncio
-from typing import Awaitable, Callable, List, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 import pytest
 from loguru import logger
-from tests.utils import handle_cleanup_error, unique_key
 
 from permit import ActionBlockEditable, Permit, ResourceCreate
 from permit.exceptions import PermitApiDetailedError, PermitApiError
+from tests.utils import handle_cleanup_error, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -53,7 +54,7 @@ async def retry_while_permissions_propagate(
             await asyncio.sleep(PROPAGATION_POLL_INTERVAL_SECONDS)
 
 
-async def list_own_role_keys(permit: Permit) -> List[str]:
+async def list_own_role_keys(permit: Permit) -> list[str]:
     """The keys of roles created by this test, sorted, across all pages.
 
     The shared environment can easily hold more roles than fit on a single page,
@@ -62,7 +63,7 @@ async def list_own_role_keys(permit: Permit) -> List[str]:
     """
     per_page = 100
     page = 1
-    keys: List[str] = []
+    keys: list[str] = []
     while True:
         roles = await permit.api.roles.list(page=page, per_page=per_page)
         keys.extend(role.key for role in roles if role.key.startswith(TEST_PREFIX))

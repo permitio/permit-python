@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, TypeVar
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -40,11 +40,9 @@ class ClientConfig(BaseModel):
 
 
 class SimpleHttpClient:
-    """
-    wraps aiohttp client to reduce boilerplace
-    """
+    """wraps aiohttp client to reduce boilerplace"""
 
-    def __init__(self, client_config: dict, base_url: str = "", timeout: Optional[int] = None):
+    def __init__(self, client_config: dict, base_url: str = "", timeout: int | None = None):
         self._client_config = client_config
         self._base_url = base_url
         if timeout is not None:
@@ -56,9 +54,7 @@ class SimpleHttpClient:
     def _log_response(self, url: str, method: str, status: int) -> None:
         logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
-    def _prepare_json(
-        self, json: Optional[Union[TData, dict, list]] = None
-    ) -> Optional[Union[dict, list]]:
+    def _prepare_json(self, json: TData | dict | list | None = None) -> dict | list | None:
         """Normalize a request body into JSON-serializable primitives.
 
         Models, dicts and lists all go through the same encoder so that nested
@@ -80,7 +76,7 @@ class SimpleHttpClient:
         return jsonable_encoder(json, exclude_unset=True)
 
     @handle_client_error
-    async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
+    async def get(self, url, model: type[TModel], **kwargs) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "GET")
@@ -94,8 +90,8 @@ class SimpleHttpClient:
     async def post(
         self,
         url,
-        model: Type[TModel],
-        json: Optional[Union[TData, dict, list]] = None,
+        model: type[TModel],
+        json: TData | dict | list | None = None,
         **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
@@ -111,8 +107,8 @@ class SimpleHttpClient:
     async def put(
         self,
         url,
-        model: Type[TModel],
-        json: Optional[Union[TData, dict, list]] = None,
+        model: type[TModel],
+        json: TData | dict | list | None = None,
         **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
@@ -128,8 +124,8 @@ class SimpleHttpClient:
     async def patch(
         self,
         url,
-        model: Type[TModel],
-        json: Optional[Union[TData, dict, list]] = None,
+        model: type[TModel],
+        json: TData | dict | list | None = None,
         **kwargs,
     ) -> TModel:
         url = f"{self._base_url}{url}"
@@ -145,10 +141,10 @@ class SimpleHttpClient:
     async def delete(
         self,
         url,
-        model: Optional[Type[TModel]] = None,
-        json: Optional[Union[TData, dict, list]] = None,
+        model: type[TModel] | None = None,
+        json: TData | dict | list | None = None,
         **kwargs,
-    ) -> Optional[TModel]:
+    ) -> TModel | None:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "DELETE")
@@ -162,13 +158,10 @@ class SimpleHttpClient:
 
 
 class BasePermitApi:
-    """
-    The base class for Permit APIs.
-    """
+    """The base class for Permit APIs."""
 
     def __init__(self, config: PermitConfig):
-        """
-        Initialize a BasePermitApi.
+        """Initialize a BasePermitApi.
 
         Args:
             config: The Permit SDK configuration.
@@ -201,9 +194,7 @@ class BasePermitApi:
         )
 
     async def _set_context_from_api_key(self) -> None:
-        """
-        Set the API context and permitted access level based on the API key scope.
-        """
+        """Set the API context and permitted access level based on the API key scope."""
         logger.debug("Fetching api key scope")
         scope = await self.__api_keys.get("/scope", model=APIKeyScopeRead)
 
@@ -240,8 +231,7 @@ class BasePermitApi:
         raise PermitContextError("Could not set API context level")
 
     async def _ensure_access_level(self, required_access_level: ApiKeyAccessLevel) -> None:
-        """
-        Ensure that the API Key has the necessary permissions to successfully call the API endpoint.
+        """Ensure that the API Key has the necessary permissions to successfully call the API endpoint.
 
         Note that this check is not full proof, and the API may still throw 401.
 
@@ -269,8 +259,7 @@ class BasePermitApi:
             )
 
     async def _ensure_context(self, required_context: ApiContextLevel) -> None:
-        """
-        Ensure that the API context matches the required endpoint context.
+        """Ensure that the API context matches the required endpoint context.
 
         Args:
             context: The required API context level for the endpoint.
@@ -288,5 +277,5 @@ class BasePermitApi:
         if self.config.api_context.level.value < required_context.value:
             raise PermitContextError(
                 f"You're trying to use an SDK method that requires an api context of {required_context.name}, "
-                + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
+                f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )

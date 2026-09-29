@@ -101,7 +101,7 @@ def test_importing_permit_on_pydantic_2_does_not_warn(tmp_path: Path, first_impo
 
 
 def test_the_pydantic_version_permit_checks_is_not_a_public_name():
-    """permit reads the pydantic version to decide whether to warn; the constant is not API.
+    """Permit reads the pydantic version to decide whether to warn; the constant is not API.
 
     permit has no ``__all__``, so any name without a leading underscore is public: it is in
     ``dir(permit)`` and ``from permit import *`` exports it.

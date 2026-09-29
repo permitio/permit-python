@@ -1,5 +1,5 @@
 import functools
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import aiohttp
 from loguru import logger
@@ -40,14 +40,13 @@ class PermitConnectionError(PermitException):
     with a changelog entry, not in a dependency-security patch.
     """
 
-    def __init__(self, message: str, *, error: Optional[aiohttp.ClientError] = None):
+    def __init__(self, message: str, *, error: aiohttp.ClientError | None = None):
         super().__init__(message)
         self.original_error = error
 
 
 class PermitContextError(PermitError):
-    """
-    The `PermitContextError` class represents an error that occurs when an API method
+    """The `PermitContextError` class represents an error that occurs when an API method
     is called with insufficient context (not knowing in what environment, project or
     organization the API call is being made).
 
@@ -57,22 +56,19 @@ class PermitContextError(PermitError):
 
 
 class PermitContextChangeError(PermitError):
-    """
-    The `PermitContextChangeError` will be thrown when the user is trying to set the
+    """The `PermitContextChangeError` will be thrown when the user is trying to set the
     SDK context to an object that the current API Key cannot access (and if allowed,
     such api calls will result is 401). Instead, the SDK throws this exception.
     """
 
 
 class PermitApiError(PermitError):
-    """
-    Wraps an error HTTP Response that occurred during a Permit REST API request.
-    """
+    """Wraps an error HTTP Response that occurred during a Permit REST API request."""
 
     def __init__(
         self,
         response: aiohttp.ClientResponse,
-        body: Optional[dict] = None,
+        body: dict | None = None,
     ):
         super().__init__()
         self._response = response
@@ -90,8 +86,7 @@ class PermitApiError(PermitError):
 
     @property
     def response(self) -> aiohttp.ClientResponse:
-        """
-        Get the HTTP response that returned an error status code
+        """Get the HTTP response that returned an error status code
 
         Returns:
             The HTTP response object.
@@ -99,9 +94,8 @@ class PermitApiError(PermitError):
         return self._response
 
     @property
-    def details(self) -> Optional[dict]:
-        """
-        Get the HTTP response JSON body. Contains details about the error.
+    def details(self) -> dict | None:
+        """Get the HTTP response JSON body. Contains details about the error.
 
         Returns:
             The HTTP response json. If no content will return None.
@@ -110,8 +104,7 @@ class PermitApiError(PermitError):
 
     @property
     def request_url(self) -> str:
-        """
-        Get the HTTP request URL that caused the error code.
+        """Get the HTTP request URL that caused the error code.
 
         Returns:
             The HTTP request url
@@ -120,8 +113,7 @@ class PermitApiError(PermitError):
 
     @property
     def status_code(self) -> int:
-        """
-        Get the HTTP response status code
+        """Get the HTTP response status code
 
         Returns:
             The status code returned.
@@ -129,9 +121,8 @@ class PermitApiError(PermitError):
         return self._response.status
 
     @property
-    def content_type(self) -> Optional[str]:
-        """
-        Get the HTTP content type header of the error response.
+    def content_type(self) -> str | None:
+        """Get the HTTP content type header of the error response.
 
         Returns:
             The value of the HTTP Response Content-type header, or None
@@ -140,9 +131,7 @@ class PermitApiError(PermitError):
 
 
 class PermitValidationError(PermitApiError):
-    """
-    Validation error response from the Permit API.
-    """
+    """Validation error response from the Permit API."""
 
     def __init__(self, response: aiohttp.ClientResponse, content: HTTPValidationError, body: dict):
         self._content = content
@@ -162,9 +151,7 @@ class PermitValidationError(PermitApiError):
 
 
 class PermitApiDetailedError(PermitApiError):
-    """
-    Detailed error response from the Permit API.
-    """
+    """Detailed error response from the Permit API."""
 
     def __init__(self, response: aiohttp.ClientResponse, content: ErrorDetails, body: dict):
         self._content = content
@@ -208,15 +195,11 @@ class PermitApiDetailedError(PermitApiError):
 
 
 class PermitAlreadyExistsError(PermitApiDetailedError):
-    """
-    Object already exists response from the Permit API.
-    """
+    """Object already exists response from the Permit API."""
 
 
 class PermitNotFoundError(PermitApiDetailedError):
-    """
-    Object not found response from the Permit API.
-    """
+    """Object not found response from the Permit API."""
 
 
 async def handle_api_error(response: aiohttp.ClientResponse):
@@ -244,10 +227,9 @@ async def handle_api_error(response: aiohttp.ClientResponse):
 
     if response.status == 409:
         raise PermitAlreadyExistsError(response, content, json)
-    elif response.status == 404:
+    if response.status == 404:
         raise PermitNotFoundError(response, content, json)
-    else:
-        raise PermitApiDetailedError(response, content, json)
+    raise PermitApiDetailedError(response, content, json)
 
 
 def handle_client_error(func):
