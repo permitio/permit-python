@@ -264,11 +264,19 @@ def referenced_names(nodes: list[ast.expr]) -> set[str]:
     return names
 
 
-def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str] | None:
-    """Where a type checker finds ``name`` as used in ``module_name``: (module, attribute), or None for a builtin."""
+def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str | None] | None:
+    """Where a type checker finds ``name`` as used in ``module_name``.
+
+    (module, attribute) for a name imported from a module or defined in one, (module, None)
+    for a module imported whole (``import builtins``), or None for a builtin.
+    """
     package = module_name.rpartition(".")[0]
     for node in type_checking_statements(tree):
-        if isinstance(node, ast.ImportFrom):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname is None and alias.name == name:
+                    return alias.name, None
+        elif isinstance(node, ast.ImportFrom):
             for alias in node.names:
                 if (alias.asname or alias.name) == name:
                     source = importlib.util.resolve_name(
@@ -298,13 +306,22 @@ def member_sort_key(name: str) -> tuple[int, str]:
     return 2, name
 
 
-def import_block(imports: dict[str, set[str]]) -> str:
-    """``from module import names`` lines, grouped and ordered the way ruff's isort rules want."""
+def import_block(imports: dict[str, set[str | None]]) -> str:
+    """The import lines, grouped and ordered the way ruff's isort rules want.
+
+    A None among a module's names stands for the module itself (``import module``).
+    Within a section, ``import module`` lines come before ``from module import`` ones.
+    """
+    whole: dict[int, list[str]] = defaultdict(list)
     sections: dict[int, list[str]] = defaultdict(list)
     for module in sorted(imports):
         top = module.partition(".")[0]
         section = 0 if top in sys.stdlib_module_names else 2 if top == "permit" else 1
-        names = sorted(imports[module], key=member_sort_key)
+        if None in imports[module]:
+            whole[section].append(f"import {module}")
+        names = sorted((n for n in imports[module] if n is not None), key=member_sort_key)
+        if not names:
+            continue
         line = f"from {module} import {', '.join(names)}"
         if len(line) <= LINE_LENGTH:
             sections[section].append(line)
@@ -312,10 +329,12 @@ def import_block(imports: dict[str, set[str]]) -> str:
             sections[section].append(
                 f"from {module} import (\n" + "".join(f"{INDENT}{n},\n" for n in names) + ")"
             )
-    return "\n\n".join("\n".join(sections[key]) for key in sorted(sections))
+    return "\n\n".join(
+        "\n".join(whole[key] + sections[key]) for key in sorted(set(whole) | set(sections))
+    )
 
 
-def class_lines(sync_cls: type, imports: dict[str, set[str]]) -> list[str]:
+def class_lines(sync_cls: type, imports: dict[str, set[str | None]]) -> list[str]:
     async_cls = async_class(sync_cls)
     source, tree = module_tree(async_cls.__module__)
     node = class_node(tree, async_cls.__name__)
@@ -370,7 +389,7 @@ def render_stub() -> str:
             f"`uv run python scripts/generate_sync_stubs.py` in {REPO_ROOT}, or set PYTHONPATH={REPO_ROOT}"
         )
         raise StubError(msg)
-    imports: dict[str, set[str]] = defaultdict(set)
+    imports: dict[str, set[str | None]] = defaultdict(set)
     classes = [class_lines(sync_cls, imports) for sync_cls in sync_classes()]
     parts = [HEADER, import_block(imports)]
     parts.extend("\n".join(lines) for lines in classes)
