@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -12,15 +12,9 @@ else:
 
 import builtins
 
-from permit.utils.model_input import ModelInput
-
-from .base import (
-    BasePermitApi,
-    SimpleHttpClient,
-    pagination_params,
-)
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
+from permit.api.base import BasePermitApi, SimpleHttpClient, pagination_params
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import (
     AddRolePermissions,
     DerivedRoleRuleCreate,
     DerivedRoleRuleDelete,
@@ -31,6 +25,7 @@ from .models import (
     ResourceRoleRead,
     ResourceRoleUpdate,
 )
+from permit.utils.model_input import ModelInput
 
 
 class ResourceRolesApi(BasePermitApi):
@@ -58,7 +53,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -86,7 +82,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -95,6 +92,7 @@ class ResourceRolesApi(BasePermitApi):
     @validate_arguments
     async def get_by_key(self, resource_key: str, role_key: str) -> ResourceRoleRead:
         """Retrieves a resource role by its key.
+
         Alias for the get method.
 
         Args:
@@ -106,7 +104,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -115,6 +114,7 @@ class ResourceRolesApi(BasePermitApi):
     @validate_arguments
     async def get_by_id(self, resource_id: str, role_id: str) -> ResourceRoleRead:
         """Retrieves a resource role by its ID.
+
         Alias for the get method.
 
         Args:
@@ -126,7 +126,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -147,7 +148,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -171,7 +173,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -189,7 +192,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -215,7 +219,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -243,7 +248,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -259,7 +265,8 @@ class ResourceRolesApi(BasePermitApi):
     ) -> DerivedRoleRuleRead:
         """Create a conditional derivation from another role.
 
-        The derivation states that users with some other role on a related object will implicitly also be granted this role.
+        The derivation states that users with some other role on a related object will implicitly
+        also be granted this role.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -271,8 +278,9 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """  # noqa: E501
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__resource_roles.post(
@@ -294,7 +302,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -319,7 +328,8 @@ class ResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)

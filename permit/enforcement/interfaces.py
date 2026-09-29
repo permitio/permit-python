@@ -1,6 +1,6 @@
-from typing import TYPE_CHECKING, Dict, List  # noqa: UP035 - used where UP006 is suppressed
+from typing import TYPE_CHECKING, Any, Dict, List  # noqa: UP035 - public alias below
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -12,10 +12,14 @@ else:
 
 
 class UserKey(BaseModel):
+    """A user identified by key only."""
+
     key: str
 
 
 class AssignedRole(BaseModel):
+    """A role a user holds in a tenant."""
+
     role: str  # role key
     tenant: str  # tenant key
 
@@ -35,9 +39,9 @@ class UserInput(UserKey):
     last_name: str | None = Field(default=None, alias="lastName")
     email: str | None = None
     roles: list[AssignedRole] | None = None
-    # typing.Dict, not dict: pydantic v1 validates a typing.Dict value into a copy, and
+    # A parameterized dict, not a bare one: pydantic v1 validates it into a copy, and
     # keeps the caller's object for a bare dict.
-    attributes: Dict | None = None  # noqa: UP006
+    attributes: dict[Any, Any] | None = None
 
     if TYPE_CHECKING:
         # Type checkers derive the constructor from the fields and know only the
@@ -52,21 +56,25 @@ class UserInput(UserKey):
             lastName: str | None = None,  # noqa: N803 - the field's wire alias
             email: str | None = None,
             roles: list[AssignedRole] | None = None,
-            attributes: dict | None = None,
+            attributes: dict[Any, Any] | None = None,
         ) -> None: ...
 
 
 class ResourceInput(BaseModel):
+    """A resource as sent to the PDP on an authorization query."""
+
     type: str  # namespace/type of resources/objects
     id: str | None = None  # id of individual object
     key: str | None = None  # key of individual object
     tenant: str | None = None  # tenant the resource belongs to
-    # typing.Dict, not dict: see UserInput.attributes.
-    attributes: Dict | None = None  # noqa: UP006 - extra resources attributes
-    context: Dict | None = None  # noqa: UP006 - extra context
+    # Parameterized dicts: see UserInput.attributes.
+    attributes: dict[Any, Any] | None = None  # extra resources attributes
+    context: dict[Any, Any] | None = None  # extra context
 
 
 class AuthorizedUserAssignment(BaseModel):
+    """A role assignment that grants a user the queried permission."""
+
     user: str = Field(..., description="The user that is authorized")
     tenant: str = Field(..., description="The tenant that the user is authorized for")
     resource: str = Field(..., description="The resource that the user is authorized for")
@@ -78,6 +86,8 @@ AuthorizedUsersDict = Dict[str, List[AuthorizedUserAssignment]]  # noqa: UP006
 
 
 class AuthorizedUsersResult(BaseModel):
+    """The result of an `authorized_users()` query."""
+
     resource: str = Field(
         ...,
         description="The resource that the result is about."
@@ -88,6 +98,7 @@ class AuthorizedUsersResult(BaseModel):
         ...,
         description="A key value mapping of the users that are "
         "authorized for the resource."
-        "The key is the user key and the value is a list of assignments allowing the user to perform"
+        "The key is the user key and the value is a list of assignments "
+        "allowing the user to perform"
         "the requested action",
     )

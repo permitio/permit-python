@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -10,19 +10,17 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments
 
+from permit.api.base import BasePermitApi, pagination_params
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import ProjectCreate, ProjectRead, ProjectUpdate
+from permit.config import PermitConfig
 from permit.utils.model_input import ModelInput
-
-from ..config import PermitConfig
-from .base import (
-    BasePermitApi,
-    pagination_params,
-)
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import ProjectCreate, ProjectRead, ProjectUpdate
 
 
 class ProjectsApi(BasePermitApi):
-    def __init__(self, config: PermitConfig):
+    """Manage the projects of an organization."""
+
+    def __init__(self, config: PermitConfig) -> None:
         super().__init__(config)
         self.__projects = self._build_http_client("/v2/projects")
 
@@ -39,7 +37,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
@@ -62,7 +61,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
@@ -71,6 +71,7 @@ class ProjectsApi(BasePermitApi):
     @validate_arguments
     async def get_by_key(self, project_key: str) -> ProjectRead:
         """Retrieves a project by its key.
+
         Alias for the get method.
 
         Args:
@@ -81,7 +82,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
@@ -90,6 +92,7 @@ class ProjectsApi(BasePermitApi):
     @validate_arguments
     async def get_by_id(self, project_id: str) -> ProjectRead:
         """Retrieves a project by its ID.
+
         Alias for the get method.
 
         Args:
@@ -100,7 +103,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
@@ -118,7 +122,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ORGANIZATION_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
@@ -139,7 +144,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)
@@ -157,7 +163,8 @@ class ProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ORGANIZATION)

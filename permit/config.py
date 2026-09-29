@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Literal
 
-from .api.context import ApiContext
-from .utils.pydantic_version import PYDANTIC_VERSION
+from permit.api.context import ApiContext
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -13,6 +13,8 @@ else:
 
 
 class LoggerConfig(BaseModel):
+    """Logging settings of the SDK."""
+
     enable: bool = Field(
         default=False, description="Whether or not to enable logging from the Permit library"
     )
@@ -31,23 +33,31 @@ class LoggerConfig(BaseModel):
 
 
 class MultiTenancyConfig(BaseModel):
+    """How resources without a tenant are assigned one."""
+
     default_tenant: str = Field(
         default="default",
-        description="the key of the default tenant to be used if use_default_tenant_if_empty == True",
+        description="the key of the default tenant to be used "
+        "if use_default_tenant_if_empty == True",
     )
     use_default_tenant_if_empty: bool = Field(
         default=True,
-        description="whether or not the SDK should automatically associate a resource with the defaultTenant "
-        "if the resource provided in permit.check() was not associated with a tenant (i.e: undefined tenant).",
+        description="whether or not the SDK should automatically associate a resource "
+        "with the defaultTenant "
+        "if the resource provided in permit.check() was not associated with a tenant "
+        "(i.e: undefined tenant).",
     )
 
 
 class PermitConfig(BaseModel):
+    """Configuration of the Permit SDK."""
+
     # A positional `...`, not `default=...`: type checkers take any `default=`
     # keyword as a default, so `PermitConfig()` without a token would pass them.
     token: str = Field(
         ...,
-        description="The token (API Key) used for authorization against the PDP and the Permit REST API.",
+        description="The token (API Key) used for authorization against the PDP "
+        "and the Permit REST API.",
     )
     pdp: str = Field(
         default="http://localhost:7766",

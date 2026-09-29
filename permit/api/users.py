@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any, Union, cast
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -12,15 +12,9 @@ else:
 
 import builtins
 
-from permit.utils.model_input import ModelInput, ModelListInput
-
-from .base import (
-    BasePermitApi,
-    SimpleHttpClient,
-    pagination_params,
-)
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
+from permit.api.base import BasePermitApi, SimpleHttpClient, pagination_params
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import (
     PaginatedResultUserRead,
     RoleAssignmentCreate,
     RoleAssignmentRead,
@@ -35,18 +29,22 @@ from .models import (
     UserReplaceBulkOperationResult,
     UserUpdate,
 )
+from permit.utils.model_input import ModelInput, ModelListInput
 
 # sync() sends a dict that is not a valid UserCreate as it is, so the annotation
 # validate_arguments reads keeps the bare `dict` it always had: `Dict[str, Any]`
 # would copy that dict and coerce its keys. Type checkers get `Dict[str, Any]`,
 # since pyright's strict mode reports a bare `dict` parameter as partially unknown.
 if TYPE_CHECKING:
-    _UserSyncInput = Union[UserCreate, dict[str, Any]]
+    _UserSyncInput = UserCreate | dict[str, Any]
 else:
-    _UserSyncInput = Union[UserCreate, dict]
+    # validate_arguments reads this annotation, so it stays exactly as it was.
+    _UserSyncInput = Union[UserCreate, dict]  # noqa: UP007
 
 
 class UsersApi(BasePermitApi):
+    """Manage users and their role assignments."""
+
     @property
     def __users(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
@@ -84,7 +82,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -109,7 +108,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -118,6 +118,7 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def get_by_key(self, user_key: str) -> UserRead:
         """Retrieves a user by its key.
+
         Alias for the get method.
 
         Args:
@@ -128,7 +129,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -137,6 +139,7 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def get_by_id(self, user_id: str) -> UserRead:
         """Retrieves a user by its ID.
+
         Alias for the get method.
 
         Args:
@@ -147,7 +150,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -165,7 +169,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -184,7 +189,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -202,14 +208,16 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         if isinstance(user, dict):
             user_key = user.get("key")
             if user_key is None:
-                raise KeyError("required 'key' in input dictionary")
+                msg = "required 'key' in input dictionary"
+                raise KeyError(msg)
         else:
             user_key = user.key
         return await self.__users.put(f"/{user_key}", model=UserRead, json=user)
@@ -223,7 +231,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -241,7 +250,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -268,7 +278,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -283,14 +294,16 @@ class UsersApi(BasePermitApi):
         """Deletes users in bulk.
 
         Args:
-            users: The users identities to delete. Each identity can be either the user key or the user id.
+            users: The users identities to delete. Each identity can be either the user key or the
+                user id.
 
         Returns:
             the bulk delete report.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -312,7 +325,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -333,7 +347,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -352,8 +367,10 @@ class UsersApi(BasePermitApi):
         page: int = 1,
         per_page: int = 100,
     ) -> builtins.list[RoleAssignmentRead]:
-        """Retrieves the roles assigned to a user in a given tenant (if the tenant filter is provided)
-        or across all tenants (if the tenant filter is not provided).
+        """Retrieves the roles assigned to a user, in one tenant or across all of them.
+
+        The roles come from the given tenant if the tenant filter is provided, or from
+        all tenants if it is not.
 
         Args:
             user: The key of the user.
@@ -366,7 +383,8 @@ class UsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)

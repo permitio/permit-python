@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -12,15 +12,9 @@ else:
 
 import builtins
 
-from permit.utils.model_input import ModelInput, ModelListInput
-
-from .base import (
-    BasePermitApi,
-    SimpleHttpClient,
-    pagination_params,
-)
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
+from permit.api.base import BasePermitApi, SimpleHttpClient, pagination_params
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import (
     ResourceInstanceCreate,
     ResourceInstanceCreateBulkOperation,
     ResourceInstanceCreateBulkOperationResult,
@@ -29,9 +23,12 @@ from .models import (
     ResourceInstanceRead,
     ResourceInstanceUpdate,
 )
+from permit.utils.model_input import ModelInput, ModelListInput
 
 
 class ResourceInstancesApi(BasePermitApi):
+    """Manage resource instances."""
+
     @property
     def __resource_instances(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
@@ -49,13 +46,13 @@ class ResourceInstancesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(
+    async def list(  # noqa: PLR0917 - public signature; callers may pass these positionally
         self,
         page: int = 1,
         per_page: int = 100,
         tenant_key: str | None = None,
         resource_key: str | None = None,
-        detailed_key: bool | None = None,
+        detailed_key: bool | None = None,  # noqa: FBT001 - public signature, positional callers
         search_key: str | None = None,
     ) -> list[ResourceInstanceRead]:
         """Retrieves a list of resource instances.
@@ -63,13 +60,18 @@ class ResourceInstancesApi(BasePermitApi):
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
+            tenant_key: Only return instances that belong to this tenant.
+            resource_key: Only return instances of this resource type.
+            detailed_key: Whether to return detailed instances.
+            search_key: Only return instances matching this search string.
 
         Returns:
             an array of resource instances.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -107,7 +109,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -116,6 +119,7 @@ class ResourceInstancesApi(BasePermitApi):
     @validate_arguments
     async def get_by_key(self, instance_key: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its identity.
+
         Alias for the get method.
 
         Args:
@@ -128,7 +132,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -137,6 +142,7 @@ class ResourceInstancesApi(BasePermitApi):
     @validate_arguments
     async def get_by_id(self, instance_id: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its ID.
+
         Alias for the get method.
 
         Args:
@@ -147,7 +153,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -167,7 +174,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -192,7 +200,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -207,7 +216,8 @@ class ResourceInstancesApi(BasePermitApi):
         """Deletes a resource instance.
 
         Args:
-            instance_key: The identity of the resource instance to delete. Either `resource_type:instance_key`
+            instance_key: The identity of the resource instance to delete. Either
+                `resource_type:instance_key`
                 (like Repository:react) or the resource instance uuid. A bare instance key
                 is rejected by the API with a 422.
 
@@ -216,7 +226,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -239,7 +250,8 @@ class ResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -257,15 +269,17 @@ class ResourceInstancesApi(BasePermitApi):
 
         Args:
             resource_instances: The resource instance identities to delete.
-            Each identity can be either `resource_type:instance_key` (like Repository:react) or the resource instance uuid.
+            Each identity can be either `resource_type:instance_key` (like Repository:react) or the
+            resource instance uuid.
 
         Returns:
             the bulk delete report.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """  # noqa: E501
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__bulk_operations.delete(

@@ -1,10 +1,12 @@
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import TypeAlias
+
     _Model = TypeVar("_Model")
 
-    ModelInput = Union[_Model, dict[str, Any]]
+    ModelInput: TypeAlias = _Model | dict[str, Any]
     """Annotation for an SDK method parameter that takes a model or an equivalent dict.
 
     Methods decorated with ``validate_arguments`` validate a dict argument into the
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
     that call if the annotation also allows a dict.
     """
 
-    ModelListInput = Sequence[_Model | dict[str, Any]]
+    ModelListInput: TypeAlias = Sequence[_Model | dict[str, Any]]
     """Annotation for a bulk parameter that takes a list of models or equivalent dicts.
 
     A ``Sequence``, not a ``List``: ``List`` is invariant, so a type checker would
@@ -34,12 +36,12 @@ else:
             return model
 
     class ModelListInput:
-        """Runtime twin of the type-checking alias: ``ModelListInput[X]`` is ``List[X]``.
+        """Runtime twin of the type-checking alias: ``ModelListInput[X]`` is ``list[X]``.
 
         ``validate_arguments`` must keep building a list of validated models, as it
         did before this annotation existed. Given ``Sequence[X]`` it would, for one,
         hand the method a tuple when the caller passed a tuple.
         """
 
-        def __class_getitem__(cls, model: type) -> Any:
+        def __class_getitem__(cls, model: type) -> object:
             return list[model]

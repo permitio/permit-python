@@ -91,10 +91,24 @@ from permit.utils.context import Context, ContextStore
 from permit.utils.model_input import ModelInput, ModelListInput
 
 class SyncElementsApi(BasePermitApi):
-    def __init__(self, config: PermitConfig): ...
-    def login_as(self, user_id: str | UUID, tenant_id: str | UUID) -> UserLoginAsResponse: ...
+    """Log users into Permit Elements (embeddable UI components)."""
+    def __init__(self, config: PermitConfig) -> None: ...
+    def login_as(self, user_id: str | UUID, tenant_id: str | UUID) -> UserLoginAsResponse:
+        """Log a user into Permit Elements, in the context of a tenant.
+
+        Args:
+            user_id: The key or ID of the user to log in as.
+            tenant_id: The key or ID of the tenant the user will be able to access.
+
+        Returns:
+            The login ticket, including the URL that completes the login.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+        """
 
 class SyncConditionSetRulesApi(BasePermitApi):
+    """Manage condition set rules: which user sets may act on which resource sets."""
     def list(
         self,
         user_set_key: str | None = None,
@@ -106,10 +120,12 @@ class SyncConditionSetRulesApi(BasePermitApi):
         """Retrieves a list of condition set rule rules.
 
         Args:
-            user_set_key: the key of the userset, if used only rules matching that userset will be fetched.
+            user_set_key: the key of the userset, if used only rules matching that userset will be
+                fetched.
             permission_key: the key of the permission, formatted as <resource>:<action>.
                 if used, only rules granting that permission will be fetched.
-            resource_set_key: the key of the resourceset, if used only rules matching that resourceset will be fetched.
+            resource_set_key: the key of the resourceset, if used only rules matching that
+                resourceset will be fetched.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
@@ -118,7 +134,8 @@ class SyncConditionSetRulesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, rule: ModelInput[ConditionSetRuleCreate]
@@ -133,7 +150,8 @@ class SyncConditionSetRulesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, rule: ModelInput[ConditionSetRuleRemove]) -> None:
         """Deletes a condition set rule.
@@ -143,10 +161,12 @@ class SyncConditionSetRulesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncConditionSetsApi(BasePermitApi):
+    """Manage condition sets (user sets and resource sets) for ABAC policies."""
     def list(self, page: int = 1, per_page: int = 100) -> list[ConditionSetRead]:
         """Retrieves a list of condition sets.
 
@@ -159,7 +179,8 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, condition_set_key: str) -> ConditionSetRead:
         """Retrieves a condition set by its key.
@@ -172,10 +193,12 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, condition_set_key: str) -> ConditionSetRead:
         """Retrieves a condition set by its key.
+
         Alias for the get method.
 
         Args:
@@ -186,10 +209,12 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, condition_set_id: str) -> ConditionSetRead:
         """Retrieves a condition set by its ID.
+
         Alias for the get method.
 
         Args:
@@ -200,7 +225,8 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, condition_set_data: ModelInput[ConditionSetCreate]) -> ConditionSetRead:
         """Creates a new condition set.
@@ -213,7 +239,8 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self, condition_set_key: str, condition_set_data: ModelInput[ConditionSetUpdate]
@@ -229,7 +256,8 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, condition_set_key: str) -> None:
         """Deletes a condition set.
@@ -239,7 +267,8 @@ class SyncConditionSetsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncDeprecatedApi(BasePermitApi):
@@ -247,51 +276,74 @@ class SyncDeprecatedApi(BasePermitApi):
 
     Each one warns and calls the method named in its warning. They will be removed in permit 4.0.
     """
-    def __init__(self, config: PermitConfig): ...
-    def get_user(self, user_key: str) -> UserRead: ...
-    def get_role(self, role_key: str) -> RoleRead: ...
-    def get_tenant(self, tenant_key: str) -> TenantRead: ...
+    def __init__(self, config: PermitConfig) -> None: ...
+    def get_user(self, user_key: str) -> UserRead:
+        """Deprecated: use `permit.api.users.get()` instead."""
+    def get_role(self, role_key: str) -> RoleRead:
+        """Deprecated: use `permit.api.roles.get()` instead."""
+    def get_tenant(self, tenant_key: str) -> TenantRead:
+        """Deprecated: use `permit.api.tenants.get()` instead."""
     def get_assigned_roles(
         self, user_key: str, tenant_key: str | None, page: int = 1, per_page: int = 100
-    ) -> list[RoleAssignmentRead]: ...
-    def get_resource(self, resource_key: str) -> ResourceRead: ...
-    def list_roles(self, page: int = 1, per_page: int = 100) -> list[RoleRead]: ...
-    def sync_user(self, user: UserCreate | dict[str, Any]) -> UserRead: ...
-    def delete_user(self, user_key: str) -> None: ...
-    def list_tenants(self, page: int = 1, per_page: int = 100) -> list[TenantRead]: ...
-    def create_tenant(self, tenant: TenantCreate | dict[str, Any]) -> TenantRead: ...
-    def update_tenant(
-        self, tenant_key: str, tenant: TenantUpdate | dict[str, Any]
-    ) -> TenantRead: ...
-    def delete_tenant(self, tenant_key: str) -> None: ...
-    def create_role(self, role: RoleCreate | dict[str, Any]) -> RoleRead: ...
-    def update_role(self, role_key: str, role: RoleUpdate | dict[str, Any]) -> RoleRead: ...
-    def assign_role(self, user_key: str, role_key: str, tenant_key: str) -> RoleAssignmentRead: ...
-    def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None: ...
-    def delete_role(self, role_key: str) -> None: ...
-    def create_resource(self, resource: ResourceCreate | dict[str, Any]) -> ResourceRead: ...
+    ) -> list[RoleAssignmentRead]:
+        """Deprecated: use `permit.api.users.get_assigned_roles()` instead."""
+    def get_resource(self, resource_key: str) -> ResourceRead:
+        """Deprecated: use `permit.api.resources.get()` instead."""
+    def list_roles(self, page: int = 1, per_page: int = 100) -> list[RoleRead]:
+        """Deprecated: use `permit.api.roles.list()` instead."""
+    def sync_user(self, user: UserCreate | dict[str, Any]) -> UserRead:
+        """Deprecated: use `permit.api.users.sync()` instead."""
+    def delete_user(self, user_key: str) -> None:
+        """Deprecated: use `permit.api.users.delete()` instead."""
+    def list_tenants(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
+        """Deprecated: use `permit.api.tenants.list()` instead."""
+    def create_tenant(self, tenant: TenantCreate | dict[str, Any]) -> TenantRead:
+        """Deprecated: use `permit.api.tenants.create()` instead."""
+    def update_tenant(self, tenant_key: str, tenant: TenantUpdate | dict[str, Any]) -> TenantRead:
+        """Deprecated: use `permit.api.tenants.update()` instead."""
+    def delete_tenant(self, tenant_key: str) -> None:
+        """Deprecated: use `permit.api.tenants.delete()` instead."""
+    def create_role(self, role: RoleCreate | dict[str, Any]) -> RoleRead:
+        """Deprecated: use `permit.api.roles.create()` instead."""
+    def update_role(self, role_key: str, role: RoleUpdate | dict[str, Any]) -> RoleRead:
+        """Deprecated: use `permit.api.roles.update()` instead."""
+    def assign_role(self, user_key: str, role_key: str, tenant_key: str) -> RoleAssignmentRead:
+        """Deprecated: use `permit.api.users.assign_role()` instead."""
+    def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
+        """Deprecated: use `permit.api.users.unassign_role()` instead."""
+    def delete_role(self, role_key: str) -> None:
+        """Deprecated: use `permit.api.roles.delete()` instead."""
+    def create_resource(self, resource: ResourceCreate | dict[str, Any]) -> ResourceRead:
+        """Deprecated: use `permit.api.resources.create()` instead."""
     def update_resource(
         self, resource_key: str, resource: ResourceUpdate | dict[str, Any]
-    ) -> ResourceRead: ...
-    def delete_resource(self, resource_key: str) -> None: ...
+    ) -> ResourceRead:
+        """Deprecated: use `permit.api.resources.update()` instead."""
+    def delete_resource(self, resource_key: str) -> None:
+        """Deprecated: use `permit.api.resources.delete()` instead."""
     def elements_login_as(
         self, user_id: str | UUID, tenant_id: str | UUID
-    ) -> EmbeddedLoginRequestOutput: ...
+    ) -> EmbeddedLoginRequestOutput:
+        """Deprecated: use `permit.elements.login_as()` instead."""
 
 class SyncEnvironmentsApi(BasePermitApi):
-    def __init__(self, config: PermitConfig): ...
+    """Manage the environments of a project."""
+    def __init__(self, config: PermitConfig) -> None: ...
     def list(self, project_key: str, page: int = 1, per_page: int = 100) -> list[EnvironmentRead]:
         """Retrieves a list of environments.
 
         Args:
-            params: The filters and pagination options.
+            project_key: The key of the project whose environments to list.
+            page: The page number to fetch (default: 1).
+            per_page: How many items to fetch per page (default: 100).
 
         Returns:
             an array of EnvironmentRead objects representing the listed environments.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """Gets an environment by project key and environment key.
@@ -305,10 +357,12 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, project_key: str, environment_key: str) -> EnvironmentRead:
         """Gets an environment by project key and environment key.
+
         Alias for the get method.
 
         Args:
@@ -320,10 +374,12 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, project_id: str, environment_id: str) -> EnvironmentRead:
         """Gets an environment by project ID and environment ID.
+
         Alias for the get method.
 
         Args:
@@ -335,7 +391,8 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_stats(self, project_key: str, environment_key: str) -> EnvironmentStats:
         """Retrieves statistics and metadata for an environment.
@@ -349,7 +406,8 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_api_key(self, project_key: str, environment_key: str) -> APIKeyRead:
         """Retrieves the API key that grants access for an environment.
@@ -363,7 +421,8 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, project_key: str, environment_data: ModelInput[EnvironmentCreate]
@@ -379,7 +438,8 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self,
@@ -399,12 +459,13 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def copy(
         self, project_key: str, environment_key: str, copy_params: ModelInput[EnvironmentCopy]
     ) -> EnvironmentRead:
-        """Clones data from a source specified environment into a different target environment in the same project.
+        """Clones data from a source environment into another environment of the same project.
 
         Args:
             project_key: The project key.
@@ -416,7 +477,8 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, project_key: str, environment_key: str) -> None:
         """Deletes an environment.
@@ -427,11 +489,13 @@ class SyncEnvironmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncProjectsApi(BasePermitApi):
-    def __init__(self, config: PermitConfig): ...
+    """Manage the projects of an organization."""
+    def __init__(self, config: PermitConfig) -> None: ...
     def list(self, page: int = 1, per_page: int = 100) -> list[ProjectRead]:
         """Retrieves a list of projects.
 
@@ -444,7 +508,8 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, project_key: str) -> ProjectRead:
         """Retrieves a project by its key.
@@ -457,10 +522,12 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, project_key: str) -> ProjectRead:
         """Retrieves a project by its key.
+
         Alias for the get method.
 
         Args:
@@ -471,10 +538,12 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, project_id: str) -> ProjectRead:
         """Retrieves a project by its ID.
+
         Alias for the get method.
 
         Args:
@@ -485,7 +554,8 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, project_data: ModelInput[ProjectCreate]) -> ProjectRead:
         """Creates a new project.
@@ -498,7 +568,8 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(self, project_key: str, project_data: ModelInput[ProjectUpdate]) -> ProjectRead:
         """Updates a project.
@@ -512,7 +583,8 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, project_key: str) -> None:
         """Deletes a project.
@@ -525,10 +597,12 @@ class SyncProjectsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncRelationshipTuplesApi(BasePermitApi):
+    """Manage relationship tuples between resource instances (ReBAC)."""
     def list(
         self,
         page: int = 1,
@@ -553,11 +627,14 @@ class SyncRelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, tuple_data: ModelInput[RelationshipTupleCreate]) -> RelationshipTupleRead:
-        """Creates a new relationship tuple, that states that a relationship (of type: relation)
-        exists between two resource instances: the subject and the object.
+        """Creates a new relationship tuple.
+
+        The tuple states that a relationship (of type: relation) exists between two
+        resource instances: the subject and the object.
 
         Args:
             tuple_data: The relationship tuple to create.
@@ -567,7 +644,8 @@ class SyncRelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, tuple_data: ModelInput[RelationshipTupleDelete]) -> None:
         """Removes a relationship tuple.
@@ -577,7 +655,8 @@ class SyncRelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_create(
         self, tuples: ModelListInput[RelationshipTupleCreate]
@@ -602,7 +681,8 @@ class SyncRelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_delete(
         self, tuples: ModelListInput[RelationshipTupleDelete]
@@ -623,10 +703,12 @@ class SyncRelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncResourceActionGroupsApi(BasePermitApi):
+    """Manage the action groups of a resource."""
     def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> list[ResourceActionGroupRead]:
@@ -642,7 +724,8 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """Retrieves a action group by its key.
@@ -656,10 +739,12 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, resource_key: str, group_key: str) -> ResourceActionGroupRead:
         """Retrieves a action group by its key.
+
         Alias for the get method.
 
         Args:
@@ -671,10 +756,12 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, resource_id: str, group_id: str) -> ResourceActionGroupRead:
         """Retrieves a action group by its ID.
+
         Alias for the get method.
 
         Args:
@@ -686,7 +773,8 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, resource_key: str, group_data: ModelInput[ResourceActionGroupCreate]
@@ -702,7 +790,8 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self, resource_key: str, group_key: str, group_data: ModelInput[ResourceActionGroupUpdate]
@@ -719,7 +808,8 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, resource_key: str, group_key: str) -> None:
         """Deletes a action group.
@@ -730,10 +820,12 @@ class SyncResourceActionGroupsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncResourceActionsApi(BasePermitApi):
+    """Manage the actions of a resource."""
     def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> list[ResourceActionRead]:
@@ -749,7 +841,8 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """Retrieves a action by its key.
@@ -763,10 +856,12 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, resource_key: str, action_key: str) -> ResourceActionRead:
         """Retrieves a action by its key.
+
         Alias for the get method.
 
         Args:
@@ -778,10 +873,12 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
         """Retrieves a action by its ID.
+
         Alias for the get method.
 
         Args:
@@ -793,7 +890,8 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, resource_key: str, action_data: ModelInput[ResourceActionCreate]
@@ -809,7 +907,8 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self, resource_key: str, action_key: str, action_data: ModelInput[ResourceActionUpdate]
@@ -826,7 +925,8 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, resource_key: str, action_key: str) -> None:
         """Deletes a action.
@@ -837,10 +937,12 @@ class SyncResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncResourceAttributesApi(BasePermitApi):
+    """Manage the attributes of a resource."""
     def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> list[ResourceAttributeRead]:
@@ -856,7 +958,8 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
         """Retrieves a attribute by its key.
@@ -870,10 +973,12 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
         """Retrieves a attribute by its key.
+
         Alias for the get method.
 
         Args:
@@ -885,10 +990,12 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, resource_id: str, attribute_id: str) -> ResourceAttributeRead:
         """Retrieves a attribute by its ID.
+
         Alias for the get method.
 
         Args:
@@ -900,7 +1007,8 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, resource_key: str, attribute_data: ModelInput[ResourceAttributeCreate]
@@ -916,7 +1024,8 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self,
@@ -936,7 +1045,8 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, resource_key: str, attribute_key: str) -> None:
         """Deletes a attribute.
@@ -947,10 +1057,12 @@ class SyncResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncResourceInstancesApi(BasePermitApi):
+    """Manage resource instances."""
     def list(
         self,
         page: int = 1,
@@ -965,13 +1077,18 @@ class SyncResourceInstancesApi(BasePermitApi):
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
+            tenant_key: Only return instances that belong to this tenant.
+            resource_key: Only return instances of this resource type.
+            detailed_key: Whether to return detailed instances.
+            search_key: Only return instances matching this search string.
 
         Returns:
             an array of resource instances.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, instance_key: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its identity.
@@ -986,10 +1103,12 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, instance_key: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its identity.
+
         Alias for the get method.
 
         Args:
@@ -1002,10 +1121,12 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, instance_id: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1016,7 +1137,8 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, instance_data: ModelInput[ResourceInstanceCreate]) -> ResourceInstanceRead:
         """Creates a new resource instance.
@@ -1029,7 +1151,8 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self, instance_key: str, instance_data: ModelInput[ResourceInstanceUpdate]
@@ -1047,13 +1170,15 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, instance_key: str) -> None:
         """Deletes a resource instance.
 
         Args:
-            instance_key: The identity of the resource instance to delete. Either `resource_type:instance_key`
+            instance_key: The identity of the resource instance to delete. Either
+                `resource_type:instance_key`
                 (like Repository:react) or the resource instance uuid. A bare instance key
                 is rejected by the API with a 422.
 
@@ -1062,7 +1187,8 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_replace(
         self, resource_instances: ModelListInput[ResourceInstanceCreate]
@@ -1080,7 +1206,8 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_delete(
         self, resource_instances: builtins.list[str]
@@ -1089,17 +1216,20 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Args:
             resource_instances: The resource instance identities to delete.
-            Each identity can be either `resource_type:instance_key` (like Repository:react) or the resource instance uuid.
+            Each identity can be either `resource_type:instance_key` (like Repository:react) or the
+            resource instance uuid.
 
         Returns:
             the bulk delete report.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """  # noqa: E501
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
 
 class SyncResourceRelationsApi(BasePermitApi):
+    """Manage the relations between resources (ReBAC)."""
     def list(
         self, resource_key: str, page: int = 1, per_page: int = 100
     ) -> PaginatedResultRelationRead:
@@ -1116,7 +1246,8 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, resource_key: str, relation_key: str) -> RelationRead:
         """Retrieves a relation by its key.
@@ -1130,10 +1261,12 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, resource_key: str, relation_key: str) -> RelationRead:
         """Retrieves a relation by its key.
+
         Alias for the get method.
 
         Args:
@@ -1145,10 +1278,12 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, resource_id: str, relation_id: str) -> RelationRead:
         """Retrieves a relation by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1160,7 +1295,8 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, resource_key: str, relation_data: ModelInput[RelationCreate]) -> RelationRead:
         """Creates a new relation.
@@ -1174,7 +1310,8 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, resource_key: str, relation_key: str) -> None:
         """Deletes a relation.
@@ -1185,7 +1322,8 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncResourceRolesApi(BasePermitApi):
@@ -1203,7 +1341,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, resource_key: str, role_key: str) -> ResourceRoleRead:
         """Retrieves a resource role by its key.
@@ -1217,10 +1356,12 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, resource_key: str, role_key: str) -> ResourceRoleRead:
         """Retrieves a resource role by its key.
+
         Alias for the get method.
 
         Args:
@@ -1232,10 +1373,12 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, resource_id: str, role_id: str) -> ResourceRoleRead:
         """Retrieves a resource role by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1247,7 +1390,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, resource_key: str, role_data: ModelInput[ResourceRoleCreate]
@@ -1263,7 +1407,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(
         self, resource_key: str, role_key: str, role_data: ModelInput[ResourceRoleUpdate]
@@ -1280,7 +1425,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, resource_key: str, role_key: str) -> None:
         """Deletes a resource role.
@@ -1291,7 +1437,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def assign_permissions(
         self, resource_key: str, role_key: str, permissions: builtins.list[str]
@@ -1312,7 +1459,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def remove_permissions(
         self, resource_key: str, role_key: str, permissions: builtins.list[str]
@@ -1331,14 +1479,16 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create_role_derivation(
         self, resource_key: str, role_key: str, derivation_rule: ModelInput[DerivedRoleRuleCreate]
     ) -> DerivedRoleRuleRead:
         """Create a conditional derivation from another role.
 
-        The derivation states that users with some other role on a related object will implicitly also be granted this role.
+        The derivation states that users with some other role on a related object will implicitly
+        also be granted this role.
 
         Args:
             resource_key: The key of the resource the role belongs to.
@@ -1350,8 +1500,9 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """  # noqa: E501
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
     def delete_role_derivation(
         self, resource_key: str, role_key: str, derivation_rule: ModelInput[DerivedRoleRuleDelete]
     ) -> None:
@@ -1364,7 +1515,8 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update_role_derivation_conditions(
         self,
@@ -1381,10 +1533,12 @@ class SyncResourceRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncResourcesApi(BasePermitApi):
+    """Manage resources (the object types permissions are granted on)."""
     def list(self, page: int = 1, per_page: int = 100) -> list[ResourceRead]:
         """Retrieves a list of resources.
 
@@ -1397,7 +1551,8 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, resource_key: str) -> ResourceRead:
         """Retrieves a resource by its key.
@@ -1410,10 +1565,12 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, resource_key: str) -> ResourceRead:
         """Retrieves a resource by its key.
+
         Alias for the get method.
 
         Args:
@@ -1424,10 +1581,12 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, resource_id: str) -> ResourceRead:
         """Retrieves a resource by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1438,7 +1597,8 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, resource_data: ModelInput[ResourceCreate]) -> ResourceRead:
         """Creates a new resource.
@@ -1451,7 +1611,8 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(self, resource_key: str, resource_data: ModelInput[ResourceUpdate]) -> ResourceRead:
         """Updates a resource.
@@ -1465,12 +1626,13 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def replace(
         self, resource_key: str, resource_data: ModelInput[ResourceReplace]
     ) -> ResourceRead:
-        """Creates a resource if no such resource exists, otherwise completely replaces the resource in place.
+        """Creates a resource, or completely replaces it in place if it already exists.
 
         Args:
             resource_key: The key of the resource.
@@ -1481,7 +1643,8 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, resource_key: str) -> None:
         """Deletes a resource.
@@ -1491,10 +1654,12 @@ class SyncResourcesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncRoleAssignmentsApi(BasePermitApi):
+    """Assign roles to users and list or remove role assignments."""
     def list(
         self,
         user_key: str | list[str] | None = None,
@@ -1510,9 +1675,14 @@ class SyncRoleAssignmentsApi(BasePermitApi):
         Args:
             user_key: if specified, only role granted to this user will be fetched.
             role_key: if specified, only assignments of this role will be fetched.
-            tenant_key: (for roles) if specified, only role granted within this tenant will be fetched.
-            resource_key: (for resource roles) if specified, only roles granted on instances of this resource type will be fetched.
-            resource_instance_key: (for resource roles) if specified, only roles granted with this instance as the object will be fetched. The instance identity, either `resource_type:instance_key` (like Repository:react) or the instance uuid; a bare instance key is rejected by the API with a 400.
+            tenant_key: (for roles) if specified, only role granted within this tenant will be
+                fetched.
+            resource_key: (for resource roles) if specified, only roles granted on instances of this
+                resource type will be fetched.
+            resource_instance_key: (for resource roles) if specified, only roles granted with this
+                instance as the object will be fetched. The instance identity, either
+                `resource_type:instance_key` (like Repository:react) or the instance uuid; a bare
+                instance key is rejected by the API with a 400.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
@@ -1521,8 +1691,9 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """  # noqa: E501
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
     def assign(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """Assigns a role to a user in the scope of a given tenant.
 
@@ -1534,7 +1705,8 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def unassign(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """Unassigns a role from a user in the scope of a given tenant.
@@ -1544,12 +1716,14 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_assign(
         self, assignments: ModelListInput[RoleAssignmentCreate]
     ) -> BulkRoleAssignmentReport:
         """Assigns multiple roles in bulk using the provided role assignments data.
+
         Each role assignment is a tuple of (user, role, tenant).
 
         Args:
@@ -1560,12 +1734,14 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_unassign(
         self, unassignments: ModelListInput[RoleAssignmentRemove]
     ) -> BulkRoleUnAssignmentReport:
         """Removes multiple role assignments in bulk using the provided unassignment data.
+
         Each role to unassign is a tuple of (user, role, tenant).
 
         Args:
@@ -1576,7 +1752,8 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncRolesApi(BasePermitApi):
@@ -1593,7 +1770,8 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, role_key: str) -> RoleRead:
         """Retrieves a role by its key.
@@ -1606,10 +1784,12 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, role_key: str) -> RoleRead:
         """Retrieves a role by its key.
+
         Alias for the get method.
 
         Args:
@@ -1620,10 +1800,12 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, role_id: str) -> RoleRead:
         """Retrieves a role by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1634,7 +1816,8 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, role_data: ModelInput[RoleCreate]) -> RoleRead:
         """Creates a new role.
@@ -1647,7 +1830,8 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(self, role_key: str, role_data: ModelInput[RoleUpdate]) -> RoleRead:
         """Updates a role.
@@ -1661,7 +1845,8 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, role_key: str) -> None:
         """Deletes a role.
@@ -1671,38 +1856,44 @@ class SyncRolesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def assign_permissions(self, role_key: str, permissions: builtins.list[str]) -> RoleRead:
         """Assigns permissions to a role.
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be assigned to the role.
+            permissions: An array of permission keys (<resourceKey:actionKey>) to be assigned to the
+                role.
 
         Returns:
             A RoleRead object representing the updated role.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def remove_permissions(self, role_key: str, permissions: builtins.list[str]) -> RoleRead:
         """Removes permissions from a role.
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be removed from the role.
+            permissions: An array of permission keys (<resourceKey:actionKey>) to be removed from
+                the role.
 
         Returns:
             A RoleRead object representing the updated role.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncTenantsApi(BasePermitApi):
+    """Manage tenants and the users in them."""
     def list(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
         """Retrieves a list of tenants.
 
@@ -1715,7 +1906,8 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def list_tenant_users(
         self, tenant_key: str, page: int = 1, per_page: int = 100
@@ -1732,7 +1924,8 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, tenant_key: str) -> TenantRead:
         """Retrieves a tenant by its key.
@@ -1745,10 +1938,12 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, tenant_key: str) -> TenantRead:
         """Retrieves a tenant by its key.
+
         Alias for the get method.
 
         Args:
@@ -1759,10 +1954,12 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, tenant_id: str) -> TenantRead:
         """Retrieves a tenant by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1773,7 +1970,8 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, tenant_data: ModelInput[TenantCreate]) -> TenantRead:
         """Creates a new tenant.
@@ -1786,7 +1984,8 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(self, tenant_key: str, tenant_data: ModelInput[TenantUpdate]) -> TenantRead:
         """Updates a tenant.
@@ -1800,7 +1999,8 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, tenant_key: str) -> None:
         """Deletes a tenant.
@@ -1813,10 +2013,11 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete_tenant_user(self, tenant_key: str, user_key: str) -> None:
-        """Deletes a user from a given tenant (also removes all roles granted to the user in that tenant).
+        """Deletes a user from a tenant, removing all roles granted to the user in that tenant.
 
         Args:
             tenant_key: The key of the tenant from which the user will be deleted.
@@ -1824,7 +2025,8 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_create(self, tenants: ModelListInput[TenantCreate]) -> TenantCreateBulkOperationResult:
         """Creates tenants in bulk.
@@ -1837,23 +2039,27 @@ class SyncTenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_delete(self, tenants: builtins.list[str]) -> TenantDeleteBulkOperationResult:
         """Deletes tenants in bulk.
 
         Args:
-            tenants: The tenants identities to delete. Each identity can be either the tenant key or the tenant id.
+            tenants: The tenants identities to delete. Each identity can be either the tenant key or
+                the tenant id.
 
         Returns:
             the bulk delete report.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncUserInvitesApi(BasePermitApi):
+    """Manage user invites."""
     def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultElementsUserInviteRead:
         """Retrieves a list of user invites.
 
@@ -1866,7 +2072,8 @@ class SyncUserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, user_invite_id: str) -> ElementsUserInviteRead:
         """Retrieves a single user invite by ID.
@@ -1879,7 +2086,8 @@ class SyncUserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(
         self, user_invite_data: ModelInput[ElementsUserInviteCreate]
@@ -1894,7 +2102,8 @@ class SyncUserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, user_invite_id: str) -> None:
         """Deletes a user invite.
@@ -1907,7 +2116,8 @@ class SyncUserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def approve(
         self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]
@@ -1923,10 +2133,12 @@ class SyncUserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncUsersApi(BasePermitApi):
+    """Manage users and their role assignments."""
     def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """Retrieves a list of users.
 
@@ -1939,7 +2151,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get(self, user_key: str) -> UserRead:
         """Retrieves a user by its key.
@@ -1952,10 +2165,12 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_key(self, user_key: str) -> UserRead:
         """Retrieves a user by its key.
+
         Alias for the get method.
 
         Args:
@@ -1966,10 +2181,12 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_by_id(self, user_id: str) -> UserRead:
         """Retrieves a user by its ID.
+
         Alias for the get method.
 
         Args:
@@ -1980,7 +2197,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def create(self, user_data: ModelInput[UserCreate]) -> UserRead:
         """Creates a new user.
@@ -1993,7 +2211,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def update(self, user_key: str, user_data: ModelInput[UserUpdate]) -> UserRead:
         """Updates a user.
@@ -2007,7 +2226,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def sync(self, user: _UserSyncInput) -> UserRead:
         """Synchronizes user data by creating or updating a user.
@@ -2020,7 +2240,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def delete(self, user_key: str) -> None:
         """Deletes a user.
@@ -2030,7 +2251,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_create(self, users: ModelListInput[UserCreate]) -> UserCreateBulkOperationResult:
         """Creates users in bulk.
@@ -2043,7 +2265,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_replace(self, users: ModelListInput[UserCreate]) -> UserReplaceBulkOperationResult:
         """Replaces users in bulk.
@@ -2059,20 +2282,23 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def bulk_delete(self, users: builtins.list[str]) -> UserDeleteBulkOperationResult:
         """Deletes users in bulk.
 
         Args:
-            users: The users identities to delete. Each identity can be either the user key or the user id.
+            users: The users identities to delete. Each identity can be either the user key or the
+                user id.
 
         Returns:
             the bulk delete report.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def assign_role(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """Assigns a role to a user in the scope of a given tenant.
@@ -2085,7 +2311,8 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def unassign_role(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """Unassigns a role from a user in the scope of a given tenant.
@@ -2095,13 +2322,16 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
     def get_assigned_roles(
         self, user: str, tenant: str | None = None, page: int = 1, per_page: int = 100
     ) -> builtins.list[RoleAssignmentRead]:
-        """Retrieves the roles assigned to a user in a given tenant (if the tenant filter is provided)
-        or across all tenants (if the tenant filter is not provided).
+        """Retrieves the roles assigned to a user, in one tenant or across all of them.
+
+        The roles come from the given tenant if the tenant filter is provided, or from
+        all tenants if it is not.
 
         Args:
             user: The key of the user.
@@ -2114,31 +2344,38 @@ class SyncUsersApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
 
 class SyncEnforcer:
-    def __init__(self, config: PermitConfig): ...
+    """Sends authorization queries to the PDP."""
+    def __init__(self, config: PermitConfig) -> None: ...
     @property
     def context_store(self) -> ContextStore:
-        """We let context store be accessed from the outside so that the
-        using app can setup a flexible contextual behavior for authorization queries
+        """The base context merged into every query.
+
+        It is exposed so the application can set up flexible contextual behavior for
+        authorization queries.
         """
     def authorized_users(
         self, action: Action, resource: Resource, context: Context | None = None
     ) -> AuthorizedUsersResult:
-        """Queries to get all the users that are authorized to perform an action on a resource within the specified context.
+        """Get all the users authorized to perform an action on a resource in a context.
 
         Args:
             action: The action to be performed on the resource.
             resource: The resource object representing the resource.
-            context: The context object representing the context in which the action is performed. Defaults to None.
+            context: The context object representing the context in which the action is performed.
+                Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that granted the permission.
+            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+                granted the permission.
 
         Raises:
-            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+            PermitConnectionError: If an error occurs while sending the authorization request to the
+                PDP.
 
         Examples:
             # all the users that can close any issue?
@@ -2150,21 +2387,25 @@ class SyncEnforcer:
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
             await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
-        """  # noqa: E501
+        """
     def bulk_check(self, checks: list[CheckQuery], context: Context | None = None) -> list[bool]:
-        """Checks if a user is authorized to perform an action on a resource within the specified context.
+        """Checks if a user is authorized to perform an action on a resource in a context.
 
         Args:
-            checks: A list of CheckQuery objects representing the authorization queries to be performed.
+            checks: A list of CheckQuery objects representing the authorization queries to be
+                performed.
                 Each check may carry its own ``context``, which is merged over the method-level
                 ``context`` for that check only.
-            context: The context object representing the context in which the action is performed. Defaults to None.
+            context: The context object representing the context in which the action is performed.
+                Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each resource.
+            list[bool]: A list of booleans indicating whether the user is authorized for each
+                resource.
 
         Raises:
-            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+            PermitConnectionError: If an error occurs while sending the authorization request to the
+                PDP.
 
         Examples:
             # Bulk query of multiple check conventions
@@ -2189,19 +2430,21 @@ class SyncEnforcer:
     def check(
         self, user: User, action: Action, resource: Resource, context: Context | None = None
     ) -> bool:
-        """Checks if a user is authorized to perform an action on a resource within the specified context.
+        """Checks if a user is authorized to perform an action on a resource in a context.
 
         Args:
             user: The user object representing the user.
             action: The action to be performed on the resource.
             resource: The resource object representing the resource.
-            context: The context object representing the context in which the action is performed. Defaults to None.
+            context: The context object representing the context in which the action is performed.
+                Defaults to None.
 
         Returns:
             bool: True if the user is authorized, False otherwise.
 
         Raises:
-            PermitConnectionError: If an error occurs while sending the authorization request to the PDP.
+            PermitConnectionError: If an error occurs while sending the authorization request to the
+                PDP.
 
         Examples:
             # can the user close any issue?
@@ -2220,7 +2463,21 @@ class SyncEnforcer:
         tenants: list[str] | None = None,
         resources: list[str] | None = None,
         resource_types: list[str] | None = None,
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, Any]:
+        """Get all permissions of a user.
+
+        Args:
+            user: The user object or user key.
+            tenants: Only return permissions in these tenants.
+            resources: Only return permissions on these resources.
+            resource_types: Only return permissions on these resource types.
+
+        Returns:
+            The user's permissions per tenant and resource.
+
+        Raises:
+            PermitConnectionError: If the PDP rejects the request or cannot be reached.
+        """
     def filter_objects(
         self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
@@ -2238,6 +2495,7 @@ class SyncEnforcer:
         """
 
 class SyncPdpRoleAssignmentsApi(BasePdpPermitApi):
+    """Read role assignments from the PDP's local cache."""
     def list(
         self,
         user_key: str | None = None,
@@ -2253,9 +2511,12 @@ class SyncPdpRoleAssignmentsApi(BasePdpPermitApi):
         Args:
             user_key: optional user filter, will only return role assignments granted to this user.
             role_key: optional role filter, will only return role assignments granting this role.
-            tenant_key: optional tenant filter, will only return role assignments granted in that tenant.
-            resource_key: optional resource type filter, will only return role assignments granted on that resource type.
-            resource_instance_key: optional resource instance filter, will only return role assignments granted on that resource instance.
+            tenant_key: optional tenant filter, will only return role assignments granted in that
+                tenant.
+            resource_key: optional resource type filter, will only return role assignments granted
+                on that resource type.
+            resource_instance_key: optional resource instance filter, will only return role
+                assignments granted on that resource instance.
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
 
@@ -2264,5 +2525,6 @@ class SyncPdpRoleAssignmentsApi(BasePdpPermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
-        """  # noqa: E501
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """

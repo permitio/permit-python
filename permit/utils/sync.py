@@ -118,7 +118,8 @@ def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
     Returns:
         Whatever the coroutine returns.
     """
-    return _run_blocking(coroutine, _CallSite.from_frame(sys._getframe(0).f_back))
+    caller = sys._getframe(0).f_back  # noqa: SLF001 - the documented way to read a caller's frame
+    return _run_blocking(coroutine, _CallSite.from_frame(caller))
 
 
 def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
@@ -139,14 +140,17 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
         if _blocking_call_site.get() is not None:
             return func(*args, **kwargs)  # type: ignore[return-value]
         # Read in the caller's thread, while its frame is the one that called us.
-        call_site = _CallSite.from_frame(sys._getframe(0).f_back)
+        caller = sys._getframe(0).f_back  # noqa: SLF001 - see run_coroutine_sync
+        call_site = _CallSite.from_frame(caller)
         return _run_blocking(func(*args, **kwargs), call_site)
 
     setattr(wrapper, SYNC_WRAPPER_MARKER, True)
     return wrapper
 
 
-def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
+def iscoroutine_func(
+    callable: Callable[..., object],  # noqa: A002 - public parameter; renaming breaks keyword callers
+) -> TypeGuard[Callable[..., Awaitable[object]]]:
     """Whether calling `callable` produces an awaitable.
 
     `inspect.iscoroutinefunction` on its own is not enough: a decorator may wrap
@@ -162,7 +166,7 @@ def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
     Returns:
         True if calling it returns an awaitable.
     """
-    candidate: Any | None = callable
+    candidate: object | None = callable
     seen: set[int] = set()
     while candidate is not None and id(candidate) not in seen:
         seen.add(id(candidate))
@@ -187,7 +191,8 @@ class SyncClass(type):
     bodies - every method they expose is inherited from their async counterpart.
     """
 
-    def __new__(cls, name, bases, class_dict):
+    def __new__(cls, name: str, bases: tuple[type, ...], class_dict: dict[str, Any]) -> "SyncClass":
+        """Create the class, then replace each public coroutine method with a blocking wrapper."""
         class_obj = super().__new__(cls, name, bases, class_dict)
 
         for attr_name in dir(class_obj):

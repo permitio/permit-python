@@ -121,10 +121,12 @@ def async_class(sync_cls: type) -> type:
         raise StubError(f"{qualified_name(sync_cls)} must have exactly one base, the async class")
     (async_cls,) = sync_cls.__bases__
     _, tree = module_tree(sync_cls.__module__)
-    body = class_node(tree, sync_cls.__name__).body
-    if not all(isinstance(node, ast.Pass) for node in body):
+    node = class_node(tree, sync_cls.__name__)
+    body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+    if not all(isinstance(statement, ast.Pass) for statement in body):
         raise StubError(
-            f"{qualified_name(sync_cls)} must have an empty body; the stub only mirrors its async base"
+            f"{qualified_name(sync_cls)} must have an empty body (a docstring at most); "
+            "the stub only mirrors its async base"
         )
     for base in async_cls.__bases__:
         coroutines = sorted(

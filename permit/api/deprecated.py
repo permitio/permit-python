@@ -1,11 +1,9 @@
 from typing import Any
 from uuid import UUID
 
-from ..config import PermitConfig
-from ..utils.deprecation import deprecated
-from .base import BasePermitApi
-from .elements import ElementsApi, EmbeddedLoginRequestOutput
-from .models import (
+from permit.api.base import BasePermitApi
+from permit.api.elements import ElementsApi, EmbeddedLoginRequestOutput
+from permit.api.models import (
     ResourceCreate,
     ResourceRead,
     ResourceUpdate,
@@ -21,14 +19,19 @@ from .models import (
     UserCreate,
     UserRead,
 )
-from .resources import ResourcesApi
-from .roles import RolesApi
-from .tenants import TenantsApi
-from .users import UsersApi
+from permit.api.resources import ResourcesApi
+from permit.api.roles import RolesApi
+from permit.api.tenants import TenantsApi
+from permit.api.users import UsersApi
+from permit.config import PermitConfig
+from permit.utils.deprecation import deprecated
 
 
 def _removal_notice(method: str, replacement: str) -> str:
-    return f"permit.api.{method}() is deprecated and will be removed in permit 4.0; use {replacement}() instead."
+    return (
+        f"permit.api.{method}() is deprecated and will be removed in permit 4.0; "
+        f"use {replacement}() instead."
+    )
 
 
 class DeprecatedApi(BasePermitApi):
@@ -37,7 +40,7 @@ class DeprecatedApi(BasePermitApi):
     Each one warns and calls the method named in its warning. They will be removed in permit 4.0.
     """
 
-    def __init__(self, config: PermitConfig):
+    def __init__(self, config: PermitConfig) -> None:
         super().__init__(config)
         self.__resources = ResourcesApi(config)
         self.__roles = RolesApi(config)
@@ -47,14 +50,17 @@ class DeprecatedApi(BasePermitApi):
 
     @deprecated(_removal_notice("get_user", "permit.api.users.get"))
     async def get_user(self, user_key: str) -> UserRead:
+        """Deprecated: use `permit.api.users.get()` instead."""
         return await self.__users.get(user_key)
 
     @deprecated(_removal_notice("get_role", "permit.api.roles.get"))
     async def get_role(self, role_key: str) -> RoleRead:
+        """Deprecated: use `permit.api.roles.get()` instead."""
         return await self.__roles.get(role_key)
 
     @deprecated(_removal_notice("get_tenant", "permit.api.tenants.get"))
     async def get_tenant(self, tenant_key: str) -> TenantRead:
+        """Deprecated: use `permit.api.tenants.get()` instead."""
         return await self.__tenants.get(tenant_key)
 
     @deprecated(_removal_notice("get_assigned_roles", "permit.api.users.get_assigned_roles"))
@@ -65,32 +71,39 @@ class DeprecatedApi(BasePermitApi):
         page: int = 1,
         per_page: int = 100,
     ) -> list[RoleAssignmentRead]:
+        """Deprecated: use `permit.api.users.get_assigned_roles()` instead."""
         return await self.__users.get_assigned_roles(
             user_key, tenant=tenant_key, page=page, per_page=per_page
         )
 
     @deprecated(_removal_notice("get_resource", "permit.api.resources.get"))
     async def get_resource(self, resource_key: str) -> ResourceRead:
+        """Deprecated: use `permit.api.resources.get()` instead."""
         return await self.__resources.get(resource_key)
 
     @deprecated(_removal_notice("list_roles", "permit.api.roles.list"))
     async def list_roles(self, page: int = 1, per_page: int = 100) -> list[RoleRead]:
+        """Deprecated: use `permit.api.roles.list()` instead."""
         return await self.__roles.list(page=page, per_page=per_page)
 
     @deprecated(_removal_notice("sync_user", "permit.api.users.sync"))
     async def sync_user(self, user: UserCreate | dict[str, Any]) -> UserRead:
+        """Deprecated: use `permit.api.users.sync()` instead."""
         return await self.__users.sync(user)
 
     @deprecated(_removal_notice("delete_user", "permit.api.users.delete"))
     async def delete_user(self, user_key: str) -> None:
+        """Deprecated: use `permit.api.users.delete()` instead."""
         return await self.__users.delete(user_key)
 
     @deprecated(_removal_notice("list_tenants", "permit.api.tenants.list"))
     async def list_tenants(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
+        """Deprecated: use `permit.api.tenants.list()` instead."""
         return await self.__tenants.list(page=page, per_page=per_page)
 
     @deprecated(_removal_notice("create_tenant", "permit.api.tenants.create"))
     async def create_tenant(self, tenant: TenantCreate | dict[str, Any]) -> TenantRead:
+        """Deprecated: use `permit.api.tenants.create()` instead."""
         tenant_data = tenant if isinstance(tenant, TenantCreate) else TenantCreate(**tenant)
         return await self.__tenants.create(tenant_data)
 
@@ -98,20 +111,24 @@ class DeprecatedApi(BasePermitApi):
     async def update_tenant(
         self, tenant_key: str, tenant: TenantUpdate | dict[str, Any]
     ) -> TenantRead:
+        """Deprecated: use `permit.api.tenants.update()` instead."""
         tenant_data = tenant if isinstance(tenant, TenantUpdate) else TenantUpdate(**tenant)
         return await self.__tenants.update(tenant_key, tenant_data)
 
     @deprecated(_removal_notice("delete_tenant", "permit.api.tenants.delete"))
     async def delete_tenant(self, tenant_key: str) -> None:
+        """Deprecated: use `permit.api.tenants.delete()` instead."""
         return await self.__tenants.delete(tenant_key)
 
     @deprecated(_removal_notice("create_role", "permit.api.roles.create"))
     async def create_role(self, role: RoleCreate | dict[str, Any]) -> RoleRead:
+        """Deprecated: use `permit.api.roles.create()` instead."""
         role_data = role if isinstance(role, RoleCreate) else RoleCreate(**role)
         return await self.__roles.create(role_data)
 
     @deprecated(_removal_notice("update_role", "permit.api.roles.update"))
     async def update_role(self, role_key: str, role: RoleUpdate | dict[str, Any]) -> RoleRead:
+        """Deprecated: use `permit.api.roles.update()` instead."""
         role_data = role if isinstance(role, RoleUpdate) else RoleUpdate(**role)
         return await self.__roles.update(role_key, role_data)
 
@@ -119,22 +136,26 @@ class DeprecatedApi(BasePermitApi):
     async def assign_role(
         self, user_key: str, role_key: str, tenant_key: str
     ) -> RoleAssignmentRead:
+        """Deprecated: use `permit.api.users.assign_role()` instead."""
         return await self.__users.assign_role(
             RoleAssignmentCreate(user=user_key, role=role_key, tenant=tenant_key)
         )
 
     @deprecated(_removal_notice("unassign_role", "permit.api.users.unassign_role"))
     async def unassign_role(self, user_key: str, role_key: str, tenant_key: str) -> None:
+        """Deprecated: use `permit.api.users.unassign_role()` instead."""
         return await self.__users.unassign_role(
             RoleAssignmentRemove(user=user_key, role=role_key, tenant=tenant_key)
         )
 
     @deprecated(_removal_notice("delete_role", "permit.api.roles.delete"))
     async def delete_role(self, role_key: str) -> None:
+        """Deprecated: use `permit.api.roles.delete()` instead."""
         return await self.__roles.delete(role_key)
 
     @deprecated(_removal_notice("create_resource", "permit.api.resources.create"))
     async def create_resource(self, resource: ResourceCreate | dict[str, Any]) -> ResourceRead:
+        """Deprecated: use `permit.api.resources.create()` instead."""
         resource_data = (
             resource if isinstance(resource, ResourceCreate) else ResourceCreate(**resource)
         )
@@ -144,6 +165,7 @@ class DeprecatedApi(BasePermitApi):
     async def update_resource(
         self, resource_key: str, resource: ResourceUpdate | dict[str, Any]
     ) -> ResourceRead:
+        """Deprecated: use `permit.api.resources.update()` instead."""
         resource_data = (
             resource if isinstance(resource, ResourceUpdate) else ResourceUpdate(**resource)
         )
@@ -151,10 +173,12 @@ class DeprecatedApi(BasePermitApi):
 
     @deprecated(_removal_notice("delete_resource", "permit.api.resources.delete"))
     async def delete_resource(self, resource_key: str) -> None:
+        """Deprecated: use `permit.api.resources.delete()` instead."""
         return await self.__resources.delete(resource_key)
 
     @deprecated(_removal_notice("elements_login_as", "permit.elements.login_as"))
     async def elements_login_as(
         self, user_id: str | UUID, tenant_id: str | UUID
     ) -> EmbeddedLoginRequestOutput:
+        """Deprecated: use `permit.elements.login_as()` instead."""
         return await self.__elements.login_as(user_id=user_id, tenant_id=tenant_id)

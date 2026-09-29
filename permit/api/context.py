@@ -2,7 +2,7 @@ from enum import Enum
 
 from loguru import logger
 
-from ..exceptions import PermitContextChangeError
+from permit.exceptions import PermitContextChangeError
 
 
 class ApiKeyAccessLevel(str, Enum):
@@ -58,7 +58,8 @@ class ApiContextLevel(int, Enum):
 
     ENVIRONMENT = 3
     """
-    When running in this context level, the SDK knows the current organization, project and environment.
+    When running in this context level, the SDK knows the current organization, project and
+    environment.
     """
 
 
@@ -87,22 +88,22 @@ class ApiContext:
     we are running under a `ApiContextLevel.ENVIRONMENT` context.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._permitted_access_level = ApiKeyAccessLevel.WAIT_FOR_INIT
         # org, project and environment the API Key is allowed to access
-        self._permitted_organization = None
-        self._permitted_project = None
-        self._permitted_environment = None
+        self._permitted_organization: str | None = None
+        self._permitted_project: str | None = None
+        self._permitted_environment: str | None = None
 
         # current known context
         self._context_level = ApiContextLevel.WAIT_FOR_INIT
-        self._organization = None
-        self._project = None
-        self._environment = None
+        self._organization: str | None = None
+        self._project: str | None = None
+        self._environment: str | None = None
 
     def _save_api_key_accessible_scope(
         self, org: str, project: str | None = None, environment: str | None = None
-    ):
+    ) -> None:
         """Do not call this method directly!"""
         self._permitted_organization = org  # cannot be none
 
@@ -164,28 +165,33 @@ class ApiContext:
         """
         return self._environment
 
-    def __verify_can_access_org(self, org: str):
+    def __verify_can_access_org(self, org: str) -> None:
         if org != self._permitted_organization:
-            raise PermitContextChangeError(
-                f"You cannot set an SDK context with org '{org}' due to insufficient API Key permissions"
+            msg = (
+                f"You cannot set an SDK context with org '{org}' "
+                f"due to insufficient API Key permissions"
             )
+            raise PermitContextChangeError(msg)
 
-    def __verify_can_access_project(self, org: str, project: str):
+    def __verify_can_access_project(self, org: str, project: str) -> None:
         self.__verify_can_access_org(org)
         if self._permitted_project is not None and project != self._permitted_project:
-            raise PermitContextChangeError(
-                f"You cannot set an SDK context with project '{project}' due to insufficient API Key permissions"
+            msg = (
+                f"You cannot set an SDK context with project '{project}' "
+                f"due to insufficient API Key permissions"
             )
+            raise PermitContextChangeError(msg)
 
-    def __verify_can_access_environment(self, org: str, project: str, environment: str):
+    def __verify_can_access_environment(self, org: str, project: str, environment: str) -> None:
         self.__verify_can_access_project(org, project)
         if self._permitted_environment is not None and environment != self._permitted_environment:
-            raise PermitContextChangeError(
+            msg = (
                 f"You cannot set an SDK context with environment '{environment}' "
                 f"due to insufficient API Key permissions"
             )
+            raise PermitContextChangeError(msg)
 
-    def set_organization_level_context(self, org: str):
+    def set_organization_level_context(self, org: str) -> None:
         """Set the current context of the SDK to a specific organization.
 
         Args:
@@ -198,7 +204,7 @@ class ApiContext:
         self._project = None
         self._environment = None
 
-    def set_project_level_context(self, org: str, project: str):
+    def set_project_level_context(self, org: str, project: str) -> None:
         """Set the current context of the SDK to a specific organization and project.
 
         Args:
@@ -212,8 +218,8 @@ class ApiContext:
         self._project = project
         self._environment = None
 
-    def set_environment_level_context(self, org: str, project: str, environment: str):
-        """Set the current context of the SDK to a specific organization, project and environment.
+    def set_environment_level_context(self, org: str, project: str, environment: str) -> None:
+        """Set the current context of the SDK to an organization, project and environment.
 
         Args:
             org: The organization key.

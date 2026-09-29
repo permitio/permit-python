@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -10,15 +10,13 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments
 
-from permit.utils.model_input import ModelInput, ModelListInput
-
-from .base import (
+from permit.api.base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
 )
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import (
     RelationshipTupleCreate,
     RelationshipTupleCreateBulkOperation,
     RelationshipTupleCreateBulkOperationResult,
@@ -27,9 +25,12 @@ from .models import (
     RelationshipTupleDeleteBulkOperationResult,
     RelationshipTupleRead,
 )
+from permit.utils.model_input import ModelInput, ModelListInput
 
 
 class RelationshipTuplesApi(BasePermitApi):
+    """Manage relationship tuples between resource instances (ReBAC)."""
+
     @property
     def __relationship_tuples(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
@@ -39,7 +40,7 @@ class RelationshipTuplesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(
+    async def list(  # noqa: PLR0917 - public signature; callers may pass these positionally
         self,
         page: int = 1,
         per_page: int = 100,
@@ -63,7 +64,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -88,8 +90,10 @@ class RelationshipTuplesApi(BasePermitApi):
     async def create(
         self, tuple_data: ModelInput[RelationshipTupleCreate]
     ) -> RelationshipTupleRead:
-        """Creates a new relationship tuple, that states that a relationship (of type: relation)
-        exists between two resource instances: the subject and the object.
+        """Creates a new relationship tuple.
+
+        The tuple states that a relationship (of type: relation) exists between two
+        resource instances: the subject and the object.
 
         Args:
             tuple_data: The relationship tuple to create.
@@ -99,7 +103,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -116,7 +121,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -146,7 +152,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -176,7 +183,8 @@ class RelationshipTuplesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)

@@ -317,3 +317,29 @@ async def test_bulk_check_sends_snake_case_user_fields(httpserver: HTTPServer, e
     )
 
     assert bodies[0][0]["user"] == {"key": "u1", "first_name": "John"}
+
+
+# --- the caller's objects are left alone ------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_check_does_not_modify_the_callers_resource_context(
+    httpserver: HTTPServer, enforcer: Enforcer
+) -> None:
+    """The tenant is written into the context the SDK sends, not into the caller's dict.
+
+    ``ResourceInput.context`` is annotated ``dict[Any, Any]``, which pydantic v1
+    validates into a copy. A bare ``dict`` keeps the caller's object instead, and the
+    tenant that ``_normalize_resource`` adds would then leak into it.
+    """
+    bodies: list[Any] = []
+    httpserver.expect_request("/allowed", method="POST").respond_with_handler(
+        _recorder(bodies, {"allow": True})
+    )
+    context: dict[str, Any] = {"region": "eu"}
+    resource = {"type": "document", "key": "readme", "tenant": "t1", "context": context}
+
+    assert await enforcer.check("user-1", "read", resource) is True
+
+    assert context == {"region": "eu"}
+    assert bodies[0]["resource"]["context"] == {"region": "eu", "tenant": "t1"}
