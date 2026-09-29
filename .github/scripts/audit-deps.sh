@@ -4,17 +4,22 @@
 #
 # Usage: audit-deps.sh <output-dir>
 #
-# Writes three dependency trees to <output-dir>, each as a directory holding a
+# Writes four dependency trees to <output-dir>, each as a directory holding a
 # file literally named requirements.txt, plus one Trivy report per tree:
 #
 #   runtime-ceiling/  + trivy-runtime-ceiling.json
 #       pyproject.toml [project].dependencies alone, current resolution. What
 #       a fresh `pip install permit` gets today.
 #   runtime-floor/    + trivy-runtime-floor.json
-#       pyproject.toml [project].dependencies alone, lowest-direct. The lowest
-#       versions the PUBLISHED specs permit -- i.e. real consumer exposure.
-#       This is the tree that matters most for a library with open `>=`
-#       ranges.
+#   runtime-floor-pydantic-v2/  + trivy-runtime-floor-pydantic-v2.json
+#       pyproject.toml [project].dependencies alone, lowest-direct. Together,
+#       the lowest versions the PUBLISHED specs permit -- i.e. real consumer
+#       exposure. These are the trees that matter most for a library with open
+#       `>=` ranges. The dependencies accept either pydantic major, and
+#       lowest-direct picks the lowest release they allow, which is a pydantic 1
+#       release, so runtime-floor alone never scans a pydantic 2 floor.
+#       runtime-floor-pydantic-v2 holds pydantic to 2 and scans the lowest
+#       pydantic 2 (and the pydantic-core it pins) the specs permit.
 #   dev-ceiling/      + trivy-dev-ceiling.json
 #       [project].dependencies + the `dev` dependency group, current
 #       resolution. Test tooling only; never ships to a user.
@@ -22,16 +27,17 @@
 # These are compiled from pyproject.toml, NOT exported from uv.lock: the lock
 # pins one resolution for this repo's own CI, while the audit has to see what a
 # consumer can resolve from the published ranges -- today's ceiling and the
-# floor.
+# floors.
 #
-# Plus pip-audit.json (advisory only) for the runtime ceiling.
+# Plus pip-audit-<tree>.json (advisory only) for each of the four trees.
 #
 # WHY RUNTIME IS COMPILED ALONE. Compiling the runtime and dev deps together
 # lets a dev tool drag a runtime dependency's floor upward and hide the real
-# exposure: with mypy in the mix the floor resolves typing-extensions==4.12.0,
-# because mypy requires >=4.6 -- but a consumer installing only `permit` can
-# still land on 4.5.0. Scanning the combined floor would silently under-report
-# exactly the versions users can actually get.
+# exposure: when a dev tool needs a newer release of a runtime dependency than
+# the floor in pyproject.toml, the combined floor resolves that newer release,
+# but a consumer installing only `permit` can still land on the older one.
+# Scanning the combined floor would silently under-report exactly the versions
+# users can actually get.
 #
 # WHY COMPILE AT ALL. Trivy's pip analyzer only understands `==`. Pointed at
 # a list of open ranges it reports zero findings and exits 0 -- a
@@ -45,6 +51,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # The declared minimum. Resolving at the floor of supported Python is the
 # worst case a consumer can legitimately be in.
+#
+# Python 3.10 only, on purpose. On 3.13 and 3.14 the pydantic floors are higher
+# (1.10.18/2.8.0 and 1.10.25/2.13), so those exact versions are never resolved
+# here. An advisory that affects everything below its fixed version, which is
+# almost every advisory, affects the lower 3.10 floor whenever it affects a
+# higher one, so it still fails this gate. What is missed is an advisory
+# confined to a later range that leaves the 3.10 floor out; the ceiling trees
+# still cover the newest releases.
 PYTHON_VERSION="${AUDIT_PYTHON_VERSION:-3.10}"
 
 # A resolved tree with almost nothing in it means the compile silently produced
@@ -91,6 +105,9 @@ echo "::group::Resolving dependency trees (python ${PYTHON_VERSION})"
 # groups are added solely by an explicit --group.
 compile_tree runtime-ceiling "" "${REPO_ROOT}/pyproject.toml"
 compile_tree runtime-floor "lowest-direct" "${REPO_ROOT}/pyproject.toml"
+echo "pydantic>=2" >"${OUT}/pydantic-v2-constraint.txt"
+compile_tree runtime-floor-pydantic-v2 "lowest-direct" "${REPO_ROOT}/pyproject.toml" \
+  --constraints "${OUT}/pydantic-v2-constraint.txt"
 compile_tree dev-ceiling "" "${REPO_ROOT}/pyproject.toml" \
   --group "${REPO_ROOT}/pyproject.toml:dev"
 
@@ -116,7 +133,7 @@ echo "::endgroup::"
 # entirely -- they vanish from the gate, the PR comment and the Slack message
 # with no trace that anything was suppressed. Unfixable advisories already fail
 # open (see Finding.blocking), so there is no need for a silent mute button.
-for tree in runtime-ceiling runtime-floor dev-ceiling; do
+for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
   echo "::group::Trivy scan (${tree})"
   trivy fs \
     --scanners vuln \
@@ -132,16 +149,37 @@ done
 # gate; it is here because it reads PYSEC, which sometimes carries a
 # Python-specific advisory before it reaches the GHSA feed Trivy uses.
 # A pip-audit failure must never fail the job.
-echo "::group::pip-audit (advisory)"
-if ! uv tool run --from pip-audit pip-audit \
-  --requirement "${OUT}/runtime-ceiling/requirements.txt" \
-  --format json \
-  --output "${OUT}/pip-audit.json" \
-  --progress-spinner off; then
-  echo "::warning::pip-audit did not complete cleanly; continuing with Trivy results only."
-  # An absent file is handled by format_audit.py as a note; a truncated one
-  # would be reported as a parse error. Remove it so a partial write cannot be
-  # mistaken for a failed scan.
-  rm -f "${OUT}/pip-audit.json"
-fi
-echo "::endgroup::"
+#
+# Each tree is already a fully pinned `uv pip compile` output, so pip-audit
+# reads the pins as written (--no-deps --disable-pip) instead of resolving them
+# again in a throwaway venv. That venv is where it used to fail: ensurepip
+# exits non-zero on the uv-managed Python, so pip-audit never produced a report.
+#
+# The exit code cannot tell a failure from a finding: pip-audit exits 1 for
+# both. A finished run always writes its report and a failed one writes
+# nothing, so each report is deleted before its run and a missing one is the
+# failure signal. format_audit.py names every tree without a report in the PR
+# comment, the job summary and the Slack message.
+#
+# PIP_AUDIT_LOGLEVEL=ERROR drops the warning pip-audit logs for --no-deps,
+# which recommends hashing the requirements. With --disable-pip, pip-audit only
+# checks that hashes are present and never verifies them, so hashing would add
+# nothing. Errors, and the summary line, still print.
+PIP_AUDIT_VERSION="2.10.1"
+for tree in runtime-ceiling runtime-floor runtime-floor-pydantic-v2 dev-ceiling; do
+  report="${OUT}/pip-audit-${tree}.json"
+  echo "::group::pip-audit (${tree}, advisory)"
+  rm -f "${report}"
+  status=0
+  PIP_AUDIT_LOGLEVEL=ERROR uv tool run --from "pip-audit==${PIP_AUDIT_VERSION}" pip-audit \
+    --requirement "${OUT}/${tree}/requirements.txt" \
+    --no-deps \
+    --disable-pip \
+    --format json \
+    --output "${report}" \
+    --progress-spinner off || status=$?
+  if [ ! -s "${report}" ]; then
+    echo "::warning title=pip-audit did not run::pip-audit exited ${status} without a report for ${tree}, so only Trivy checked that tree. The audit report names it too."
+  fi
+  echo "::endgroup::"
+done

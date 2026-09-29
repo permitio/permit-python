@@ -1,10 +1,12 @@
 """Contract tests for format_audit.py.
 
 These lock the parts the workflow silently depends on: the marker is always the
-first line, bad input still exits 0, and untrusted advisory text cannot break
-out of a fence or a workflow command.
+first line, bad input still exits 0, untrusted advisory text cannot break out
+of a fence or a workflow command, and a pip-audit that did not check a tree is
+always named rather than passing for a clean result.
 
-Run with: python -m pytest .github/scripts/test_format_audit.py
+Run with:
+uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_format_audit.py
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -21,7 +22,7 @@ SCRIPT = Path(__file__).parent / "format_audit.py"
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from format_audit import (  # noqa: E402 - importable only once sys.path has its directory
+from format_audit import (  # noqa: E402
     MARKER,
     Finding,
     merge,
@@ -35,7 +36,7 @@ from format_audit import (  # noqa: E402 - importable only once sys.path has its
 
 
 def run(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 - runs the script under test with this interpreter
+    return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         capture_output=True,
         text=True,
@@ -43,14 +44,14 @@ def run(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def trivy_report(*vulns: dict[str, Any]) -> dict[str, Any]:
+def trivy_report(*vulns: dict) -> dict:
     return {
         "SchemaVersion": 2,
         "Results": [{"Target": "requirements.txt", "Type": "pip", "Vulnerabilities": list(vulns)}],
     }
 
 
-def clean_report() -> dict[str, Any]:
+def clean_report() -> dict:
     """What Trivy really writes for a scanned file with no advisories.
 
     Verified against actual output: a clean scan still carries a Target and a
@@ -71,7 +72,7 @@ def clean_report() -> dict[str, Any]:
     }
 
 
-def vuln(**kwargs: Any) -> dict[str, Any]:
+def vuln(**kwargs) -> dict:
     base = {
         "VulnerabilityID": "CVE-2026-69244",
         "PkgName": "aiohttp",
@@ -88,12 +89,12 @@ def vuln(**kwargs: Any) -> dict[str, Any]:
 # --- CLI contract -----------------------------------------------------------
 
 
-def test_missing_argument_exits_2() -> None:
+def test_missing_argument_exits_2():
     result = run()
     assert result.returncode == 2
 
 
-def test_garbage_input_still_exits_0_with_marker(tmp_path: Path) -> None:
+def test_garbage_input_still_exits_0_with_marker(tmp_path: Path):
     bad = tmp_path / "trivy.json"
     bad.write_bytes(b"\x00\x01not json at all{{{")
     result = run(str(bad))
@@ -103,7 +104,7 @@ def test_garbage_input_still_exits_0_with_marker(tmp_path: Path) -> None:
     assert "No known vulnerabilities found" not in result.stdout
 
 
-def test_empty_file_exits_0_and_does_not_claim_clean(tmp_path: Path) -> None:
+def test_empty_file_exits_0_and_does_not_claim_clean(tmp_path: Path):
     empty = tmp_path / "trivy.json"
     empty.write_text("")
     result = run(str(empty))
@@ -112,13 +113,13 @@ def test_empty_file_exits_0_and_does_not_claim_clean(tmp_path: Path) -> None:
     assert "No known vulnerabilities found" not in result.stdout
 
 
-def test_missing_file_exits_0(tmp_path: Path) -> None:
+def test_missing_file_exits_0(tmp_path: Path):
     result = run(str(tmp_path / "nope.json"))
     assert result.returncode == 0
     assert result.stdout.split("\n")[0] == MARKER
 
 
-def test_clean_report_reports_clean(tmp_path: Path) -> None:
+def test_clean_report_reports_clean(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps(clean_report()))
     result = run(str(report))
@@ -127,7 +128,7 @@ def test_clean_report_reports_clean(tmp_path: Path) -> None:
     assert "No known vulnerabilities found" in result.stdout
 
 
-def test_vulnerable_report_lists_the_finding(tmp_path: Path) -> None:
+def test_vulnerable_report_lists_the_finding(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps(trivy_report(vuln())))
     result = run(str(report))
@@ -143,7 +144,7 @@ def test_vulnerable_report_lists_the_finding(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("findings", "errors"),
+    "findings,errors",
     [
         ([], []),
         ([], ["trivy: boom"]),
@@ -151,7 +152,7 @@ def test_vulnerable_report_lists_the_finding(tmp_path: Path) -> None:
         ([Finding("CVE-1", "pkg", "1.0", "LOW", "2.0", "t", "", "trivy")], ["trivy: boom"]),
     ],
 )
-def test_marker_is_first_line_in_every_state(findings: list[Finding], errors: list[str]) -> None:
+def test_marker_is_first_line_in_every_state(findings, errors):
     out = render(findings, errors, "", blocking=True)
     assert out.split("\n")[0] == MARKER
 
@@ -159,7 +160,7 @@ def test_marker_is_first_line_in_every_state(findings: list[Finding], errors: li
 # --- parsing ----------------------------------------------------------------
 
 
-def test_labelled_trivy_reports_are_tagged_with_their_tree(tmp_path: Path) -> None:
+def test_labelled_trivy_reports_are_tagged_with_their_tree(tmp_path: Path):
     ceiling = tmp_path / "ceiling.json"
     floor = tmp_path / "floor.json"
     ceiling.write_text(json.dumps(clean_report()))
@@ -171,7 +172,7 @@ def test_labelled_trivy_reports_are_tagged_with_their_tree(tmp_path: Path) -> No
     assert "CVE-2026-69244" in result.stdout
 
 
-def test_one_bad_tree_does_not_lose_the_other(tmp_path: Path) -> None:
+def test_one_bad_tree_does_not_lose_the_other(tmp_path: Path):
     good = tmp_path / "good.json"
     bad = tmp_path / "bad.json"
     good.write_text(json.dumps(trivy_report(vuln())))
@@ -182,7 +183,7 @@ def test_one_bad_tree_does_not_lose_the_other(tmp_path: Path) -> None:
     assert "could not be parsed" in result.stdout or "not valid JSON" in result.stdout
 
 
-def test_parse_trivy_tolerates_missing_and_malformed_nodes() -> None:
+def test_parse_trivy_tolerates_missing_and_malformed_nodes():
     assert parse_trivy(None) == []
     assert parse_trivy({"Results": None}) == []
     assert parse_trivy({"Results": [{"Vulnerabilities": None}]}) == []
@@ -190,36 +191,28 @@ def test_parse_trivy_tolerates_missing_and_malformed_nodes() -> None:
     assert parse_trivy({"Results": [{"Vulnerabilities": ["not a dict"]}]}) == []
 
 
-def test_parse_trivy_defaults_missing_fix_version() -> None:
+def test_parse_trivy_defaults_missing_fix_version():
     findings = parse_trivy(trivy_report(vuln(FixedVersion="")))
     assert findings[0].fixed == "none available"
 
 
-def test_pip_audit_is_passed_by_flag_not_position(tmp_path: Path) -> None:
+def test_pip_audit_is_passed_by_flag_not_position(tmp_path: Path):
     trivy = tmp_path / "trivy.json"
     pa = tmp_path / "pa.json"
     trivy.write_text(json.dumps(clean_report()))
-    pa.write_text(
-        json.dumps({"dependencies": [{"name": "x", "version": "1", "vulns": [{"id": "PYSEC-1"}]}]})
-    )
+    pa.write_text(json.dumps({"dependencies": [{"name": "x", "version": "1", "vulns": [{"id": "PYSEC-1"}]}]}))
     result = run(str(trivy), "--pip-audit", str(pa))
     assert result.returncode == 0
     assert "PYSEC-1" in result.stdout
 
 
-def test_parse_pip_audit_marks_severity_unknown() -> None:
+def test_parse_pip_audit_marks_severity_unknown():
     doc = {
         "dependencies": [
             {
                 "name": "aiohttp",
                 "version": "3.12.14",
-                "vulns": [
-                    {
-                        "id": "PYSEC-2026-1",
-                        "fix_versions": ["3.14.3"],
-                        "aliases": ["CVE-2026-69244"],
-                    }
-                ],
+                "vulns": [{"id": "PYSEC-2026-1", "fix_versions": ["3.14.3"], "aliases": ["CVE-2026-69244"]}],
             }
         ]
     }
@@ -230,7 +223,23 @@ def test_parse_pip_audit_marks_severity_unknown() -> None:
     assert findings[0].blocking is False, "pip-audit has no severity, so it must never gate"
 
 
-def test_parse_pip_audit_tolerates_garbage() -> None:
+def test_same_pip_audit_advisory_from_two_trees_merges_whatever_the_alias_order():
+    # pip-audit keeps aliases in a set, so each run lists them in its own
+    # order. The finding id must not depend on that order, or the same
+    # advisory shows up once per tree.
+    def report(aliases: list[str]) -> dict:
+        vuln = {"id": "PYSEC-1", "aliases": aliases}
+        return pip_audit_report({"name": "aiohttp", "version": "3.12.14", "vulns": [vuln]})
+
+    ceiling = parse_pip_audit(report(["GHSA-x", "CVE-1"]), source="pip-audit:runtime-ceiling")
+    floor = parse_pip_audit(report(["CVE-1", "GHSA-x"]), source="pip-audit:runtime-floor")
+    merged = merge([ceiling, floor])
+    assert len(merged) == 1
+    assert merged[0].id == "PYSEC-1 (CVE-1, GHSA-x)"
+    assert merged[0].sources == {"pip-audit:runtime-ceiling", "pip-audit:runtime-floor"}
+
+
+def test_parse_pip_audit_tolerates_garbage():
     assert parse_pip_audit({}) == []
     assert parse_pip_audit({"dependencies": "nope"}) == []
     assert parse_pip_audit({"dependencies": [{"vulns": None}]}) == []
@@ -239,7 +248,7 @@ def test_parse_pip_audit_tolerates_garbage() -> None:
 # --- merging ----------------------------------------------------------------
 
 
-def test_merge_dedupes_across_scanners_and_keeps_worst_severity() -> None:
+def test_merge_dedupes_across_scanners_and_keeps_worst_severity():
     a = Finding("CVE-1", "aiohttp", "3.12.14", "UNKNOWN", "none available", "t", "", "pip-audit")
     b = Finding("CVE-1", "aiohttp", "3.12.14", "HIGH", "3.14.3", "t", "", "trivy")
     merged = merge([[a], [b]])
@@ -249,7 +258,7 @@ def test_merge_dedupes_across_scanners_and_keeps_worst_severity() -> None:
     assert merged[0].sources == {"pip-audit", "trivy"}
 
 
-def test_merge_sorts_critical_first() -> None:
+def test_merge_sorts_critical_first():
     findings = merge(
         [
             [
@@ -265,13 +274,13 @@ def test_merge_sorts_critical_first() -> None:
 # --- injection defences -----------------------------------------------------
 
 
-def test_pipe_in_package_name_cannot_break_the_table() -> None:
+def test_pipe_in_package_name_cannot_break_the_table():
     findings = [Finding("CVE-1", "evil|pkg", "1.0", "HIGH", "2.0", "title", "", "trivy")]
     out = render(findings, [], "", blocking=True)
     assert "evil\\|pkg" in out
 
 
-def test_backticks_in_advisory_text_cannot_escape_the_fence() -> None:
+def test_backticks_in_advisory_text_cannot_escape_the_fence():
     nasty = "benign ``` <script>alert(1)</script> text"
     findings = [Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", nasty, "", "trivy")]
     out = render(findings, [], "", blocking=True)
@@ -281,13 +290,13 @@ def test_backticks_in_advisory_text_cannot_escape_the_fence() -> None:
     assert "```" in body
 
 
-def test_non_http_url_is_not_rendered_as_a_link() -> None:
+def test_non_http_url_is_not_rendered_as_a_link():
     findings = [Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "javascript:alert(1)", "trivy")]
     out = render(findings, [], "", blocking=True)
     assert "javascript:" not in out
 
 
-def test_annotations_escape_newlines_so_they_cannot_forge_commands() -> None:
+def test_annotations_escape_newlines_so_they_cannot_forge_commands():
     # GitHub only interprets a ::command:: at the START of a line, so the
     # property that matters is that one finding renders as exactly one line
     # with no raw terminators -- not that the literal text "::error" is absent
@@ -295,14 +304,13 @@ def test_annotations_escape_newlines_so_they_cannot_forge_commands() -> None:
     nasty = "line one\n::error::forged command\rmore"
     findings = [Finding("CVE-1", "pkg", "1.0", "CRITICAL", "2.0", nasty, "", "trivy")]
     out = render_annotations(findings)
-    assert "\n" not in out, "a raw terminator would let advisory text forge a command"
-    assert "\r" not in out, "a raw terminator would let advisory text forge a command"
+    assert "\n" not in out and "\r" not in out, "a raw terminator would let advisory text forge a command"
     assert len([line for line in out.split("\n") if line.startswith("::error")]) == 1
     assert "%0A" in out
     assert "%0D" in out
 
 
-def test_annotation_percent_escaped_before_newline_markers() -> None:
+def test_annotation_percent_escaped_before_newline_markers():
     # If % were escaped after \n, the %0A introduced here would itself become
     # %250A and stop suppressing the newline.
     findings = [Finding("CVE-1", "pkg", "1.0", "CRITICAL", "2.0", "100%\nnext", "", "trivy")]
@@ -310,7 +318,7 @@ def test_annotation_percent_escaped_before_newline_markers() -> None:
     assert "100%25%0Anext" in out
 
 
-def test_annotations_only_cover_blocking_severities() -> None:
+def test_annotations_only_cover_blocking_severities():
     findings = [
         Finding("CVE-LOW", "p", "1", "LOW", "2", "t", "", "trivy"),
         Finding("CVE-MED", "p", "1", "MEDIUM", "2", "t", "", "trivy"),
@@ -322,7 +330,7 @@ def test_annotations_only_cover_blocking_severities() -> None:
     assert "CVE-MED" not in out
 
 
-def test_non_blocking_findings_do_not_claim_to_block() -> None:
+def test_non_blocking_findings_do_not_claim_to_block():
     findings = [Finding("CVE-1", "p", "1", "MEDIUM", "2", "t", "", "trivy")]
     out = render(findings, [], "", blocking=True)
     assert "does not block" in out
@@ -331,18 +339,26 @@ def test_non_blocking_findings_do_not_claim_to_block() -> None:
 # --- gate semantics ---------------------------------------------------------
 
 
-def test_unfixable_high_is_reported_but_does_not_block() -> None:
+def test_unfixable_high_is_reported_but_does_not_block():
     finding = Finding("CVE-1", "pkg", "1.0", "CRITICAL", "none available", "t", "", "trivy")
     assert finding.blocking is False, "an unpatched upstream CVE must not wedge every release"
     out = render([finding], [], "", blocking=True)
     assert "CVE-1" in out, "but it must still be visible in the report"
 
 
-def test_fixable_high_blocks() -> None:
+def test_fixable_high_blocks():
     assert Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy").blocking is True
 
 
-def test_gate_exits_1_on_fixable_high(tmp_path: Path) -> None:
+def test_fix_instructions_cover_a_fix_uv_lock_still_filters_out():
+    # The gate resolves with --exclude-newer false, so it blocks on the day a fix
+    # is released, while `uv lock` keeps that release out for 7 days. The report
+    # must say how to lock it anyway, or the block cannot be cleared.
+    out = render([Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy")], [], "", blocking=True)
+    assert "exclude-newer-package = { <package> = false }" in out
+
+
+def test_gate_exits_1_on_fixable_high(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps(trivy_report(vuln())))
     result = run(str(report), "--gate")
@@ -351,30 +367,30 @@ def test_gate_exits_1_on_fixable_high(tmp_path: Path) -> None:
     assert "CVE-2026-69244" in result.stderr
 
 
-def test_gate_exits_0_on_clean(tmp_path: Path) -> None:
+def test_gate_exits_0_on_clean(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps(clean_report()))
     result = run(str(report), "--gate")
     assert result.returncode == 0
 
 
-def test_gate_exits_0_on_unfixable_only(tmp_path: Path) -> None:
+def test_gate_exits_0_on_unfixable_only(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps(trivy_report(vuln(FixedVersion=""))))
     result = run(str(report), "--gate")
     assert result.returncode == 0
 
 
-def test_gate_fails_closed_on_unparsable_report(tmp_path: Path) -> None:
+def test_gate_fails_closed_on_unparseable_report(tmp_path: Path):
     bad = tmp_path / "trivy.json"
     bad.write_text("{{{ not json")
     result = run(str(bad), "--gate")
     assert result.returncode == 1, "a scan that did not run must never be reported as a pass"
 
 
-def test_missing_pip_audit_does_not_fail_the_gate(tmp_path: Path) -> None:
-    # audit-deps.sh deletes a partial pip-audit report on failure, so "absent"
-    # is an expected state. pip-audit is advisory-only and must never gate --
+def test_missing_pip_audit_does_not_fail_the_gate(tmp_path: Path):
+    # A pip-audit run that did not finish leaves no report, so "absent" is an
+    # expected state. pip-audit is advisory-only and must never gate --
     # otherwise a pip-audit outage blocks every PR and release.
     clean = tmp_path / "trivy.json"
     clean.write_text(json.dumps(clean_report()))
@@ -382,15 +398,136 @@ def test_missing_pip_audit_does_not_fail_the_gate(tmp_path: Path) -> None:
     assert result.returncode == 0
 
 
-def test_missing_pip_audit_is_surfaced_as_a_note_not_a_parse_failure(tmp_path: Path) -> None:
+def test_missing_pip_audit_is_named_in_the_report_not_a_parse_failure(tmp_path: Path):
     clean = tmp_path / "trivy.json"
     clean.write_text(json.dumps(clean_report()))
-    result = run(str(clean), "--pip-audit", str(tmp_path / "absent.json"))
+    result = run(str(clean), "--pip-audit", f"runtime-floor={tmp_path / 'absent.json'}")
     assert result.returncode == 0
-    assert "do not affect the gate" in result.stdout
-    assert "No known vulnerabilities found" in result.stdout, (
-        "a missing advisory scanner must not suppress the clean verdict from the gating one"
+    assert "pip-audit did not check everything" in result.stdout
+    assert "pip-audit:runtime-floor: no report at" in result.stdout
+    assert "does not affect the gate" in result.stdout
+    assert "could not be parsed" not in result.stdout
+    assert (
+        "No known vulnerabilities found" in result.stdout
+    ), "a missing advisory scanner must not suppress the clean verdict from the gating one"
+
+
+# --- pip-audit, one report per tree -----------------------------------------
+
+
+def pip_audit_report(*deps: dict) -> dict:
+    return {"dependencies": list(deps), "fixes": []}
+
+
+def test_pip_audit_is_repeatable_and_tags_findings_with_their_tree(tmp_path: Path):
+    trivy = tmp_path / "trivy.json"
+    ceiling = tmp_path / "pa-ceiling.json"
+    floor = tmp_path / "pa-floor.json"
+    trivy.write_text(json.dumps(clean_report()))
+    ceiling.write_text(
+        json.dumps(pip_audit_report({"name": "werkzeug", "version": "3.1.6", "vulns": [{"id": "PYSEC-2026-2"}]}))
     )
+    floor.write_text(
+        json.dumps(pip_audit_report({"name": "aiohttp", "version": "3.12.14", "vulns": [{"id": "PYSEC-2026-1"}]}))
+    )
+    result = run(
+        str(trivy),
+        "--pip-audit",
+        f"runtime-ceiling={ceiling}",
+        "--pip-audit",
+        f"runtime-floor={floor}",
+    )
+    assert result.returncode == 0
+    assert "**UNKNOWN -- PYSEC-2026-2** (`werkzeug` 3.1.6)\n\nFound by: pip-audit:runtime-ceiling" in result.stdout
+    assert "**UNKNOWN -- PYSEC-2026-1** (`aiohttp` 3.12.14)\n\nFound by: pip-audit:runtime-floor" in result.stdout
+    assert "pip-audit did not check everything" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "content,expected",
+    [
+        ("", "is empty"),
+        ("{{{ truncated", "not valid JSON"),
+        (json.dumps({}), "lists no audited packages"),
+        (json.dumps(pip_audit_report()), "lists no audited packages"),
+    ],
+)
+def test_incomplete_pip_audit_report_is_named(tmp_path: Path, content: str, expected: str):
+    trivy = tmp_path / "trivy.json"
+    report = tmp_path / "pa.json"
+    trivy.write_text(json.dumps(clean_report()))
+    report.write_text(content)
+    result = run(str(trivy), "--pip-audit", f"dev-ceiling={report}")
+    assert result.returncode == 0
+    assert result.stdout.split("\n")[0] == MARKER
+    assert "pip-audit did not check everything" in result.stdout
+    assert "pip-audit:dev-ceiling" in result.stdout
+    assert expected in result.stdout
+
+
+def test_package_pip_audit_skipped_is_named(tmp_path: Path):
+    trivy = tmp_path / "trivy.json"
+    report = tmp_path / "pa.json"
+    trivy.write_text(json.dumps(clean_report()))
+    report.write_text(
+        json.dumps(
+            pip_audit_report(
+                {"name": "aiohttp", "version": "3.14.3", "vulns": []},
+                {"name": "private-pkg", "skip_reason": "Dependency not found on PyPI and could not be audited"},
+            )
+        )
+    )
+    result = run(str(trivy), "--pip-audit", f"runtime-ceiling={report}")
+    assert result.returncode == 0
+    assert "pip-audit did not check everything" in result.stdout
+    assert "pip-audit:runtime-ceiling: skipped private-pkg: Dependency not found on PyPI" in result.stdout
+
+
+@pytest.mark.parametrize("content", ["", "{{{ truncated", json.dumps({})])
+def test_incomplete_pip_audit_never_fails_the_gate(tmp_path: Path, content: str):
+    trivy = tmp_path / "trivy.json"
+    report = tmp_path / "pa.json"
+    trivy.write_text(json.dumps(clean_report()))
+    report.write_text(content)
+    result = run(str(trivy), "--pip-audit", f"runtime-ceiling={report}", "--gate")
+    assert result.returncode == 0
+    assert "pip-audit:runtime-ceiling" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "findings,errors",
+    [
+        ([], []),
+        ([Finding("CVE-1", "aiohttp", "1.0", "HIGH", "2.0", "t", "", "trivy")], []),
+        ([], ["trivy: boom"]),
+    ],
+)
+def test_slack_names_the_trees_pip_audit_did_not_check(findings, errors):
+    gaps = [
+        ("pip-audit:runtime-floor", "pip-audit:runtime-floor: no report at /tmp/x.json"),
+        ("pip-audit:dev-ceiling", "pip-audit:dev-ceiling: skipped a: b"),
+        ("pip-audit:dev-ceiling", "pip-audit:dev-ceiling: skipped c: d"),
+    ]
+    lines = render_slack(findings, errors, "https://example.invalid/run", "repo", pip_audit_gaps=gaps).split("\n")
+    assert lines[-2] == (
+        ">:warning: pip-audit did not fully check dev-ceiling, runtime-floor, so an advisory "
+        "only pip-audit reports could be missing."
+    )
+    assert lines[-1] == "><https://example.invalid/run|View the full report>"
+
+
+def test_slack_says_nothing_about_pip_audit_when_it_checked_everything():
+    out = render_slack([], [], "", "repo")
+    assert "pip-audit" not in out
+
+
+def test_slack_message_from_cli_names_a_missing_pip_audit_report(tmp_path: Path):
+    trivy = tmp_path / "trivy.json"
+    trivy.write_text(json.dumps(clean_report()))
+    result = run(str(trivy), "--pip-audit", f"runtime-floor={tmp_path / 'absent.json'}", "--slack")
+    assert result.returncode == 0
+    assert "weekly dependency audit clean" in result.stdout
+    assert "pip-audit did not fully check runtime-floor, so" in result.stdout
 
 
 # --- an empty scan is not a clean scan --------------------------------------
@@ -407,19 +544,16 @@ def test_missing_pip_audit_is_surfaced_as_a_note_not_a_parse_failure(tmp_path: P
         {"SchemaVersion": 2, "Results": [{"Class": "lang-pkgs"}]},  # Target-less
     ],
 )
-def test_reports_with_no_scanned_target_are_detected(doc: object) -> None:
+def test_reports_with_no_scanned_target_are_detected(doc):
     assert trivy_scanned_nothing(doc) is True
 
 
-def test_real_report_is_not_flagged_as_empty() -> None:
+def test_real_report_is_not_flagged_as_empty():
     assert trivy_scanned_nothing(trivy_report(vuln())) is False
-    assert (
-        trivy_scanned_nothing({"Results": [{"Target": "requirements.txt", "Vulnerabilities": []}]})
-        is False
-    )
+    assert trivy_scanned_nothing({"Results": [{"Target": "requirements.txt", "Vulnerabilities": []}]}) is False
 
 
-def test_gate_fails_closed_when_trivy_scanned_nothing(tmp_path: Path) -> None:
+def test_gate_fails_closed_when_trivy_scanned_nothing(tmp_path: Path):
     # Trivy writes exactly this, with exit code 0, when it recognises no
     # package file -- e.g. the compiled tree was empty or misnamed. Treating
     # it as clean is the single most dangerous silent failure for this gate.
@@ -430,7 +564,7 @@ def test_gate_fails_closed_when_trivy_scanned_nothing(tmp_path: Path) -> None:
     assert "empty scan" in result.stderr or "no scanned package file" in result.stderr
 
 
-def test_empty_scan_does_not_render_as_clean(tmp_path: Path) -> None:
+def test_empty_scan_does_not_render_as_clean(tmp_path: Path):
     report = tmp_path / "trivy.json"
     report.write_text(json.dumps({"SchemaVersion": 2, "Results": None}))
     result = run(str(report))
@@ -442,33 +576,25 @@ def test_empty_scan_does_not_render_as_clean(tmp_path: Path) -> None:
 # --- unfixable HIGH/CRITICAL must not be described as absent ----------------
 
 
-def test_unfixable_critical_is_not_reported_as_none_at_high_or_critical() -> None:
-    findings = [
-        Finding(
-            "CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy"
-        )
-    ]
+def test_unfixable_critical_is_not_reported_as_none_at_high_or_critical():
+    findings = [Finding("CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy")]
     out = render(findings, [], "", blocking=True)
-    assert "none at HIGH or CRITICAL" not in out, (
-        "the severity table directly below says CRITICAL 1; the headline must not contradict it"
-    )
+    assert (
+        "none at HIGH or CRITICAL" not in out
+    ), "the severity table directly below says CRITICAL 1; the headline must not contradict it"
     assert "no fix available" in out
     assert "CRITICAL" in out
 
 
-def test_unfixable_critical_slack_message_is_not_reassuring() -> None:
-    findings = [
-        Finding(
-            "CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy"
-        )
-    ]
+def test_unfixable_critical_slack_message_is_not_reassuring():
+    findings = [Finding("CVE-1", "aiohttp", "1.0", "CRITICAL", "none available", "unpatched RCE", "", "trivy")]
     out = render_slack(findings, [], "", "repo")
     assert "none HIGH/CRITICAL" not in out
     assert ":rotating_light:" in out
     assert "aiohttp" in out
 
 
-def test_mixed_fixable_and_unfixable_reports_both_counts() -> None:
+def test_mixed_fixable_and_unfixable_reports_both_counts():
     findings = [
         Finding("CVE-FIX", "a", "1.0", "HIGH", "2.0", "t", "", "trivy"),
         Finding("CVE-NOFIX", "b", "1.0", "CRITICAL", "none available", "t", "", "trivy"),

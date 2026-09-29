@@ -1,6 +1,6 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
-from permit.utils.pydantic_version import PYDANTIC_VERSION
+from ..utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -10,13 +10,15 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments
 
-from permit.api.base import (
+from permit.utils.model_input import ModelInput
+
+from .base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
 )
-from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
-from permit.api.models import (
+from .context import ApiContextLevel, ApiKeyAccessLevel
+from .models import (
     ResourceAttributeCreate,
     ResourceAttributeRead,
     ResourceAttributeUpdate,
@@ -24,8 +26,6 @@ from permit.api.models import (
 
 
 class ResourceAttributesApi(BasePermitApi):
-    """Manage the attributes of a resource."""
-
     @property
     def __attributes(self) -> SimpleHttpClient:
         return self._build_http_client(
@@ -33,10 +33,9 @@ class ResourceAttributesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(
-        self, resource_key: str, page: int = 1, per_page: int = 100
-    ) -> list[ResourceAttributeRead]:
-        """Retrieves a list of attributes.
+    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceAttributeRead]:
+        """
+        Retrieves a list of attributes.
 
         Args:
             resource_key: The key of the resource to filter on.
@@ -48,25 +47,23 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__attributes.get(
             f"/{resource_key}/attributes",
-            model=list[ResourceAttributeRead],
+            model=List[ResourceAttributeRead],
             params=pagination_params(page, per_page),
         )
 
     async def _get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
-        return await self.__attributes.get(
-            f"/{resource_key}/attributes/{attribute_key}", model=ResourceAttributeRead
-        )
+        return await self.__attributes.get(f"/{resource_key}/attributes/{attribute_key}", model=ResourceAttributeRead)
 
     @validate_arguments
     async def get(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
-        """Retrieves a attribute by its key.
+        """
+        Retrieves a attribute by its key.
 
         Args:
             resource_key: The key of the resource the attribute belongs to.
@@ -77,8 +74,7 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -86,8 +82,8 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, resource_key: str, attribute_key: str) -> ResourceAttributeRead:
-        """Retrieves a attribute by its key.
-
+        """
+        Retrieves a attribute by its key.
         Alias for the get method.
 
         Args:
@@ -99,8 +95,7 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -108,8 +103,8 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str, attribute_id: str) -> ResourceAttributeRead:
-        """Retrieves a attribute by its ID.
-
+        """
+        Retrieves a attribute by its ID.
         Alias for the get method.
 
         Args:
@@ -121,8 +116,7 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -130,9 +124,10 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def create(
-        self, resource_key: str, attribute_data: ResourceAttributeCreate
+        self, resource_key: str, attribute_data: ModelInput[ResourceAttributeCreate]
     ) -> ResourceAttributeRead:
-        """Creates a new attribute.
+        """
+        Creates a new attribute.
 
         Args:
             resource_key: The key of the resource under which the attribute should be created.
@@ -143,8 +138,7 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -159,9 +153,10 @@ class ResourceAttributesApi(BasePermitApi):
         self,
         resource_key: str,
         attribute_key: str,
-        attribute_data: ResourceAttributeUpdate,
+        attribute_data: ModelInput[ResourceAttributeUpdate],
     ) -> ResourceAttributeRead:
-        """Updates a attribute.
+        """
+        Updates a attribute.
 
         Args:
             resource_key: The key of the resource the attribute belongs to.
@@ -173,8 +168,7 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -186,7 +180,8 @@ class ResourceAttributesApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str, attribute_key: str) -> None:
-        """Deletes a attribute.
+        """
+        Deletes a attribute.
 
         Args:
             resource_key: The key of the resource the attribute belongs to.
@@ -194,8 +189,7 @@ class ResourceAttributesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)

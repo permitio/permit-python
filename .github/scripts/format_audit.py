@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Render scanner JSON as a markdown PR comment (and GitHub annotations).
 
-Reads a Trivy JSON report and, optionally, a pip-audit JSON report, and writes a
-single markdown body to stdout for the audit workflow to post as a sticky PR
-comment.
+Reads Trivy JSON reports and, optionally, pip-audit JSON reports (one of each
+per dependency tree), and writes a single markdown body to stdout for the audit
+workflow to post as a sticky PR comment.
 
 Contract (the workflow depends on every line of this):
 
@@ -16,6 +16,9 @@ Contract (the workflow depends on every line of this):
   truncated JSON and empty files all still produce a complete marker-prefixed
   body. The workflow only posts when this script exits 0, so failing on bad
   input would silently strip the PR of its only signal.
+* A pip-audit report that is missing, unreadable or incomplete never gates, but
+  it is always named in the markdown and the Slack message, so a pip-audit that
+  did not run can never read as a pip-audit that found nothing.
 
 Stdlib only: this runs on a bare actions/setup-python with nothing installed.
 """
@@ -26,7 +29,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 MARKER = "<!-- permit-python:audit:deps -->"
 
@@ -49,17 +52,11 @@ SEVERITY_EMOJI = {
 # the string render as markdown/HTML in the comment and the job summary.
 FENCE = "~~~~~~"
 
-# GitHub truncates annotation text; cut it ourselves so the ellipsis is visible.
-_ANNOTATION_MAX_CHARS = 200
-# The Slack message is two header lines, then one line per package.
-_SLACK_HEADER_LINES = 2
-_SLACK_MAX_PACKAGES = 10
-
 
 class Finding:
     """One vulnerability, normalized across scanners."""
 
-    def __init__(  # noqa: PLR0917 - one field per scanner column; built positionally
+    def __init__(
         self,
         vuln_id: str,
         package: str,
@@ -69,7 +66,7 @@ class Finding:
         title: str,
         url: str,
         source: str,
-    ) -> None:
+    ):
         self.id = vuln_id
         self.package = package
         self.installed = installed
@@ -81,7 +78,6 @@ class Finding:
 
     @property
     def key(self) -> tuple[str, str]:
-        """Identity used to merge the same advisory reported by several scanners."""
         return (self.package, self.id)
 
     @property
@@ -106,7 +102,7 @@ def _md_cell(text: str) -> str:
     return _truncate(text, 140).replace("|", "\\|").replace("`", "'")
 
 
-def _load(path: str | None, label: str) -> tuple[Any | None, str | None]:
+def _load(path: Optional[str], label: str) -> tuple[Optional[Any], Optional[str]]:
     """Return (parsed, error). Never raises -- a bad report must not kill the run."""
     if not path:
         return None, None
@@ -122,7 +118,20 @@ def _load(path: str | None, label: str) -> tuple[Any | None, str | None]:
         return None, f"{label}: {path} is not valid JSON: {exc}"
 
 
-def trivy_scanned_nothing(doc: object) -> bool:
+def _split_spec(spec: str, scanner: str) -> tuple[str, str]:
+    """Split a LABEL=PATH argument into (scanner:LABEL, PATH).
+
+    The label names the dependency tree a report came from, and it follows the
+    report's findings into the output. A bare PATH is labelled with the scanner
+    name alone.
+    """
+    label, sep, path = spec.partition("=")
+    if not sep:
+        return scanner, spec
+    return f"{scanner}:{label}", path
+
+
+def trivy_scanned_nothing(doc: Any) -> bool:
     """True when Trivy produced no package Result at all.
 
     Trivy writes {"Results": null} and exits 0 when it recognises no package
@@ -139,8 +148,7 @@ def trivy_scanned_nothing(doc: object) -> bool:
     return not any(isinstance(r, dict) and r.get("Target") for r in results)
 
 
-def parse_trivy(doc: object, source: str = "trivy") -> list[Finding]:
-    """Extract the findings of a Trivy JSON report; malformed entries are skipped."""
+def parse_trivy(doc: Any, source: str = "trivy") -> list[Finding]:
     findings: list[Finding] = []
     if not isinstance(doc, dict):
         return findings
@@ -166,7 +174,12 @@ def parse_trivy(doc: object, source: str = "trivy") -> list[Finding]:
     return findings
 
 
-def parse_pip_audit(doc: object) -> list[Finding]:
+def _pip_audit_dependencies(doc: Any) -> list[Any]:
+    deps = doc.get("dependencies") if isinstance(doc, dict) else doc
+    return deps if isinstance(deps, list) else []
+
+
+def parse_pip_audit(doc: Any, source: str = "pip-audit") -> list[Finding]:
     """pip-audit carries no severity at all, so everything lands in UNKNOWN.
 
     That is why pip-audit is advisory-only here and never gates the build: it
@@ -175,10 +188,7 @@ def parse_pip_audit(doc: object) -> list[Finding]:
     before it reaches the GHSA feed Trivy uses.
     """
     findings: list[Finding] = []
-    deps = doc.get("dependencies") if isinstance(doc, dict) else doc
-    if not isinstance(deps, list):
-        return findings
-    for dep in deps:
+    for dep in _pip_audit_dependencies(doc):
         if not isinstance(dep, dict):
             continue
         name = str(dep.get("name") or "unknown")
@@ -187,13 +197,14 @@ def parse_pip_audit(doc: object) -> list[Finding]:
             if not isinstance(vuln, dict):
                 continue
             fixes = vuln.get("fix_versions") or []
-            fixed = (
-                ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
-            )
+            fixed = ", ".join(str(f) for f in fixes) if isinstance(fixes, list) and fixes else NO_FIX
+            # Sorted because pip-audit keeps aliases in a set and lists them in
+            # a different order on each run. The id is half of the merge key,
+            # so an unsorted one would list the same advisory once per tree.
             aliases = vuln.get("aliases") or []
             alias_str = ""
             if isinstance(aliases, list) and aliases:
-                alias_str = f" ({', '.join(str(a) for a in aliases[:3])})"
+                alias_str = f" ({', '.join(sorted(str(a) for a in aliases)[:3])})"
             findings.append(
                 Finding(
                     vuln_id=str(vuln.get("id") or "UNKNOWN") + alias_str,
@@ -203,10 +214,36 @@ def parse_pip_audit(doc: object) -> list[Finding]:
                     fixed=fixed,
                     title=str(vuln.get("description") or ""),
                     url="",
-                    source="pip-audit",
+                    source=source,
                 )
             )
     return findings
+
+
+def load_pip_audit(spec: str) -> tuple[list[Finding], list[tuple[str, str]]]:
+    """Read one LABEL=PATH pip-audit report into findings and coverage gaps.
+
+    A gap is a (label, message) pair for something pip-audit did not check: a
+    whole tree, when the report is missing, unreadable or lists no packages,
+    or a single package it skipped. audit-deps.sh never leaves a report behind
+    from a pip-audit run that did not finish, so a missing report means exactly
+    that.
+    """
+    label, path = _split_spec(spec, "pip-audit")
+    if not Path(path).is_file():
+        return [], [(label, f"{label}: no report at {path}; pip-audit did not run or did not finish")]
+    doc, err = _load(path, label)
+    if err:
+        return [], [(label, err)]
+    deps = _pip_audit_dependencies(doc)
+    if not deps:
+        return [], [(label, f"{label}: {path} lists no audited packages")]
+    gaps = [
+        (label, f"{label}: skipped {dep.get('name') or 'unknown'}: {dep['skip_reason']}")
+        for dep in deps
+        if isinstance(dep, dict) and dep.get("skip_reason")
+    ]
+    return parse_pip_audit(doc, source=label), gaps
 
 
 def merge(groups: list[list[Finding]]) -> list[Finding]:
@@ -242,20 +279,17 @@ def _annotation_escape(text: str) -> str:
     later replacements introduce.
     """
     text = str(text)
-    text = text if len(text) <= _ANNOTATION_MAX_CHARS else text[: _ANNOTATION_MAX_CHARS - 1] + "…"
+    text = text if len(text) <= 200 else text[:199] + "…"
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
 def render_annotations(findings: list[Finding]) -> str:
-    """Render one GitHub `::error` workflow command per blocking finding."""
     lines = []
     for finding in findings:
         if not finding.blocking:
             continue
         title = _annotation_escape(f"{finding.severity}: {finding.id} in {finding.package}")
-        body = _annotation_escape(
-            f"{finding.package} {finding.installed} -- fixed in {finding.fixed}. {finding.title}"
-        )
+        body = _annotation_escape(f"{finding.package} {finding.installed} -- fixed in {finding.fixed}. {finding.title}")
         lines.append(f"::error title={title}::{body}")
     return "\n".join(lines)
 
@@ -265,31 +299,49 @@ def _slack_escape(text: str) -> str:
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def render_slack(findings: list[Finding], errors: list[str], run_url: str, repo: str) -> str:
+def render_slack(
+    findings: list[Finding],
+    errors: list[str],
+    run_url: str,
+    repo: str,
+    *,
+    pip_audit_gaps: Optional[list[tuple[str, str]]] = None,
+) -> str:
     """One line of Slack `text`, carrying the findings rather than a verdict.
 
     A scheduled run has no PR to comment on, so this is the only channel that
     reaches a person. Saying only "the audit failed" would make them open the
     run to learn anything at all, so the packages, counts and upgrade targets
-    go in the message itself.
+    go in the message itself -- and so does any tree pip-audit did not check.
     """
-    link = f"<{run_url}|View the full report>" if run_url else "See the workflow run."
-
-    if errors:
-        return (
-            f":warning: *{_slack_escape(repo)} — weekly dependency audit could not complete*\n"
-            f">A scanner report could not be parsed, so the tree was not fully scanned. "
-            f"A clean history is not evidence of a clean tree.\n>{link}"
+    lines = _slack_body(findings, errors, repo)
+    if pip_audit_gaps:
+        # A gap label is "pip-audit:<tree>", and the line already names pip-audit.
+        trees = ", ".join(sorted({label.split(":", 1)[-1] for label, _ in pip_audit_gaps}))
+        lines.append(
+            f">:warning: pip-audit did not fully check {_slack_escape(trees)}, so an advisory "
+            "only pip-audit reports could be missing."
         )
+    link = f"<{run_url}|View the full report>" if run_url else "See the workflow run."
+    lines.append(f">{link}")
+    return "\n".join(lines)
+
+
+def _slack_body(findings: list[Finding], errors: list[str], repo: str) -> list[str]:
+    if errors:
+        return [
+            f":warning: *{_slack_escape(repo)} — weekly dependency audit could not complete*",
+            ">A scanner report could not be parsed, so the tree was not fully scanned. "
+            "A clean history is not evidence of a clean tree.",
+        ]
 
     blockers = [f for f in findings if f.blocking]
     severe = [f for f in findings if f.severity in BLOCKING_SEVERITIES]
     if not findings:
-        return (
-            f":white_check_mark: *{_slack_escape(repo)} — weekly dependency audit clean*\n"
-            f">No known advisories in either the resolved tree or the lowest versions "
-            f"the published specs permit.\n>{link}"
-        )
+        return [
+            f":white_check_mark: *{_slack_escape(repo)} — weekly dependency audit clean*",
+            ">No known advisories in either the resolved tree or the lowest versions the published specs permit.",
+        ]
 
     # Collapse to one line per package: a package with 30 advisories should not
     # produce 30 Slack lines.
@@ -312,9 +364,7 @@ def render_slack(findings: list[Finding], errors: list[str], run_url: str, repo:
         # Highest fix target across the group -- upgrading to anything lower
         # would leave part of the group unresolved.
         targets = sorted({f.fixed for f in group if f.fixed != NO_FIX})
-        target = (
-            f" — upgrade to `{_slack_escape(targets[-1])}`" if targets else " — no fix available"
-        )
+        target = f" — upgrade to `{_slack_escape(targets[-1])}`" if targets else " — no fix available"
         installed = _slack_escape(worst.installed)
         lines.append(
             f">• `{_slack_escape(package)}` {installed} — "
@@ -323,31 +373,19 @@ def render_slack(findings: list[Finding], errors: list[str], run_url: str, repo:
         )
 
     # Slack truncates long messages; keep it to something a human will read.
-    if len(lines) > _SLACK_HEADER_LINES + _SLACK_MAX_PACKAGES:
-        lines = [
-            *lines[: _SLACK_HEADER_LINES + _SLACK_MAX_PACKAGES],
-            f">…and {len(by_package) - _SLACK_MAX_PACKAGES} more packages.",
-        ]
-
-    lines.append(f">{link}")
-    return "\n".join(lines)
+    if len(lines) > 12:
+        lines = lines[:12] + [f">…and {len(by_package) - 10} more packages."]
+    return lines
 
 
-def _advisory_link(finding: Finding) -> str:
-    if finding.url.startswith("http"):
-        return f"[{_md_cell(finding.id)}]({finding.url})"
-    return _md_cell(finding.id)
-
-
-def render(  # noqa: C901, PLR0915 - one linear pass appending each report section
+def render(
     findings: list[Finding],
     errors: list[str],
     context: str,
     *,
     blocking: bool,
-    warnings: list[str] | None = None,
+    pip_audit_gaps: Optional[list[tuple[str, str]]] = None,
 ) -> str:
-    """Render the markdown PR comment body."""
     out: list[str] = [MARKER, "", "## Dependency Security Audit", ""]
 
     if context:
@@ -364,11 +402,15 @@ def render(  # noqa: C901, PLR0915 - one linear pass appending each report secti
         out.append(FENCE)
         out.append("")
 
-    if warnings:
-        out.append(":information_source: Advisory scanner notes (these do not affect the gate):")
+    if pip_audit_gaps:
+        out.append(
+            ":warning: **pip-audit did not check everything.** For the trees or packages "
+            "below, an advisory that only pip-audit reports could be missing from this "
+            "report. pip-audit is advisory-only, so this does not affect the gate."
+        )
         out.append("")
         out.append(FENCE)
-        out.extend(warnings)
+        out.extend(message for _, message in pip_audit_gaps)
         out.append(FENCE)
         out.append("")
 
@@ -395,10 +437,7 @@ def render(  # noqa: C901, PLR0915 - one linear pass appending each report secti
         out.append(f":x: **{len(blockers)} fixable HIGH/CRITICAL {noun}** -- {verb}.")
         if unfixable:
             out.append("")
-            out.append(
-                f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet "
-                "and do not block."
-            )
+            out.append(f":warning: A further **{unfixable}** HIGH/CRITICAL have no fix available yet and do not block.")
     elif severe:
         # Do not say "none at HIGH or CRITICAL" here: there are some, they
         # just cannot be fixed by bumping a bound. Saying otherwise would
@@ -409,39 +448,33 @@ def render(  # noqa: C901, PLR0915 - one linear pass appending each report secti
             "but they are real exposure and need a decision."
         )
     else:
-        out.append(
-            ":warning: Advisories found, but none at HIGH or CRITICAL. "
-            "This does not block the build."
-        )
+        out.append(":warning: Advisories found, but none at HIGH or CRITICAL. This does not block the build.")
     out.append("")
 
     out.append("| Severity | Count |")
     out.append("| --- | --- |")
-    out.extend(
-        f"| {SEVERITY_EMOJI[severity]} {severity} | {counts[severity]} |"
-        for severity in SEVERITY_ORDER
-        if counts.get(severity)
-    )
+    for severity in SEVERITY_ORDER:
+        if counts.get(severity):
+            out.append(f"| {SEVERITY_EMOJI[severity]} {severity} | {counts[severity]} |")
     out.append("")
 
     out.append("| Severity | Package | Installed | Fixed in | Advisory |")
     out.append("| --- | --- | --- | --- | --- |")
-    out.extend(
-        f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
-        f"| `{_md_cell(finding.package)}` "
-        f"| `{_md_cell(finding.installed)}` "
-        f"| `{_md_cell(finding.fixed)}` "
-        f"| {_advisory_link(finding)} |"
-        for finding in findings
-    )
+    for finding in findings:
+        link = f"[{_md_cell(finding.id)}]({finding.url})" if finding.url.startswith("http") else _md_cell(finding.id)
+        out.append(
+            f"| {SEVERITY_EMOJI[finding.severity]} {finding.severity} "
+            f"| `{_md_cell(finding.package)}` "
+            f"| `{_md_cell(finding.installed)}` "
+            f"| `{_md_cell(finding.fixed)}` "
+            f"| {link} |"
+        )
     out.append("")
 
     out.append("<details><summary>Advisory details</summary>")
     out.append("")
     for finding in findings:
-        out.append(
-            f"**{finding.severity} -- {finding.id}** (`{finding.package}` {finding.installed})"
-        )
+        out.append(f"**{finding.severity} -- {finding.id}** (`{finding.package}` {finding.installed})")
         out.append("")
         out.append(f"Found by: {', '.join(sorted(finding.sources))}")
         out.append("")
@@ -464,6 +497,14 @@ def render(  # noqa: C901, PLR0915 - one linear pass appending each report secti
     )
     out.append("")
     out.append(
+        "This audit resolves without the 7-day publish-age cooldown (`exclude-newer`) in "
+        "`[tool.uv]`, but `uv lock` applies it. If `uv lock` says the fixed version was "
+        "filtered by `exclude-newer`, add `exclude-newer-package = { <package> = false }` "
+        "under `[tool.uv]` in `pyproject.toml`, run `uv lock` and commit both files. Once "
+        "the release is 7 days old, remove the entry and run `uv lock` again."
+    )
+    out.append("")
+    out.append(
         "An advisory with no fix available does not block the build -- it is reported "
         "here so it can be tracked, but no version bump can resolve it. Suppression "
         "files are deliberately not honoured: the scan runs with `--ignorefile "
@@ -473,8 +514,7 @@ def render(  # noqa: C901, PLR0915 - one linear pass appending each report secti
     return "\n".join(out) + "\n"
 
 
-def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per output mode
-    """Parse the scanner reports and print the requested output; return the exit status."""
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "trivy_json",
@@ -486,7 +526,13 @@ def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per
             "versions the published specs permit."
         ),
     )
-    parser.add_argument("--pip-audit", dest="pip_audit_json", help="optional pip-audit JSON report")
+    parser.add_argument(
+        "--pip-audit",
+        dest="pip_audit_json",
+        action="append",
+        default=[],
+        help="pip-audit JSON report, as LABEL=PATH like the Trivy reports. Repeat it once per dependency tree.",
+    )
     parser.add_argument("--context", default="", help="human label for what was scanned")
     parser.add_argument(
         "--annotations",
@@ -503,12 +549,8 @@ def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per
         action="store_true",
         help="emit a single-line Slack message body carrying the findings",
     )
-    parser.add_argument(
-        "--run-url", default="", help="workflow run URL to link from the Slack message"
-    )
-    parser.add_argument(
-        "--repo", default="permit-python", help="repository name for the Slack message"
-    )
+    parser.add_argument("--run-url", default="", help="workflow run URL to link from the Slack message")
+    parser.add_argument("--repo", default="permit-python", help="repository name for the Slack message")
     parser.add_argument(
         "--gate",
         action="store_true",
@@ -524,11 +566,7 @@ def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per
     groups: list[list[Finding]] = []
 
     for spec in args.trivy_json:
-        label, sep, path = spec.partition("=")
-        if not sep:
-            label, path = "trivy", spec
-        else:
-            label = f"trivy:{label}"
+        label, path = _split_spec(spec, "trivy")
         doc, err = _load(path, label)
         if err:
             errors.append(err)
@@ -539,31 +577,32 @@ def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per
             )
         groups.append(parse_trivy(doc, source=label))
 
-    # pip-audit problems are warnings, never errors. It is advisory-only and
-    # never gates, so letting it fail the gate closed would mean an unrelated
-    # pip-audit outage blocks every PR and release. audit-deps.sh deliberately
-    # deletes a partial pip-audit report, so "missing" is an expected state.
-    pip_doc, pip_err = _load(args.pip_audit_json, "pip-audit")
-    warnings: list[str] = []
-    if pip_err:
-        warnings.append(pip_err)
-    groups.append(parse_pip_audit(pip_doc))
+    # pip-audit gaps are never errors. pip-audit is advisory-only and never
+    # gates, so letting it fail the gate closed would mean an unrelated
+    # pip-audit outage blocks every PR and release. They are rendered instead,
+    # in the markdown and the Slack message alike.
+    pip_audit_gaps: list[tuple[str, str]] = []
+    for spec in args.pip_audit_json:
+        pip_findings, gaps = load_pip_audit(spec)
+        groups.append(pip_findings)
+        pip_audit_gaps.extend(gaps)
 
     findings = merge(groups)
 
-    for err in errors + warnings:
+    for err in errors:
         print(err, file=sys.stderr)
+    for _, message in pip_audit_gaps:
+        print(message, file=sys.stderr)
 
     if args.slack:
-        print(render_slack(findings, errors, args.run_url, args.repo))
+        print(render_slack(findings, errors, args.run_url, args.repo, pip_audit_gaps=pip_audit_gaps))
         return 0
 
     if args.gate:
         blockers = [f for f in findings if f.blocking]
         for finding in blockers:
             print(
-                f"{finding.severity} {finding.id} {finding.package} "
-                f"{finding.installed} -> {finding.fixed}",
+                f"{finding.severity} {finding.id} {finding.package} " f"{finding.installed} -> {finding.fixed}",
                 file=sys.stderr,
             )
         if errors:
@@ -577,9 +616,7 @@ def main() -> int:  # noqa: C901, PLR0912 - argument handling, then one pass per
             print(rendered)
         return 0
 
-    sys.stdout.write(
-        render(findings, errors, args.context, blocking=args.blocking, warnings=warnings)
-    )
+    sys.stdout.write(render(findings, errors, args.context, blocking=args.blocking, pip_audit_gaps=pip_audit_gaps))
     return 0
 
 

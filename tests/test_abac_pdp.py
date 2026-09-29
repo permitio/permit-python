@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Dict, List
 
 import aiohttp
 import pytest
@@ -24,20 +24,23 @@ CLOUD_PDP_URL = "https://cloudpdp.api.permit.io"
 # not.
 CONFIGURED_PDP_URL = os.getenv("PDP_URL", CLOUD_PDP_URL)
 
-pytestmark = pytest.mark.skipif(
-    not CONFIGURED_PDP_URL.startswith(CLOUD_PDP_URL),
-    reason=(
-        f"cloud-PDP-only test: permit_cloud is configured against {CONFIGURED_PDP_URL}, "
-        f"not {CLOUD_PDP_URL}. Unset PDP_URL (or point it at the cloud PDP) to run these."
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skipif(
+        not CONFIGURED_PDP_URL.startswith(CLOUD_PDP_URL),
+        reason=(
+            f"cloud-PDP-only test: permit_cloud is configured against {CONFIGURED_PDP_URL}, "
+            f"not {CLOUD_PDP_URL}. Unset PDP_URL (or point it at the cloud PDP) to run these."
+        ),
     ),
-)
+]
 
 
-def abac_user(user: UserCreate) -> dict[str, Any]:
+def abac_user(user: UserCreate):
     return user.dict(exclude={"first_name", "last_name"})
 
 
-async def test_abac_pdp_cloud_error(permit_cloud: Permit) -> None:
+async def test_abac_pdp_cloud_error(permit_cloud: Permit):
     user_test = UserCreate(
         key="maya@permit.io",
         email="maya@permit.io",
@@ -47,7 +50,7 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit) -> None:
     )
     tesla = TenantCreate(key="tesla", name="Tesla Inc")
 
-    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
+    try:
         await permit_cloud.check(
             abac_user(user_test),
             "sign",
@@ -57,10 +60,13 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit) -> None:
                 "attributes": {"private": False},
             },
         )
-    assert isinstance(exc_info.value, PermitConnectionError)
+    except (PermitConnectionError, aiohttp.ClientError) as error:
+        assert isinstance(error, PermitConnectionError)
+    else:
+        pytest.fail("Should have raised an exception")
 
 
-async def test_get_user_permissions_cloud_error(permit_cloud: Permit) -> None:
+async def test_get_user_permissions_cloud_error(permit_cloud: Permit):
     user_test = UserCreate(
         key="maya@permit.io",
         email="maya@permit.io",
@@ -69,30 +75,30 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit) -> None:
         attributes={"age": 23},
     )
 
-    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
+    try:
         await permit_cloud.get_user_permissions(
-            user={
-                "key": user_test.key,
-                "email": user_test.email,
-                "attributes": user_test.attributes,
-            },
+            user={"key": user_test.key, "email": user_test.email, "attributes": user_test.attributes},
             tenants=["default"],
             resources=["Blog:dddddd"],
             resource_types=["Blog"],
         )
-    assert isinstance(exc_info.value, PermitConnectionError)
+    except (PermitConnectionError, aiohttp.ClientError) as error:
+        assert isinstance(error, PermitConnectionError)
+    else:
+        pytest.fail("Should have raised an exception")
 
 
-async def test_filter_objects_cloud_error(permit_cloud: Permit) -> None:
+async def test_filter_objects_cloud_error(permit_cloud: Permit):
     user_test = {"key": "maya@permit.io", "email": "maya@permit.io", "attributes": {"age": 23}}
 
-    test_resources: list[dict[str, Any]] = [
+    test_resources: List[Dict[str, Any]] = [
         {"type": "Blog", "key": "doc1", "context": {}, "attributes": {}, "tenant": "default"},
         {"type": "Document", "key": "doc2", "context": {}, "attributes": {}, "tenant": "default"},
     ]
 
-    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
-        await permit_cloud.filter_objects(
-            user=user_test, action="read", context={}, resources=test_resources
-        )
-    assert isinstance(exc_info.value, PermitConnectionError)
+    try:
+        await permit_cloud.filter_objects(user=user_test, action="read", context={}, resources=test_resources)
+    except (PermitConnectionError, aiohttp.ClientError) as error:
+        assert isinstance(error, PermitConnectionError)
+    else:
+        pytest.fail("Should have raised an exception")

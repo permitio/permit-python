@@ -19,7 +19,7 @@ jobs:
   # unless the scan succeeded.
   build:
     name: Build distribution
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,10 +31,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           # This uv binary is the build backend for the published artifacts,
-          # so pin its archive (uv-x86_64-unknown-linux-gnu.tar.gz, per the
-          # uv release's .sha256 asset). The version comes from [tool.uv]
-          # required-version in pyproject.toml; bumping that without updating
-          # this hash fails the download instead of building with another uv.
+          # so it is pinned here, by version and by the checksum of its archive
+          # (uv-x86_64-unknown-linux-gnu.tar.gz, per the uv release's .sha256
+          # asset), and not read from uv.lock: a Dependabot bump of the dev
+          # group's uv must not change the tool that builds releases. Bump both
+          # by hand; the uv_build bound in [build-system] must allow the version.
+          version: "0.12.18"
           checksum: "89eadd7c76fc063887959510d5ba0ab1264dfd5f1143b925ddb73021a40acf16"
           # No cache on a job whose output is published: a poisoned cache
           # entry would flow straight into the release artifacts.
@@ -68,8 +70,42 @@ jobs:
       - name: Build Python package
         run: uv build --no-sources
 
+      # Type checkers read permit's annotations only when py.typed is in the
+      # installed package, and see the blocking client as blocking only through
+      # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
+      # them without any import failing. Check the artifacts that get
+      # published: the wheel, and the sdist, since a wheel built from the sdist
+      # (pip install --no-binary, a distribution's packager) holds only what
+      # the sdist does.
+      - name: Check the wheel and sdist ship their type information
+        run: |
+          set -euo pipefail
+          uv run --no-project python - dist <<'PY'
+          import sys
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          dist = Path(sys.argv[1])
+          wheels = sorted(dist.glob("*.whl"))
+          sdists = sorted(dist.glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              found = [path.name for path in wheels + sdists]
+              sys.exit(f"expected one wheel and one sdist in {dist}, found {found}")
+          required = ["permit/py.typed", "permit/_sync_types.pyi"]
+          contents = {wheels[0]: set(zipfile.ZipFile(wheels[0]).namelist())}
+          # Every sdist path starts with its top-level permit-<version>/ directory.
+          with tarfile.open(sdists[0]) as sdist:
+              contents[sdists[0]] = {name.partition("/")[2] for name in sdist.getnames()}
+          for artifact, names in contents.items():
+              missing = [path for path in required if path not in names]
+              if missing:
+                  sys.exit(f"{artifact.name} is missing {missing}")
+              print(f"{artifact.name} ships {' and '.join(required)}")
+          PY
+
       - name: Upload distribution
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: dist/
@@ -77,7 +113,7 @@ jobs:
 
   scan:
     name: Security Gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     steps:
       - name: Checkout code
@@ -93,6 +129,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          # The uv pinned in uv.lock, so a new uv release cannot change which
+          # trees get scanned.
+          version-file: "uv.lock"
           # This job resolves dependency trees for scanning and installs
           # nothing, so the cache buys nothing and only adds a poisoning
           # vector on a workflow that publishes artifacts.
@@ -108,6 +147,15 @@ jobs:
           exit-code: "0"
           scanners: vuln
           trivy-config: ""
+          # See the same step in security.yml: this only installs Trivy, and
+          # hide-progress keeps its empty scan from logging a warning.
+          hide-progress: true
+          # The migration skill's sample apps pin vulnerable versions on
+          # purpose and are never installed (skills/tests/README.md).
+          skip-dirs: skills/tests/fixtures
+          # uv.lock pins this repository's own CI environment, not what a
+          # consumer installs; audit-deps.sh scans the published ranges.
+          skip-files: uv.lock
 
       - name: Run dependency audit
         run: bash .github/scripts/audit-deps.sh /tmp/audit
@@ -121,8 +169,12 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
             "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+            --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
             --context "release ${RELEASE_TAG}" \
             --blocking >> "$GITHUB_STEP_SUMMARY"
 
@@ -140,12 +192,15 @@ jobs:
           python .github/scripts/format_audit.py \
             "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
             "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
-            --pip-audit /tmp/audit/pip-audit.json \
+            "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+            --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+            --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+            --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
             --gate
 
       - name: Upload audit artifacts
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dependency-audit
           path: /tmp/audit/
@@ -153,7 +208,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [scan]
     environment:
       name: pypi
@@ -164,8 +219,14 @@ jobs:
       # never used -- nothing in this workflow commits or opens a PR.
       id-token: write
     steps:
+      # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
+      # calls the deprecated Buffer() constructor, so every download prints
+      # DEP0005 (actions/download-artifact#484). This hides DEP0005 alone;
+      # drop it once a release stops printing the warning.
       - name: Download distribution
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
         with:
           name: dist
           path: dist/

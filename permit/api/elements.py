@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID
 
-from permit.utils.pydantic_version import PYDANTIC_VERSION
+from ..utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -11,87 +11,68 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import BaseModel, Extra, Field
 
-from permit.api.base import BasePermitApi
-from permit.config import PermitConfig
-from permit.utils.sync import SyncClass
+from ..config import PermitConfig
+from ..utils.sync import SyncClass
+from .base import BasePermitApi
 
 
 class EmbeddedLoginRequestOutput(BaseModel):
-    """The API's answer to an Elements login request."""
-
     class Config:
         extra = Extra.allow
 
-    error: str | None = Field(
+    error: Optional[str] = Field(
         default=None,
         description="If the login request failed, this field will contain the error message",
         title="Error",
     )
-    error_code: int | None = Field(
+    error_code: Optional[int] = Field(
         default=None,
         description="If the login request failed, this field will contain the error code",
         title="Error Code",
     )
-    token: str | None = Field(
+    token: Optional[str] = Field(
         default=None,
         description="The auth token that lets your users login into permit elements",
         title="Token",
     )
-    extra: str | None = Field(
+    extra: Optional[str] = Field(
         default=None,
         description="Extra data that you can pass to the login request",
         title="Extra",
     )
     redirect_url: str = Field(
         ...,
-        description="The full URL to which the user should be redirected "
-        "in order to complete the login process",
+        description="The full URL to which the user should be redirected in order to complete the login process",
         title="Redirect Url",
     )
 
 
 class LoginAsSchema(BaseModel):
-    """Represents the schema for the loginAs request."""
+    """
+    Represents the schema for the loginAs request.
+    """
 
     user_id: str = Field(..., description="The key (or ID) of the user the element will log in as.")
     tenant_id: str = Field(
         ...,
         description="The key (or ID) of the active tenant for the logged in user."
-        "The embedded user will only be able to access the active tenant.",
+        + "The embedded user will only be able to access the active tenant.",
     )
 
 
 class UserLoginAsResponse(EmbeddedLoginRequestOutput):
-    """The result of `ElementsApi.login_as()`."""
-
-    # Bare `dict` on purpose: pydantic v1 passes it through as is, while a parameterized
-    # dict would be validated as a mapping and copied.
-    content: dict | None = Field(  # type: ignore[type-arg]
-        None,
+    content: Optional[dict] = Field(
+        default=None,
         description="Content to return in the response body for header/bearer login",
     )
 
 
 class ElementsApi(BasePermitApi):
-    """Log users into Permit Elements (embeddable UI components)."""
-
-    def __init__(self, config: PermitConfig) -> None:
+    def __init__(self, config: PermitConfig):
         super().__init__(config)
         self.__auth = self._build_http_client("/v2/auth")
 
-    async def login_as(self, user_id: str | UUID, tenant_id: str | UUID) -> UserLoginAsResponse:
-        """Log a user into Permit Elements, in the context of a tenant.
-
-        Args:
-            user_id: The key or ID of the user to log in as.
-            tenant_id: The key or ID of the tenant the user will be able to access.
-
-        Returns:
-            The login ticket, including the URL that completes the login.
-
-        Raises:
-            PermitApiError: If the API returns an error HTTP status code.
-        """
+    async def login_as(self, user_id: Union[str, UUID], tenant_id: Union[str, UUID]) -> UserLoginAsResponse:
         if isinstance(user_id, UUID):
             user_id = str(user_id)
         if isinstance(tenant_id, UUID):
@@ -104,5 +85,11 @@ class ElementsApi(BasePermitApi):
         return UserLoginAsResponse(**ticket.dict(), content={"url": ticket.redirect_url})
 
 
-class SyncElementsApi(ElementsApi, metaclass=SyncClass):
-    """Blocking variant of `ElementsApi`."""
+# Type checkers read this class from a generated stub: the SyncClass metaclass
+# makes its methods blocking at runtime, which they cannot see.
+if TYPE_CHECKING:
+    from permit._sync_types import SyncElementsApi as SyncElementsApi
+else:
+
+    class SyncElementsApi(ElementsApi, metaclass=SyncClass):
+        pass

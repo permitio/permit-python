@@ -1,6 +1,6 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
-from permit.utils.pydantic_version import PYDANTIC_VERSION
+from ..utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -10,15 +10,15 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments
 
-import builtins
+from permit.utils.model_input import ModelInput, ModelListInput
 
-from permit.api.base import (
+from .base import (
     BasePermitApi,
     SimpleHttpClient,
     pagination_params,
 )
-from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
-from permit.api.models import (
+from .context import ApiContextLevel, ApiKeyAccessLevel
+from .models import (
     PaginatedResultUserRead,
     TenantCreate,
     TenantCreateBulkOperation,
@@ -31,27 +31,28 @@ from permit.api.models import (
 
 
 class TenantsApi(BasePermitApi):
-    """Manage tenants and the users in them."""
-
     @property
     def __tenants(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/tenants", use_pdp=True)
-        return self._build_http_client(
-            f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/tenants"
-        )
+        else:
+            return self._build_http_client(
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/tenants"
+            )
 
     @property
     def __bulk_operations(self) -> SimpleHttpClient:
         if self.config.proxy_facts_via_pdp:
             return self._build_http_client("/facts/bulk/tenants", use_pdp=True)
-        return self._build_http_client(
-            f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/bulk/tenants"
-        )
+        else:
+            return self._build_http_client(
+                f"/v2/facts/{self.config.api_context.project}/{self.config.api_context.environment}/bulk/tenants"
+            )
 
     @validate_arguments
-    async def list(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
-        """Retrieves a list of tenants.
+    async def list(self, page: int = 1, per_page: int = 100) -> List[TenantRead]:
+        """
+        Retrieves a list of tenants.
 
         Args:
             page: The page number to fetch (default: 1).
@@ -62,20 +63,16 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__tenants.get(
-            "", model=list[TenantRead], params=pagination_params(page, per_page)
-        )
+        return await self.__tenants.get("", model=List[TenantRead], params=pagination_params(page, per_page))
 
     @validate_arguments
-    async def list_tenant_users(
-        self, tenant_key: str, page: int = 1, per_page: int = 100
-    ) -> PaginatedResultUserRead:
-        """Retrieves a list of users for a given tenant.
+    async def list_tenant_users(self, tenant_key: str, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
+        """
+        Retrieves a list of users for a given tenant.
 
         Args:
             tenant_key: The key of the tenant.
@@ -87,8 +84,7 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -103,7 +99,8 @@ class TenantsApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, tenant_key: str) -> TenantRead:
-        """Retrieves a tenant by its key.
+        """
+        Retrieves a tenant by its key.
 
         Args:
             tenant_key: The key of the tenant.
@@ -113,8 +110,7 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -122,8 +118,8 @@ class TenantsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, tenant_key: str) -> TenantRead:
-        """Retrieves a tenant by its key.
-
+        """
+        Retrieves a tenant by its key.
         Alias for the get method.
 
         Args:
@@ -134,8 +130,7 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -143,8 +138,8 @@ class TenantsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, tenant_id: str) -> TenantRead:
-        """Retrieves a tenant by its ID.
-
+        """
+        Retrieves a tenant by its ID.
         Alias for the get method.
 
         Args:
@@ -155,16 +150,16 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(tenant_id)
 
     @validate_arguments
-    async def create(self, tenant_data: TenantCreate) -> TenantRead:
-        """Creates a new tenant.
+    async def create(self, tenant_data: ModelInput[TenantCreate]) -> TenantRead:
+        """
+        Creates a new tenant.
 
         Args:
             tenant_data: The data for the new tenant.
@@ -174,16 +169,16 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.post("", model=TenantRead, json=tenant_data)
 
     @validate_arguments
-    async def update(self, tenant_key: str, tenant_data: TenantUpdate) -> TenantRead:
-        """Updates a tenant.
+    async def update(self, tenant_key: str, tenant_data: ModelInput[TenantUpdate]) -> TenantRead:
+        """
+        Updates a tenant.
 
         Args:
             tenant_key: The key of the tenant.
@@ -194,8 +189,7 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -203,7 +197,8 @@ class TenantsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, tenant_key: str) -> None:
-        """Deletes a tenant.
+        """
+        Deletes a tenant.
 
         Args:
             tenant_key: The key of the tenant to delete.
@@ -213,8 +208,7 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -222,7 +216,8 @@ class TenantsApi(BasePermitApi):
 
     @validate_arguments
     async def delete_tenant_user(self, tenant_key: str, user_key: str) -> None:
-        """Deletes a user from a tenant, removing all roles granted to the user in that tenant.
+        """
+        Deletes a user from a given tenant (also removes all roles granted to the user in that tenant).
 
         Args:
             tenant_key: The key of the tenant from which the user will be deleted.
@@ -230,18 +225,16 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__tenants.delete(f"/{tenant_key}/users/{user_key}")
 
     @validate_arguments
-    async def bulk_create(
-        self, tenants: builtins.list[TenantCreate]
-    ) -> TenantCreateBulkOperationResult:
-        """Creates tenants in bulk.
+    async def bulk_create(self, tenants: ModelListInput[TenantCreate]) -> TenantCreateBulkOperationResult:
+        """
+        Creates tenants in bulk.
 
         Args:
             tenants: The tenants to create
@@ -251,8 +244,7 @@ class TenantsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -263,20 +255,19 @@ class TenantsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def bulk_delete(self, tenants: builtins.list[str]) -> TenantDeleteBulkOperationResult:
-        """Deletes tenants in bulk.
+    async def bulk_delete(self, tenants: List[str]) -> TenantDeleteBulkOperationResult:
+        """
+        Deletes tenants in bulk.
 
         Args:
-            tenants: The tenants identities to delete. Each identity can be either the tenant key or
-                the tenant id.
+            tenants: The tenants identities to delete. Each identity can be either the tenant key or the tenant id.
 
         Returns:
             the bulk delete report.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint
-                context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)

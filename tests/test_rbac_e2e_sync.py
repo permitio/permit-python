@@ -1,21 +1,21 @@
 import time
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
+from typing import Any, Callable, Final, List, Optional
 
 import pytest
 from loguru import logger
 
+from permit import RoleAssignmentRead
 from permit.exceptions import PermitApiError, PermitConnectionError
+from permit.pdp_api.models import RoleAssignment
 from permit.sync import Permit as SyncPermit
-from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
-if TYPE_CHECKING:
-    from permit import RoleAssignmentRead
-    from permit.pdp_api.models import RoleAssignment
+from .utils import handle_api_error, handle_cleanup_error, unique_key
+
+pytestmark = pytest.mark.e2e
 
 
-def print_break() -> None:
-    print("\n\n ----------- \n\n")
+def print_break():
+    print("\n\n ----------- \n\n")  # noqa: T201
 
 
 # Every object below is created with a key derived from unique_key(): the whole
@@ -47,15 +47,7 @@ def wait_until(
         time.sleep(interval)
 
 
-class _Keyed(Protocol):
-    @property
-    def key(self) -> str: ...
-
-
-KeyedT = TypeVar("KeyedT", bound=_Keyed)
-
-
-def find_by_key(list_page: Callable[[int], list[KeyedT]], key: str) -> KeyedT | None:
+def find_by_key(list_page: Callable[[int], List[Any]], key: str) -> Optional[Any]:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -80,7 +72,7 @@ def delete_quietly(delete: Callable[[str], None], key: str, description: str) ->
         handle_cleanup_error(error, f"Got API Error during cleanup of {description} '{key}'")
     except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error during cleanup of {description} '{key}': {error}")
         pytest.fail(f"Got error during cleanup of {description} '{key}': {error}")
 
@@ -92,7 +84,7 @@ def assert_gone(get: Callable[[str], Any], key: str, description: str) -> None:
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
-def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
+def test_permission_check_e2e(sync_permit: SyncPermit):
     permit = sync_permit
     logger.info("initial setup of objects")
     resource_key = unique_key("document")
@@ -142,9 +134,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
         listed_document = find_by_key(
             lambda page: permit.api.resources.list(page=page, per_page=PER_PAGE), resource_key
         )
-        assert listed_document is not None, (
-            f"resource '{resource_key}' is missing from the resource list"
-        )
+        assert listed_document is not None, f"resource '{resource_key}' is missing from the resource list"
         assert listed_document.id == document.id
         assert listed_document.key == document.key
         assert listed_document.name == document.name
@@ -241,15 +231,14 @@ def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
         assert ra.user_id == user.id
         assert ra.role_id == viewer.id
         assert ra.tenant_id == tenant.id
-        assert ra.user in (user.email, user.key)
+        assert ra.user == user.email or ra.user == user.key
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
         logger.info("waiting for the viewer role assignment to propagate to the PDP")
         resource_attributes = {"secret": True}
 
-        # positive permission check (will be True because elon is a viewer, and a viewer
-        # can read a document)
+        # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
         logger.info("testing positive permission check")
         wait_until(
             lambda: permit.check(
@@ -302,7 +291,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
         logger.info("testing list role assignments")
         # scoped to this test's user and tenant: the environment is shared, so
         # the unfiltered list contains every other test's assignments too.
-        assignments_returned: list[RoleAssignment] = permit.pdp_api.role_assignments.list(
+        assignments_returned: List[RoleAssignment] = permit.pdp_api.role_assignments.list(
             user_key=user.key, tenant_key=tenant.key
         )
         assert len(assignments_returned) == 1
@@ -331,9 +320,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
         )
 
         # list user roles in all tenants
-        assigned_roles: list[RoleAssignmentRead] = permit.api.users.get_assigned_roles(
-            user=user.key
-        )
+        assigned_roles: List[RoleAssignmentRead] = permit.api.users.get_assigned_roles(user=user.key)
 
         assert len(assigned_roles) == 1
         assert assigned_roles[0].user_id == user.id
@@ -343,9 +330,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
         # run the same negative permission check again, this time it's True
         logger.info("testing previously negative permission check, should now be positive")
         wait_until(
-            lambda: permit.check(
-                user.dict(), "create", {"type": document.key, "tenant": tenant.key}
-            ),
+            lambda: permit.check(user.dict(), "create", {"type": document.key, "tenant": tenant.key}),
             f"user '{user_key}' to be allowed to create '{resource_key}' after the role change",
         )
 
@@ -355,7 +340,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
         handle_api_error(error, "Got API Error")
     except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:

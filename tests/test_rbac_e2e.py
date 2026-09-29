@@ -1,7 +1,8 @@
 import asyncio
+import http.client
+import threading
 import time
-from collections.abc import AsyncIterable, Awaitable, Callable
-from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
+from typing import Any, AsyncIterable, Awaitable, Callable, Final, Iterator, List, Optional
 
 import pytest
 from loguru import logger
@@ -10,27 +11,24 @@ from werkzeug import Request, Response
 
 from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
 from permit.exceptions import PermitApiError, PermitConnectionError
-from tests.conftest import MOCKED_PORT
-from tests.utils import handle_api_error, handle_cleanup_error, unique_key
+from permit.pdp_api.models import RoleAssignment
 
-if TYPE_CHECKING:
-    from permit.pdp_api.models import RoleAssignment
+from .utils import handle_api_error, handle_cleanup_error, unique_key
 
 
-def print_break() -> None:
-    print("\n\n ----------- \n\n")
+def print_break():
+    print("\n\n ----------- \n\n")  # noqa: T201
 
 
 TEST_TIMEOUT = 1
-MOCKED_URL = "http://localhost"
-# MOCKED_PORT and the httpserver_listen_address fixture that binds it live in
-# conftest.py -- see the note there on why a module-local override is
-# order-dependent and therefore unsafe.
+# test_api_timeout and test_pdp_timeout run against the local pytest_httpserver
+# and need no credentials, so the tests that do are marked e2e one by one rather
+# than with a module-level pytestmark.
 RESOURCE_CREATE_ACTION: Final[str] = "create"
 RESOURCE_READ_ACTION: Final[str] = "read"
 RESOURCE_UPDATE_ACTION: Final[str] = "update"
 RESOURCE_DELETE_ACTION: Final[str] = "delete"
-RESOURCE_ACTIONS: Final[list[str]] = [
+RESOURCE_ACTIONS: Final[List[str]] = [
     RESOURCE_CREATE_ACTION,
     RESOURCE_READ_ACTION,
     RESOURCE_UPDATE_ACTION,
@@ -66,17 +64,7 @@ async def wait_until(
         await asyncio.sleep(interval)
 
 
-class _Keyed(Protocol):
-    @property
-    def key(self) -> str: ...
-
-
-KeyedT = TypeVar("KeyedT", bound=_Keyed)
-
-
-async def find_by_key(
-    list_page: Callable[[int], Awaitable[list[KeyedT]]], key: str
-) -> KeyedT | None:
+async def find_by_key(list_page: Callable[[int], Awaitable[List[Any]]], key: str) -> Optional[Any]:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -93,9 +81,7 @@ async def find_by_key(
         page += 1
 
 
-async def delete_quietly(
-    delete: Callable[[str], Awaitable[None]], key: str, description: str
-) -> None:
+async def delete_quietly(delete: Callable[[str], Awaitable[None]], key: str, description: str) -> None:
     """Delete one object during teardown, tolerating one that is already gone."""
     try:
         await delete(key)
@@ -103,7 +89,7 @@ async def delete_quietly(
         handle_cleanup_error(error, f"Got API Error during cleanup of {description} '{key}'")
     except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error during cleanup of {description} '{key}': {error}")
         pytest.fail(f"Got error during cleanup of {description} '{key}': {error}")
 
@@ -115,16 +101,40 @@ async def assert_gone(get: Callable[[str], Awaitable[Any]], key: str, descriptio
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
-def sleeping(request: Request) -> Response:  # noqa: ARG001 - werkzeug handler signature
-    time.sleep(TEST_TIMEOUT + 1)
-    return Response("OK", status=200)
+@pytest.fixture
+def sleeping(httpserver: HTTPServer) -> Iterator[Callable[[Request], Response]]:
+    """A handler that answers only after the client has given up.
+
+    The shared httpserver answers one request at a time, in the order they
+    arrive, so a handler still waiting when the test ends would answer into the
+    request log of whichever test uses the server next. Teardown therefore wakes
+    every waiting handler and sends one more request: once that one is answered,
+    so is every request before it.
+    """
+    release = threading.Event()
+
+    def handler(request: Request) -> Response:  # noqa: ARG001
+        release.wait(TEST_TIMEOUT + 1)
+        return Response("OK", status=200)
+
+    yield handler
+
+    release.set()
+    httpserver.expect_request("/drained").respond_with_data("")
+    connection = http.client.HTTPConnection(httpserver.host, httpserver.port, timeout=10)
+    try:
+        connection.request("GET", "/drained")
+        connection.getresponse().read()
+    finally:
+        connection.close()
 
 
-async def test_api_timeout(httpserver: HTTPServer) -> None:
+async def test_api_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
+    mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
-        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
-        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp=mocked_url,
+        api_url=mocked_url,
         api_timeout=TEST_TIMEOUT,
     )
     current_time = time.time()
@@ -135,11 +145,12 @@ async def test_api_timeout(httpserver: HTTPServer) -> None:
     assert time_passed < 3
 
 
-async def test_pdp_timeout(httpserver: HTTPServer) -> None:
+async def test_pdp_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
+    mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
-        pdp=f"{MOCKED_URL}:{MOCKED_PORT}",
-        api_url=f"{MOCKED_URL}:{MOCKED_PORT}",
+        pdp=mocked_url,
+        api_url=mocked_url,
         pdp_timeout=TEST_TIMEOUT,
     )
     current_time = time.time()
@@ -180,7 +191,7 @@ async def setup_env(
     viewer_role_permissions = [f"{resource_key}:{RESOURCE_READ_ACTION}"]
     try:
         document = await permit.api.resources.create(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "key": resource_key,
                 "name": "Document",
                 "urn": f"prn:gdrive:{resource_key}",
@@ -215,9 +226,7 @@ async def setup_env(
         listed_document = await find_by_key(
             lambda page: permit.api.resources.list(page=page, per_page=PER_PAGE), resource_key
         )
-        assert listed_document is not None, (
-            f"resource '{resource_key}' is missing from the resource list"
-        )
+        assert listed_document is not None, f"resource '{resource_key}' is missing from the resource list"
         assert listed_document.id == document.id
         assert listed_document.key == document.key
         assert listed_document.name == document.name
@@ -226,7 +235,7 @@ async def setup_env(
 
         # create admin role
         admin = await permit.api.roles.create(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "key": admin_role_key,
                 "name": "Admin",
                 "description": "an admin role",
@@ -238,13 +247,12 @@ async def setup_env(
         assert admin.name == "Admin"
         assert admin.description == "an admin role"
         assert len(admin.permissions or []) == len(admin_role_permissions)
-        assert admin.permissions is not None
         for permission in admin_role_permissions:
             assert permission in admin.permissions
 
         # create viewer role
         viewer = await permit.api.roles.create(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "key": viewer_role_key,
                 "name": "Viewer",
                 "description": "an viewer role",
@@ -258,13 +266,10 @@ async def setup_env(
         assert len(viewer.permissions) == 0
 
         # assign permissions to roles
-        assigned_viewer = await permit.api.roles.assign_permissions(
-            viewer_role_key, viewer_role_permissions
-        )
+        assigned_viewer = await permit.api.roles.assign_permissions(viewer_role_key, viewer_role_permissions)
 
         assert assigned_viewer.key == viewer_role_key
         assert len(assigned_viewer.permissions or []) == len(viewer_role_permissions)
-        assert assigned_viewer.permissions is not None
         for permission in viewer_role_permissions:
             assert permission in assigned_viewer.permissions
         yield document, admin, viewer
@@ -279,17 +284,18 @@ async def setup_env(
         await assert_gone(permit.api.resources.get, resource_key, "resource")
 
 
+@pytest.mark.e2e
 async def test_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
-) -> None:
+):
     document, admin, viewer = setup_env
     tenant_key = unique_key("tesla")
     user_key = unique_key("auth0|elon")
     try:
         # create a tenant
         tenant = await permit.api.tenants.create(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "key": tenant_key,
                 "name": "Tesla Inc",
                 "description": "The car company",
@@ -320,13 +326,12 @@ async def test_permission_check_e2e(
         assert user.first_name == "Elon"
         assert user.last_name == "Musk"
         assert len(user.attributes or {}) == 2
-        assert user.attributes is not None
         assert user.attributes["age"] == 50
         assert user.attributes["favoriteColor"] == "red"
 
         # assign role to user in tenant
         ra = await permit.api.users.assign_role(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "user": user_key,
                 "role": viewer.key,
                 "tenant": tenant_key,
@@ -336,15 +341,14 @@ async def test_permission_check_e2e(
         assert ra.user_id == user.id
         assert ra.role_id == viewer.id
         assert ra.tenant_id == tenant.id
-        assert ra.user in (user.email, user.key)
+        assert ra.user == user.email or ra.user == user.key
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
         logger.info("waiting for the viewer role assignment to propagate to the PDP")
         resource_attributes = {"secret": True}
 
-        # positive permission check (will be True because elon is a viewer, and a viewer
-        # can read a document)
+        # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
         logger.info("testing positive permission check")
         await wait_until(
             lambda: permit.check(
@@ -413,7 +417,7 @@ async def test_permission_check_e2e(
         logger.info("testing list role assignments")
         # scoped to this test's user and tenant: the environment is shared, so
         # the unfiltered list contains every other test's assignments too.
-        assignments_returned: list[RoleAssignment] = await permit.pdp_api.role_assignments.list(
+        assignments_returned: List[RoleAssignment] = await permit.pdp_api.role_assignments.list(
             user_key=user.key, tenant_key=tenant.key
         )
         assert len(assignments_returned) == 1
@@ -426,7 +430,7 @@ async def test_permission_check_e2e(
 
         # change the user role - assign admin role
         await permit.api.users.assign_role(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "user": user.key,
                 "role": admin.key,
                 "tenant": tenant.key,
@@ -434,7 +438,7 @@ async def test_permission_check_e2e(
         )
         # change the user role - remove viewer role
         await permit.api.users.unassign_role(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "user": user.key,
                 "role": viewer.key,
                 "tenant": tenant.key,
@@ -442,9 +446,7 @@ async def test_permission_check_e2e(
         )
 
         # list user roles in all tenants
-        assigned_roles: list[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
-            user=user.key
-        )
+        assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(user=user.key)
 
         assert len(assigned_roles) == 1
         assert assigned_roles[0].user_id == user.id
@@ -484,7 +486,7 @@ async def test_permission_check_e2e(
         handle_api_error(error, "Got API Error")
     except PermitConnectionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         logger.error(f"Got error: {error}")
         pytest.fail(f"Got error: {error}")
     finally:
@@ -495,21 +497,21 @@ async def test_permission_check_e2e(
         await assert_gone(permit.api.users.get, user_key, "user")
 
 
+@pytest.mark.e2e
 async def test_local_facts_uploader_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
-) -> None:
+):
     permit._config.proxy_facts_via_pdp = True
     assert permit.api.users.config.proxy_facts_via_pdp is True
     document, admin, viewer = setup_env
     tenant_key = unique_key("tesla")
     user_key = unique_key("auth0|elon")
     try:
-        # Rebinding on purpose: the cleanup below runs on the synced client.
-        with permit.wait_for_sync() as permit:  # noqa: PLR1704
+        with permit.wait_for_sync() as permit:
             # create a tenant
             tenant = await permit.api.tenants.create(
-                {  # type: ignore[arg-type] # dict input, coerced by the SDK
+                {
                     "key": tenant_key,
                     "name": "Tesla Inc",
                     "description": "The car company",
@@ -540,13 +542,12 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert user.first_name == "Elon"
             assert user.last_name == "Musk"
             assert len(user.attributes or {}) == 2
-            assert user.attributes is not None
             assert user.attributes["age"] == 50
             assert user.attributes["favoriteColor"] == "red"
 
             # assign role to user in tenant
             ra = await permit.api.users.assign_role(
-                {  # type: ignore[arg-type] # dict input, coerced by the SDK
+                {
                     "user": user_key,
                     "role": viewer.key,
                     "tenant": tenant_key,
@@ -556,11 +557,10 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert ra.user_id == user.id
             assert ra.role_id == viewer.id
             assert ra.tenant_id == tenant.id
-            assert ra.user in (user.email, user.key)
+            assert ra.user == user.email or ra.user == user.key
             assert ra.role == viewer.key
             assert ra.tenant == tenant.key
-            # positive permission check (will be True because elon is a viewer, and a viewer
-            # can read a document)
+            # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
             logger.info("testing positive permission check")
             resource_attributes = {"secret": True}
             # the facts were written through the PDP with wait_for_sync, so they
@@ -634,7 +634,7 @@ async def test_local_facts_uploader_permission_check_e2e(
 
             # change the user role - assign admin role
             await permit.api.users.assign_role(
-                {  # type: ignore[arg-type] # dict input, coerced by the SDK
+                {
                     "user": user.key,
                     "role": admin.key,
                     "tenant": tenant.key,
@@ -642,7 +642,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             )
             # change the user role - remove viewer role
             await permit.api.users.unassign_role(
-                {  # type: ignore[arg-type] # dict input, coerced by the SDK
+                {
                     "user": user.key,
                     "role": viewer.key,
                     "tenant": tenant.key,
@@ -650,9 +650,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             )
 
             # list user roles in all tenants
-            assigned_roles: list[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(
-                user=user.key
-            )
+            assigned_roles: List[RoleAssignmentRead] = await permit.api.users.get_assigned_roles(user=user.key)
 
             assert len(assigned_roles) == 1
             assert assigned_roles[0].user_id == user.id

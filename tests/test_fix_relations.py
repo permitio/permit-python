@@ -1,9 +1,8 @@
 """Offline tests pinning the response shape ``resource_relations.list()`` parses.
 
-``GET /v2/schema/{proj}/{env}/resources/{resource}/relations`` is declared
-``response_model=PaginatedResult[RelationRead]`` in the backend
-(permit_backend/api/routers/schema_routes/resource_relations.py:89), so it always
-answers with a ``{"data": [...], "total_count": N}`` envelope -- never a bare array.
+``GET /v2/schema/{proj}/{env}/resources/{resource}/relations`` returns a
+``PaginatedResultRelationRead`` in the published API schema, so it always answers
+with a ``{"data": [...], "total_count": N}`` envelope -- never a bare array.
 The SDK used to parse it as ``List[RelationRead]``, which made every ``list()`` call
 raise ``ValidationError: value is not a valid list``.
 
@@ -13,7 +12,7 @@ parses it, keeps the pagination query string, and preserves every relation field
 
 import re
 import uuid
-from typing import Any
+from typing import Any, Dict
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -30,7 +29,7 @@ RESOURCE_KEY = "document"
 RELATIONS_PATH = f"/v2/schema/{PROJECT_ID}/{ENV_ID}/resources/{RESOURCE_KEY}/relations"
 
 
-def _relation(key: str) -> dict[str, Any]:
+def _relation(key: str) -> Dict[str, Any]:
     """One ``RelationRead`` exactly as the backend serializes it."""
     return {
         "id": str(uuid.uuid4()),
@@ -70,7 +69,7 @@ def _make_permit(httpserver: HTTPServer) -> Permit:
     )
 
 
-async def test_relations_list_parses_the_paginated_envelope(httpserver: HTTPServer) -> None:
+async def test_relations_list_parses_the_paginated_envelope(httpserver: HTTPServer):
     """The envelope the backend really sends must parse, field for field."""
     relations = [_relation("parent"), _relation("owner")]
     httpserver.expect_request(RELATIONS_PATH, method="GET").respond_with_json(
@@ -94,7 +93,7 @@ async def test_relations_list_parses_the_paginated_envelope(httpserver: HTTPServ
     httpserver.check_assertions()
 
 
-async def test_relations_list_sends_pagination_on_the_wire(httpserver: HTTPServer) -> None:
+async def test_relations_list_sends_pagination_on_the_wire(httpserver: HTTPServer):
     """``page``/``per_page`` must reach the server, or paging silently does nothing."""
     httpserver.expect_request(RELATIONS_PATH, method="GET").respond_with_json(
         {"data": [], "total_count": 0, "page_count": 0}
@@ -110,7 +109,7 @@ async def test_relations_list_sends_pagination_on_the_wire(httpserver: HTTPServe
     httpserver.check_assertions()
 
 
-async def test_relations_list_rejects_a_bare_array(httpserver: HTTPServer) -> None:
+async def test_relations_list_rejects_a_bare_array(httpserver: HTTPServer):
     """A bare array is not what this endpoint returns, and must not parse as an envelope.
 
     This pins the contract in the other direction: the SDK surfaces a parse error rather

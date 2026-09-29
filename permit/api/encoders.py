@@ -2,7 +2,6 @@
 import dataclasses
 import datetime
 from collections import defaultdict, deque
-from collections.abc import Callable
 from decimal import Decimal
 from enum import Enum
 from ipaddress import (
@@ -16,14 +15,7 @@ from ipaddress import (
 from pathlib import Path, PurePath
 from re import Pattern
 from types import GeneratorType
-from typing import (  # noqa: UP035 - public alias below
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Literal,
-    Set,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 from uuid import UUID
 
 from permit.utils.pydantic_version import PYDANTIC_VERSION
@@ -46,7 +38,7 @@ else:
     from pydantic.v1.types import SecretBytes, SecretStr
 
 
-def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001 - `mode` is absorbed on purpose
+def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kwargs: Any) -> Any:  # noqa: ARG001
     """Serialize a model to a dict.
 
     Both pydantic majors take the same path: the SDK's models are always v1
@@ -62,16 +54,16 @@ def _model_dump(model: BaseModel, mode: Literal["json", "python"] = "json", **kw
     return model.dict(**kwargs)
 
 
-def isoformat(o: datetime.date | datetime.time) -> str:
-    """Encode a date or time in ISO 8601 format."""
+def isoformat(o: Union[datetime.date, datetime.time]) -> str:
     return o.isoformat()
 
 
-def decimal_encoder(dec_value: Decimal) -> int | float:
-    """Encodes a Decimal as int if there's no exponent, otherwise float.
+def decimal_encoder(dec_value: Decimal) -> Union[int, float]:
+    """
+    Encodes a Decimal as int of there's no exponent, otherwise float
 
     This is useful when we use ConstrainedDecimal to represent Numeric(x,0)
-    where an integer (but not int typed) is used. Encoding this as a float
+    where a integer (but not int typed) is used. Encoding this as a float
     results in failed round-tripping between encode and parse.
     Our Id type is a prime example of this.
 
@@ -80,19 +72,15 @@ def decimal_encoder(dec_value: Decimal) -> int | float:
 
     >>> decimal_encoder(Decimal("1"))
     1
-
-    >>> decimal_encoder(Decimal("NaN"))
-    nan
     """
-    exponent = dec_value.as_tuple().exponent
-    if isinstance(exponent, int) and exponent >= 0:
+    if dec_value.as_tuple().exponent >= 0:  # type: ignore[operator]
         return int(dec_value)
-    return float(dec_value)
+    else:
+        return float(dec_value)
 
 
-# Public alias; runtime object kept identical (a `typing` generic, not a builtin one).
-IncEx = Union[Set[int], Set[str], Dict[int, Any], Dict[str, Any]]  # noqa: UP006, UP007
-ENCODERS_BY_TYPE: dict[type[Any], Callable[[Any], Any]] = {
+IncEx = Union[Set[int], Set[str], Dict[int, Any], Dict[str, Any]]
+ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
     bytes: lambda o: o.decode(),
     Color: str,
     datetime.date: isoformat,
@@ -122,10 +110,9 @@ ENCODERS_BY_TYPE: dict[type[Any], Callable[[Any], Any]] = {
 
 
 def generate_encoders_by_class_tuples(
-    type_encoder_map: dict[Any, Callable[[Any], Any]],
-) -> dict[Callable[[Any], Any], tuple[Any, ...]]:
-    """Invert a type -> encoder map into encoder -> tuple of types, for `isinstance` checks."""
-    encoders_by_class_tuples: dict[Callable[[Any], Any], tuple[Any, ...]] = defaultdict(tuple)
+    type_encoder_map: Dict[Any, Callable[[Any], Any]],
+) -> Dict[Callable[[Any], Any], Tuple[Any, ...]]:
+    encoders_by_class_tuples: Dict[Callable[[Any], Any], Tuple[Any, ...]] = defaultdict(tuple)
     for type_, encoder in type_encoder_map.items():
         encoders_by_class_tuples[encoder] += (type_,)
     return encoders_by_class_tuples
@@ -137,16 +124,17 @@ encoders_by_class_tuples = generate_encoders_by_class_tuples(ENCODERS_BY_TYPE)
 def jsonable_encoder(
     obj: Any,
     *,
-    include: IncEx | None = None,
-    exclude: IncEx | None = None,
+    include: Optional[IncEx] = None,
+    exclude: Optional[IncEx] = None,
     by_alias: bool = True,
     exclude_unset: bool = False,
     exclude_defaults: bool = False,
     exclude_none: bool = False,
-    custom_encoder: dict[Any, Callable[[Any], Any]] | None = None,
+    custom_encoder: Optional[Dict[Any, Callable[[Any], Any]]] = None,
     sqlalchemy_safe: bool = True,
 ) -> Any:
-    """Convert any object to something that can be encoded in JSON.
+    """
+    Convert any object to something that can be encoded in JSON.
 
     This is used internally by FastAPI to make sure anything you return can be
     encoded as JSON before it is sent to the client.
@@ -161,13 +149,14 @@ def jsonable_encoder(
     if custom_encoder:
         if type(obj) in custom_encoder:
             return custom_encoder[type(obj)](obj)
-        for encoder_type, encoder_instance in custom_encoder.items():
-            if isinstance(obj, encoder_type):
-                return encoder_instance(obj)
+        else:
+            for encoder_type, encoder_instance in custom_encoder.items():
+                if isinstance(obj, encoder_type):
+                    return encoder_instance(obj)
     if include is not None and not isinstance(include, (set, dict)):
-        include = set(include)  # type: ignore[unreachable] # defensive, as upstream
+        include = set(include)  # type: ignore[unreachable]
     if exclude is not None and not isinstance(exclude, (set, dict)):
-        exclude = set(exclude)  # type: ignore[unreachable] # defensive, as upstream
+        exclude = set(exclude)  # type: ignore[unreachable]
     if isinstance(obj, BaseModel):
         encoders = getattr(obj.__config__, "json_encoders", {})
         if custom_encoder:
@@ -189,12 +178,12 @@ def jsonable_encoder(
             obj_dict,
             exclude_none=exclude_none,
             exclude_defaults=exclude_defaults,
-            # Only needed while pydantic v1 is supported.
+            # TODO: remove when deprecating Pydantic v1
             custom_encoder=encoders,
             sqlalchemy_safe=sqlalchemy_safe,
         )
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        obj_dict = dataclasses.asdict(obj)
+    if dataclasses.is_dataclass(obj):
+        obj_dict = dataclasses.asdict(obj)  # type: ignore[call-overload]
         return jsonable_encoder(
             obj_dict,
             include=include,
@@ -244,20 +233,22 @@ def jsonable_encoder(
                 encoded_dict[encoded_key] = encoded_value
         return encoded_dict
     if isinstance(obj, (list, set, frozenset, GeneratorType, tuple, deque)):
-        return [
-            jsonable_encoder(
-                item,
-                include=include,
-                exclude=exclude,
-                by_alias=by_alias,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-                exclude_none=exclude_none,
-                custom_encoder=custom_encoder,
-                sqlalchemy_safe=sqlalchemy_safe,
+        encoded_list = []
+        for item in obj:
+            encoded_list.append(
+                jsonable_encoder(
+                    item,
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    custom_encoder=custom_encoder,
+                    sqlalchemy_safe=sqlalchemy_safe,
+                )
             )
-            for item in obj
-        ]
+        return encoded_list
 
     if type(obj) in ENCODERS_BY_TYPE:
         return ENCODERS_BY_TYPE[type(obj)](obj)
@@ -267,8 +258,8 @@ def jsonable_encoder(
 
     try:
         data = dict(obj)
-    except Exception as e:  # noqa: BLE001 - any failure falls back to vars(), as upstream
-        errors: list[Exception] = []
+    except Exception as e:  # noqa: BLE001
+        errors: List[Exception] = []
         errors.append(e)
         try:
             data = vars(obj)

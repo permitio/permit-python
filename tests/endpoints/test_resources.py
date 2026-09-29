@@ -1,9 +1,13 @@
+from typing import List
+
 import pytest
 from loguru import logger
+from tests.utils import handle_cleanup_error, unique_key
 
 from permit import ActionBlockEditable, Permit, ResourceCreate
 from permit.exceptions import PermitApiError
-from tests.utils import handle_cleanup_error, unique_key
+
+pytestmark = pytest.mark.e2e
 
 # The whole e2e suite shares a single Permit environment, so every object this
 # module creates is namespaced under one prefix. That keeps the keys collision
@@ -18,7 +22,7 @@ TEST_RESOURCE_FOLDER_KEY = f"{TEST_PREFIX}-folder"
 TEST_RESOURCE_DOC_URN = f"prn:gdrive:{TEST_PREFIX}"
 
 
-async def list_own_resource_keys(permit: Permit) -> list[str]:
+async def list_own_resource_keys(permit: Permit) -> List[str]:
     """The keys of resources created by this test, sorted, across all pages.
 
     The shared environment can easily hold more resources than fit on a single
@@ -27,7 +31,7 @@ async def list_own_resource_keys(permit: Permit) -> list[str]:
     """
     per_page = 100
     page = 1
-    keys: list[str] = []
+    keys: List[str] = []
     while True:
         resources = await permit.api.resources.list(page=page, per_page=per_page)
         keys.extend(resource.key for resource in resources if resource.key.startswith(TEST_PREFIX))
@@ -36,7 +40,7 @@ async def list_own_resource_keys(permit: Permit) -> list[str]:
         page += 1
 
 
-async def test_resources(permit: Permit) -> None:
+async def test_resources(permit: Permit):
     logger.info("initial setup of objects")
     # none of this test's resources exist yet
     assert await list_own_resource_keys(permit) == []
@@ -77,18 +81,12 @@ async def test_resources(permit: Permit) -> None:
 
         # create existing -> 409
         with pytest.raises(PermitApiError) as e:
-            await permit.api.resources.create(
-                {  # type: ignore[arg-type] # dict input, coerced by the SDK
-                    "key": TEST_RESOURCE_DOC_KEY,
-                    "name": "document2",
-                    "actions": {},
-                }
-            )
+            await permit.api.resources.create({"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}})
         assert e.value.status_code == 409
 
         # create empty item
         empty = await permit.api.resources.create(
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
+            {
                 "key": TEST_RESOURCE_FOLDER_KEY,
                 "name": TEST_RESOURCE_FOLDER_KEY,
                 "description": "empty resource",
@@ -111,10 +109,7 @@ async def test_resources(permit: Permit) -> None:
         # update actions
         await permit.api.resources.update(
             TEST_RESOURCE_FOLDER_KEY,
-            {  # type: ignore[arg-type] # dict input, coerced by the SDK
-                "description": "wat",
-                "actions": {"pick": {}},
-            },
+            {"description": "wat", "actions": {"pick": {}}},
         )
 
         # get

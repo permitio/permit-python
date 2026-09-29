@@ -20,7 +20,7 @@ env:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +51,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          # The uv pinned in the dev group, as locked in uv.lock.
+          version-file: "uv.lock"
           # Sets UV_PYTHON, so every uv command below runs on exactly this
           # interpreter (downloaded by uv if the runner does not have it).
           python-version: "3.11.8"
@@ -214,3 +216,198 @@ jobs:
             -H "Authorization: Bearer ${PROJECT_API_KEY}"; then
             echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
           fi
+
+  # Offline suite on every supported Python. It needs no secrets and no PDP, so
+  # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
+  # matrix are required status checks.
+  compatibility:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # floor: the lowest version of every runtime dependency pyproject.toml
+        # allows on that Python, which for pydantic is a pydantic 1 release.
+        # pydantic-v2-floor: the same with pydantic held to 2, i.e. the lowest
+        # pydantic 2 a consumer can install on that Python.
+        # pydantic-v2: what a fresh install gets.
+        # Python 3.14 also runs the newest pydantic 1, because it has its own
+        # pydantic requirement and pydantic calls v1's 3.14 support minimal.
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        deps: [floor, pydantic-v2-floor, pydantic-v2]
+        include:
+          - python-version: '3.14'
+            deps: pydantic-v1
+    name: compatibility (Python ${{ matrix.python-version }}, ${{ matrix.deps }})
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # uv resolves to the lowest allowed versions, which pip cannot. setup-uv
+      # installs the uv pinned in uv.lock, so a new uv release cannot change
+      # which floor a leg tests.
+      # activate-environment creates .venv on the leg's Python and puts it on
+      # PATH, so `uv pip` installs into it and `python` runs from it. No cache:
+      # every leg resolves a different set, and a shared entry would hold
+      # whichever leg saved first.
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+          enable-cache: false
+
+      # These legs resolve from the ranges in pyproject.toml, not from uv.lock,
+      # because the ranges are what a consumer's installer sees. Installing the
+      # package itself (".") reads its dependencies from the metadata uv_build
+      # writes, version markers included. --no-sources and --exclude-newer false
+      # resolve as a consumer does: the published metadata ignores
+      # [tool.uv.sources], and the publish-age cooldown in [tool.uv] applies
+      # only to this repository's uv.lock.
+      - name: Install dependencies
+        env:
+          DEPS: ${{ matrix.deps }}
+        run: |
+          set -euo pipefail
+          resolve=(--no-sources --exclude-newer false)
+          case "${DEPS}" in
+            floor)
+              uv pip compile --quiet "${resolve[@]}" --python "$(command -v python)" \
+                --resolution lowest-direct pyproject.toml -o "${RUNNER_TEMP}/floor.txt"
+              uv pip install "${resolve[@]}" . --group dev -c "${RUNNER_TEMP}/floor.txt"
+              ;;
+            pydantic-v2-floor)
+              echo "pydantic>=2" > "${RUNNER_TEMP}/pydantic-v2.txt"
+              uv pip compile --quiet "${resolve[@]}" --python "$(command -v python)" \
+                --resolution lowest-direct pyproject.toml -c "${RUNNER_TEMP}/pydantic-v2.txt" \
+                -o "${RUNNER_TEMP}/floor.txt"
+              grep '^pydantic==' "${RUNNER_TEMP}/floor.txt"
+              uv pip install "${resolve[@]}" . --group dev -c "${RUNNER_TEMP}/floor.txt"
+              ;;
+            pydantic-v1)
+              uv pip install "${resolve[@]}" . --group dev "pydantic[email]<2"
+              ;;
+            pydantic-v2)
+              uv pip install "${resolve[@]}" . --group dev "pydantic[email]>=2"
+              ;;
+            *)
+              echo "::error title=Unknown dependency set::${DEPS}"
+              exit 1
+              ;;
+          esac
+
+      - name: Show installed packages
+        run: uv pip list
+
+      # Type checkers read permit's annotations only when py.typed is in the
+      # installed package, and see the blocking client as blocking only through
+      # _sync_types.pyi. Neither is a .py file, so a packaging change can drop
+      # them without any import failing. The artifacts are the same on every
+      # leg, so one leg builds and checks them: the wheel, and the sdist, since
+      # a wheel built from the sdist holds only what the sdist does.
+      - name: Check the wheel and sdist ship their type information
+        if: matrix.python-version == '3.14' && matrix.deps == 'pydantic-v2'
+        run: |
+          set -euo pipefail
+          uv build --no-sources --out-dir "${RUNNER_TEMP}/dist"
+          python - "${RUNNER_TEMP}/dist" <<'PY'
+          import sys
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          dist = Path(sys.argv[1])
+          wheels = sorted(dist.glob("*.whl"))
+          sdists = sorted(dist.glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              found = [path.name for path in wheels + sdists]
+              sys.exit(f"expected one wheel and one sdist in {dist}, found {found}")
+          required = ["permit/py.typed", "permit/_sync_types.pyi"]
+          contents = {wheels[0]: set(zipfile.ZipFile(wheels[0]).namelist())}
+          # Every sdist path starts with its top-level permit-<version>/ directory.
+          with tarfile.open(sdists[0]) as sdist:
+              contents[sdists[0]] = {name.partition("/")[2] for name in sdist.getnames()}
+          for artifact, names in contents.items():
+              missing = [path for path in required if path not in names]
+              if missing:
+                  sys.exit(f"{artifact.name} is missing {missing}")
+              print(f"{artifact.name} ships {' and '.join(required)}")
+          PY
+
+      # Every test that needs credentials, the Permit API or a PDP is marked
+      # e2e (see [tool.pytest] in pyproject.toml), so `-m "not e2e"` selects
+      # everything else.
+      # The filter fails the run on Python 3.14's deprecation of
+      # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
+      # It is deliberately narrow: a blanket error::DeprecationWarning would
+      # also trip on PermitConnectionError, which still subclasses the
+      # deprecated PermitException on purpose.
+      - name: Offline tests
+        run: |
+          python -m pytest -q -m "not e2e" \
+            -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"
+
+  # The migration skill's tests (skills/tests): MIGRATION.md, the skill and its
+  # scanner, checked against each other and against the SDK. They run apart from
+  # the SDK's suite, with skills/tests/pytest.ini. Not a required check.
+  migration-skill:
+    name: Migration Skill Tests (pydantic ${{ matrix.pydantic }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        pydantic: ['1', '2']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # uv also provides the Python 3.9 the scanner runs on below.
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: '3.12'
+          enable-cache: true
+          # The two lanes share uv.lock but install different pydantic
+          # majors, so they need separate cache entries.
+          cache-suffix: pydantic-v${{ matrix.pydantic }}
+
+      # The locked environment the pytest job runs, with the pydantic major this
+      # lane names. --locked fails the job if uv.lock is out of date with
+      # pyproject.toml instead of silently re-resolving.
+      - name: Install dependencies
+        env:
+          PYDANTIC_MAJOR: ${{ matrix.pydantic }}
+        run: uv sync --locked --group "pydantic-v${PYDANTIC_MAJOR}"
+
+      - name: Migration skill tests
+        run: uv run --no-sync pytest -q -c skills/tests/pytest.ini skills/tests
+
+      # Customers run the scanner before they move off Python 3.8/3.9, so it
+      # must still run there. --no-project keeps the SDK's environment and its
+      # requires-python out of it.
+      - name: Run the scanner on Python 3.9
+        if: matrix.pydantic == '2'
+        run: |
+          set -euo pipefail
+          uv run --no-project --python 3.9 python \
+            skills/permit-python-3-migration/scripts/scan.py skills/tests/fixtures/v2_app --json \
+            > "${RUNNER_TEMP}/scan.json"
+          uv run --no-sync python - "${RUNNER_TEMP}/scan.json" <<'PY'
+          import json
+          import sys
+
+          report = json.load(open(sys.argv[1]))
+          if not report["findings"]:
+              sys.exit("the scanner found nothing in the 2.x sample app on Python 3.9")
+          print(f"Python 3.9: {len(report['findings'])} findings")
+          PY

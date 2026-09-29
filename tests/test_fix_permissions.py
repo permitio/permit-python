@@ -4,11 +4,10 @@ A role's ``permissions`` list has two different formats, and the server decides
 which one applies from the kind of role:
 
 * a top level (tenant) role takes ``"{resource_key}:{action_key}"`` -- the server
-  splits the string on the first colon (permit_backend/services/roles.py:462-470);
+  splits the string on the first colon;
 * a *resource* role takes a bare ``"{action_key}"`` -- the role already belongs to
   a resource, so the server reads the whole string as an action key of that
-  resource (permit_backend/services/roles.py:472-474) and reads it back the same
-  way (permit_backend/api/formatters/role.py:45).
+  resource, and returns it in the same form.
 
 Sending ``"document:read"`` for a resource role therefore asks for an action keyed
 ``"document:read"`` and fails with ``MISSING_PERMISSIONS ... 'document:document:read'``
@@ -24,7 +23,7 @@ helpful strip can be added without CI noticing. The same applies to the
 
 import json
 import uuid
-from typing import Any
+from typing import Any, Dict, List
 
 from pytest_httpserver import HTTPServer
 
@@ -64,7 +63,7 @@ def _make_permit(httpserver: HTTPServer) -> Permit:
     )
 
 
-def _resource_role_response(permissions: list[str]) -> dict[str, Any]:
+def _resource_role_response(permissions: List[str]) -> Dict[str, Any]:
     """One ``ResourceRoleRead`` as the backend serializes it (bare action keys)."""
     return {
         "id": str(uuid.uuid4()),
@@ -84,7 +83,7 @@ def _resource_role_response(permissions: list[str]) -> dict[str, Any]:
     }
 
 
-def _role_response(permissions: list[str]) -> dict[str, Any]:
+def _role_response(permissions: List[str]) -> Dict[str, Any]:
     """One ``RoleRead`` as the backend serializes it (``resource:action`` strings)."""
     return {
         "id": str(uuid.uuid4()),
@@ -102,19 +101,14 @@ def _role_response(permissions: list[str]) -> dict[str, Any]:
     }
 
 
-def _sent_body(httpserver: HTTPServer, path: str, method: str) -> dict[str, Any]:
+def _sent_body(httpserver: HTTPServer, path: str, method: str) -> Dict[str, Any]:
     """The JSON body of the single request the SDK made to ``path``."""
-    requests = [
-        request
-        for request, _response in httpserver.log
-        if request.path == path and request.method == method
-    ]
+    requests = [request for request, _response in httpserver.log if request.path == path and request.method == method]
     assert len(requests) == 1, f"expected exactly one {method} {path}, got {len(requests)}"
-    body: dict[str, Any] = json.loads(requests[0].get_data(as_text=True))
-    return body
+    return json.loads(requests[0].get_data(as_text=True))
 
 
-async def test_resource_role_create_sends_bare_action_keys(httpserver: HTTPServer) -> None:
+async def test_resource_role_create_sends_bare_action_keys(httpserver: HTTPServer):
     """``resource_roles.create`` must forward the action keys it was given, unprefixed."""
     httpserver.expect_request(RESOURCE_ROLES_PATH, method="POST").respond_with_json(
         _resource_role_response(["read", "update"])
@@ -131,9 +125,7 @@ async def test_resource_role_create_sends_bare_action_keys(httpserver: HTTPServe
     httpserver.check_assertions()
 
 
-async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(
-    httpserver: HTTPServer,
-) -> None:
+async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(httpserver: HTTPServer):
     """A caller who sends ``resource:action`` gets it on the wire, verbatim.
 
     The SDK must not paper over the format mismatch: the server's
@@ -150,15 +142,11 @@ async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(
         ResourceRoleCreate(key=ROLE_KEY, name="Editor", permissions=[f"{RESOURCE_KEY}:read"]),
     )
 
-    assert _sent_body(httpserver, RESOURCE_ROLES_PATH, "POST")["permissions"] == [
-        f"{RESOURCE_KEY}:read"
-    ]
+    assert _sent_body(httpserver, RESOURCE_ROLES_PATH, "POST")["permissions"] == [f"{RESOURCE_KEY}:read"]
     httpserver.check_assertions()
 
 
-async def test_resource_role_assign_permissions_sends_bare_action_keys(
-    httpserver: HTTPServer,
-) -> None:
+async def test_resource_role_assign_permissions_sends_bare_action_keys(httpserver: HTTPServer):
     """``assign_permissions`` must send exactly the strings it was handed."""
     httpserver.expect_request(RESOURCE_ROLE_PERMISSIONS_PATH, method="POST").respond_with_json(
         _resource_role_response(["read", "update"])
@@ -167,16 +155,12 @@ async def test_resource_role_assign_permissions_sends_bare_action_keys(
 
     granted = await permit.api.resource_roles.assign_permissions(RESOURCE_KEY, ROLE_KEY, ["update"])
 
-    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "POST") == {
-        "permissions": ["update"]
-    }
+    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "POST") == {"permissions": ["update"]}
     assert granted.permissions == ["read", "update"]
     httpserver.check_assertions()
 
 
-async def test_resource_role_remove_permissions_sends_bare_action_keys(
-    httpserver: HTTPServer,
-) -> None:
+async def test_resource_role_remove_permissions_sends_bare_action_keys(httpserver: HTTPServer):
     """``remove_permissions`` carries its body on a DELETE, unprefixed."""
     httpserver.expect_request(RESOURCE_ROLE_PERMISSIONS_PATH, method="DELETE").respond_with_json(
         _resource_role_response(["read"])
@@ -185,41 +169,29 @@ async def test_resource_role_remove_permissions_sends_bare_action_keys(
 
     revoked = await permit.api.resource_roles.remove_permissions(RESOURCE_KEY, ROLE_KEY, ["update"])
 
-    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "DELETE") == {
-        "permissions": ["update"]
-    }
+    assert _sent_body(httpserver, RESOURCE_ROLE_PERMISSIONS_PATH, "DELETE") == {"permissions": ["update"]}
     assert revoked.permissions == ["read"]
     httpserver.check_assertions()
 
 
-async def test_top_level_role_create_keeps_the_resource_qualified_form(
-    httpserver: HTTPServer,
-) -> None:
+async def test_top_level_role_create_keeps_the_resource_qualified_form(httpserver: HTTPServer):
     """A tenant role's permissions are ``resource:action`` and must not be rewritten."""
     permissions = [f"{RESOURCE_KEY}:read", f"{RESOURCE_KEY}:update", "folder:read"]
-    httpserver.expect_request(ROLES_PATH, method="POST").respond_with_json(
-        _role_response(permissions)
-    )
+    httpserver.expect_request(ROLES_PATH, method="POST").respond_with_json(_role_response(permissions))
     permit = _make_permit(httpserver)
 
-    created = await permit.api.roles.create(
-        RoleCreate(key="admin", name="Admin", permissions=permissions)
-    )
+    created = await permit.api.roles.create(RoleCreate(key="admin", name="Admin", permissions=permissions))
 
     assert _sent_body(httpserver, ROLES_PATH, "POST")["permissions"] == permissions
     assert created.permissions == permissions
     httpserver.check_assertions()
 
 
-async def test_role_assignment_filters_send_the_instance_ident_verbatim(
-    httpserver: HTTPServer,
-) -> None:
+async def test_role_assignment_filters_send_the_instance_ident_verbatim(httpserver: HTTPServer):
     """``resource_instance_key`` is a ``resource:key`` ident and travels unchanged.
 
-    The server resolves this filter with ``get_or_create_resource_instance_by_string``
-    (permit_backend/services/role_assignments.py:408), which rejects anything that is
-    neither ``resource:key`` nor an instance uuid with a 400
-    (permit_backend/services/resource_instances.py:126-140).
+    The server reads this filter as a resource instance string and answers 400 to
+    anything that is neither ``resource:key`` nor an instance uuid.
     """
     httpserver.expect_request(ROLE_ASSIGNMENTS_PATH, method="GET").respond_with_json([])
     permit = _make_permit(httpserver)
@@ -231,9 +203,7 @@ async def test_role_assignment_filters_send_the_instance_ident_verbatim(
         per_page=50,
     )
 
-    requests = [
-        request for request, _response in httpserver.log if request.path == ROLE_ASSIGNMENTS_PATH
-    ]
+    requests = [request for request, _response in httpserver.log if request.path == ROLE_ASSIGNMENTS_PATH]
     assert len(requests) == 1
     assert requests[0].args["resource_instance"] == f"{RESOURCE_KEY}:readme"
     assert requests[0].args["resource"] == RESOURCE_KEY

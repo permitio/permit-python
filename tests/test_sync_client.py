@@ -6,14 +6,16 @@ import pytest
 from permit import PermitConfig, UserCreate
 from permit.sync import Permit
 
+pytestmark = pytest.mark.e2e
 
-@pytest.fixture
+
+@pytest.fixture()
 def permit(permit_config: PermitConfig) -> Permit:
     return Permit(permit_config)
 
 
-def test_sync_client(permit: Permit) -> None:
-    user_key = f"user-{random.randint(0, 1000)}"  # noqa: S311 - a test key, not a secret
+def test_sync_client(permit: Permit):
+    user_key = f"user-{random.randint(0, 1000)}"
     permit.api.users.create(
         UserCreate(
             key=user_key,
@@ -25,7 +27,7 @@ def test_sync_client(permit: Permit) -> None:
     permit.api.users.delete(user_key)
 
 
-def test_sync_client_multithreading(permit_config: PermitConfig) -> None:
+def test_sync_client_multithreading(permit_config: PermitConfig):
     instances = [Permit(permit_config) for _ in range(10)]
 
     with ThreadPoolExecutor() as executor:

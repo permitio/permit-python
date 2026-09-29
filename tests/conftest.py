@@ -2,56 +2,50 @@ import asyncio
 import functools
 import os
 import random
-from collections.abc import Awaitable, Callable, Coroutine, Iterator
-from typing import Any, TypeVar
 
 import pytest
 from loguru import logger
-from typing_extensions import ParamSpec
+from pytest_httpserver import HTTPServer
 
 from permit import Permit, PermitConfig
 from permit.api.base import SimpleHttpClient
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
+from tests.utils import offline_config
 
-# pytest_httpserver's `httpserver` fixture is SESSION-scoped: the first test
-# that asks for it binds the one shared server for the whole run. This address
-# override therefore has to live in conftest.py, not in an individual test
-# module -- a module-local override only applies if that module happens to be
-# the first to touch the fixture, which makes the port silently depend on
-# collection order.
-#
-# test_rbac_e2e.py's timeout tests connect to a hardcoded localhost:9999, so if
-# any other module claims the server first the server binds elsewhere and those
-# tests fail with "Cannot connect to host localhost:9999".
-MOCKED_PORT = 9999
-
-P = ParamSpec("P")
-R = TypeVar("R")
+# pytest_httpserver's `httpserver` fixture binds a free port chosen by the OS,
+# so parallel runs on one machine cannot collide. Tests reach it through
+# httpserver.url_for(), never a hardcoded port. Set PYTEST_HTTPSERVER_PORT to
+# pin one when debugging.
 
 
-@pytest.fixture(scope="session")
-def httpserver_listen_address() -> tuple[str, int]:
-    return "localhost", MOCKED_PORT
+@pytest.fixture
+def config(httpserver: HTTPServer) -> PermitConfig:
+    """An offline PermitConfig: the API and the PDP are both the local ``httpserver``."""
+    return offline_config(httpserver.url_for("").rstrip("/"))
+
+
+# The fixtures below need a real API key, the Permit API and a PDP. Every test
+# that uses them is marked e2e, which the offline CI job deselects.
+MISSING_KEY = (
+    "PDP_API_KEY is not configured, test cannot run! "
+    'Tests that need it are marked e2e: deselect them with -m "not e2e".'
+)
 
 
 @pytest.fixture
 def permit_config() -> PermitConfig:
     default_pdp_address = (
-        "https://cloudpdp.api.permit.io"
-        if os.getenv("CLOUD_PDP") == "true"
-        else "http://localhost:7766"
+        "https://cloudpdp.api.permit.io" if os.getenv("CLOUD_PDP") == "true" else "http://localhost:7766"
     )
-    default_api_address = (
-        "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
-    )
+    default_api_address = "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
 
     token = os.getenv("PDP_API_KEY", "")
     pdp_address = os.getenv("PDP_URL", default_pdp_address)
     api_url = os.getenv("PDP_CONTROL_PLANE", default_api_address)
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,
@@ -81,7 +75,7 @@ def permit_config_cloud() -> PermitConfig:
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 
     if not token:
-        pytest.fail("PDP_API_KEY is not configured, test cannot run!")
+        pytest.fail(MISSING_KEY)
 
     return PermitConfig(
         token=token,
@@ -132,7 +126,7 @@ def _retry_after_seconds(err: PermitApiError) -> float | None:
     """The server's own Retry-After, when it sends one."""
     try:
         raw = err.response.headers.get("Retry-After")
-    except Exception:  # a missing/odd header must never mask the 429
+    except Exception:  # noqa: BLE001 - a missing/odd header must never mask the 429
         return None
     if not raw:
         return None
@@ -142,11 +136,9 @@ def _retry_after_seconds(err: PermitApiError) -> float | None:
         return None
 
 
-def _retry_on_rate_limit(
-    method: Callable[P, Awaitable[R]],
-) -> Callable[P, Coroutine[Any, Any, R]]:
+def _retry_on_rate_limit(method):
     @functools.wraps(method)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+    async def wrapper(*args, **kwargs):
         for attempt in range(_MAX_RETRIES):
             try:
                 return await method(*args, **kwargs)
@@ -159,20 +151,16 @@ def _retry_on_rate_limit(
                 delay = _retry_after_seconds(err)
                 if delay is None:
                     delay = min(_BASE_BACKOFF_S * (2**attempt), _MAX_BACKOFF_S)
-                    delay *= 0.5 + random.random() / 2  # noqa: S311 - jitter, not crypto
-                logger.warning(
-                    f"rate limited (429); retrying in {delay:.1f}s "
-                    f"(attempt {attempt + 1}/{_MAX_RETRIES})"
-                )
+                    delay *= 0.5 + random.random() / 2
+                logger.warning(f"rate limited (429); retrying in {delay:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
                 await asyncio.sleep(delay)
-        msg = "unreachable"
-        raise AssertionError(msg)  # pragma: no cover
+        raise AssertionError("unreachable")  # pragma: no cover
 
     return wrapper
 
 
 @pytest.fixture(scope="session", autouse=True)
-def retry_rate_limited_requests() -> Iterator[None]:
+def retry_rate_limited_requests():
     """Make every SDK HTTP verb retry a 429 for the duration of the test session."""
     verbs = ("get", "post", "put", "patch", "delete")
     originals = {verb: getattr(SimpleHttpClient, verb) for verb in verbs}

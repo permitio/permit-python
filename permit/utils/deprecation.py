@@ -1,42 +1,35 @@
-from asyncio import iscoroutinefunction
-from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import TypeVar, cast
+from inspect import iscoroutinefunction
+from typing import Any, Callable, TypeVar, cast
 from warnings import warn
 
-from typing_extensions import ParamSpec
+from permit.utils.sync import _blocking_call_site
 
-P = ParamSpec("P")
-R = TypeVar("R")
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 
-def deprecated(message: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Mark a function or coroutine function as deprecated.
-
-    Every call emits a `DeprecationWarning` attributed to the caller.
-
-    Args:
-        message: The warning text, typically naming the replacement.
-
-    Returns:
-        A decorator that keeps the decorated function's signature.
-    """
-
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+def deprecated(message: str) -> Callable[[_F], _F]:
+    def decorator(func: _F) -> _F:
         @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             warn(message, DeprecationWarning, stacklevel=2)
             return func(*args, **kwargs)
 
-        async_func = cast("Callable[P, Awaitable[object]]", func)
-
         @wraps(func)
-        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> object:
-            warn(message, DeprecationWarning, stacklevel=2)
-            return await async_func(*args, **kwargs)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            call_site = _blocking_call_site.get()
+            if call_site is None:
+                warn(message, DeprecationWarning, stacklevel=2)
+            else:
+                # The blocking client runs this coroutine under asyncio, so stacklevel would
+                # blame asyncio's frames rather than the line that called the blocking method.
+                call_site.warn(message, DeprecationWarning)
+            return await func(*args, **kwargs)
 
+        # Either wrapper takes and returns what func does, so callers keep func's type.
         if iscoroutinefunction(func):
-            return cast("Callable[P, R]", async_wrapper)
-        return wrapper
+            return cast(_F, async_wrapper)
+        else:
+            return cast(_F, wrapper)
 
     return decorator

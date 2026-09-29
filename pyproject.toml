@@ -1,5 +1,8 @@
 [build-system]
-requires = ["uv_build>=0.12.18,<0.13"]
+# Must allow the uv version python-sdk-publish.yml's build job pins, so releases
+# build with that uv's built-in backend. Bumped by hand with it; Dependabot
+# ignores uv_build (see .github/dependabot.yml).
+requires = ["uv_build>=0.12.17,<0.13"]
 build-backend = "uv_build"
 
 [project]
@@ -10,7 +13,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-authors = [{ name = "Asaf Cohen", email = "asaf@permit.io" }]
+authors = [{ name = "Permit.io", email = "support@permit.io" }]
 classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
@@ -19,15 +22,50 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
 ]
 # Open ranges on purpose: this is a library, and consumers resolve these
 # against their own tree. The floors are the real exposure, which is why
 # .github/scripts/audit-deps.sh scans them with --resolution lowest-direct.
 dependencies = [
     "aiohttp>=3.14.3,<4",
-    "loguru>=0.7.0,<1",
-    "pydantic[email]>=1.10.13",
-    "typing-extensions>=4.5.0,<5",
+    # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
+    # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
+    "loguru>=0.7.3,<1",
+    # pydantic has one line per Python range, updated by hand: Dependabot ignores
+    # pydantic (see .github/dependabot.yml). Why each version is excluded:
+    # - CVE-2024-3772 (ReDoS in email validation) affects pydantic 1.x before
+    #   1.10.13. Under pydantic 2, permit validates emails with the pydantic.v1 copy
+    #   that pydantic 2 bundles, and only 2.4.2 and later bundle the fixed 1.10.13:
+    #   2.0.1 bundles 1.10.11, and 2.4.0 and 2.4.1 bundle 1.10.12. So 2.0-2.3, 2.4.0
+    #   and 2.4.1 are excluded on every Python.
+    # - pydantic 2.0 also fails every API call that parses a response: its
+    #   pydantic.v1.parse_obj_as builds the model with pydantic 2, which rejects the
+    #   `__root__` field.
+    # - Below Python 3.14 the pydantic 1 floor is 1.10.18. Type checkers read
+    #   permit's models from the pydantic.v1 package, which pydantic 1 first ships
+    #   in 1.10.17, and 1.10.13-1.10.17 emit about 2,400 DeprecationWarnings on
+    #   `import permit` under Python 3.13 (typing._eval_type called without
+    #   type_params).
+    # - On Python 3.13 the pydantic 2 floor is 2.8.0: 2.4.2-2.7.x require a
+    #   pydantic-core release with no Python 3.13 wheels. 2.8.0 is the first to
+    #   require one that has them (pydantic-core 2.20.0).
+    # - On Python 3.14, pydantic 1.x before 1.10.25 and 2.x before 2.13 (whose
+    #   pydantic.v1 predates 1.10.25) crash on `import permit` with "unable to
+    #   infer type for attribute". pydantic 2.0-2.11 also have no Python 3.14
+    #   builds.
+    # uv_build writes these markers to the wheel and sdist as python_full_version
+    # ranges, and a pre-release sorts below its final release, so a 3.14.0 alpha,
+    # beta or release candidate matches none of the three lines and gets no
+    # pydantic requirement. Every final release matches exactly one line.
+    'pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1; python_version < "3.13"',
+    'pydantic[email]>=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*; python_version == "3.13"',
+    'pydantic[email]>=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version >= "3.14"',
+    # 4.14.0 is the lowest release that works on every supported Python: releases
+    # before 4.6 break `import permit` on 3.12+, before 4.12 on 3.13+, and 4.12-4.13
+    # lose TypedDict keys on 3.14.
+    "typing-extensions>=4.14.0,<5",
 ]
 
 [project.urls]
@@ -37,19 +75,49 @@ Repository = "https://github.com/permitio/permit-python"
 
 [dependency-groups]
 # Exact pins, so every developer, CI lane and the dev-ceiling audit tree
-# resolve the same versions. Dependabot raises them. These pins are the only
-# place ruff, mypy and typos versions are set: their pre-commit hooks are
-# `repo: local` and run the copies installed from uv.lock.
+# resolve the same versions. Dependabot raises them. A pin also gives the CVE
+# scan a version to evaluate: a spec with no bound has none, so a package listed
+# that way is absent from every audit. The ruff and mypy hooks in
+# .pre-commit-config.yaml install their own copies at their revs, and those are
+# what CI lints and type-checks with. Dependabot bumps the ruff and mypy pins
+# here but not the hook revs, so the two can differ.
+# aioresponses is left out on purpose. No test imports it, and its latest
+# release (0.7.9) is incompatible with the aiohttp 3.14.3 floor: every mocked
+# request raises "ClientResponse.__init__() missing 1 required keyword-only
+# argument: 'stream_writer'". Offline HTTP tests use pytest-httpserver, which
+# asserts on real request bodies.
 dev = [
-    "mypy==2.3.1",
+    # tests/test_typing_surface.py runs mypy on tests/type_check/consumer.py;
+    # 1.11.2 passes it on Python 3.10-3.14 with either pydantic major.
+    "mypy==1.11.2",
+    # Imported directly by the offline tests, which evaluate the version markers
+    # in [project].dependencies the way an installer does.
+    "packaging==26.3",
     "pre-commit==4.6.2",
+    # 9.x rather than 8.x: the old 8.3.0 floor is affected by CVE-2025-71176
+    # (insecure temporary directory handling), fixed in 9.0.3. Caught by this
+    # repo's own audit gate.
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-httpserver==1.1.5",
-    "ruff==0.16.7",
-    "typos==1.50.2",
-    # Imported directly by the offline tests to assert on what the SDK put on
-    # the wire, as well as backing pytest-httpserver.
+    "ruff==0.6.9",
+    # The offline tests and the migration skill's tests read [project].dependencies
+    # from this file, and tomllib is in the standard library only from Python 3.11.
+    # The marker says == "3.10" rather than < "3.11", which is the same under
+    # requires-python, because Dependabot skips a requirement whose marker has `<`.
+    'tomli==2.4.1; python_version == "3.10"',
+    # The uv version CI runs: every setup-uv step reads it from uv.lock
+    # (version-file), except the publish build job, which pins its own version
+    # and checksum. Dependabot bumps it like any other pin. The uv-lock pre-commit
+    # hook runs the uv on PATH, which under `uv run` (as in CI) is this one. Run
+    # this version locally so uv.lock comes out the same.
+    "uv==0.12.17",
+    # Imported directly by the offline tests (Request/Response are used to assert
+    # on what the SDK actually put on the wire), as well as backing
+    # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
+    # across the six advisories that affected the old >=2.3.8 floor
+    # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
+    # CVE-2026-21860, CVE-2026-27199).
     "werkzeug==3.1.8",
 ]
 # The SDK supports both pydantic majors (permit/utils/pydantic_version.py), and
@@ -59,176 +127,97 @@ pydantic-v1 = ["pydantic<2"]
 pydantic-v2 = ["pydantic>=2"]
 
 [tool.uv]
-# The one place the uv version is set: setup-uv reads it in CI. The uv-lock
-# hook rev and the uv_build bound in [build-system] must agree with it.
-required-version = "==0.12.18"
+# The oldest uv that may run here, not the version CI runs: that is the `uv`
+# pin in the dev group above, which Dependabot updates. A floor rather than an
+# exact pin, because Dependabot runs `uv lock` with its own bundled uv and an
+# exact pin fails every one of its updates once that uv differs.
+required-version = ">=0.12.17"
 # Publish-age cooldown for `uv lock`, matching Dependabot's 7-day cooldown: a
-# release is most likely to be a compromised upload in its first days.
+# release is most likely to be a compromised upload in its first days. A security
+# fix younger than that is locked with an exclude-newer-package entry here (see
+# CONTRIBUTING.md, "Dependencies").
 exclude-newer = "7 days"
 conflicts = [[{ group = "pydantic-v1" }, { group = "pydantic-v2" }]]
 
 [tool.uv.build-backend]
 # Flat layout: the package lives at ./permit, not ./src/permit.
 module-root = ""
+# The wheel holds the permit package and nothing else, so tests/ and the local
+# harness/ tool cannot end up in a consumer's site-packages. The published
+# permit==2.8.3 installs a TOP-LEVEL `tests` package there, which shadows the
+# consumer's own `tests` module.
+# Every file under permit/ goes in, not only .py files. That includes py.typed,
+# which tells type checkers to read permit's annotations (PEP 561), and
+# _sync_types.pyi, which is how they see the blocking client. CI checks that the
+# built wheel and sdist have both.
+# The sdist also carries the top-level Markdown files, the migration guide
+# among them.
+source-include = ["*.md"]
 
 [tool.pytest]
 asyncio_mode = "auto"
+# The SDK's tests. The migration skill's tests in skills/tests run on their own,
+# with skills/tests/pytest.ini (see skills/tests/README.md).
 testpaths = ["tests"]
-# strict_config, strict_markers, strict_xfail and strict_parametrization_ids.
-strict = true
-filterwarnings = ["error"]
-
-[tool.ruff]
-line-length = 100
-# Generated from the Permit OpenAPI spec by datamodel-code-generator, then
-# hand-patched at the top (CONTRIBUTING.md, "Regenerating the API models").
-# Linting or formatting it would rewrite ~7k generated lines on every regen
-# and bury the real API diff; its content is owned by the generator.
-extend-exclude = ["permit/api/models.py"]
-# pre-commit passes file names explicitly, which bypasses exclusions unless
-# this is set -- without it the hook would lint and reformat models.py.
-force-exclude = true
-
-[tool.ruff.format]
-docstring-code-format = true
-
-[tool.ruff.lint]
-select = ["ALL"]
-ignore = [
-    # Conflict with `ruff format` (listed as such in the ruff formatter docs).
-    "COM812", # trailing commas are the formatter's call
-    # Per-file license headers: the Apache-2.0 LICENSE file at the root and
-    # the package metadata already carry the license.
-    "CPY001",
-    # Long messages at the raise site. The alternative is a new exception
-    # subclass per message, which would widen the public exception API.
-    "TRY003",
-    # Module and package docstrings. Users reach the SDK through the `permit`
-    # package (which has one) and the documented classes and functions; most
-    # modules hold a single class, so a module docstring would repeat its.
-    "D100",
-    "D104",
-    # Magic-method docstrings restate the protocol (`__repr__`, `__eq__`).
-    "D105",
-    # Nested classes are pydantic's `class Config:` blocks: configuration, not API.
-    "D106",
-    # Google style documents constructor arguments in the class docstring,
-    # so a separate `__init__` docstring would repeat it.
-    "D107",
-    # The maintainers' limit is on *positional* parameters, enforced by
-    # PLR0917 (max 5). PLR0913 counts keyword-only parameters too, which is
-    # the very shape PLR0917 steers towards.
-    "PLR0913",
+markers = [
+    'e2e: needs PDP_API_KEY (or another credential), the Permit API and a running PDP. Deselect with -m "not e2e".',
 ]
 
-[tool.ruff.lint.flake8-annotations]
-# `*args: Any` / `**kwargs: Any` are pass-throughs to aiohttp and pydantic,
-# which accept arbitrary values; Any elsewhere is still flagged (ANN401).
-allow-star-arg-any = true
+[tool.ruff]
+line-length = 120
+src = ["permit"]
+exclude = ["permit/api/models.py"]
+target-version = "py310"
 
-[tool.ruff.lint.pydocstyle]
-# Also resolves the mutually exclusive pairs (D203/D211, D212/D213) and
-# turns off the rules Google style contradicts (D401 imperative mood, D413 ...).
-convention = "google"
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "W", # pycodestyle
+    "F", # pyflakes
+    "N", # pep8
+    "I", # isort
+    "BLE", # flake8 blind except
+    "FBT", # flake8 boolean trap
+    "B", # flake8 bug bear
+    "C4", # flake8 comprehensions
+    "PIE", # flake8 pie
+    "T20", # flake8 print
+    "SIM", # flake8 simplify
+    "ARG", # flake8 unused arguments
+    "PTH", # flake8 pathlib
+    "ASYNC", # flake8 Asyncio rules
+#    "UP", # pyupgrade
+    "ERA", # comment out code
+    "RUF", # ruff rules
+    "FAST", # FastAPI rules
+]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
-[tool.ruff.lint.flake8-type-checking]
-# pydantic evaluates field annotations at runtime, so the imports they use
-# must never be moved under `if TYPE_CHECKING:`.
-runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
-
 [tool.ruff.lint.per-file-ignores]
-# Adapted from fastapi.encoders and kept structurally close to it, so upstream
-# fixes still port over: its dispatch-by-type function is long by nature, and it
-# encodes arbitrary objects, which is what `Any` says.
-"permit/api/encoders.py" = ["C901", "PLR0911", "PLR0912", "ANN401"]
-"tests/**/*.py" = [
-    "S101",    # assert is how pytest checks things
-    "S105",    # hard-coded fake credentials are test fixtures
-    "S106",    # hard-coded fake credentials are test fixtures
-    "PLR2004", # literal expected values are the point of an assertion
-    "SLF001",  # white-box tests reach into private state on purpose
-    "D1",      # test names document the test; docstrings where they add something
-    # End-to-end scenarios run a whole create/check/tear-down story against a live
-    # backend; splitting them would only scatter one sequence of API side effects.
-    "C901",
-    "PLR0912",
-    "PLR0915",
-    "PERF203", # try/except in retry and cleanup loops; speed is not what tests measure
-    "T201",    # progress output for long e2e runs; pytest captures it
-    "BLE001",  # e2e tests turn any unexpected exception into a readable pytest.fail
-]
 # These are standalone CLI programs, not library code: writing the rendered
 # report to stdout IS their interface, so the "no print" rule does not apply.
-".github/scripts/*.py" = [
-    "T201",
-    "INP001", # standalone scripts run by path, not an importable package
-]
-".github/scripts/test_*.py" = ["S101", "PLR2004", "D1"]
-
-[tool.typos.files]
-# Generated (see [tool.ruff]); its misspellings come from the OpenAPI spec's
-# descriptions and have to be fixed there.
-extend-exclude = ["permit/api/models.py"]
+".github/scripts/*.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["permit", "tests", ".github/scripts"]
-strict = true
-warn_unreachable = true
-enable_error_code = [
-    "deprecated",
-    "exhaustive-match",
-    "ignore-without-code",
-    "mutable-override",
-    "possibly-undefined",
-    "redundant-expr",
-    "redundant-self",
-    "truthy-bool",
-    "truthy-iterable",
-    "unimported-reveal",
-    "unused-awaitable",
-]
-# The SDK's models are pydantic-v1 models on both majors: `pydantic.BaseModel`
-# under pydantic 1, `pydantic.v1.BaseModel` under pydantic 2. `pydantic.v1.mypy`
-# is the v1 plugin and is importable on both, so each CI lane type-checks the
-# models the same way. (`pydantic.mypy` under pydantic 2 is the v2 plugin,
-# which misreads v1 models.)
+packages = ["permit"]
+# The SDK's models are pydantic v1 models under both pydantic majors, and type
+# checkers see them through pydantic.v1. pydantic.mypy is the v2 plugin under
+# pydantic 2 and does not recognise v1 models, so use the v1 plugin.
 plugins = ["pydantic.v1.mypy"]
 
-[tool.pydantic-mypy]
-# Model constructors are typed the way pydantic v1 behaves: it coerces input (a
-# str for a UUID or EmailStr field) and the API models accept extra fields, so a
-# strictly typed or closed `__init__` would reject calls that work. Missing
-# required fields are still reported.
-init_forbid_extra = false
-init_typed = false
-warn_required_dynamic_aliases = true
-warn_untyped_fields = true
+check_untyped_defs = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
-# Generated code (see [tool.ruff] above); checked as a dependency, not linted.
 module = ["permit.api.models"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-# These tests drive the blocking API that the SyncClass metaclass generates at
-# runtime from the async classes. mypy only sees the inherited `async def`
-# signatures, so every call looks like it returns a coroutine. The checks that
-# rest on those result types are off here; annotation completeness is not.
-module = [
-    "tests.endpoints.test_resources_sync",
-    "tests.test_fix_sync",
-    "tests.test_rbac_e2e_sync",
-    "tests.test_sync_client",
-]
-disable_error_code = [
-    "arg-type",
-    "attr-defined",
-    "comparison-overlap",
-    "return-value",
-    "unreachable",
-    "unused-coroutine",
-]
+module = ["tests"]
+ignore_errors = true

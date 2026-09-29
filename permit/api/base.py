@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Optional, Type, TypeVar, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
 from loguru import logger
 
-from permit.api.encoders import jsonable_encoder
-from permit.utils.pydantic_version import PYDANTIC_VERSION
+from ..utils.pydantic_version import PYDANTIC_VERSION
+from .encoders import jsonable_encoder
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -15,31 +15,20 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import BaseModel, Extra, Field, parse_obj_as
 
-from permit.api.context import API_ACCESS_LEVELS, ApiContextLevel, ApiKeyAccessLevel
-from permit.api.models import APIKeyScopeRead
-from permit.config import PermitConfig
-from permit.exceptions import PermitContextError, handle_api_error, handle_client_error
+from ..config import PermitConfig
+from ..exceptions import PermitContextError, handle_api_error, handle_client_error
+from .context import API_ACCESS_LEVELS, ApiContextLevel, ApiKeyAccessLevel
+from .models import APIKeyScopeRead
 
-# Whatever `parse_obj_as` can build: a model, or e.g. `list[Model]` for list endpoints.
-TModel = TypeVar("TModel")
+TModel = TypeVar("TModel", bound=BaseModel)
+TData = TypeVar("TData", bound=BaseModel)
 
 
-def pagination_params(page: int, per_page: int) -> dict[str, str | int]:
-    """Build the query parameters of a paginated list request.
-
-    Args:
-        page: The page number, starting at 1.
-        per_page: How many items to fetch per page.
-
-    Returns:
-        The `page` and `per_page` query parameters.
-    """
+def pagination_params(page: int, per_page: int) -> dict:
     return {"page": page, "per_page": per_page}
 
 
 class ClientConfig(BaseModel):
-    """Connection settings of a `SimpleHttpClient`."""
-
     class Config:
         extra = Extra.allow
 
@@ -47,19 +36,15 @@ class ClientConfig(BaseModel):
         ...,
         description="base url that will prefix the url fragment sent via the client",
     )
-    # Bare `dict` on purpose: pydantic v1 passes it through as is, while a parameterized
-    # dict would be validated as a mapping and copied.
-    headers: dict = Field(  # type: ignore[type-arg]
-        ..., description="http headers sent to the API server"
-    )
+    headers: dict = Field(..., description="http headers sent to the API server")
 
 
 class SimpleHttpClient:
-    """wraps aiohttp client to reduce boilerplace."""
+    """
+    wraps aiohttp client to reduce boilerplace
+    """
 
-    def __init__(
-        self, client_config: dict[str, Any], base_url: str = "", timeout: int | None = None
-    ) -> None:
+    def __init__(self, client_config: dict, base_url: str = "", timeout: Optional[int] = None):
         self._client_config = client_config
         self._base_url = base_url
         if timeout is not None:
@@ -71,9 +56,7 @@ class SimpleHttpClient:
     def _log_response(self, url: str, method: str, status: int) -> None:
         logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
-    def _prepare_json(
-        self, json: BaseModel | dict[str, Any] | list[Any] | None = None
-    ) -> dict[str, Any] | list[Any] | None:
+    def _prepare_json(self, json: Optional[Union[TData, dict, list]] = None) -> Optional[Union[dict, list]]:
         """Normalize a request body into JSON-serializable primitives.
 
         Models, dicts and lists all go through the same encoder so that nested
@@ -92,11 +75,10 @@ class SimpleHttpClient:
         if json is None:
             return None
 
-        return cast("dict[str, Any] | list[Any]", jsonable_encoder(json, exclude_unset=True))
+        return jsonable_encoder(json, exclude_unset=True)
 
     @handle_client_error
-    async def get(self, url: str, model: type[TModel], **kwargs: Any) -> TModel:
-        """Send a GET request and parse the JSON response into `model`."""
+    async def get(self, url, model: Type[TModel], **kwargs) -> TModel:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "GET")
@@ -109,12 +91,11 @@ class SimpleHttpClient:
     @handle_client_error
     async def post(
         self,
-        url: str,
-        model: type[TModel],
-        json: BaseModel | dict[str, Any] | list[Any] | None = None,
-        **kwargs: Any,
+        url,
+        model: Type[TModel],
+        json: Optional[Union[TData, dict, list]] = None,
+        **kwargs,
     ) -> TModel:
-        """Send a POST request with a JSON body and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "POST")
@@ -127,12 +108,11 @@ class SimpleHttpClient:
     @handle_client_error
     async def put(
         self,
-        url: str,
-        model: type[TModel],
-        json: BaseModel | dict[str, Any] | list[Any] | None = None,
-        **kwargs: Any,
+        url,
+        model: Type[TModel],
+        json: Optional[Union[TData, dict, list]] = None,
+        **kwargs,
     ) -> TModel:
-        """Send a PUT request with a JSON body and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "PUT")
@@ -145,12 +125,11 @@ class SimpleHttpClient:
     @handle_client_error
     async def patch(
         self,
-        url: str,
-        model: type[TModel],
-        json: BaseModel | dict[str, Any] | list[Any] | None = None,
-        **kwargs: Any,
+        url,
+        model: Type[TModel],
+        json: Optional[Union[TData, dict, list]] = None,
+        **kwargs,
     ) -> TModel:
-        """Send a PATCH request with a JSON body and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "PATCH")
@@ -160,33 +139,14 @@ class SimpleHttpClient:
                 data = await response.json()
                 return parse_obj_as(model, data)
 
-    @overload
-    async def delete(
-        self,
-        url: str,
-        model: None = None,
-        json: BaseModel | dict[str, Any] | list[Any] | None = None,
-        **kwargs: Any,
-    ) -> None: ...
-
-    @overload
-    async def delete(
-        self,
-        url: str,
-        model: type[TModel],
-        json: BaseModel | dict[str, Any] | list[Any] | None = None,
-        **kwargs: Any,
-    ) -> TModel: ...
-
     @handle_client_error
     async def delete(
         self,
-        url: str,
-        model: type[TModel] | None = None,
-        json: BaseModel | dict[str, Any] | list[Any] | None = None,
-        **kwargs: Any,
-    ) -> TModel | None:
-        """Send a DELETE request; parse the JSON response into `model` if one is given."""
+        url,
+        model: Optional[Type[TModel]] = None,
+        json: Optional[Union[TData, dict, list]] = None,
+        **kwargs,
+    ) -> Optional[TModel]:
         url = f"{self._base_url}{url}"
         async with aiohttp.ClientSession(**self._client_config) as client:
             self._log_request(url, "DELETE")
@@ -200,10 +160,13 @@ class SimpleHttpClient:
 
 
 class BasePermitApi:
-    """The base class for Permit APIs."""
+    """
+    The base class for Permit APIs.
+    """
 
-    def __init__(self, config: PermitConfig) -> None:
-        """Initialize a BasePermitApi.
+    def __init__(self, config: PermitConfig):
+        """
+        Initialize a BasePermitApi.
 
         Args:
             config: The Permit SDK configuration.
@@ -211,9 +174,7 @@ class BasePermitApi:
         self.config = config
         self.__api_keys = self._build_http_client("/v2/api-key")
 
-    def _build_http_client(
-        self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs: Any
-    ) -> SimpleHttpClient:
+    def _build_http_client(self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs):
         optional_headers = {}
         if self.config.proxy_facts_via_pdp:
             if self.config.facts_sync_timeout:
@@ -225,7 +186,7 @@ class BasePermitApi:
             base_url=self.config.pdp if use_pdp else self.config.api_url,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"bearer {self.config.token}",
+                "Authorization": f"Bearer {self.config.token}",
                 **optional_headers,
             },
         )
@@ -238,18 +199,18 @@ class BasePermitApi:
         )
 
     async def _set_context_from_api_key(self) -> None:
-        """Set the API context and permitted access level based on the API key scope."""
+        """
+        Set the API context and permitted access level based on the API key scope.
+        """
         logger.debug("Fetching api key scope")
         scope = await self.__api_keys.get("/scope", model=APIKeyScopeRead)
 
         if scope.organization_id is not None:
             # saves the permitted access level by that api key
-            self.config.api_context._save_api_key_accessible_scope(  # noqa: SLF001 - SDK-internal
+            self.config.api_context._save_api_key_accessible_scope(
                 org=str(scope.organization_id),
                 project=(str(scope.project_id) if scope.project_id is not None else None),
-                environment=(
-                    str(scope.environment_id) if scope.environment_id is not None else None
-                ),
+                environment=(str(scope.environment_id) if scope.environment_id is not None else None),
             )
 
             if scope.project_id is not None:
@@ -263,22 +224,18 @@ class BasePermitApi:
                     return
 
                 # Set project level context
-                self.config.api_context.set_project_level_context(
-                    str(scope.organization_id), str(scope.project_id)
-                )
+                self.config.api_context.set_project_level_context(str(scope.organization_id), str(scope.project_id))
                 return
 
             # Set org level context
             self.config.api_context.set_organization_level_context(str(scope.organization_id))
             return
 
-        # Defensive: the schema makes organization_id required, so mypy knows this
-        # is unreachable for a well-formed response.
-        msg = "Could not set API context level"  # type: ignore[unreachable]
-        raise PermitContextError(msg)
+        raise PermitContextError("Could not set API context level")
 
     async def _ensure_access_level(self, required_access_level: ApiKeyAccessLevel) -> None:
-        """Ensure that the API Key has the access level the API endpoint requires.
+        """
+        Ensure that the API Key has the necessary permissions to successfully call the API endpoint.
 
         Note that this check is not full proof, and the API may still throw 401.
 
@@ -286,8 +243,7 @@ class BasePermitApi:
             required_access_level: The required API Key Access level for the endpoint.
 
         Raises:
-            PermitContextError: If the currently set API key access level does not match the
-                required access level.
+            PermitContextError: If the currently set API key access level does not match the required access level.
         """
         # should only happen once in the lifetime of the sdk
         if (
@@ -300,22 +256,21 @@ class BasePermitApi:
         if required_access_level != permitted_access_level and API_ACCESS_LEVELS.index(
             required_access_level
         ) < API_ACCESS_LEVELS.index(permitted_access_level):
-            msg = (
+            raise PermitContextError(
                 f"You're trying to use an SDK method that requires an API Key "
                 f"with access level: {required_access_level}, however the SDK is running "
                 f"with an API key with level {permitted_access_level}."
             )
-            raise PermitContextError(msg)
 
     async def _ensure_context(self, required_context: ApiContextLevel) -> None:
-        """Ensure that the API context matches the required endpoint context.
+        """
+        Ensure that the API context matches the required endpoint context.
 
         Args:
-            required_context: The required API context level for the endpoint.
+            context: The required API context level for the endpoint.
 
         Raises:
-            PermitContextError: If the currently set API context level does not match the required
-                context level.
+            PermitContextError: If the currently set API context level does not match the required context level.
         """
         # should only happen once in the lifetime of the sdk
         if (
@@ -325,10 +280,7 @@ class BasePermitApi:
             await self._set_context_from_api_key()
 
         if self.config.api_context.level.value < required_context.value:
-            msg = (
-                f"You're trying to use an SDK method that requires an api context of "
-                f"{required_context.name}, "
-                f"however the SDK is running in a less specific context level: "
-                f"{self.config.api_context.level}."
+            raise PermitContextError(
+                f"You're trying to use an SDK method that requires an api context of {required_context.name}, "
+                + f"however the SDK is running in a less specific context level: {self.config.api_context.level}."
             )
-            raise PermitContextError(msg)
