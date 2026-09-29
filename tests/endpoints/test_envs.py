@@ -157,14 +157,13 @@ async def test_environment_creation_with_project_level_api_key(
         logger.warning("this test must run with a project level api key")
         return
 
+    context_project = permit.config.api_context.project
+    assert context_project is not None
+    project_id = str(context_project)
+    project = await permit.api.projects.get(project_id)
+    assert str(project.id) == project_id
+
     try:
-        project = permit.config.api_context.project
-        assert project is not None
-        project_id = str(project)
-
-        project = await permit.api.projects.get(project_id)
-        assert str(project.id) == project_id
-
         await cleanup(permit, project.key)
 
         # create environments
