@@ -8,6 +8,7 @@ issued.
 
 import ast
 import inspect
+import sys
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,6 +60,11 @@ from permit.utils import pydantic_version
 from permit.utils.context import ContextStore
 from permit.utils.deprecation import deprecated
 from tests.utils import FACTS
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 
 def role_assignment_read_payload() -> dict:
@@ -482,17 +488,19 @@ def test_check_query_context_is_optional():
     assert CheckQuery.__optional_keys__ == {"context"}
 
 
-REQUIREMENTS = Path(__file__).resolve().parents[1] / "requirements.txt"
+PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 
 def runtime_requirement(name: str, python_version: str) -> Requirement:
-    """Return the one requirements.txt entry for `name` that applies on `python_version`.
+    """Return the one pyproject.toml dependency on `name` that applies on `python_version`.
 
-    Lines are filtered exactly as setup.py's get_requirements() filters them, so a
-    line setup.py would pass to setuptools but packaging cannot parse fails here.
+    The build backend writes [project].dependencies to the wheel's Requires-Dist, which
+    is what a consumer's installer evaluates. Each entry is parsed with packaging, so
+    one that is not a valid requirement fails here.
     """
-    lines = REQUIREMENTS.read_text().splitlines()
-    requirements = [Requirement(line.strip()) for line in lines if line.strip() and not line.startswith("#")]
+    with PYPROJECT.open("rb") as file:
+        dependencies = tomllib.load(file)["project"]["dependencies"]
+    requirements = [Requirement(dependency) for dependency in dependencies]
     environment = {"python_version": python_version, "python_full_version": f"{python_version}.0"}
     matching = [
         requirement

@@ -1,14 +1,14 @@
 name: Schema Drift
 
 # Compares permit/api/models.py with models generated from the live API schema
-# (https://api.permit.io/v2/openapi.json) by `make generate-models`'s pinned
+# (https://api.permit.io/v2/openapi.json) by scripts/generate_models.sh's pinned
 # generator. .github/scripts/check_schema_drift.py compares the two by structure:
 # a difference that makes the SDK send what the API rejects, or reject what it
 # returns, fails the job; a class or optional field the SDK lacks is only listed
 # in the job summary. Known differences live in
 # .github/scripts/schema_drift_allowlist.json, one reason each; an entry that no
-# longer matches fails the job until it is removed. The comment above
-# generate-models in the Makefile says how to run the check locally.
+# longer matches fails the job until it is removed. The comment at the top of
+# scripts/generate_models.sh says how to run the check locally.
 #
 # A scheduled run that finds new drift, or that cannot run, posts the counts and
 # a link to Slack, and so does every manual run; the differences themselves are
@@ -62,11 +62,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      # The script runs the pinned model generator through uvx.
+      # The script runs the pinned model generator through uvx. setup-uv
+      # installs the uv pinned in uv.lock.
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          version: "0.12.18"
+          version-file: "uv.lock"
 
       # Exit 1 is new drift or a stale allowlist entry; exit 2 means the
       # comparison did not run. Both fail the job; the summary says which.

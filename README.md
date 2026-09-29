@@ -1,4 +1,4 @@
-![Python.png](imgs/Python.png)
+![Python.png](https://raw.githubusercontent.com/permitio/permit-python/main/imgs/Python.png)
 # Permit.io Python SDK
 
 Python SDK for interacting with the Permit.io full-stack permissions platform.
@@ -58,3 +58,7 @@ By default, Python shows these warnings only when the code that triggers them is
 `__main__`, such as the script you run. pytest shows them in its warnings summary. To see
 them elsewhere, such as in a web app, run Python with `-W default::DeprecationWarning` or
 set the environment variable `PYTHONWARNINGS=default::DeprecationWarning`.
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/permitio/permit-python/blob/main/CONTRIBUTING.md).

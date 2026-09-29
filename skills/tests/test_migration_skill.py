@@ -55,6 +55,11 @@ from permit.api.models import (
 from permit.sync import Permit as SyncPermit
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_DIR = REPO_ROOT / "skills" / "permit-python-3-migration"
 SCANNER = SKILL_DIR / "scripts" / "scan.py"
@@ -1445,12 +1450,13 @@ def test_the_removed_name_tables_match_the_scanner():
     assert set(removed_rows(MIGRATION, "A6")) == set(removed_rows(CHANGES, "A6"))
 
 
-def test_the_floor_tables_match_requirements_txt():
+def test_the_floor_tables_match_the_runtime_requirements():
+    with (REPO_ROOT / "pyproject.toml").open("rb") as file:
+        dependencies = tomllib.load(file)["project"]["dependencies"]
     requirements: Dict[str, List[Requirement]] = {}
-    for line in (REPO_ROOT / "requirements.txt").read_text().splitlines():
-        if line.strip() and not line.lstrip().startswith("#"):
-            requirement = Requirement(line)
-            requirements.setdefault(requirement.name.lower().replace("_", "-"), []).append(requirement)
+    for dependency in dependencies:
+        requirement = Requirement(dependency)
+        requirements.setdefault(requirement.name.lower().replace("_", "-"), []).append(requirement)
 
     def allowed(name: str, version: str, python: str) -> bool:
         for requirement in requirements[name]:

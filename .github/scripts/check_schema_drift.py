@@ -4,7 +4,7 @@
 permit/api/models.py is generated from https://api.permit.io/v2/openapi.json and
 then edited by hand in a few places. Nothing regenerates it on a schedule, so the
 API schema can move on without the SDK noticing. This script generates models from
-the current schema with the same generator and flags as `make generate-models`,
+the current schema with the same generator and flags as scripts/generate_models.sh,
 then compares the two modules structurally: it parses both with `ast` and compares
 classes, fields, field types, required vs optional, defaults, aliases, the model
 `Config.extra` setting and enum members. Formatting, field order, titles,
@@ -64,8 +64,8 @@ DEFAULT_SPEC = "https://api.permit.io/v2/openapi.json"
 # The generator release that produced permit/api/models.py (0.33.0 was current on
 # its 2025-09-17 timestamp). --exclude-newer freezes the generator's own
 # dependencies and formatters at the end of that day (UTC), whose pydantic-core has
-# no Python 3.14 wheel, hence --python 3.11. The Makefile's generate-models target
-# uses the same values; test_check_schema_drift.py keeps the two in step.
+# no Python 3.14 wheel, hence --python 3.11. scripts/generate_models.sh uses the
+# same values; test_check_schema_drift.py keeps the two in step.
 GENERATOR_PYTHON = "3.11"
 GENERATOR_EXCLUDE_NEWER = "2025-09-18T00:00:00Z"
 GENERATOR_PACKAGE = "datamodel-code-generator==0.33.0"
@@ -500,8 +500,8 @@ def render(result: Result, compared_with: str) -> str:
         out.append("")
     if result.new or result.stale:
         out.append(
-            "To resolve: regenerate the models (`make generate-models`, see the comment above generate-models in "
-            "the Makefile), or add each intended difference to `.github/scripts/schema_drift_allowlist.json` "
+            "To resolve: regenerate the models (`bash scripts/generate_models.sh`, see the comment at the top of "
+            "that script), or add each intended difference to `.github/scripts/schema_drift_allowlist.json` "
             "with a one-line reason."
         )
         out.append("")

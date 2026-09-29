@@ -65,7 +65,8 @@ def test_sync_stub_matches_the_async_classes():
             committed.splitlines(keepends=True), expected.splitlines(keepends=True), "committed", "generated"
         )
     )
-    assert not diff, f"permit/_sync_types.pyi is out of date. Run `make generate-sync-stubs`.\n{diff}"
+    regenerate = "uv run python scripts/generate_sync_stubs.py"
+    assert not diff, f"permit/_sync_types.pyi is out of date. Run `{regenerate}`.\n{diff}"
 
 
 def runtime_sync_classes() -> dict[str, type]:

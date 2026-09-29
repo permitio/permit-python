@@ -11,24 +11,39 @@ permissions:
 jobs:
   # The job id is the required status check "pre-commit" on main; keep it.
   #
-  # These steps are what pre-commit/action v3.0.1 runs, written out: its
-  # last release pins actions/cache@v4, which targets the deprecated Node 20
-  # runtime, and it has had no release since.
+  # These steps do what pre-commit/action v3.0.1 does, written out: its last
+  # release pins actions/cache@v4, which targets the deprecated Node 20
+  # runtime, and it has had no release since. pre-commit itself comes from
+  # uv.lock rather than a pip install.
   pre-commit:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+
+      - name: Install uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version-file: "uv.lock"
           python-version: "3.11"
-      - name: Install pre-commit
-        run: python -m pip install --disable-pip-version-check pre-commit==4.6.2
-      - name: Cache pre-commit environments
+          enable-cache: true
+
+      # Hook environments, keyed on the config that defines them and on the
+      # Python they were built with, since a hook venv does not survive an
+      # interpreter change. This is the cache pre-commit/action used to provide.
+      - name: Cache pre-commit hook environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+          key: >-
+            pre-commit-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
+            hashFiles('.pre-commit-config.yaml') }}
+
+      # pre-commit itself comes from the locked dev group; --only-dev skips
+      # installing the project, which no hook needs.
       - name: Run pre-commit
-        run: pre-commit run --show-diff-on-failure --color=always --all-files
+        run: >-
+          uv run --locked --only-dev
+          pre-commit run --all-files --show-diff-on-failure --color=always

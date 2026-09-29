@@ -3,10 +3,11 @@
 These pin what the workflow relies on: which differences fail and which are only
 reported, that the allowlist suppresses exactly what it records and nothing else,
 that a run which could not compare exits 2 instead of passing, and that the
-generator the script runs is the one `make generate-models` runs. No network and no
-generator: each test compares small model modules written as source text.
+generator the script runs is the one scripts/generate_models.sh runs. No network
+and no generator: each test compares small model modules written as source text.
 
-Run with: python -m pytest .github/scripts/test_check_schema_drift.py
+Run with:
+uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_check_schema_drift.py
 """
 
 from __future__ import annotations
@@ -481,14 +482,16 @@ def test_pipes_and_backticks_in_schema_text_cannot_break_the_table():
     assert row.count("`") == 6
 
 
-# --- the generator is the one make generate-models runs -----------------------
+# --- the generator is the one scripts/generate_models.sh runs -----------------
 
 
-def test_generator_matches_the_makefile():
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
-    recipe = re.search(r"^generate-models:\n((?:\t.*\n?)+)", makefile, re.MULTILINE)
-    assert recipe, "the Makefile has no generate-models recipe"
-    words = shlex.split(recipe.group(1).replace("\\\n", " "))
+def test_generator_matches_the_generate_models_script():
+    script = (REPO_ROOT / "scripts" / "generate_models.sh").read_text(encoding="utf-8")
+    # The command starts on a line beginning with `uvx ` and continues over every
+    # line that ends in a backslash.
+    command = re.search(r"^uvx (?:.*\\\n)*.*", script, re.MULTILINE)
+    assert command, "scripts/generate_models.sh has no line starting with `uvx `"
+    words = shlex.split(command.group(0).replace("\\\n", " "))
     assert words[:7] == [
         "uvx",
         "--python",

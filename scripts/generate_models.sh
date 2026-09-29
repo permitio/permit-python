@@ -1,15 +1,9 @@
-.PHONY: help generate-models generate-sync-stubs clean
-
-.DEFAULT_GOAL := help
-
-help:
-	@echo "generate-models      regenerate permit/api/models.py from the Permit OpenAPI spec"
-	@echo "generate-sync-stubs  regenerate permit/_sync_types.pyi after changing an async API class"
-	@echo "clean                remove build artifacts"
-	@echo ""
-	@echo "Releasing is done by publishing a GitHub release, which runs"
-	@echo ".github/workflows/python-sdk-publish.yml (build -> security scan -> PyPI)."
-
+#!/usr/bin/env bash
+#
+# Regenerate permit/api/models.py from the Permit OpenAPI spec.
+#
+# Usage: bash scripts/generate_models.sh
+#
 # --use-default-kwarg writes Field(default=None, ...): type checkers only treat a
 # keyword default as optional, so a positional one makes every optional field
 # required to them. The generator emits plain `from pydantic import ...`, so after
@@ -40,22 +34,20 @@ help:
 # .github/workflows/schema-drift.yml runs it weekly, on manual dispatch and on pull
 # requests that change permit/api/models.py, .github/scripts/check_schema_drift.py,
 # .github/scripts/schema_drift_allowlist.json or the workflow itself.
-generate-models:
-	uvx --python 3.11 --exclude-newer 2025-09-18T00:00:00Z \
-		--from 'datamodel-code-generator[http]==0.33.0' datamodel-codegen \
-		--url https://api.permit.io/v2/openapi.json \
-		--input-file-type openapi \
-		--output permit/api/models.py \
-		--output-model-type pydantic.BaseModel \
-		--allow-extra-fields \
-		--enum-field-as-literal one \
-		--use-one-literal-as-default \
-		--use-subclass-enum \
-		--use-default-kwarg
+set -euo pipefail
 
-# PYTHONPATH makes the script import this checkout's permit, not an installed copy.
-generate-sync-stubs:
-	PYTHONPATH=. python scripts/generate_sync_stubs.py
+# --output is relative to the repository root, so run from there wherever the
+# script is called from.
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-clean:
-	rm -rf *.egg-info build/ dist/
+uvx --python 3.11 --exclude-newer 2025-09-18T00:00:00Z \
+  --from 'datamodel-code-generator[http]==0.33.0' datamodel-codegen \
+  --url https://api.permit.io/v2/openapi.json \
+  --input-file-type openapi \
+  --output permit/api/models.py \
+  --output-model-type pydantic.BaseModel \
+  --allow-extra-fields \
+  --enum-field-as-literal one \
+  --use-one-literal-as-default \
+  --use-subclass-enum \
+  --use-default-kwarg

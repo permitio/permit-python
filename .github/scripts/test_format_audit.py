@@ -5,7 +5,8 @@ first line, bad input still exits 0, untrusted advisory text cannot break out
 of a fence or a workflow command, and a pip-audit that did not check a tree is
 always named rather than passing for a clean result.
 
-Run with: python -m pytest .github/scripts/test_format_audit.py
+Run with:
+uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_format_audit.py
 """
 
 from __future__ import annotations
@@ -347,6 +348,14 @@ def test_unfixable_high_is_reported_but_does_not_block():
 
 def test_fixable_high_blocks():
     assert Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy").blocking is True
+
+
+def test_fix_instructions_cover_a_fix_uv_lock_still_filters_out():
+    # The gate resolves with --exclude-newer false, so it blocks on the day a fix
+    # is released, while `uv lock` keeps that release out for 7 days. The report
+    # must say how to lock it anyway, or the block cannot be cleared.
+    out = render([Finding("CVE-1", "pkg", "1.0", "HIGH", "2.0", "t", "", "trivy")], [], "", blocking=True)
+    assert "exclude-newer-package = { <package> = false }" in out
 
 
 def test_gate_exits_1_on_fixable_high(tmp_path: Path):
