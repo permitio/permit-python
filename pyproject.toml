@@ -77,9 +77,10 @@ Repository = "https://github.com/permitio/permit-python"
 # Exact pins, so every developer, CI lane and the dev-ceiling audit tree
 # resolve the same versions. Dependabot raises them. A pin also gives the CVE
 # scan a version to evaluate: a spec with no bound has none, so a package listed
-# that way is absent from every audit. ruff and mypy match the hook revs in
-# .pre-commit-config.yaml; the hooks install their own copies, and those are
-# what CI lints and type-checks with.
+# that way is absent from every audit. The ruff and mypy hooks in
+# .pre-commit-config.yaml install their own copies at their revs, and those are
+# what CI lints and type-checks with. Dependabot bumps the ruff and mypy pins
+# here but not the hook revs, so the two can differ.
 # aioresponses is left out on purpose. No test imports it, and its latest
 # release (0.7.9) is incompatible with the aiohttp 3.14.3 floor: every mocked
 # request raises "ClientResponse.__init__() missing 1 required keyword-only
@@ -107,9 +108,9 @@ dev = [
     'tomli==2.4.1; python_version == "3.10"',
     # The uv version CI runs: every setup-uv step reads it from uv.lock
     # (version-file), except the publish build job, which pins its own version
-    # and checksum. Dependabot bumps it like any other pin. Keep the uv-lock hook
-    # rev in .pre-commit-config.yaml equal to it, and run this version locally so
-    # uv.lock comes out the same.
+    # and checksum. Dependabot bumps it like any other pin. The uv-lock pre-commit
+    # hook runs the uv on PATH, which under `uv run` (as in CI) is this one. Run
+    # this version locally so uv.lock comes out the same.
     "uv==0.12.17",
     # Imported directly by the offline tests (Request/Response are used to assert
     # on what the SDK actually put on the wire), as well as backing

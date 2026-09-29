@@ -36,9 +36,16 @@ repos:
         files: \.py$
         types: [ file ]
 
-  # Fails when pyproject.toml and uv.lock disagree. Keep rev equal to the `uv`
-  # pin in pyproject.toml's dev group, the uv version CI runs.
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.17
+  # Fails when pyproject.toml and uv.lock disagree; run `uv lock` to fix. It runs
+  # the uv on PATH rather than installing its own, so there is no second uv
+  # version to keep in step with the dev group's `uv` pin. Under `uv run` (as in
+  # CI) that is the pinned uv from .venv/bin. --check never writes, so a local uv
+  # too old to read [tool.uv] fails here instead of re-locking with other settings.
+  - repo: local
     hooks:
       - id: uv-lock
+        name: uv lock --check
+        entry: uv lock --check
+        language: unsupported
+        files: ^(uv\.lock|pyproject\.toml|uv\.toml)$
+        pass_filenames: false
