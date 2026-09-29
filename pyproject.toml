@@ -89,7 +89,7 @@ Repository = "https://github.com/permitio/permit-python"
 dev = [
     # tests/test_typing_surface.py runs mypy on tests/type_check/consumer.py;
     # 1.11.2 passes it on Python 3.10-3.14 with either pydantic major.
-    "mypy==1.11.2",
+    "mypy==2.3.1",
     # Imported directly by the offline tests, which evaluate the version markers
     # in [project].dependencies the way an installer does.
     "packaging==26.3",
