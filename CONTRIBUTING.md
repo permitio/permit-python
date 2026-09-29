@@ -68,6 +68,10 @@ against local mock servers and need no PDP, API key or network access:
 uv run pytest -m "not e2e"
 ```
 
+Any warning fails the test that raised it (`filterwarnings` in `[tool.pytest]`), except the
+one `import permit` issues on pydantic 1 on purpose. The migration skill's and the CI
+scripts' tests do the same with their own configs.
+
 ### Both pydantic majors
 
 The SDK supports pydantic 1 and 2, and CI runs the suite once per major. Each major is a

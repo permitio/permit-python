@@ -340,15 +340,12 @@ jobs:
 
       # Every test that needs credentials, the Permit API or a PDP is marked
       # e2e (see [tool.pytest] in pyproject.toml), so `-m "not e2e"` selects
-      # everything else.
-      # The filter fails the run on Python 3.14's deprecation of
-      # asyncio.iscoroutinefunction, whether permit or a dependency calls it.
-      # It is deliberately narrow: a blanket error::DeprecationWarning would
-      # also trip on the warning `import permit` issues on pydantic 1, on purpose.
+      # everything else. [tool.pytest] also makes every warning an error, so
+      # this fails on Python 3.14's deprecation of asyncio.iscoroutinefunction,
+      # whether permit or a dependency calls it, and on any warning a floor
+      # version of a dependency issues.
       - name: Offline tests
-        run: |
-          python -m pytest -q -m "not e2e" \
-            -W "error:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"
+        run: python -m pytest -q -m "not e2e"
 
   # The migration skill's tests (skills/tests): MIGRATION.md, the skill and its
   # scanner, checked against each other and against the SDK. They run apart from

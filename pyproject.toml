@@ -166,6 +166,13 @@ markers = [
 ]
 # strict_config, strict_markers, strict_xfail and strict_parametrization_ids.
 strict = true
+# Any warning fails the test that raised it. The one exception is the warning
+# `import permit` issues on pydantic 1 on purpose (tests/test_fix_pydantic1_deprecation.py
+# checks it in a fresh interpreter).
+filterwarnings = [
+    "error",
+    "ignore:Support for pydantic 1 is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100
