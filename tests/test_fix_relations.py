@@ -69,7 +69,7 @@ def _make_permit(httpserver: HTTPServer) -> Permit:
     )
 
 
-async def test_relations_list_parses_the_paginated_envelope(httpserver: HTTPServer):
+async def test_relations_list_parses_the_paginated_envelope(httpserver: HTTPServer) -> None:
     """The envelope the backend really sends must parse, field for field."""
     relations = [_relation("parent"), _relation("owner")]
     httpserver.expect_request(RELATIONS_PATH, method="GET").respond_with_json(
@@ -93,7 +93,7 @@ async def test_relations_list_parses_the_paginated_envelope(httpserver: HTTPServ
     httpserver.check_assertions()
 
 
-async def test_relations_list_sends_pagination_on_the_wire(httpserver: HTTPServer):
+async def test_relations_list_sends_pagination_on_the_wire(httpserver: HTTPServer) -> None:
     """``page``/``per_page`` must reach the server, or paging silently does nothing."""
     httpserver.expect_request(RELATIONS_PATH, method="GET").respond_with_json(
         {"data": [], "total_count": 0, "page_count": 0}
@@ -109,7 +109,7 @@ async def test_relations_list_sends_pagination_on_the_wire(httpserver: HTTPServe
     httpserver.check_assertions()
 
 
-async def test_relations_list_rejects_a_bare_array(httpserver: HTTPServer):
+async def test_relations_list_rejects_a_bare_array(httpserver: HTTPServer) -> None:
     """A bare array is not what this endpoint returns, and must not parse as an envelope.
 
     This pins the contract in the other direction: the SDK surfaces a parse error rather

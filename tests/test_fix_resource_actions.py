@@ -10,7 +10,7 @@ body) and the model the response parses into. Every request is served by a local
 import asyncio
 import inspect
 from operator import attrgetter
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -28,6 +28,15 @@ from permit.api.resource_action_groups import ResourceActionGroupsApi
 from permit.api.resource_actions import ResourceActionsApi
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel
+elif PYDANTIC_VERSION < (2, 0):
+    from pydantic import BaseModel
+else:
+    from pydantic.v1 import BaseModel
 from tests.utils import SCHEMA, Call, call, sent
 
 RESOURCES = f"{SCHEMA}/resources"
@@ -74,7 +83,7 @@ class Case(NamedTuple):
     query: list[tuple[str, str]]
     body: Any
     response: dict[str, Any] | list[dict[str, Any]] | None
-    model: type | None
+    model: type[BaseModel] | None
 
 
 ACTIONS = "permit.api.resource_actions"
@@ -278,13 +287,13 @@ CASES = {
 }
 
 
-def public_methods(api: type) -> set:
+def public_methods(api: type) -> set[str]:
     return {
         name for name, value in vars(api).items() if not name.startswith("_") and callable(value)
     }
 
 
-def test_every_public_method_has_a_case():
+def test_every_public_method_has_a_case() -> None:
     expected = {f"{ACTIONS}.{name}" for name in public_methods(ResourceActionsApi)} | {
         f"{GROUPS}.{name}" for name in public_methods(ResourceActionGroupsApi)
     }
@@ -297,7 +306,7 @@ def test_every_public_method_has_a_case():
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
 def test_request_and_response(
     httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str
-):
+) -> None:
     handler = httpserver.expect_request(case.path, method=case.method)
     if case.response is None:
         handler.respond_with_data("", status=204)

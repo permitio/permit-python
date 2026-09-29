@@ -1,21 +1,22 @@
 import time
 from collections.abc import Callable
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
 
 import pytest
 from loguru import logger
 
-from permit import RoleAssignmentRead
 from permit.exceptions import PermitApiError, PermitConnectionError
-from permit.pdp_api.models import RoleAssignment
 from permit.sync import Permit as SyncPermit
+from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
-from .utils import handle_api_error, handle_cleanup_error, unique_key
+if TYPE_CHECKING:
+    from permit import RoleAssignmentRead
+    from permit.pdp_api.models import RoleAssignment
 
 pytestmark = pytest.mark.e2e
 
 
-def print_break():
+def print_break() -> None:
     print("\n\n ----------- \n\n")
 
 
@@ -48,7 +49,15 @@ def wait_until(
         time.sleep(interval)
 
 
-def find_by_key(list_page: Callable[[int], list[Any]], key: str) -> Any | None:
+class _Keyed(Protocol):
+    @property
+    def key(self) -> str: ...
+
+
+KeyedT = TypeVar("KeyedT", bound=_Keyed)
+
+
+def find_by_key(list_page: Callable[[int], list[KeyedT]], key: str) -> KeyedT | None:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -85,7 +94,7 @@ def assert_gone(get: Callable[[str], Any], key: str, description: str) -> None:
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
-def test_permission_check_e2e(sync_permit: SyncPermit):
+def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
     permit = sync_permit
     logger.info("initial setup of objects")
     resource_key = unique_key("document")
@@ -182,6 +191,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         assigned_viewer = permit.api.roles.assign_permissions(viewer_role_key, [read_permission])
 
         assert assigned_viewer.key == viewer_role_key
+        assert assigned_viewer.permissions is not None
         assert len(assigned_viewer.permissions) == 1
         assert read_permission in assigned_viewer.permissions
         assert create_permission not in assigned_viewer.permissions
@@ -219,6 +229,7 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         assert user.first_name == "Elon"
         assert user.last_name == "Musk"
         assert len(user.attributes or {}) == 2
+        assert user.attributes is not None
         assert user.attributes["age"] == 50
         assert user.attributes["favoriteColor"] == "red"
 
@@ -234,14 +245,15 @@ def test_permission_check_e2e(sync_permit: SyncPermit):
         assert ra.user_id == user.id
         assert ra.role_id == viewer.id
         assert ra.tenant_id == tenant.id
-        assert ra.user == user.email or ra.user == user.key
+        assert ra.user in (user.email, user.key)
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
         logger.info("waiting for the viewer role assignment to propagate to the PDP")
         resource_attributes = {"secret": True}
 
-        # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
+        # positive permission check (will be True because elon is a viewer, and a viewer
+        # can read a document)
         logger.info("testing positive permission check")
         wait_until(
             lambda: permit.check(

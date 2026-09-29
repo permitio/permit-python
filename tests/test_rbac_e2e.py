@@ -3,7 +3,7 @@ import http.client
 import threading
 import time
 from collections.abc import AsyncIterable, Awaitable, Callable, Iterator
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
 
 import pytest
 from loguru import logger
@@ -12,12 +12,13 @@ from werkzeug import Request, Response
 
 from permit import Permit, ResourceRead, RoleAssignmentRead, RoleRead
 from permit.exceptions import PermitApiError, PermitConnectionError
-from permit.pdp_api.models import RoleAssignment
+from tests.utils import handle_api_error, handle_cleanup_error, unique_key
 
-from .utils import handle_api_error, handle_cleanup_error, unique_key
+if TYPE_CHECKING:
+    from permit.pdp_api.models import RoleAssignment
 
 
-def print_break():
+def print_break() -> None:
     print("\n\n ----------- \n\n")
 
 
@@ -65,7 +66,17 @@ async def wait_until(
         await asyncio.sleep(interval)
 
 
-async def find_by_key(list_page: Callable[[int], Awaitable[list[Any]]], key: str) -> Any | None:
+class _Keyed(Protocol):
+    @property
+    def key(self) -> str: ...
+
+
+KeyedT = TypeVar("KeyedT", bound=_Keyed)
+
+
+async def find_by_key(
+    list_page: Callable[[int], Awaitable[list[KeyedT]]], key: str
+) -> KeyedT | None:
     """Find an object by key across all pages of a paginated list endpoint.
 
     The environment is shared, so the object under test is not necessarily on
@@ -132,7 +143,7 @@ def sleeping(httpserver: HTTPServer) -> Iterator[Callable[[Request], Response]]:
         connection.close()
 
 
-async def test_api_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
+async def test_api_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]) -> None:
     mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
@@ -148,7 +159,7 @@ async def test_api_timeout(httpserver: HTTPServer, sleeping: Callable[[Request],
     assert time_passed < 3
 
 
-async def test_pdp_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]):
+async def test_pdp_timeout(httpserver: HTTPServer, sleeping: Callable[[Request], Response]) -> None:
     mocked_url = httpserver.url_for("").rstrip("/")
     permit = Permit(
         token="mocked",
@@ -252,6 +263,7 @@ async def setup_env(
         assert admin.name == "Admin"
         assert admin.description == "an admin role"
         assert len(admin.permissions or []) == len(admin_role_permissions)
+        assert admin.permissions is not None
         for permission in admin_role_permissions:
             assert permission in admin.permissions
 
@@ -277,6 +289,7 @@ async def setup_env(
 
         assert assigned_viewer.key == viewer_role_key
         assert len(assigned_viewer.permissions or []) == len(viewer_role_permissions)
+        assert assigned_viewer.permissions is not None
         for permission in viewer_role_permissions:
             assert permission in assigned_viewer.permissions
         yield document, admin, viewer
@@ -295,7 +308,7 @@ async def setup_env(
 async def test_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
-):
+) -> None:
     document, admin, viewer = setup_env
     tenant_key = unique_key("tesla")
     user_key = unique_key("auth0|elon")
@@ -333,6 +346,7 @@ async def test_permission_check_e2e(
         assert user.first_name == "Elon"
         assert user.last_name == "Musk"
         assert len(user.attributes or {}) == 2
+        assert user.attributes is not None
         assert user.attributes["age"] == 50
         assert user.attributes["favoriteColor"] == "red"
 
@@ -348,14 +362,15 @@ async def test_permission_check_e2e(
         assert ra.user_id == user.id
         assert ra.role_id == viewer.id
         assert ra.tenant_id == tenant.id
-        assert ra.user == user.email or ra.user == user.key
+        assert ra.user in (user.email, user.key)
         assert ra.role == viewer.key
         assert ra.tenant == tenant.key
 
         logger.info("waiting for the viewer role assignment to propagate to the PDP")
         resource_attributes = {"secret": True}
 
-        # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
+        # positive permission check (will be True because elon is a viewer, and a viewer
+        # can read a document)
         logger.info("testing positive permission check")
         await wait_until(
             lambda: permit.check(
@@ -510,14 +525,15 @@ async def test_permission_check_e2e(
 async def test_local_facts_uploader_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
-):
+) -> None:
     permit._config.proxy_facts_via_pdp = True
     assert permit.api.users.config.proxy_facts_via_pdp is True
     document, admin, viewer = setup_env
     tenant_key = unique_key("tesla")
     user_key = unique_key("auth0|elon")
     try:
-        with permit.wait_for_sync() as permit:
+        # Rebinding on purpose: the cleanup below runs on the synced client.
+        with permit.wait_for_sync() as permit:  # noqa: PLR1704
             # create a tenant
             tenant = await permit.api.tenants.create(
                 {
@@ -551,6 +567,7 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert user.first_name == "Elon"
             assert user.last_name == "Musk"
             assert len(user.attributes or {}) == 2
+            assert user.attributes is not None
             assert user.attributes["age"] == 50
             assert user.attributes["favoriteColor"] == "red"
 
@@ -566,10 +583,11 @@ async def test_local_facts_uploader_permission_check_e2e(
             assert ra.user_id == user.id
             assert ra.role_id == viewer.id
             assert ra.tenant_id == tenant.id
-            assert ra.user == user.email or ra.user == user.key
+            assert ra.user in (user.email, user.key)
             assert ra.role == viewer.key
             assert ra.tenant == tenant.key
-            # positive permission check (will be True because elon is a viewer, and a viewer can read a document)
+            # positive permission check (will be True because elon is a viewer, and a viewer
+            # can read a document)
             logger.info("testing positive permission check")
             resource_attributes = {"secret": True}
             # the facts were written through the PDP with wait_for_sync, so they

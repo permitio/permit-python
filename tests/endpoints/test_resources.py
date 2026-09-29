@@ -38,7 +38,7 @@ async def list_own_resource_keys(permit: Permit) -> list[str]:
         page += 1
 
 
-async def test_resources(permit: Permit):
+async def test_resources(permit: Permit) -> None:
     logger.info("initial setup of objects")
     # none of this test's resources exist yet
     assert await list_own_resource_keys(permit) == []
@@ -80,7 +80,11 @@ async def test_resources(permit: Permit):
         # create existing -> 409
         with pytest.raises(PermitApiError) as e:
             await permit.api.resources.create(
-                {"key": TEST_RESOURCE_DOC_KEY, "name": "document2", "actions": {}}
+                {
+                    "key": TEST_RESOURCE_DOC_KEY,
+                    "name": "document2",
+                    "actions": {},
+                }
             )
         assert e.value.status_code == 409
 
@@ -109,7 +113,10 @@ async def test_resources(permit: Permit):
         # update actions
         await permit.api.resources.update(
             TEST_RESOURCE_FOLDER_KEY,
-            {"description": "wat", "actions": {"pick": {}}},
+            {
+                "description": "wat",
+                "actions": {"pick": {}},
+            },
         )
 
         # get

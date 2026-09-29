@@ -13,10 +13,11 @@ import copy
 import inspect
 import json
 import os
+import re
 import subprocess
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from operator import attrgetter
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -342,7 +343,10 @@ CASES = [
 
 
 def removal_warning(case: FacadeCase) -> str:
-    return f"{case.facade.path}() is deprecated and will be removed in permit 4.0; use {case.replacement.path}() instead."
+    return (
+        f"{case.facade.path}() is deprecated and will be removed in permit 4.0; "
+        f"use {case.replacement.path}() instead."
+    )
 
 
 def deprecations(caught: list[warnings.WarningMessage]) -> list[tuple[type, str, str, int]]:
@@ -358,13 +362,15 @@ def deprecations(caught: list[warnings.WarningMessage]) -> list[tuple[type, str,
     ]
 
 
-def call_blocking(method: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+def call_blocking(
+    method: Callable[..., object], args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> object:
     return method(*args, **kwargs)
 
 
 async def call_awaiting(
-    method: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
-) -> Any:
+    method: Callable[..., Awaitable[object]], args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> object:
     return await method(*args, **kwargs)
 
 
@@ -403,16 +409,17 @@ def case_id(case: FacadeCase) -> str:
     return name
 
 
-def assert_parsed(result: Any, case: FacadeCase) -> None:
+def assert_parsed(result: object, case: FacadeCase) -> None:
     if case.model is None:
         assert result is None
     elif isinstance(case.response, list):
+        assert isinstance(result, list)
         assert [type(item) for item in result] == [case.model] * len(case.response)
     else:
         assert type(result) is case.model
 
 
-def test_the_table_covers_every_deprecated_method():
+def test_the_table_covers_every_deprecated_method() -> None:
     deprecated = {
         f"permit.api.{name}"
         for name, value in vars(DeprecatedApi).items()
@@ -427,7 +434,7 @@ def test_the_table_covers_every_deprecated_method():
 @pytest.mark.parametrize("case", CASES, ids=[case_id(case) for case in CASES])
 def test_deprecated_method_warns_and_matches_its_replacement(
     httpserver: HTTPServer, config: PermitConfig, case: FacadeCase, flavour: str
-):
+) -> None:
     http_method, path = case.request
     handler = httpserver.expect_request(path, method=http_method)
     if case.response is None:
@@ -437,7 +444,7 @@ def test_deprecated_method_warns_and_matches_its_replacement(
 
     client = Permit(config) if flavour == "async" else SyncPermit(config)
 
-    def invoke(target: Call) -> Any:
+    def invoke(target: Call) -> object:
         # Each call gets its own copy of the inputs, so neither can see what the other did to them.
         args, kwargs = copy.deepcopy((target.args, target.kwargs))
         method = attrgetter(target.path.removeprefix("permit."))(client)
@@ -450,11 +457,13 @@ def test_deprecated_method_warns_and_matches_its_replacement(
     with warnings.catch_warnings(record=True) as replacement_warnings:
         warnings.simplefilter("always")
         expected = invoke(case.replacement)
-    with pytest.warns(DeprecationWarning) as facade_warnings:
+    with pytest.warns(
+        DeprecationWarning, match=re.escape(removal_warning(case))
+    ) as facade_warnings:
         result = invoke(case.facade)
 
     assert deprecations(replacement_warnings) == []
-    assert deprecations(facade_warnings) == [
+    assert deprecations(facade_warnings.list) == [
         (DeprecationWarning, removal_warning(case), *CALL_SITES[flavour])
     ]
 
@@ -512,8 +521,12 @@ SCRIPT_CALL_LINES = [
 ]
 
 
-def test_a_script_gets_one_warning_per_call_at_the_call(httpserver: HTTPServer, tmp_path: Path):
-    """A script runs as ``__main__``, which has no ``__spec__``, and it is the one module
+def test_a_script_gets_one_warning_per_call_at_the_call(
+    httpserver: HTTPServer, tmp_path: Path
+) -> None:
+    """A script gets each client's warning once, at the line that called the method.
+
+    A script runs as ``__main__``, which has no ``__spec__``, and it is the one module
     Python's default filters show DeprecationWarnings for.
 
     The script calls the method through each client, three times from the same line. The

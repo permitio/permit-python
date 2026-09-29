@@ -107,7 +107,7 @@ async def cleanup(permit: Permit, role_keys: Sequence[str], users: Sequence[str]
             handle_cleanup_error(error, f"could not delete user {user}")
 
 
-async def test_list_filter_by_role(permit: Permit):
+async def test_list_filter_by_role(permit: Permit) -> None:
     prefix = unique_key("ra-single")
     role_1 = f"{prefix}-role-1"
     role_2 = f"{prefix}-role-2"
@@ -130,7 +130,7 @@ async def test_list_filter_by_role(permit: Permit):
         await cleanup(permit, [role_1, role_2], [*users_1, *users_2])
 
 
-async def test_list_filter_by_role_multiple(permit: Permit):
+async def test_list_filter_by_role_multiple(permit: Permit) -> None:
     prefix = unique_key("ra-multi")
     role_1 = f"{prefix}-role-1"
     role_2 = f"{prefix}-role-2"

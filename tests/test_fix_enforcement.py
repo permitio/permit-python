@@ -6,6 +6,7 @@ puts on the wire, because that body is what decides an authorization outcome.
 """
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -34,7 +35,7 @@ def enforcer(pdp_url: str) -> Enforcer:
     )
 
 
-def _recorder(bodies: list[Any], payload: Any):
+def _recorder(bodies: list[Any], payload: object) -> Callable[[Request], Response]:
     def handler(request: Request) -> Response:
         bodies.append(json.loads(request.get_data()))
         return Response(json.dumps(payload), content_type="application/json")
@@ -46,7 +47,9 @@ def _recorder(bodies: list[Any], payload: Any):
 
 
 @pytest.mark.asyncio
-async def test_authorized_users_parses_pdp_response(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_authorized_users_parses_pdp_response(
+    httpserver: HTTPServer, enforcer: Enforcer
+) -> None:
     """Before the fix this raised TypeError under pydantic v2.
 
     ``AuthorizedUsersResult`` is a pydantic v1 model, so the v2 ``parse_obj_as``
@@ -96,7 +99,9 @@ async def test_authorized_users_parses_pdp_response(httpserver: HTTPServer, enfo
 
 
 @pytest.mark.asyncio
-async def test_bulk_check_sends_per_check_context(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_bulk_check_sends_per_check_context(
+    httpserver: HTTPServer, enforcer: Enforcer
+) -> None:
     """A per-check ``context`` must reach the wire, not be silently discarded."""
     bodies: list[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
@@ -127,7 +132,7 @@ async def test_bulk_check_sends_per_check_context(httpserver: HTTPServer, enforc
 @pytest.mark.asyncio
 async def test_bulk_check_merges_per_check_context_over_method_context(
     httpserver: HTTPServer, enforcer: Enforcer
-):
+) -> None:
     """Precedence: per-check context wins over the method-level context."""
     bodies: list[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
@@ -156,7 +161,7 @@ async def test_bulk_check_merges_per_check_context_over_method_context(
 @pytest.mark.asyncio
 async def test_bulk_check_uses_method_context_when_check_has_none(
     httpserver: HTTPServer, enforcer: Enforcer
-):
+) -> None:
     bodies: list[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
         _recorder(bodies, {"allow": [{"allow": True}]})
@@ -171,7 +176,9 @@ async def test_bulk_check_uses_method_context_when_check_has_none(
 
 
 @pytest.mark.asyncio
-async def test_filter_objects_forwards_caller_context(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_filter_objects_forwards_caller_context(
+    httpserver: HTTPServer, enforcer: Enforcer
+) -> None:
     """Before the fix every check went out with ``"context": {}``.
 
     A context-dependent ABAC policy therefore evaluated against an empty
@@ -200,7 +207,7 @@ async def test_filter_objects_forwards_caller_context(httpserver: HTTPServer, en
 @pytest.mark.asyncio
 async def test_filter_objects_keeps_per_resource_context_on_the_resource(
     httpserver: HTTPServer, enforcer: Enforcer
-):
+) -> None:
     """A resource-level ``context`` stays on the resource, not on the query."""
     bodies: list[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
@@ -236,7 +243,7 @@ USER_PERMISSIONS = {
 )
 async def test_get_user_permissions_unwraps_both_pdp_response_shapes(
     httpserver: HTTPServer, enforcer: Enforcer, pdp_response: dict[str, Any]
-):
+) -> None:
     """The PDP answers with the permissions map itself or with it under ``result.permissions``."""
     bodies: list[Any] = []
     httpserver.expect_request("/user-permissions", method="POST").respond_with_handler(
@@ -259,7 +266,7 @@ async def test_get_user_permissions_unwraps_both_pdp_response_shapes(
 # --- bug 3: snake_case user fields silently dropped --------------------------
 
 
-def test_user_input_accepts_snake_case_and_alias():
+def test_user_input_accepts_snake_case_and_alias() -> None:
     assert UserInput(key="u1", first_name="John", last_name="Doe", email="a@b.c").dict(
         exclude_unset=True
     ) == {
@@ -276,7 +283,9 @@ def test_user_input_accepts_snake_case_and_alias():
 
 
 @pytest.mark.asyncio
-async def test_check_sends_snake_case_user_fields(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_check_sends_snake_case_user_fields(
+    httpserver: HTTPServer, enforcer: Enforcer
+) -> None:
     """The PDP reads ``first_name``/``last_name``; both spellings must reach it."""
     bodies: list[Any] = []
     httpserver.expect_request("/allowed", method="POST").respond_with_handler(
@@ -299,7 +308,9 @@ async def test_check_sends_snake_case_user_fields(httpserver: HTTPServer, enforc
 
 
 @pytest.mark.asyncio
-async def test_bulk_check_sends_snake_case_user_fields(httpserver: HTTPServer, enforcer: Enforcer):
+async def test_bulk_check_sends_snake_case_user_fields(
+    httpserver: HTTPServer, enforcer: Enforcer
+) -> None:
     bodies: list[Any] = []
     httpserver.expect_request("/allowed/bulk", method="POST").respond_with_handler(
         _recorder(bodies, {"allow": [{"allow": True}]})

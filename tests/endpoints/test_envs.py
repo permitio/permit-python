@@ -73,7 +73,7 @@ def permit_with_project_level_api_key() -> Permit:
     )
 
 
-async def cleanup(permit: Permit, project_key: str):
+async def cleanup(permit: Permit, project_key: str) -> None:
     for env in CREATED_ENVIRONMENTS:
         try:
             await permit.api.environments.delete(project_key, env.key)
@@ -84,7 +84,7 @@ async def cleanup(permit: Permit, project_key: str):
 
 async def test_environment_creation_with_org_level_api_key(
     permit_with_org_level_api_key: Permit,
-):
+) -> None:
     permit = permit_with_org_level_api_key
     try:
         await permit.api._ensure_access_level(ApiKeyAccessLevel.ORGANIZATION_LEVEL_API_KEY)
@@ -98,11 +98,11 @@ async def test_environment_creation_with_org_level_api_key(
         for project_data in CREATED_PROJECTS:
             print(f"trying to creating project: {project_data.key}")
             try:
-                project: ProjectRead = await permit.api.projects.create(project_data)
+                project = await permit.api.projects.create(project_data)
             except PermitApiError as error:
                 if error.status_code == 409:
                     print(f"SKIPPING create, project already exists: {project_data.key}")
-                project: ProjectRead = await permit.api.projects.get(project_key=project_data.key)
+                project = await permit.api.projects.get(project_key=project_data.key)
             assert project is not None
             assert project.key == project_data.key
             assert project.name == project_data.name
@@ -149,7 +149,7 @@ async def test_environment_creation_with_org_level_api_key(
 
 async def test_environment_creation_with_project_level_api_key(
     permit_with_project_level_api_key: Permit,
-):
+) -> None:
     permit = permit_with_project_level_api_key
     try:
         await permit.api._ensure_access_level(ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY)

@@ -38,7 +38,7 @@ def list_own_resource_keys(permit: SyncPermit) -> list[str]:
         page += 1
 
 
-def test_resources_sync(sync_permit: SyncPermit):
+def test_resources_sync(sync_permit: SyncPermit) -> None:
     permit = sync_permit
     logger.info("initial setup of objects")
     # none of this test's resources exist yet

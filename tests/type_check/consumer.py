@@ -7,7 +7,7 @@ errors: with warn_unused_ignores, the check fails if one of them stops being rep
 """
 
 from collections.abc import Callable
-from typing import Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from typing_extensions import assert_type
 
@@ -26,8 +26,10 @@ from permit.api.models import (
 )
 from permit.enforcement.enforcer import CheckQuery
 from permit.pdp_api.models import RoleAssignment
-from permit.pdp_api.pdp_api_client import SyncRoleAssignmentsApi
 from permit.sync import Permit as SyncPermit
+
+if TYPE_CHECKING:
+    from permit.pdp_api.pdp_api_client import SyncRoleAssignmentsApi
 
 CONFIG = PermitConfig(token="permit_key_x", pdp="http://localhost:7766")
 
@@ -118,7 +120,7 @@ async def async_client() -> None:
     fetched = await permit.api.users.get("u")
     assert_type(fetched.dict(), dict[str, Any])
     assert_type(fetched.key, str)
-    assert_type(fetched.email, Optional[str])
+    assert_type(fetched.email, str | None)
 
     try:
         await permit.api.users.get("missing")
@@ -130,11 +132,11 @@ def dict_parameters(query: CheckQuery) -> None:
     permit = Permit(CONFIG)
     sync_permit = SyncPermit(CONFIG)
 
-    assert_type(query["user"], Union[dict[str, Any], str])
-    assert_type(query["resource"], Union[dict[str, Any], str])
-    assert_type(parameter_type(permit.api.users.sync), Union[UserCreate, dict[str, Any]])
-    assert_type(parameter_type(sync_permit.api.users.sync), Union[UserCreate, dict[str, Any]])
-    assert_type(parameter_type(sync_permit.api.create_tenant), Union[TenantCreate, dict[str, Any]])
+    assert_type(query["user"], dict[str, Any] | str)
+    assert_type(query["resource"], dict[str, Any] | str)
+    assert_type(parameter_type(permit.api.users.sync), UserCreate | dict[str, Any])
+    assert_type(parameter_type(sync_permit.api.users.sync), UserCreate | dict[str, Any])
+    assert_type(parameter_type(sync_permit.api.create_tenant), TenantCreate | dict[str, Any])
 
 
 def sync_client() -> None:

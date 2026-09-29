@@ -19,12 +19,12 @@ import json
 from collections.abc import Callable
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request, Response
 
 from permit.api.base import SimpleHttpClient
 from permit.api.models import (
@@ -45,12 +45,16 @@ from permit.api.models import (
 )
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
-if PYDANTIC_VERSION < (2, 0):
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel
+elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel
 else:
-    from pydantic.v1 import BaseModel  # type: ignore[assignment]
+    from pydantic.v1 import BaseModel
 
-FIXED_DATETIME = datetime.datetime(2024, 3, 1, 12, 30, 45)
+# Pins how the encoder renders a datetime without an offset.
+FIXED_DATETIME = datetime.datetime(2024, 3, 1, 12, 30, 45)  # noqa: DTZ001 - naive on purpose
 FIXED_UUID = UUID("11111111-2222-3333-4444-555555555555")
 
 
@@ -73,11 +77,11 @@ def client(httpserver: HTTPServer) -> SimpleHttpClient:
 
 
 @pytest.fixture
-def captured(httpserver: HTTPServer) -> list:
+def captured(httpserver: HTTPServer) -> list[Any]:
     """Register a catch-all handler that records every received JSON body."""
-    bodies: list = []
+    bodies: list[Any] = []
 
-    def handler(request):
+    def handler(request: Request) -> Response:
         bodies.append(request.get_json())
         return Response('{"ok": true}', status=200, content_type="application/json")
 
@@ -85,7 +89,9 @@ def captured(httpserver: HTTPServer) -> list:
     return bodies
 
 
-async def test_explicitly_set_none_is_transmitted_as_null(client: SimpleHttpClient, captured: list):
+async def test_explicitly_set_none_is_transmitted_as_null(
+    client: SimpleHttpClient, captured: list[Any]
+) -> None:
     """An explicit ``email=None`` must reach the API as ``null``, not be dropped.
 
     Before the fix ``exclude_none=True`` removed it, so ``users.update()`` silently
@@ -96,7 +102,7 @@ async def test_explicitly_set_none_is_transmitted_as_null(client: SimpleHttpClie
     assert captured == [{"email": None, "first_name": "Jane"}]
 
 
-async def test_never_set_field_is_omitted(client: SimpleHttpClient, captured: list):
+async def test_never_set_field_is_omitted(client: SimpleHttpClient, captured: list[Any]) -> None:
     """``exclude_unset`` still applies: untouched fields never appear in the body."""
     await client.patch("/echo", model=Ack, json=UserUpdate(first_name="Jane"))
 
@@ -105,7 +111,9 @@ async def test_never_set_field_is_omitted(client: SimpleHttpClient, captured: li
     assert "last_name" not in captured[0]
 
 
-async def test_null_inside_attributes_dict_is_preserved(client: SimpleHttpClient, captured: list):
+async def test_null_inside_attributes_dict_is_preserved(
+    client: SimpleHttpClient, captured: list[Any]
+) -> None:
     """A ``null`` the caller put inside an ``attributes`` dict must survive.
 
     ``exclude_none`` recursed into plain dicts, so an attribute explicitly set to null
@@ -122,7 +130,9 @@ async def test_null_inside_attributes_dict_is_preserved(client: SimpleHttpClient
     ]
 
 
-async def test_attributes_set_to_null_wholesale(client: SimpleHttpClient, captured: list):
+async def test_attributes_set_to_null_wholesale(
+    client: SimpleHttpClient, captured: list[Any]
+) -> None:
     """Clearing the whole attributes bag is expressible as ``attributes=None``.
 
     ``attributes`` defaults to ``{}``, so ``exclude_none`` made an explicit ``None``
@@ -134,8 +144,8 @@ async def test_attributes_set_to_null_wholesale(client: SimpleHttpClient, captur
 
 
 async def test_raw_dict_with_datetime_uuid_and_enum_is_encoded(
-    client: SimpleHttpClient, captured: list
-):
+    client: SimpleHttpClient, captured: list[Any]
+) -> None:
     """A raw dict body is now encoded.
 
     Before the fix ``_prepare_json`` returned dicts unchanged, and aiohttp raised
@@ -170,9 +180,13 @@ async def test_raw_dict_with_datetime_uuid_and_enum_is_encoded(
     ]
 
 
-async def test_raw_dict_keys_are_never_dropped(client: SimpleHttpClient, captured: list):
-    """Encoding a dict must not remove keys -- the API schemas use ``Extra.forbid``,
-    and a silently dropped key is how the original ``exclude_none`` bug manifested.
+async def test_raw_dict_keys_are_never_dropped(
+    client: SimpleHttpClient, captured: list[Any]
+) -> None:
+    """Encoding a dict must not remove keys.
+
+    The API schemas use ``Extra.forbid``, and a silently dropped key is how the
+    original ``exclude_none`` bug manifested.
     """
     body = {"key": "user-1", "email": None, "first_name": None}
 
@@ -181,7 +195,7 @@ async def test_raw_dict_keys_are_never_dropped(client: SimpleHttpClient, capture
     assert captured == [body]
 
 
-async def test_list_body_encodes_each_item(client: SimpleHttpClient, captured: list):
+async def test_list_body_encodes_each_item(client: SimpleHttpClient, captured: list[Any]) -> None:
     """A list body is handled, mixing models and raw dicts."""
     await client.post(
         "/echo",
@@ -200,11 +214,11 @@ async def test_list_body_encodes_each_item(client: SimpleHttpClient, captured: l
     ]
 
 
-async def test_no_body_stays_absent(client: SimpleHttpClient, httpserver: HTTPServer):
+async def test_no_body_stays_absent(client: SimpleHttpClient, httpserver: HTTPServer) -> None:
     """``json=None`` must not turn into a ``null`` body."""
-    seen: list = []
+    seen: list[bytes] = []
 
-    def handler(request):
+    def handler(request: Request) -> Response:
         seen.append(request.get_data())
         return Response('{"ok": true}', status=200, content_type="application/json")
 
@@ -215,7 +229,9 @@ async def test_no_body_stays_absent(client: SimpleHttpClient, httpserver: HTTPSe
     assert seen == [b""]
 
 
-async def test_role_assignment_body_unchanged(client: SimpleHttpClient, captured: list):
+async def test_role_assignment_body_unchanged(
+    client: SimpleHttpClient, captured: list[Any]
+) -> None:
     """users.assign_role routes a model through this path; its body must not grow keys.
 
     The backend's ``UserRoleCreate.tenant``/``resource_instance`` are nullable, but an
@@ -233,8 +249,10 @@ MIXED_TEXT = "emoji ✅🚀 · combining e\u0301 vs \u00e9 · rtl \u202eabc\u202
 
 
 def hostile_attributes() -> dict[str, Any]:
-    """Legal attribute values a lossy encoder would change: a bool beside ints, a whole float,
-    unicode with bidi controls, keys with separators, empty containers, nesting and nulls.
+    """Legal attribute values a lossy encoder would change.
+
+    A bool beside ints, a whole float, unicode with bidi controls, keys with separators, empty
+    containers, nesting and nulls.
     """
     return {
         "unicode": UNICODE_NAME,
@@ -398,8 +416,11 @@ WIRE_BODIES: list[Any] = [
 
 @pytest.mark.parametrize(("build", "expected"), WIRE_BODIES)
 async def test_request_body_reaches_the_wire_exactly_as_given(
-    client: SimpleHttpClient, captured: list, build: Callable[[], Any], expected: dict[str, Any]
-):
+    client: SimpleHttpClient,
+    captured: list[Any],
+    build: Callable[[], Any],
+    expected: dict[str, Any],
+) -> None:
     """Every value arrives with its JSON type and every key survives, nulls included.
 
     Each expected body is a literal and CI runs this file under both pydantic majors, so a

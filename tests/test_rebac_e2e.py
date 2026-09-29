@@ -56,7 +56,7 @@ class ShortDerivation:
 class CheckAssertion:
     user: str
     action: str
-    resource: dict
+    resource: dict[str, Any]
     expected_decision: bool
     pre_assertion_hook: Callable[[Permit], Awaitable[Any]] | None = None
     post_assertion_hook: Callable[[Permit], Awaitable[Any]] | None = None
@@ -572,7 +572,7 @@ ASSIGNMENTS_AND_ASSERTIONS: list[PermissionAssertions] = [
 ]
 
 
-async def cleanup(permit: Permit):
+async def cleanup(permit: Permit) -> None:
     """Remove everything this module created.
 
     Every delete tolerates a 404 (the object is already gone, which is the
@@ -593,10 +593,10 @@ async def cleanup(permit: Permit):
             except PermitApiError as error:
                 handle_cleanup_error(error, f"Could not delete tenant {tenant.key}")
         for rel_tuple in RELATIONSHIPS:
-            subject, relation, object, tenant = rel_tuple
+            subject, relation, obj, tenant = rel_tuple
             try:
                 await permit.api.relationship_tuples.delete(
-                    RelationshipTupleDelete(subject=subject, relation=relation, object=object)
+                    RelationshipTupleDelete(subject=subject, relation=relation, object=obj)
                 )
             except PermitApiError as error:
                 handle_cleanup_error(
@@ -657,7 +657,7 @@ async def wait_for_decision(permit: Permit, q: CheckAssertion) -> bool:
     return decision
 
 
-async def assert_permit_check(permit: Permit, q: CheckAssertion):
+async def assert_permit_check(permit: Permit, q: CheckAssertion) -> None:
     logger.info(
         f"asserting: permit.check({q.user}, {q.action}, {q.resource!s}) === {q.expected_decision!s}"
     )
@@ -667,7 +667,7 @@ async def assert_permit_check(permit: Permit, q: CheckAssertion):
 
 async def assert_permit_authorized_users(
     permit: Permit, q: CheckAssertion, assignments: list[RoleAssignmentCreate]
-):
+) -> None:
     logger.info(
         f"asserting: permit.authorized_users({q.action}, {q.resource}) === {q.expected_decision}",
     )
@@ -713,7 +713,7 @@ async def own_relationship_tuples(permit: Permit, tenant_key: str) -> list[Any]:
     ]
 
 
-async def test_rebac_policy(permit: Permit):
+async def test_rebac_policy(permit: Permit) -> None:
     # No pre-test cleanup: every key this module uses is unique per run, so
     # there is nothing left over from an earlier run to collide with, and
     # deleting fixed keys here is what used to break the tests running
@@ -747,6 +747,7 @@ async def test_rebac_policy(permit: Permit):
                 assert role.name == role_data.name
                 assert role.description == role_data.description
                 assert role.permissions is not None
+                assert role_data.permissions is not None
                 assert len(role.permissions) == len(role_data.permissions)
 
         # create resource relations
@@ -765,7 +766,8 @@ async def test_rebac_policy(permit: Permit):
         # create role derivations
         for derivation_data in ROLE_DERIVATIONS:
             logger.debug(
-                f"creating derivation: {derivation_data.source_role} -> {derivation_data.derived_role} "
+                f"creating derivation: {derivation_data.source_role} -> "
+                f"{derivation_data.derived_role} "
                 f"(via {derivation_data.via_relation})"
             )
             derivation = await permit.api.resource_roles.create_role_derivation(
@@ -802,23 +804,25 @@ async def test_rebac_policy(permit: Permit):
             assert user.email == user_data.email
             assert user.first_name == user_data.first_name
             assert user.last_name == user_data.last_name
+            assert user.attributes is not None
+            assert user_data.attributes is not None
             assert set(user.attributes.keys()) == set(user_data.attributes.keys())
 
         # relationship tuples
         for tuple_data in RELATIONSHIPS:
-            subject, relation, object, tenant = tuple_data
+            subject, relation_key, obj, tenant = tuple_data
             logger.debug(
-                f"creating relationship tuple: ({subject}, {relation}, {object}, {tenant})"
+                f"creating relationship tuple: ({subject}, {relation_key}, {obj}, {tenant})"
             )
             rel_tuple = await permit.api.relationship_tuples.create(
                 RelationshipTupleCreate(
-                    subject=subject, relation=relation, object=object, tenant=tenant
+                    subject=subject, relation=relation_key, object=obj, tenant=tenant
                 )
             )
             assert rel_tuple is not None
             assert rel_tuple.subject == subject
-            assert rel_tuple.relation == relation
-            assert rel_tuple.object == object
+            assert rel_tuple.relation == relation_key
+            assert rel_tuple.object == obj
             assert rel_tuple.tenant == tenant
 
         own_tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
@@ -829,14 +833,12 @@ async def test_rebac_policy(permit: Permit):
 
         # bulk create relationship tuples
         bulk_relationships_to_create = [
-            RelationshipTupleCreate(
-                subject=subject, relation=relation, object=object, tenant=tenant
-            )
-            for (subject, relation, object, tenant) in BULK_RELATIONSHIPS
+            RelationshipTupleCreate(subject=subject, relation=relation, object=obj, tenant=tenant)
+            for (subject, relation, obj, tenant) in BULK_RELATIONSHIPS
         ]
         bulk_relationships_to_delete = [
-            RelationshipTupleDelete(subject=subject, relation=relation, object=object)
-            for (subject, relation, object, tenant) in BULK_RELATIONSHIPS
+            RelationshipTupleDelete(subject=subject, relation=relation, object=obj)
+            for (subject, relation, obj, _tenant) in BULK_RELATIONSHIPS
         ]
 
         for instance_key in BULK_RELATIONSHIPS_INSTANCES:
@@ -846,7 +848,7 @@ async def test_rebac_policy(permit: Permit):
                 ResourceInstanceCreate(key=parts[1], resource=parts[0], tenant=TENANT_PERMIT.key)
             )
 
-        async def create_relationships_in_bulk():
+        async def create_relationships_in_bulk() -> None:
             await permit.api.relationship_tuples.bulk_create(tuples=bulk_relationships_to_create)
 
             tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
@@ -854,10 +856,10 @@ async def test_rebac_policy(permit: Permit):
             created = {
                 (rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples
             }
-            for subject, relation, object, _tenant in BULK_RELATIONSHIPS:
-                assert (subject, relation, object) in created
+            for subject, relation, obj, _tenant in BULK_RELATIONSHIPS:
+                assert (subject, relation, obj) in created
 
-        async def remove_relationships_in_bulk():
+        async def remove_relationships_in_bulk() -> None:
             await permit.api.relationship_tuples.bulk_delete(tuples=bulk_relationships_to_delete)
 
             tuples = await own_relationship_tuples(permit, TENANT_PERMIT.key)
@@ -865,16 +867,18 @@ async def test_rebac_policy(permit: Permit):
             remaining = {
                 (rel_tuple.subject, rel_tuple.relation, rel_tuple.object) for rel_tuple in tuples
             }
-            for subject, relation, object, _tenant in BULK_RELATIONSHIPS:
-                assert (subject, relation, object) not in remaining
+            for subject, relation, obj, _tenant in BULK_RELATIONSHIPS:
+                assert (subject, relation, obj) not in remaining
 
         logger.debug(
-            f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}"
+            f"creating {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: "
+            f"{BULK_RELATIONSHIPS!s}"
         )
         await create_relationships_in_bulk()
 
         logger.debug(
-            f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: {BULK_RELATIONSHIPS!s}"
+            f"removing the same {len(BULK_RELATIONSHIPS)} relationship tuples in bulk: "
+            f"{BULK_RELATIONSHIPS!s}"
         )
         await remove_relationships_in_bulk()
 

@@ -28,7 +28,7 @@ NOW = "2024-01-01T00:00:00+00:00"
 
 SCOPE_PATH = "/v2/api-key/scope"
 
-RecordedRequest = tuple[str, str, dict]
+RecordedRequest = tuple[str, str, dict[str, Any]]
 
 
 def _make_permit(
@@ -70,7 +70,7 @@ def _facts_requests(httpserver: HTTPServer) -> list[RecordedRequest]:
     return requests
 
 
-async def test_tenants_bulk_create_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer):
+async def test_tenants_bulk_create_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.tenants.bulk_create([TenantCreate(key="tenant-1", name="Tenant 1")])
@@ -85,7 +85,7 @@ async def test_tenants_bulk_create_targets_the_pdp_tenants_endpoint(httpserver: 
     httpserver.check_assertions()
 
 
-async def test_tenants_bulk_delete_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer):
+async def test_tenants_bulk_delete_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.tenants.bulk_delete(["tenant-1", "tenant-2"])
@@ -96,7 +96,9 @@ async def test_tenants_bulk_delete_targets_the_pdp_tenants_endpoint(httpserver: 
     httpserver.check_assertions()
 
 
-async def test_tenant_bulk_operations_never_reach_the_users_endpoint(httpserver: HTTPServer):
+async def test_tenant_bulk_operations_never_reach_the_users_endpoint(
+    httpserver: HTTPServer,
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.tenants.bulk_create([TenantCreate(key="tenant-1", name="Tenant 1")])
@@ -106,7 +108,7 @@ async def test_tenant_bulk_operations_never_reach_the_users_endpoint(httpserver:
     assert paths == {"/facts/bulk/tenants"}
 
 
-async def test_users_bulk_create_targets_the_pdp_users_endpoint(httpserver: HTTPServer):
+async def test_users_bulk_create_targets_the_pdp_users_endpoint(httpserver: HTTPServer) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.users.bulk_create([UserCreate(key="user-1")])
@@ -116,7 +118,9 @@ async def test_users_bulk_create_targets_the_pdp_users_endpoint(httpserver: HTTP
     ]
 
 
-async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(httpserver: HTTPServer):
+async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(
+    httpserver: HTTPServer,
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.resource_instances.bulk_replace(
@@ -134,7 +138,9 @@ async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(http
     ]
 
 
-async def test_tenants_bulk_create_without_pdp_proxy_targets_the_rest_api(httpserver: HTTPServer):
+async def test_tenants_bulk_create_without_pdp_proxy_targets_the_rest_api(
+    httpserver: HTTPServer,
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=False)
 
     await permit.api.tenants.bulk_create([TenantCreate(key="tenant-1", name="Tenant 1")])
@@ -229,7 +235,7 @@ SINGLE_WRITES = [
 @pytest.mark.parametrize(("target", "expected", "response"), SINGLE_WRITES)
 async def test_single_fact_writes_target_their_pdp_endpoint(
     httpserver: HTTPServer, target: Call, expected: RecordedRequest, response: dict[str, Any]
-):
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True, response=response)
     # A copy, so an SDK that edited the caller's dict could not also edit the expected body.
     args, kwargs = copy.deepcopy((target.args, target.kwargs))

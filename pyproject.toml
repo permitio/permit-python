@@ -263,6 +263,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
     "PERF203", # try/except in retry and cleanup loops; speed is not what tests measure
     "T201",    # progress output for long e2e runs; pytest captures it
     "BLE001",  # e2e tests turn any unexpected exception into a readable pytest.fail
+    "S603",    # subprocesses run the interpreter under test with the test's own arguments
 ]
 # These are standalone CLI programs, not library code: writing the rendered
 # report to stdout IS their interface, so the "no print" rule does not apply.
@@ -274,6 +275,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
 # The migration skill's tests are run by path with their own pytest.ini, like
 # the CI scripts' tests, not imported as a package.
 "skills/tests/*.py" = ["INP001"]
+# A user's code as mypy sees it (tests/test_typing_surface.py): a file mypy is
+# pointed at, not a module of the tests package.
+"tests/type_check/*.py" = ["INP001"]
 
 [tool.typos.files]
 # Generated (see [tool.ruff]); its misspellings come from the OpenAPI spec's
@@ -325,3 +329,16 @@ warn_untyped_fields = true
 # Generated code (see [tool.ruff] above); checked as a dependency, not linted.
 module = ["permit.api.models"]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Installed only on Python 3.10 (see the dev group), where the standard library has
+# no tomllib. mypy reads that branch for python_version 3.10 on any interpreter.
+module = ["tomli"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# These tests declare classes with `metaclass=SyncClass`, which makes their async
+# methods blocking at runtime. mypy sees only the `async def` signatures, so every
+# call looks like it returns a coroutine.
+module = ["tests.test_fix_sync"]
+disable_error_code = ["comparison-overlap", "unused-coroutine"]

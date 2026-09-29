@@ -109,10 +109,11 @@ def _sent_body(httpserver: HTTPServer, path: str, method: str) -> dict[str, Any]
         if request.path == path and request.method == method
     ]
     assert len(requests) == 1, f"expected exactly one {method} {path}, got {len(requests)}"
-    return json.loads(requests[0].get_data(as_text=True))
+    body: dict[str, Any] = json.loads(requests[0].get_data(as_text=True))
+    return body
 
 
-async def test_resource_role_create_sends_bare_action_keys(httpserver: HTTPServer):
+async def test_resource_role_create_sends_bare_action_keys(httpserver: HTTPServer) -> None:
     """``resource_roles.create`` must forward the action keys it was given, unprefixed."""
     httpserver.expect_request(RESOURCE_ROLES_PATH, method="POST").respond_with_json(
         _resource_role_response(["read", "update"])
@@ -129,7 +130,9 @@ async def test_resource_role_create_sends_bare_action_keys(httpserver: HTTPServe
     httpserver.check_assertions()
 
 
-async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(httpserver: HTTPServer):
+async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(
+    httpserver: HTTPServer,
+) -> None:
     """A caller who sends ``resource:action`` gets it on the wire, verbatim.
 
     The SDK must not paper over the format mismatch: the server's
@@ -152,7 +155,9 @@ async def test_resource_role_create_does_not_strip_a_caller_supplied_prefix(http
     httpserver.check_assertions()
 
 
-async def test_resource_role_assign_permissions_sends_bare_action_keys(httpserver: HTTPServer):
+async def test_resource_role_assign_permissions_sends_bare_action_keys(
+    httpserver: HTTPServer,
+) -> None:
     """``assign_permissions`` must send exactly the strings it was handed."""
     httpserver.expect_request(RESOURCE_ROLE_PERMISSIONS_PATH, method="POST").respond_with_json(
         _resource_role_response(["read", "update"])
@@ -168,7 +173,9 @@ async def test_resource_role_assign_permissions_sends_bare_action_keys(httpserve
     httpserver.check_assertions()
 
 
-async def test_resource_role_remove_permissions_sends_bare_action_keys(httpserver: HTTPServer):
+async def test_resource_role_remove_permissions_sends_bare_action_keys(
+    httpserver: HTTPServer,
+) -> None:
     """``remove_permissions`` carries its body on a DELETE, unprefixed."""
     httpserver.expect_request(RESOURCE_ROLE_PERMISSIONS_PATH, method="DELETE").respond_with_json(
         _resource_role_response(["read"])
@@ -184,7 +191,9 @@ async def test_resource_role_remove_permissions_sends_bare_action_keys(httpserve
     httpserver.check_assertions()
 
 
-async def test_top_level_role_create_keeps_the_resource_qualified_form(httpserver: HTTPServer):
+async def test_top_level_role_create_keeps_the_resource_qualified_form(
+    httpserver: HTTPServer,
+) -> None:
     """A tenant role's permissions are ``resource:action`` and must not be rewritten."""
     permissions = [f"{RESOURCE_KEY}:read", f"{RESOURCE_KEY}:update", "folder:read"]
     httpserver.expect_request(ROLES_PATH, method="POST").respond_with_json(
@@ -201,7 +210,9 @@ async def test_top_level_role_create_keeps_the_resource_qualified_form(httpserve
     httpserver.check_assertions()
 
 
-async def test_role_assignment_filters_send_the_instance_ident_verbatim(httpserver: HTTPServer):
+async def test_role_assignment_filters_send_the_instance_ident_verbatim(
+    httpserver: HTTPServer,
+) -> None:
     """``resource_instance_key`` is a ``resource:key`` ident and travels unchanged.
 
     The server reads this filter as a resource instance string and answers 400 to

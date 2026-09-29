@@ -72,7 +72,7 @@ async def list_own_role_keys(permit: Permit) -> list[str]:
         page += 1
 
 
-async def test_roles(permit: Permit):
+async def test_roles(permit: Permit) -> None:
     logger.info("initial setup of objects")
     # none of this test's roles exist yet
     assert await list_own_role_keys(permit) == []
@@ -162,6 +162,7 @@ async def test_roles(permit: Permit):
         )
 
         assert assigned_empty.key == empty.key
+        assert assigned_empty.permissions is not None
         assert len(assigned_empty.permissions) == 1
         assert f"{TEST_RESOURCE_KEY}:delete" in assigned_empty.permissions
 
@@ -177,6 +178,7 @@ async def test_roles(permit: Permit):
         assert admin is not None
         assert admin.key == TEST_ADMIN_ROLE_KEY
         assert admin.description == "a test role"
+        assert admin.permissions is not None
         assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
         assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
 
@@ -193,6 +195,7 @@ async def test_roles(permit: Permit):
         assert admin is not None
         assert admin.key == TEST_ADMIN_ROLE_KEY
         assert admin.description == "wat"
+        assert admin.permissions is not None
         assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
         assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
     finally:

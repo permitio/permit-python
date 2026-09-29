@@ -33,7 +33,7 @@ def load_stub_generator() -> ModuleType:
     return module
 
 
-def test_consumer_code_type_checks_without_errors(tmp_path: Path):
+def test_consumer_code_type_checks_without_errors(tmp_path: Path) -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -54,7 +54,7 @@ def test_consumer_code_type_checks_without_errors(tmp_path: Path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_sync_stub_matches_the_async_classes():
+def test_sync_stub_matches_the_async_classes() -> None:
     generator = load_stub_generator()
 
     expected = generator.render_stub()
@@ -101,7 +101,7 @@ def stub_plain_methods() -> dict[str, set[str]]:
     return classes
 
 
-def test_sync_stub_declares_exactly_the_methods_sync_class_makes_blocking():
+def test_sync_stub_declares_exactly_the_methods_sync_class_makes_blocking() -> None:
     generator = load_stub_generator()
     stub = stub_plain_methods()
     runtime = runtime_sync_classes()

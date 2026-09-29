@@ -1,5 +1,5 @@
 import uuid
-from typing import cast
+from collections.abc import AsyncIterator
 
 import pytest
 from loguru import logger
@@ -25,7 +25,7 @@ from permit.exceptions import PermitApiError
 pytestmark = pytest.mark.e2e
 
 
-def print_break():
+def print_break() -> None:
     print("\n\n ----------- \n\n")
 
 
@@ -37,8 +37,8 @@ class SetupUserInvites(NamedTuple):
     to_create_invites: list[ElementsUserInviteCreate]
 
 
-@pytest.fixture(scope="function")
-async def setup_user_invites(permit: Permit):
+@pytest.fixture
+async def setup_user_invites(permit: Permit) -> AsyncIterator[SetupUserInvites]:
     run_id = uuid.uuid4()
     # Test data
     test_tenant = TenantCreate(
@@ -146,10 +146,10 @@ async def setup_user_invites(permit: Permit):
 
         print_break()
         yield SetupUserInvites(
-            created_resource=cast("ResourceRead", created_resource),
-            created_resource_instance=cast("ResourceInstanceRead", created_resource_instance),
-            created_role=cast("RoleRead", created_role),
-            created_tenant=cast("TenantRead", created_tenant),
+            created_resource=created_resource,
+            created_resource_instance=created_resource_instance,
+            created_role=created_role,
+            created_tenant=created_tenant,
             to_create_invites=to_create_invites,
         )
     finally:
@@ -160,7 +160,7 @@ async def setup_user_invites(permit: Permit):
         try:
             # Delete test resource instance first: it belongs to the tenant and the resource below.
             # The API identifies an instance as "resource:key" (or its id); a bare key is rejected.
-            if created_resource_instance:
+            if created_resource_instance is not None:
                 instance_ident = (
                     f"{created_resource_instance.resource}:{created_resource_instance.key}"
                 )
@@ -172,7 +172,7 @@ async def setup_user_invites(permit: Permit):
                         logger.warning(f"Failed to delete resource instance {instance_ident}: {e}")
 
             # Delete test role
-            if created_role:
+            if created_role is not None:
                 try:
                     await permit.api.roles.delete(created_role.key)
                     logger.info(f"Cleaned up role: {created_role.key}")
@@ -181,7 +181,7 @@ async def setup_user_invites(permit: Permit):
                         logger.warning(f"Failed to delete role {created_role.key}: {e}")
 
             # Delete test tenant
-            if created_tenant:
+            if created_tenant is not None:
                 try:
                     await permit.api.tenants.delete(created_tenant.key)
                     logger.info(f"Cleaned up tenant: {created_tenant.key}")
@@ -190,7 +190,7 @@ async def setup_user_invites(permit: Permit):
                         logger.warning(f"Failed to delete tenant {created_tenant.key}: {e}")
 
             # Delete test resource
-            if created_resource:
+            if created_resource is not None:
                 try:
                     await permit.api.resources.delete(created_resource.key)
                     logger.info(f"Cleaned up resource: {created_resource.key}")
@@ -209,7 +209,7 @@ async def setup_user_invites(permit: Permit):
 async def test_user_invites_complete_e2e(
     permit: Permit,
     setup_user_invites: SetupUserInvites,
-):
+) -> None:
     """Complete end-to-end test for User Invites API functionality.
 
     Tests the complete lifecycle:
@@ -280,7 +280,8 @@ async def test_user_invites_complete_e2e(
         ]
         assert len(our_invites) == 2
         logger.info(
-            f"✅ Listed invites: found {invites_list.total_count} total, including our 2 test invites"
+            f"✅ Listed invites: found {invites_list.total_count} total, "
+            f"including our 2 test invites"
         )
 
         print_break()
@@ -343,13 +344,11 @@ async def test_user_invites_complete_e2e(
         logger.info(f"✅ Deleted invite: {invite_2.email}")
 
         # Verify deletion - trying to get the deleted invite should fail
-        try:
+        with pytest.raises(PermitApiError) as exc_info:
             await permit.api.user_invites.get(str(invite_2.id))
-            pytest.fail("Expected invite to be deleted, but it still exists")
-        except PermitApiError as e:
-            # Expected - invite should not be found
-            assert e.status_code in [404, 403]  # Not found or forbidden
-            logger.info("✅ Confirmed: Invite successfully deleted (not found)")
+        # Expected - invite should not be found
+        assert exc_info.value.status_code in [404, 403]  # Not found or forbidden
+        logger.info("✅ Confirmed: Invite successfully deleted (not found)")
 
         # Remove from our tracking list since it's deleted
         created_invites = [inv for inv in created_invites if inv.id != invite_2.id]
@@ -367,9 +366,11 @@ async def test_user_invites_complete_e2e(
         assert final_invites_list.data[0].id == invite_1.id
 
         # Should have 1 invite remaining (invite_1 which was approved)
-        # Note: approved invites might still be in the list or might be removed depending on API behavior
+        # Note: approved invites might still be in the list or might be removed depending on
+        # API behavior
         logger.info(
-            f"✅ Final verification: {len(final_invites_list.data)} of our test invites remain in the list"
+            f"✅ Final verification: {len(final_invites_list.data)} of our test invites "
+            f"remain in the list"
         )
     finally:
         # Delete remaining user invites

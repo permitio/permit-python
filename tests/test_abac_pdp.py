@@ -36,11 +36,11 @@ pytestmark = [
 ]
 
 
-def abac_user(user: UserCreate):
+def abac_user(user: UserCreate) -> dict[str, Any]:
     return user.dict(exclude={"first_name", "last_name"})
 
 
-async def test_abac_pdp_cloud_error(permit_cloud: Permit):
+async def test_abac_pdp_cloud_error(permit_cloud: Permit) -> None:
     user_test = UserCreate(
         key="maya@permit.io",
         email="maya@permit.io",
@@ -50,7 +50,7 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit):
     )
     tesla = TenantCreate(key="tesla", name="Tesla Inc")
 
-    try:
+    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
         await permit_cloud.check(
             abac_user(user_test),
             "sign",
@@ -60,13 +60,10 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit):
                 "attributes": {"private": False},
             },
         )
-    except (PermitConnectionError, aiohttp.ClientError) as error:
-        assert isinstance(error, PermitConnectionError)
-    else:
-        pytest.fail("Should have raised an exception")
+    assert isinstance(exc_info.value, PermitConnectionError)
 
 
-async def test_get_user_permissions_cloud_error(permit_cloud: Permit):
+async def test_get_user_permissions_cloud_error(permit_cloud: Permit) -> None:
     user_test = UserCreate(
         key="maya@permit.io",
         email="maya@permit.io",
@@ -75,7 +72,7 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit):
         attributes={"age": 23},
     )
 
-    try:
+    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
         await permit_cloud.get_user_permissions(
             user={
                 "key": user_test.key,
@@ -86,13 +83,10 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit):
             resources=["Blog:dddddd"],
             resource_types=["Blog"],
         )
-    except (PermitConnectionError, aiohttp.ClientError) as error:
-        assert isinstance(error, PermitConnectionError)
-    else:
-        pytest.fail("Should have raised an exception")
+    assert isinstance(exc_info.value, PermitConnectionError)
 
 
-async def test_filter_objects_cloud_error(permit_cloud: Permit):
+async def test_filter_objects_cloud_error(permit_cloud: Permit) -> None:
     user_test = {"key": "maya@permit.io", "email": "maya@permit.io", "attributes": {"age": 23}}
 
     test_resources: list[dict[str, Any]] = [
@@ -100,11 +94,8 @@ async def test_filter_objects_cloud_error(permit_cloud: Permit):
         {"type": "Document", "key": "doc2", "context": {}, "attributes": {}, "tenant": "default"},
     ]
 
-    try:
+    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
         await permit_cloud.filter_objects(
             user=user_test, action="read", context={}, resources=test_resources
         )
-    except (PermitConnectionError, aiohttp.ClientError) as error:
-        assert isinstance(error, PermitConnectionError)
-    else:
-        pytest.fail("Should have raised an exception")
+    assert isinstance(exc_info.value, PermitConnectionError)
