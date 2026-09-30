@@ -164,19 +164,20 @@ jobs:
       # overlaps with dependency installation instead of running after it.
       # The PDP reports 503 on /healthy until its horizon component is up;
       # issuing a check before that fails in a way that looks like a policy
-      # bug rather than a timing one.
+      # bug rather than a timing one. Horizon is up only once the scratch
+      # environment's first policy bundle and data have arrived, which has taken
+      # 63-154s in CI. Until then the PDP restarts horizon about once a minute.
       - name: Wait for the PDP
         run: |
           set -uo pipefail
-          for i in $(seq 1 180); do
+          for i in $(seq 1 300); do
             if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
               echo "PDP healthy after ${i}s"
               exit 0
             fi
             sleep 1
           done
-          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 180s"
-          docker logs permit-pdp 2>&1 | tail -80
+          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 300s"
           exit 1
 
 
@@ -189,9 +190,15 @@ jobs:
           PDP_API_KEY: ${{ env.ENV_API_KEY }}
         run: uv run --no-sync pytest -s --cache-clear tests/
 
+      # Most of the PDP's log is its once-a-second health checks, which push the
+      # startup out of any tail. Without them, the tail shows how the policy and
+      # data fetches went: response codes, retries, restarts and errors.
       - name: PDP logs
         if: failure()
-        run: docker logs permit-pdp 2>&1 | tail -200 || true
+        run: |
+          docker logs permit-pdp 2>&1 \
+            | grep -Ev 'GET /health|Health check failed: horizon' \
+            | tail -300 || true
 
       - name: Stop the PDP
         if: always()
