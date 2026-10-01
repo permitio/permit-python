@@ -52,7 +52,9 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
 - The SDK adds no loguru sink of its own. Its records go to the sinks your application has
   added, or to loguru's default stderr sink, in the format of those sinks.
 - `level` (default `"info"`) is the lowest severity the SDK logs. Its records below it never
-  reach a sink. Your application's own records are not affected.
+  reach a sink. Your application's own records are not affected. The SDK logs its HTTP
+  requests and the PDP's responses at `"debug"`. With `"enable": True`, a level name loguru
+  does not know raises `ValueError` when the client is created.
 - `label` (default `"Permit"`) is put in square brackets before every message the SDK logs.
 - `json` is not applied: for JSON output, add a sink with `logger.add(sys.stderr, serialize=True)`.
 - loguru's logger is process-wide, so these settings are too: the client created last
