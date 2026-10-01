@@ -16,12 +16,13 @@ CLOUD_PDP_URL = "https://cloudpdp.api.permit.io"
 #
 # conftest's `permit_cloud` fixture resolves its address as
 # os.getenv("PDP_URL", CLOUD_PDP_URL), so it only reaches the cloud PDP when
-# PDP_URL is unset or already points there. CI sets PDP_URL to the local PDP
-# sidecar (.github/workflows/test.yml), which means `permit_cloud` is a local
-# PDP client there and these three tests cannot pass as written. Skipping on
-# the same condition the fixture uses keeps them honest: they run where they
-# are meaningful and are reported as skipped, with the reason, where they are
-# not.
+# PDP_URL is unset or already points there. The jobs in
+# .github/workflows/test.yml that start a PDP container set PDP_URL to it,
+# which means `permit_cloud` is a local PDP client there and these three tests
+# cannot pass as written. Skipping on the same condition the fixture uses keeps
+# them honest: they run where they are meaningful and are reported as skipped,
+# with the reason, where they are not. The `e2e (cloud PDP)` job in the same
+# workflow sets PDP_URL to the cloud PDP and fails if any of them is skipped.
 CONFIGURED_PDP_URL = os.getenv("PDP_URL", CLOUD_PDP_URL)
 
 pytestmark = [
