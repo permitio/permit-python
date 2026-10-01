@@ -257,17 +257,23 @@ def load_spec(api: str, path: Path, minimum: int) -> Spec:
 
 
 def _describe_source(path: Path) -> str:
-    """Name a spec by its file, and by the source and date its sidecar records."""
+    """Name a spec by its file, and by the source and date its sidecar records, if it has one.
+
+    Raises:
+        CoverageError: If the sidecar exists but does not say where and when.
+    """
     sidecar = path.with_name(path.name.removesuffix(".json") + ".source.json")
-    if not sidecar.is_file():
-        return f"`{path}`"
-    try:
-        source = json.loads(sidecar.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return f"`{path}`"
-    if not isinstance(source, dict):
-        return f"`{path}`"
-    return f"`{path}`, a snapshot of {source.get('source')} taken {source.get('fetched')}"
+    if not sidecar.exists():
+        return f"`{_cell(path)}`"
+    source = read_json(sidecar, "the snapshot's source file")
+    if not isinstance(source, dict) or not all(
+        isinstance(source.get(key), str) and source[key] for key in ("source", "fetched")
+    ):
+        msg = f'the snapshot\'s source file {sidecar} needs a "source" and a "fetched" string'
+        raise CoverageError(msg)
+    return (
+        f"`{_cell(path)}`, a snapshot of {_cell(source['source'])} taken {_cell(source['fetched'])}"
+    )
 
 
 # --- request records ----------------------------------------------------------

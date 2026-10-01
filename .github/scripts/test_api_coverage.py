@@ -648,6 +648,31 @@ def test_a_spec_that_cannot_be_read_exits_2(tmp_path: Path, spec: str | None, me
     assert_did_not_run(rerun(tmp_path), message)
 
 
+@pytest.mark.parametrize(
+    ("sidecar", "message"),
+    [
+        ("not json", "the snapshot's source file at .* is not valid JSON"),
+        ('{"source": "https://example.test"}', 'needs a "source" and a "fetched" string'),
+        ('{"source": "", "fetched": "2026-01-02"}', 'needs a "source" and a "fetched" string'),
+    ],
+)
+def test_a_snapshot_whose_source_file_is_broken_exits_2(
+    tmp_path: Path, sidecar: str, message: str
+) -> None:
+    report(tmp_path)
+    (tmp_path / "pdp.source.json").write_text(sidecar, encoding="utf-8")
+    assert_did_not_run(rerun(tmp_path), message)
+
+
+def test_a_snapshot_names_its_source_in_the_report(tmp_path: Path) -> None:
+    (tmp_path / "pdp.source.json").write_text(
+        '{"source": "a PDP | image", "fetched": "2026-01-02"}', encoding="utf-8"
+    )
+    outcome = report(tmp_path)
+    assert "pdp.json`, a snapshot of a PDP \\| image taken 2026-01-02." in outcome.summary
+    assert outcome.result["specs"]["pdp"].endswith("a snapshot of a PDP \\| image taken 2026-01-02")
+
+
 def test_a_spec_with_fewer_operations_than_the_default_minimum_exits_2(tmp_path: Path) -> None:
     report(tmp_path)
     outcome = run_report(
