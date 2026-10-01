@@ -40,11 +40,6 @@ from tests.utils import FACTS, offline_config
 
 REPO_ROOT = Path(permit_package.__file__).resolve().parents[1]
 LOOP_THREAD_NAME = "permit-sync-loop"
-# Connection reuse needs the client's HTTP sessions to outlive a call, which is the other
-# half of PER-16344. Until then, every call opens and closes a connection of its own.
-NEEDS_SHARED_SESSIONS = pytest.mark.xfail(
-    reason="needs HTTP sessions that outlive a call (PER-16344)", strict=True
-)
 
 
 @pytest.fixture
@@ -872,7 +867,6 @@ def test_a_deprecated_method_of_the_client_warns_at_the_caller(
 # --- connection reuse ------------------------------------------------------------------
 
 
-@NEEDS_SHARED_SESSIONS
 def test_sequential_calls_reuse_one_connection(
     permit: SyncPermit, server: ConnectionCountingServer
 ) -> None:
@@ -882,7 +876,6 @@ def test_sequential_calls_reuse_one_connection(
     assert (server.accepted, server.open) == (1, 1)
 
 
-@NEEDS_SHARED_SESSIONS
 def test_concurrent_threads_open_at_most_one_connection_each(
     permit: SyncPermit, server: ConnectionCountingServer
 ) -> None:

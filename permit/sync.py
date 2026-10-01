@@ -70,8 +70,9 @@ class Permit(AsyncPermit):
 
     async def _close_sessions(self) -> None:
         """Close the HTTP sessions this client opened. Runs on its background loop."""
+        await AsyncPermit.close(self)
 
-    def close(self) -> None:
+    def close(self) -> None:  # type: ignore[override]
         """Close the client's HTTP connections and stop its background thread.
 
         It waits for the calls that other threads have in flight to return first. Calling it
