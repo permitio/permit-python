@@ -4,6 +4,7 @@ from permit.api.condition_set_rules import ConditionSetRulesApi
 from permit.api.condition_sets import ConditionSetsApi
 from permit.api.deprecated import DeprecatedApi
 from permit.api.environments import EnvironmentsApi
+from permit.api.groups import GroupsApi
 from permit.api.projects import ProjectsApi
 from permit.api.relationship_tuples import RelationshipTuplesApi
 from permit.api.resource_action_groups import ResourceActionGroupsApi
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from permit._sync_types import SyncConditionSetsApi as SyncConditionSetsApi
     from permit._sync_types import SyncDeprecatedApi as SyncDeprecatedApi
     from permit._sync_types import SyncEnvironmentsApi as SyncEnvironmentsApi
+    from permit._sync_types import SyncGroupsApi as SyncGroupsApi
     from permit._sync_types import SyncProjectsApi as SyncProjectsApi
     from permit._sync_types import SyncRelationshipTuplesApi as SyncRelationshipTuplesApi
     from permit._sync_types import SyncResourceActionGroupsApi as SyncResourceActionGroupsApi
@@ -55,6 +57,9 @@ else:
 
     class SyncEnvironmentsApi(EnvironmentsApi, metaclass=SyncClass):
         """Blocking variant of `EnvironmentsApi`."""
+
+    class SyncGroupsApi(GroupsApi, metaclass=SyncClass):
+        """Blocking variant of `GroupsApi`."""
 
     class SyncProjectsApi(ProjectsApi, metaclass=SyncClass):
         """Blocking variant of `ProjectsApi`."""
@@ -113,6 +118,7 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         self._condition_set_rules = SyncConditionSetRulesApi(config)
         self._condition_sets = SyncConditionSetsApi(config)
         self._environments = SyncEnvironmentsApi(config)
+        self._groups = SyncGroupsApi(config)
         self._projects = SyncProjectsApi(config)
         self._relationship_tuples = SyncRelationshipTuplesApi(config)
         self._action_groups = SyncResourceActionGroupsApi(config)
@@ -159,6 +165,14 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Environments
         """
         return self._environments
+
+    @property
+    def groups(self) -> SyncGroupsApi:
+        """API for managing groups.
+
+        See: https://api.permit.io/v2/redoc#tag/Groups
+        """
+        return self._groups
 
     @property
     def action_groups(self) -> SyncResourceActionGroupsApi:
