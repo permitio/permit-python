@@ -21,6 +21,35 @@ every breaking change, who it affects and what to change. To have an AI agent su
 do the upgrade, use the
 [permit-python-3-migration skill](https://github.com/permitio/permit-python/tree/main/skills/permit-python-3-migration).
 
+## Connections
+
+The client keeps the HTTP connections it opens and reuses them for its next requests, so a
+request does not pay for a new connection, and a TLS handshake, each time. It keeps one pool
+of connections for the Permit API and one for the PDP, for each event loop it is used on,
+opened by the first request from that loop.
+
+```py
+async with Permit(token="<YOUR_API_KEY>") as permit:
+    allowed = await permit.check("alice", "read", "document")
+```
+
+- `await permit.close()` closes the connections, as leaving the `async with` block does.
+  Calling it again does nothing more, and the client stays usable: a request sent after it
+  opens new connections.
+- A client you never close leaves nothing open when its loop shuts down through
+  `asyncio.run()`, `asyncio.Runner` or anything else that shuts down the loop's async
+  generators before closing it: the client's connections on that loop are closed then. As
+  the interpreter exits, the client closes what is still open, so aiohttp reports no
+  unclosed session.
+- If you drive an event loop yourself, run `await permit.close()` on it before you close it.
+  A loop closed with `loop.close()` alone cannot close its connections any more.
+- Close the client once no request is in flight: a request in flight when `close()` runs
+  fails.
+- `wait_for_sync()` yields a client that uses the connections of the client it is called
+  on. That client's `close()` closes them; the yielded one needs no `close()`.
+- The number of connections open at once is not capped, as before. An idle connection is
+  closed after aiohttp's keep-alive timeout of 15 seconds.
+
 ## Groups
 
 `permit.api.groups` manages groups. A group is a resource instance, of the `group` resource
