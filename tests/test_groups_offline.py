@@ -28,9 +28,14 @@ from permit.api.models import (
     PaginatedResultGroupReadSchema,
 )
 from permit.config import PermitConfig
-from permit.exceptions import PermitAlreadyExistsError, PermitApiError, PermitNotFoundError
+from permit.exceptions import (
+    PermitAlreadyExistsError,
+    PermitApiError,
+    PermitContextError,
+    PermitNotFoundError,
+)
 from permit.sync import Permit as SyncPermit
-from tests.utils import SCHEMA, Call, call, sent
+from tests.utils import ORG, PROJECT, SCHEMA, Call, call, sent
 
 GROUPS = f"{SCHEMA}/groups"
 GROUP_ID = "00000000-0000-4000-8000-000000000010"
@@ -371,6 +376,21 @@ def test_an_api_error_raises_the_matching_permit_api_error(
     assert raised.value.status_code == error.status
     assert raised.value.details == detail
     assert len(httpserver.log) == 1
+
+
+@pytest.mark.parametrize("flavour", ["async", "sync"])
+@pytest.mark.parametrize("case", BASIC_CASES.values(), ids=BASIC_CASES.keys())
+def test_a_project_context_is_refused_before_sending(
+    httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str
+) -> None:
+    """A project-level key needs the SDK's API context set to an environment first."""
+    config.api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT)
+    config.api_context.set_project_level_context(ORG, PROJECT)
+
+    with pytest.raises(PermitContextError):
+        invoke(config, flavour, case.call)
+
+    assert httpserver.log == []
 
 
 @pytest.mark.parametrize("flavour", ["async", "sync"])
