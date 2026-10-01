@@ -294,19 +294,30 @@ def test_close_closes_the_connections(permit: SyncPermit, server: ConnectionCoun
     assert server.wait_for_open(0)
 
 
-def test_closing_a_wait_for_sync_copy_leaves_the_client_usable(
-    config: PermitConfig, httpserver: HTTPServer
+def test_closing_a_wait_for_sync_copy_leaves_its_client_thread_and_connection_open(
+    server: ConnectionCountingServer,
 ) -> None:
-    httpserver.expect_request("/allowed").respond_with_json({"allow": True})
+    """A copy runs on its client's thread and connections, and leaves closing them to it."""
+    config = offline_config(server.url)
     config.proxy_facts_via_pdp = True
     client = SyncPermit(config)
     with client.wait_for_sync() as waiting:
         assert check(waiting) is True
-        assert loop_thread(waiting) is loop_thread(client)
+        thread = loop_thread(client)
+        assert loop_thread(waiting) is thread
+        waiting.close()
         waiting.close()
 
+    assert thread is not None
+    assert thread.is_alive()
     assert check(client) is True
+    assert loop_thread(client) is thread
+    assert (server.accepted, server.open) == (1, 1)
+
     client.close()
+
+    assert not thread.is_alive()
+    assert server.wait_for_open(0)
 
 
 # --- errors and re-entrancy ------------------------------------------------------------
@@ -371,13 +382,17 @@ def test_close_on_the_client_thread_raises_instead_of_deadlocking(permit: SyncPe
 
 
 class RecordingPermit(SyncPermit):
-    """A sync client that records the thread on which its HTTP sessions are closed."""
+    """A sync client that records the thread on which its HTTP sessions are closed.
+
+    A wait_for_sync() copy shares the list, and records nothing: it closes no sessions.
+    """
 
     closed_on: list[str]
 
     async def _close_sessions(self) -> None:
         await super()._close_sessions()
-        self.closed_on.append(threading.current_thread().name)
+        if self._owns_sessions:
+            self.closed_on.append(threading.current_thread().name)
 
 
 def recording_client(url: str) -> RecordingPermit:
@@ -386,9 +401,10 @@ def recording_client(url: str) -> RecordingPermit:
     return client
 
 
-def test_close_closes_the_sessions_of_the_client_and_its_copies_on_its_thread(
+def test_close_closes_the_sessions_once_on_the_client_thread_while_a_copy_is_alive(
     config: PermitConfig, httpserver: HTTPServer
 ) -> None:
+    """A wait_for_sync() copy shares its client's sessions, so they are closed once."""
     httpserver.expect_request("/allowed").respond_with_json({"allow": True})
     config.proxy_facts_via_pdp = True
     client = RecordingPermit(config)
@@ -397,7 +413,7 @@ def test_close_closes_the_sessions_of_the_client_and_its_copies_on_its_thread(
         check(waiting)
         client.close()
 
-    assert client.closed_on == [LOOP_THREAD_NAME, LOOP_THREAD_NAME]
+    assert client.closed_on == [LOOP_THREAD_NAME]
 
 
 class FailingPermit(SyncPermit):

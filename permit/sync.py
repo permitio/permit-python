@@ -52,10 +52,12 @@ class Permit(AsyncPermit):
         # Before super().__init__, which calls _connect.
         self._background_loop = _BackgroundLoop()
         super().__init__(config, **options)
-        # When the client is collected, close its sessions on the loop they belong to. The
-        # finalizer must not keep the client alive, so it goes through a view of its
-        # attributes. Copies made by wait_for_sync() use the sessions of the client that
-        # made them, and have no finalizer of their own.
+        # close() and the exit hook close the sessions while the client is alive. When the
+        # client is collected, a finalizer closes them on the loop they belong to; it must
+        # not keep the client alive, so it goes through a view of its attributes. Copies
+        # made by wait_for_sync() use the sessions and the loop of the client that made
+        # them, and leave closing both to it.
+        self._background_loop.set_closer(weakref.WeakMethod(self._close_sessions))
         view = _view_of(self)
         close_sessions = view._close_sessions  # noqa: SLF001 - this class's own method
         self._background_loop.close_when_collected(self, close_sessions)
@@ -66,7 +68,6 @@ class Permit(AsyncPermit):
         self._elements = SyncElementsApi(self._config)  # type: ignore[assignment]
         self._pdp_api = SyncPDPApi(self._config)
         self._background_loop.bind(self._enforcer, self._api, self._elements, self._pdp_api)
-        self._background_loop.add_closer(weakref.WeakMethod(self._close_sessions))
 
     async def _close_sessions(self) -> None:
         """Close the HTTP sessions this client opened. Runs on its background loop."""
@@ -77,8 +78,9 @@ class Permit(AsyncPermit):
 
         It waits for the calls that other threads have in flight to return first. Calling it
         again does nothing. The client stays usable: the next call starts a new thread and
-        opens new connections. A client returned by `wait_for_sync()` shares the thread and
-        the connections of the client that made it, so closing either one closes both.
+        opens new connections. A client yielded by `wait_for_sync()` runs its calls on the
+        thread and over the connections of the client it was made from: its `close()` does
+        nothing, and the other client's `close()` closes them.
 
         Raises:
             RuntimeError: If called on the client's own background thread, which it has to
@@ -91,6 +93,8 @@ class Permit(AsyncPermit):
             finally:
                 permit.close()
         """
+        if not self._owns_sessions:
+            return
         self._background_loop.close()
 
     def __enter__(self) -> Self:

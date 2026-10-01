@@ -245,26 +245,29 @@ class _LoopThread:
             await asyncio.wait(pending)
 
     async def _drain_and_close(
-        self, closers: list[CloseSessions], *, cancel_calls: bool, call_site: _CallSite
+        self, close_sessions: CloseSessions | None, *, cancel_calls: bool, call_site: _CallSite
     ) -> None:
         # The sessions' close() may await the client's own converted methods, which must hand
         # back their coroutines rather than block, as they do in any blocking call's coroutine.
         _blocking_call_site.set(call_site)
         await self.drain(cancel=cancel_calls)
-        for close_sessions in closers:
+        if close_sessions is not None:
             await close_sessions()
 
     def close(
-        self, closers: list[CloseSessions], *, cancel_calls: bool, call_site: _CallSite
+        self, close_sessions: CloseSessions | None, *, cancel_calls: bool, call_site: _CallSite
     ) -> None:
-        """Wait for (or cancel) the tracked tasks, run `closers`, then stop the loop and join.
+        """Wait for (or cancel) the tracked tasks, run `close_sessions`, then stop and join.
 
         Args:
-            closers: The coroutine functions that close the sessions opened on this loop.
+            close_sessions: The coroutine function that closes the sessions opened on this
+                loop, if any.
             cancel_calls: Cancel the blocking calls in flight instead of waiting for them.
             call_site: The line that called close().
         """
-        drained = self._drain_and_close(closers, cancel_calls=cancel_calls, call_site=call_site)
+        drained = self._drain_and_close(
+            close_sessions, cancel_calls=cancel_calls, call_site=call_site
+        )
         try:
             asyncio.run_coroutine_threadsafe(drained, self.loop).result()
         finally:
@@ -327,7 +330,7 @@ class _BackgroundLoop:
         self._lock = threading.Lock()
         self._thread: _LoopThread | None = None
         self._stop_when_collected: weakref.finalize[[], _BackgroundLoop] | None = None
-        self._closers: list[weakref.WeakMethod[CloseSessions]] = []
+        self._closer: weakref.WeakMethod[CloseSessions] | None = None
 
     def bind(self, *roots: object) -> None:
         """Run the blocking calls of `roots`, and of every `SyncClass` object they hold, here.
@@ -348,15 +351,14 @@ class _BackgroundLoop:
                 value for value in vars(obj).values() if isinstance(type(value), SyncClass)
             )
 
-    def add_closer(self, close_sessions: "weakref.WeakMethod[CloseSessions]") -> None:
-        """Run `close_sessions` on the loop when it is closed, while its object is alive.
+    def set_closer(self, close_sessions: "weakref.WeakMethod[CloseSessions]") -> None:
+        """Run `close_sessions` on the loop when it is closed, while its client is alive.
 
         Args:
-            close_sessions: A weak reference to a client's method that closes its sessions.
+            close_sessions: A weak reference to the client's method that closes its sessions.
         """
         with self._lock:
-            self._closers = [ref for ref in self._closers if ref() is not None]
-            self._closers.append(close_sessions)
+            self._closer = close_sessions
 
     def run(self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
         """Run `coroutine` on the loop for the blocking call made at `call_site`, and wait.
@@ -435,8 +437,8 @@ class _BackgroundLoop:
                 self._stop_when_collected.detach()
                 self._stop_when_collected = None
             _running_loops.discard(self)
-            closers = [method for ref in self._closers if (method := ref()) is not None]
-        loop_thread.close(closers, cancel_calls=cancel_calls, call_site=call_site)
+            close_sessions = None if self._closer is None else self._closer()
+        loop_thread.close(close_sessions, cancel_calls=cancel_calls, call_site=call_site)
 
     def close_when_collected(self, owner: object, close_sessions: CloseSessions) -> None:
         """Run `close_sessions()` on the loop once `owner` is garbage collected.
