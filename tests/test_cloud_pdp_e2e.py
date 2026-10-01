@@ -248,11 +248,13 @@ async def test_get_user_permissions(permit_cloud: Permit, cloud_policy: CloudPol
             for key, entry in permissions.items()
         }
 
+    # The cloud PDP also lists its built-in "tenant-association" role for a user who
+    # belongs to the tenant, after the roles assigned to them.
     expected = {
         f"__tenant:{policy.tenant}": {
             "tenant": policy.tenant,
             "permissions": [policy.granted_permission],
-            "roles": [policy.role],
+            "roles": [policy.role, "tenant-association"],
         }
     }
 
