@@ -2,6 +2,7 @@ from permit.api.condition_set_rules import ConditionSetRulesApi
 from permit.api.condition_sets import ConditionSetsApi
 from permit.api.deprecated import DeprecatedApi
 from permit.api.environments import EnvironmentsApi
+from permit.api.groups import GroupsApi
 from permit.api.projects import ProjectsApi
 from permit.api.relationship_tuples import RelationshipTuplesApi
 from permit.api.resource_action_groups import ResourceActionGroupsApi
@@ -33,6 +34,7 @@ class PermitApiClient(DeprecatedApi):
         self._condition_set_rules = ConditionSetRulesApi(config)
         self._condition_sets = ConditionSetsApi(config)
         self._environments = EnvironmentsApi(config)
+        self._groups = GroupsApi(config)
         self._projects = ProjectsApi(config)
         self._action_groups = ResourceActionGroupsApi(config)
         self._resource_actions = ResourceActionsApi(config)
@@ -79,6 +81,14 @@ class PermitApiClient(DeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Environments
         """
         return self._environments
+
+    @property
+    def groups(self) -> GroupsApi:
+        """API for managing groups.
+
+        See: https://api.permit.io/v2/redoc#tag/Groups
+        """
+        return self._groups
 
     @property
     def action_groups(self) -> ResourceActionGroupsApi:
