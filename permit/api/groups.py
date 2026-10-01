@@ -253,15 +253,18 @@ class GroupsApi(BasePermitApi):
             role_data: What to grant. ``role`` is the key or id of a role of ``resource``.
                 ``resource`` is the resource's key and ``resource_instance`` the instance's
                 key: the API looks up ``"<resource>:<resource_instance>"`` in the group's
-                tenant and creates the instance there if it does not exist. ``tenant`` is
-                required by the API: pass the group's tenant.
+                tenant and creates the instance there if it does not exist. The instance
+                must be in the group's tenant: an instance key is unique within its
+                resource type, so if the instance is in another tenant the API answers 409.
+                ``tenant`` is required by the API: pass the group's tenant.
 
         Returns:
             The group, with the ids of the users added to it and its assigned roles.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code, such as 404 when the
-                group, the resource or the role does not exist.
+                group, the resource or the role does not exist, or 409 when the resource
+                instance is in another tenant than the group.
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
