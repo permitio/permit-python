@@ -20,6 +20,9 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-24.04
+    # Each job here usually takes under a minute. The timeouts end a hung
+    # step long before GitHub's default of six hours.
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,7 +80,13 @@ jobs:
       # published: the wheel, and the sdist, since a wheel built from the sdist
       # (pip install --no-binary, a distribution's packager) holds only what
       # the sdist does.
-      - name: Check the wheel and sdist ship their type information
+      #
+      # Nor may either one ship a package other than permit: permit 2.8.3's
+      # wheel installed a top-level `tests` package, which shadowed the
+      # consumer's own `tests` module. [tool.uv.build-backend] in
+      # pyproject.toml keeps it out now; this check fails the release if it
+      # comes back.
+      - name: Check the wheel and sdist contents
         run: |
           set -euo pipefail
           uv run --no-project python - dist <<'PY'
@@ -86,22 +95,39 @@ jobs:
           import zipfile
           from pathlib import Path
 
+          REQUIRED = ["permit/py.typed", "permit/_sync_types.pyi"]
+
+
+          def check(artifact: Path, names: set[str], found: set[str], allowed: set[str]) -> None:
+              missing = [path for path in REQUIRED if path not in names]
+              if missing:
+                  sys.exit(f"{artifact.name} is missing {missing}")
+              unexpected = sorted(found - allowed)
+              if unexpected:
+                  sys.exit(f"{artifact.name} holds {unexpected}; only {sorted(allowed)} may ship")
+              print(f"{artifact.name} ships {' and '.join(REQUIRED)} and no package beside permit")
+
+
           dist = Path(sys.argv[1])
           wheels = sorted(dist.glob("*.whl"))
           sdists = sorted(dist.glob("*.tar.gz"))
           if len(wheels) != 1 or len(sdists) != 1:
               found = [path.name for path in wheels + sdists]
               sys.exit(f"expected one wheel and one sdist in {dist}, found {found}")
-          required = ["permit/py.typed", "permit/_sync_types.pyi"]
-          contents = {wheels[0]: set(zipfile.ZipFile(wheels[0]).namelist())}
-          # Every sdist path starts with its top-level permit-<version>/ directory.
-          with tarfile.open(sdists[0]) as sdist:
-              contents[sdists[0]] = {name.partition("/")[2] for name in sdist.getnames()}
-          for artifact, names in contents.items():
-              missing = [path for path in required if path not in names]
-              if missing:
-                  sys.exit(f"{artifact.name} is missing {missing}")
-              print(f"{artifact.name} ships {' and '.join(required)}")
+          wheel, sdist = wheels[0], sdists[0]
+
+          # A wheel's top level is what lands in site-packages: permit/ and its
+          # permit-<version>.dist-info, named after permit-<version>-<tags>.whl.
+          with zipfile.ZipFile(wheel) as wheel_file:
+              names = set(wheel_file.namelist())
+          dist_info = "-".join(wheel.name.split("-")[:2]) + ".dist-info"
+          check(wheel, names, {name.split("/")[0] for name in names}, {"permit", dist_info})
+
+          # Every sdist path starts with its permit-<version>/ directory. Below
+          # it, the files are metadata and docs, and the only directory is permit/.
+          with tarfile.open(sdist) as sdist_file:
+              names = {name.partition("/")[2] for name in sdist_file.getnames()}
+          check(sdist, names, {name.split("/")[0] for name in names if "/" in name}, {"permit"})
           PY
 
       - name: Upload distribution
@@ -114,6 +140,7 @@ jobs:
   scan:
     name: Security Gate
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     needs: [build]
     steps:
       - name: Checkout code
@@ -150,6 +177,12 @@ jobs:
           # See the same step in security.yml: this only installs Trivy, and
           # hide-progress keeps its empty scan from logging a warning.
           hide-progress: true
+          # The action's cache is on by default and restores the Trivy binary
+          # itself from the Actions cache, with no checksum check, so a cache
+          # entry would decide which scanner the release gate runs. Off: every
+          # release downloads the binary and checks it against the checksums
+          # of its Trivy release.
+          cache: false
           # The migration skill's sample apps pin vulnerable versions on
           # purpose and are never installed (skills/tests/README.md).
           skip-dirs: skills/tests/fixtures
@@ -209,15 +242,18 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     needs: [scan]
+    # PyPI trusted publishing: there is no PyPI token. PyPI accepts the upload
+    # only from the trusted publisher registered on the permit project, which
+    # names this repository, this workflow file and this environment. Renaming
+    # any of the three stops releases until the registration on pypi.org is
+    # changed to match.
     environment:
       name: pypi
       url: https://pypi.org/p/permit
     permissions:
-      # id-token is what lets gh-action-pypi-publish attach PEP 740 build
-      # attestations. contents/pull-requests write were previously granted and
-      # never used -- nothing in this workflow commits or opens a PR.
-      id-token: write
+      id-token: write # OIDC token PyPI exchanges for an upload token; also signs attestations
     steps:
       # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
       # calls the deprecated Buffer() constructor, so every download prints
@@ -231,14 +267,6 @@ jobs:
           name: dist
           path: dist/
 
+      # No password: with no token given, the action authenticates by OIDC.
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-        with:
-          # zizmor: ignore[use-trusted-publishing]
-          # TODO: migrate to PyPI Trusted Publishing (OIDC) and drop this
-          # secret. That cannot be done from this repo alone -- it requires
-          # registering permitio/permit-python + this workflow filename +
-          # the "pypi" environment as a trusted publisher on PyPI first.
-          # Flipping the workflow before that is configured would break the
-          # next release, so it is deliberately left as a follow-up.
-          password: ${{ secrets.PYPI_TOKEN }}
