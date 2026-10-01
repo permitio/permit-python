@@ -1,0 +1,5 @@
+{
+  "fetched": "2026-10-01",
+  "operations": 34,
+  "source": "GET /openapi.json on a container of permitio/pdp-v2:0.9.16@sha256:e3cf30794ec2d256636b4714641df46e51ee58a3f1f0d24c606e214e0bf8669a (PINNED_PDP_IMAGE in .github/workflows/test.yml)"
+}

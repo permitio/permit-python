@@ -1,0 +1,1876 @@
+{
+  "operations": [
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/activity",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (the activity log), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/activity/types",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (the activity log), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/api-key",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "API key administration needs an organization-level key and returns key secrets; add on a request for key-rotation automation."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/api-key",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "API key administration needs an organization-level key and returns key secrets; add on a request for key-rotation automation."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/api-key/{api_key_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "API key administration needs an organization-level key and returns key secrets; add on a request for key-rotation automation."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/api-key/{api_key_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "API key administration needs an organization-level key and returns key secrets; add on a request for key-rotation automation."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/api-key/{api_key_id}/rotate-secret",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "API key administration needs an organization-level key and returns key secrets; add on a request for key-rotation automation."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/audit-log-replay",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "A testing tool open only to allow-listed organizations."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/data-export",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (exporting the organization's data), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/data-export/{task_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (exporting the organization's data), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/deprecated/activity",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; replaced by the /v2/activity routes, which are excluded as account administration."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/deprecated/activity/types",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; replaced by the /v2/activity routes, which are excluded as account administration."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/deprecated/history",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; replaced by the /v2/history routes, which are excluded as account administration."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/deprecated/history/{event_id}",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; replaced by the /v2/history routes, which are excluded as account administration."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/deprecated/history/{event_id}/request",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; replaced by the /v2/history routes, which are excluded as account administration."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/deprecated/history/{event_id}/response",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; replaced by the /v2/history routes, which are excluded as account administration."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements configuration, which is dashboard setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/elements/{proj_id}/{env_id}/config",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements configuration, which is dashboard setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements configuration, which is dashboard setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements configuration, which is dashboard setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/approve",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/cancel",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/deny",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/reviewer",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests for Elements, which need an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/active",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/audit_logs",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/roles",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/user-invites",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users/{user_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users/{user_id}/roles",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users/{user_id}/roles",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements back end: it needs an Elements end-user or member session, and API keys get 403."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/approve",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/cancel",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/deny",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/reviewer",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements Operation Approval, which needs an Elements session rather than an API key."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/runtime",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements configuration, which is dashboard setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/elements/{proj_id}/{env_id}/{elements_config_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Elements configuration, which is dashboard setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/approve",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/cancel",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/deny",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/reviewer",
+      "stage": "EAP",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "EAP Access Requests; add it once the feature leaves EAP."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/facts/{proj_id}/{env_id}/bulk/resource_instances",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.bulk_replace(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/bulk/resource_instances",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.bulk_delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/bulk/tenants",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.tenants.bulk_delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/facts/{proj_id}/{env_id}/bulk/users",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.users.bulk_replace(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/bulk/users",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.users.bulk_create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/bulk/users",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.users.bulk_delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/email_configurations",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/email_configurations",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/email_configurations/send_test_email",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/email_templates/",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/email_templates/{template_type}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/email_templates/{template_type}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/email_templates/{template_type}/send_test_email",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Elements email setup, done in the dashboard."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/proxy_configs",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time setup (Permit proxy configs), which the CLI and Terraform cover; revisit together with check_url (PER-16737) if there is demand."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/proxy_configs",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time setup (Permit proxy configs), which the CLI and Terraform cover; revisit together with check_url (PER-16737) if there is demand."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/proxy_configs/{proxy_config_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time setup (Permit proxy configs), which the CLI and Terraform cover; revisit together with check_url (PER-16737) if there is demand."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/proxy_configs/{proxy_config_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time setup (Permit proxy configs), which the CLI and Terraform cover; revisit together with check_url (PER-16737) if there is demand."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/facts/{proj_id}/{env_id}/proxy_configs/{proxy_config_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time setup (Permit proxy configs), which the CLI and Terraform cover; revisit together with check_url (PER-16737) if there is demand."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/relationship_tuples",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.relationship_tuples.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.relationship_tuples.bulk_create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.relationship_tuples.bulk_delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/resource_instances",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.get(), permit.api.resource_instances.get_by_id(), permit.api.resource_instances.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.update(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/role_assignments",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.role_assignments.assign(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/role_assignments",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.role_assignments.unassign(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/role_assignments/bulk",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.role_assignments.bulk_assign(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/role_assignments/bulk",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.role_assignments.bulk_unassign(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/set_rules",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_set_rules.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/set_rules",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_set_rules.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/set_rules",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_set_rules.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.tenants.list_tenant_users(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/facts/{proj_id}/{env_id}/user_invites",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.user_invites.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/user_invites",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.user_invites.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.user_invites.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: user_invites.update()."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}/approve",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.user_invites.approve(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/history",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (the API call history), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/history/{event_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (the API call history), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/history/{event_id}/request",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (the API call history), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/history/{event_id}/response",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (the API call history), which the dashboard covers."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/internal/opal_data/{org_id}/{proj_id}/{env_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP data routes the PDP reads its data from; not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/optimized",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP data routes the PDP reads its data from; not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/relationships",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP data routes the PDP reads its data from; not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/resource_instances",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP data routes the PDP reads its data from; not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/role_assignments",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP data routes the PDP reads its data from; not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/users",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP data routes the PDP reads its data from; not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/members",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/members",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/members",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/members/me",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/members/{member_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/members/{member_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/members/{member_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organization members), which the dashboard and the CLI cover; /v2/members/me rejects API keys."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/orgs",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/orgs",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/orgs/active/org",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/orgs/{org_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/orgs/{org_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/orgs/{org_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/orgs/{org_id}/invites",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (inviting members to the organization), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/orgs/{org_id}/invites",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (inviting members to the organization), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/orgs/{org_id}/invites/{invite_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (inviting members to the organization), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/orgs/{org_id}/restore",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/orgs/{org_id}/stats",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Account administration (organizations), which the dashboard and the CLI cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/pdps/{proj_id}/{env_id}/audit_logs",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "PDP decision logs; add when a customer asks for programmatic decision-log export (the CLI covers it today)."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/pdps/{proj_id}/{env_id}/audit_logs/{log_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16337",
+      "reason": "PDP decision logs; add when a customer asks for programmatic decision-log export (the CLI covers it today)."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/pdps/{proj_id}/{env_id}/configs",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-14243",
+      "reason": "Waits for PER-14243 to be done."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/pdps/{proj_id}/{env_id}/configs/migrate-shards",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route (configuration values, debug logs, shard migration), not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/debug-audit-logs/disable",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route (configuration values, debug logs, shard migration), not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/debug-audit-logs/enable",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route (configuration values, debug logs, shard migration), not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/refresh",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: pdps.refresh_pdp()."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/rotate-api-key",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route: rotating the key revokes every PDP in the environment."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/values",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route (configuration values, debug logs, shard migration), not an application API."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/policy_guards/scopes",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/policy_guards/scopes",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/policy_guards/scopes/{policy_guard_scope_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/policy_guards/scopes/{policy_guard_scope_id}",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/policy_guards/scopes/{policy_guard_scope_id}/associate",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/policy_guards/scopes/{policy_guard_scope_id}/disassociate",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/policy_guards/scopes/{policy_guard_scope_id}/rules",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/policy_guards/scopes/{policy_guard_scope_id}/rules",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/policy_guards/scopes/{policy_guard_scope_id}/rules",
+      "stage": "EAP",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "EAP Policy Guards, organization-level policy setup."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.projects.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/projects",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.projects.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.projects.get(), permit.api.projects.get_by_id(), permit.api.projects.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/projects/{proj_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.projects.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/projects/{proj_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.projects.update(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/envs",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.environments.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/projects/{proj_id}/envs",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.environments.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/envs/{env_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.environments.get(), permit.api.environments.get_by_id(), permit.api.environments.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/projects/{proj_id}/envs/{env_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.environments.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/projects/{proj_id}/envs/{env_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.environments.update(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/projects/{proj_id}/envs/{env_id}/copy/async",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: environments.copy_async() and get_copy_result()."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/envs/{env_id}/copy/async/{task_id}/result",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: environments.copy_async() and get_copy_result()."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/envs/{env_id}/stats",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.environments.get_stats(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/projects/{proj_id}/envs/{env_id}/test_jwks",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "A dashboard form helper."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/repos",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/projects/{proj_id}/repos",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/repos/active",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/projects/{proj_id}/repos/disable",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/repos/{repo_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/projects/{proj_id}/repos/{repo_id}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/projects/{proj_id}/repos/{repo_id}/activate",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (policy Git repositories), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/projects/{proj_id}/{env_id}/opal_scope",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (OPAL scope configuration), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/projects/{proj_id}/{env_id}/opal_scope",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (OPAL scope configuration), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/projects/{proj_id}/{env_id}/opal_scope",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "One-time project setup (OPAL scope configuration), which the CLI and Terraform cover."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/schema/{proj_id}/{env_id}/bulk/roles",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: roles.bulk_replace()."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_sets.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/schema/{proj_id}/{env_id}/condition_sets",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_sets.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_sets.get(), permit.api.condition_sets.get_by_id(), permit.api.condition_sets.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_sets.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.condition_sets.update(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}/ancestors",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}/descendants",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/groups",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; permit.api.groups reads groups through the /groups/direct routes instead."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated; permit.api.groups reads groups through the /groups/direct routes instead."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/children",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16342",
+      "reason": "The spec's summary labels it EAP while its tag is GA; add it once the label is settled."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/parents",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16342",
+      "reason": "The spec's summary labels it EAP while its tag is GA; add it once the label is settled."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/roles",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16342",
+      "reason": "The spec's summary labels it EAP while its tag is GA; add it once the label is settled."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/users",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16342",
+      "reason": "The spec's summary labels it EAP while its tag is GA; add it once the label is settled."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resources.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/schema/{proj_id}/{env_id}/resources/{resource_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resources.replace(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_attributes.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_attributes.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_attributes.get(), permit.api.resource_attributes.get_by_id(), permit.api.resource_attributes.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_attributes.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_attributes.update(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_relations.create(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations/{relation_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_relations.get(), permit.api.resource_relations.get_by_id(), permit.api.resource_relations.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations/{relation_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_relations.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.list(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.get(), permit.api.resource_roles.get_by_id(), permit.api.resource_roles.get_by_key(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.delete(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.update(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/ancestors",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/descendants",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.create_role_derivation(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.delete_role_derivation(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PUT /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants/conditions",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_roles.update_role_derivation_conditions(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/roles/{role_id}/ancestors",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/roles/{role_id}/descendants",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/schema/{proj_id}/{env_id}/roles/{role_id}/permissions",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.roles.assign_permissions(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/roles/{role_id}/permissions",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.roles.remove_permissions(); no offline test sends this request yet."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/users/attributes",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: a permit.api.user_attributes module."
+    },
+    {
+      "api": "control-plane",
+      "operation": "POST /v2/schema/{proj_id}/{env_id}/users/attributes",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: a permit.api.user_attributes module."
+    },
+    {
+      "api": "control-plane",
+      "operation": "GET /v2/schema/{proj_id}/{env_id}/users/attributes/{attribute_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: a permit.api.user_attributes module."
+    },
+    {
+      "api": "control-plane",
+      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/users/attributes/{attribute_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: a permit.api.user_attributes module."
+    },
+    {
+      "api": "control-plane",
+      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/users/attributes/{attribute_id}",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: a permit.api.user_attributes module."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /allowed/all-tenants",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16015",
+      "reason": "Being retired; get_user_permissions() without a tenant filter is the replacement."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /allowed_url",
+      "stage": "GA",
+      "status": "deferred",
+      "ticket": "PER-16737",
+      "reason": "P2: check_url(), container PDP only."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /callbacks",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP integration: data-update callbacks the PDP operator configures."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /callbacks",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP integration: data-update callbacks the PDP operator configures."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /callbacks/{key}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP integration: data-update callbacks the PDP operator configures."
+    },
+    {
+      "api": "pdp",
+      "operation": "DELETE /callbacks/{key}",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP integration: data-update callbacks the PDP operator configures."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /data-updater/trigger",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route: forces a policy or data reload."
+    },
+    {
+      "api": "pdp",
+      "operation": "PATCH /facts/resource_instances/{instance_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.resource_instances.update() with proxy_facts_via_pdp; no offline test sends this request yet."
+    },
+    {
+      "api": "pdp",
+      "operation": "DELETE /facts/role_assignments",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.role_assignments.unassign() with proxy_facts_via_pdp; no offline test sends this request yet."
+    },
+    {
+      "api": "pdp",
+      "operation": "PUT /facts/users/{user_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.users.sync() with proxy_facts_via_pdp; no offline test sends this request yet."
+    },
+    {
+      "api": "pdp",
+      "operation": "PATCH /facts/users/{user_id}",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.users.update() with proxy_facts_via_pdp; no offline test sends this request yet."
+    },
+    {
+      "api": "pdp",
+      "operation": "DELETE /facts/users/{user_id}/roles",
+      "stage": "GA",
+      "status": "untested",
+      "ticket": "PER-16177",
+      "reason": "Called by permit.api.users.unassign_role() with proxy_facts_via_pdp; no offline test sends this request yet."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /healthchecks/opa/healthy",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP health check for the deployment, not an application API."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /healthchecks/opa/ready",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP health check for the deployment, not an application API."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /healthchecks/opa/system",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP health check for the deployment, not an application API."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /kong",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP integration with an API gateway (Kong or nginx), which calls it directly."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /nginx_allowed",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP integration with an API gateway (Kong or nginx), which calls it directly."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /opal-server/connectivity",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route: control-plane connectivity for offline mode."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /opal-server/connectivity/disable",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route: control-plane connectivity for offline mode."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /opal-server/connectivity/enable",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route: control-plane connectivity for offline mode."
+    },
+    {
+      "api": "pdp",
+      "operation": "GET /policy-store/config",
+      "stage": "deprecated",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "Deprecated PDP infrastructure route."
+    },
+    {
+      "api": "pdp",
+      "operation": "POST /policy-updater/trigger",
+      "stage": "GA",
+      "status": "excluded",
+      "ticket": "PER-16337",
+      "reason": "PDP operator route: forces a policy or data reload."
+    }
+  ],
+  "sdk_only": [
+    {
+      "request": "DELETE /facts/bulk/resource_instances",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.resource_instances.bulk_delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/bulk/resource_instances without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "PUT /facts/bulk/resource_instances",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.resource_instances.bulk_replace() here. The PDP passes it through to the control plane's PUT /v2/facts/{proj_id}/{env_id}/bulk/resource_instances without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "POST /facts/bulk/tenants",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.bulk_create() here. The PDP passes it through to the control plane's POST /v2/facts/{proj_id}/{env_id}/bulk/tenants without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "DELETE /facts/bulk/tenants",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.bulk_delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/bulk/tenants without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "POST /facts/bulk/users",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.users.bulk_create() here. The PDP passes it through to the control plane's POST /v2/facts/{proj_id}/{env_id}/bulk/users without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "DELETE /facts/tenants/{tenant_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "DELETE /facts/tenants/{tenant_id}/users/{user_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.delete_tenant_user() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users/{user_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "POST /v2/auth/elements_login_as",
+      "status": "undocumented",
+      "ticket": "PER-16342",
+      "reason": "permit.elements.login_as() calls it; the API serves it, but the public spec does not list it."
+    },
+    {
+      "request": "POST /v2/echo",
+      "status": "test-only",
+      "ticket": "",
+      "reason": "A made-up route tests/test_fix_serialization.py sends request bodies to through SimpleHttpClient; no SDK method calls it."
+    },
+    {
+      "request": "PUT /v2/echo",
+      "status": "test-only",
+      "ticket": "",
+      "reason": "A made-up route tests/test_fix_serialization.py sends request bodies to through SimpleHttpClient; no SDK method calls it."
+    },
+    {
+      "request": "PATCH /v2/echo",
+      "status": "test-only",
+      "ticket": "",
+      "reason": "A made-up route tests/test_fix_serialization.py sends request bodies to through SimpleHttpClient; no SDK method calls it."
+    },
+    {
+      "request": "DELETE /v2/nobody",
+      "status": "test-only",
+      "ticket": "",
+      "reason": "A made-up route tests/test_fix_serialization.py sends a body-less request to through SimpleHttpClient; no SDK method calls it."
+    },
+    {
+      "request": "GET /probe",
+      "status": "test-only",
+      "ticket": "",
+      "reason": "A made-up route tests/test_offline_regressions.py uses to check how SimpleHttpClient handles success statuses; no SDK method calls it."
+    }
+  ]
+}

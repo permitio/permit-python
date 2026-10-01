@@ -15,6 +15,10 @@ from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
 from tests.utils import CLOUD_PDP_URL, offline_config
 
+# Records the requests the tests send, for the API coverage report. Inert unless a
+# record file is given (see that module).
+pytest_plugins = ("tests.api_coverage_recorder",)
+
 # pytest_httpserver's `httpserver` fixture binds a free port chosen by the OS,
 # so parallel runs on one machine cannot collide. Tests reach it through
 # httpserver.url_for(), never a hardcoded port. Set PYTEST_HTTPSERVER_PORT to
