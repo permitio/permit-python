@@ -60,6 +60,8 @@ await permit.check("alice", "edit", {"type": "document", "key": "readme", "tenan
 user a role in the tenant with `permit.api.users.assign_role()` instead. The request always
 goes to the Permit REST API, even with `proxy_facts_via_pdp`, and needs an environment-level
 API key, or a broader key with the SDK's API context set to the environment.
+`permit.api.tenants.delete_tenant_user()` answers 404 for a member with no role, so remove
+such a member with `permit.api.users.delete()`.
 
 `permit.get_user_tenants("alice")` asks the PDP for the tenants in which the user has a
 tenant-level role, as `TenantDetails` objects with a `key` and `attributes`. Membership

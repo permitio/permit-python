@@ -115,7 +115,8 @@ class TenantsApi(BasePermitApi):
         The request always goes to the Permit REST API, even with ``proxy_facts_via_pdp``
         set, so ``wait_for_sync()`` does not make it wait for the PDP. A membership without a
         role does not show in ``permit.get_user_tenants()``, which lists the tenants in which
-        the user has a role.
+        the user has a role, and ``delete_tenant_user()`` cannot remove it: delete the user
+        with ``api.users.delete()`` instead.
 
         Needs an environment-level API key, or a broader key with the SDK's API context set
         to the environment.
@@ -262,14 +263,24 @@ class TenantsApi(BasePermitApi):
 
     @validate_arguments
     async def delete_tenant_user(self, tenant_key: str, user_key: str) -> None:
-        """Deletes a user from a tenant, removing all roles granted to the user in that tenant.
+        """Removes the roles a user holds in a tenant.
+
+        The API removes the user's tenant-level roles in the tenant, and answers 404 when the
+        user holds none there. That includes a member that ``add_user()`` created without a
+        role, which this cannot remove: delete such a user with ``api.users.delete()``.
+
+        When the user is then left with no tenant-level role in any tenant, the API deletes
+        the user, even if the user is still a member of a tenant without a role or holds roles
+        on resource instances, so ``add_user()`` can create a user with that key again.
+        Otherwise the user stays a member of the tenant, with no tenant-level role there.
 
         Args:
-            tenant_key: The key of the tenant from which the user will be deleted.
-            user_key: The key of the user to be deleted.
+            tenant_key: The key of the tenant.
+            user_key: The key of the user whose roles in the tenant to remove.
 
         Raises:
-            PermitApiError: If the API returns an error HTTP status code.
+            PermitApiError: If the user holds no tenant-level role in the tenant (404), or the
+                API returns any other error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
