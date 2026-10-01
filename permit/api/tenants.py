@@ -129,8 +129,11 @@ class TenantsApi(BasePermitApi):
             the created user, whose ``associated_tenants`` include the tenant.
 
         Raises:
-            PermitAlreadyExistsError: If a user with this key already exists.
-            PermitNotFoundError: If the tenant does not exist.
+            PermitAlreadyExistsError: If a user with this key already exists, or a role
+                assignment in ``user_data`` names a tenant other than the one its resource
+                instance is in.
+            PermitNotFoundError: If the tenant does not exist, or a role assignment in
+                ``user_data`` names a role, tenant or resource that does not exist.
             PermitApiError: If the API returns any other error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
