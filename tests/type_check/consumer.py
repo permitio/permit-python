@@ -83,6 +83,10 @@ async def async_client() -> None:
         list[bool],
     )
     assert_type(await permit.get_user_permissions("u"), dict[str, Any])
+    assert_type(
+        await permit.get_user_permissions("u", ["t1"], context={"ip": "10.0.0.1"}),
+        dict[str, Any],
+    )
     tenants = await permit.get_user_tenants("u")
     assert_type(tenants, list[TenantDetails])
     assert_type(tenants[0].key, str)
@@ -198,6 +202,7 @@ def sync_client() -> None:
 
     assert_type(permit.check("user", "read", "document"), bool)
     assert_type(permit.get_user_permissions("u"), dict[str, Any])
+    assert_type(permit.get_user_permissions("u", context={"ip": "10.0.0.1"}), dict[str, Any])
     assert_type(permit.get_user_tenants("u"), list[TenantDetails])
     assert_type(permit.get_user_tenants({"key": "u"}, {"region": "eu"}), list[TenantDetails])
     assert_type(permit.api.users.get("u"), UserRead)

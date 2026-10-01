@@ -70,6 +70,14 @@ without a role, such as `create_user()` creates, is not listed. Only the contain
 this query: the cloud PDP answers 404, which the SDK raises as a `PermitConnectionError`.
 Both methods are on the blocking client too.
 
+## User permissions with context
+
+`permit.get_user_permissions("alice", context={"ip": "10.0.0.1"})` sends the context with the
+query, for ABAC policies to read. It is merged over the context store's base context, as
+`permit.check()` merges it. A call without `context` sends no context, as in 3.0, so the base
+context is not sent either; pass `context={}` to send the base context alone. The blocking
+client takes the same argument.
+
 ## Detailed lists
 
 `list_detailed()` on `permit.api.role_assignments`, `permit.api.resource_instances` and

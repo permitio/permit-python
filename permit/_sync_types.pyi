@@ -2973,6 +2973,7 @@ class SyncEnforcer:
         tenants: list[str] | None = None,
         resources: list[str] | None = None,
         resource_types: list[str] | None = None,
+        context: Context | None = None,
     ) -> dict[str, Any]:
         """Get all permissions of a user.
 
@@ -2981,6 +2982,10 @@ class SyncEnforcer:
             tenants: Only return permissions in these tenants.
             resources: Only return permissions on these resources.
             resource_types: Only return permissions on these resource types.
+            context: The query's context, which ABAC policies can read, merged over the
+                context store's base context as ``check()`` merges it. When it is None (the
+                default), the request carries no context, and the base context is not sent
+                either; pass ``{}`` to send the base context alone.
 
         Returns:
             The user's permissions per tenant and resource.
