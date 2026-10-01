@@ -11,7 +11,15 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from typing_extensions import assert_type
 
-from permit import Permit, PermitApiError, PermitConfig, UserCreate, UserInput, UserRead
+from permit import (
+    Permit,
+    PermitApiError,
+    PermitConfig,
+    TenantDetails,
+    UserCreate,
+    UserInput,
+    UserRead,
+)
 from permit.api.elements import UserLoginAsResponse
 from permit.api.models import (
     BulkRoleAssignmentReport,
@@ -70,6 +78,16 @@ async def async_client() -> None:
         list[bool],
     )
     assert_type(await permit.get_user_permissions("u"), dict[str, Any])
+    tenants = await permit.get_user_tenants("u")
+    assert_type(tenants, list[TenantDetails])
+    assert_type(tenants[0].key, str)
+    assert_type(tenants[0].attributes, dict[str, Any])
+    assert_type(
+        await permit.get_user_tenants(
+            {"key": "u", "attributes": {"dept": "eng"}}, context={"region": "eu"}
+        ),
+        list[TenantDetails],
+    )
 
     # Optional model fields are optional to the type checker too.
     user = UserCreate(key="u")
@@ -94,6 +112,8 @@ async def async_client() -> None:
         await permit.api.users.bulk_create([user, {"key": "u3"}]), UserCreateBulkOperationResult
     )
     assert_type(await permit.api.tenants.create(tenant), TenantRead)
+    assert_type(await permit.api.tenants.add_user("t1", user), UserRead)
+    assert_type(await permit.api.tenants.add_user("t1", {"key": "u6"}), UserRead)
     await permit.api.tenants.bulk_create([{"key": "t2", "name": "T2"}])
     assert_type(await permit.api.roles.create(role), RoleRead)
     await permit.api.resources.create(
@@ -158,10 +178,14 @@ def sync_client() -> None:
 
     assert_type(permit.check("user", "read", "document"), bool)
     assert_type(permit.get_user_permissions("u"), dict[str, Any])
+    assert_type(permit.get_user_tenants("u"), list[TenantDetails])
+    assert_type(permit.get_user_tenants({"key": "u"}, {"region": "eu"}), list[TenantDetails])
     assert_type(permit.api.users.get("u"), UserRead)
     assert_type(permit.api.users.list(), PaginatedResultUserRead)
     assert_type(permit.api.tenants.create(TenantCreate(key="t1", name="T1")), TenantRead)
     assert_type(permit.api.tenants.list(), list[TenantRead])
+    assert_type(permit.api.tenants.add_user("t1", {"key": "u6"}), UserRead)
+    assert_type(permit.api.tenants.add_user("t1", UserCreate(key="u7")), UserRead)
     assert_type(permit.api.users.create({"key": "u2"}), UserRead)
     permit.api.users.assign_role({"user": "u", "role": "admin", "tenant": "t1"})
     permit.api.users.bulk_create([UserCreate(key="u3"), {"key": "u4"}])
@@ -191,9 +215,11 @@ async def mistakes_stay_errors() -> None:
     UserInput(key="u", firstname="A")  # type: ignore[call-arg]
     # Accepting dicts does not mean accepting anything.
     await permit.api.users.create("u")  # type: ignore[arg-type]
+    await permit.api.tenants.add_user("t1", "u")  # type: ignore[arg-type]
     # SDK models are pydantic v1 models, so the pydantic v2 API does not exist on them.
     UserCreate(key="u").model_dump()  # type: ignore[attr-defined]
     # The blocking client returns values, not awaitables.
     await sync_permit.api.users.get("u")  # type: ignore[misc]
+    await sync_permit.get_user_tenants("u")  # type: ignore[misc]
     # The async client returns awaitables, not values.
     _ = permit.api.users.get("u").email  # type: ignore[attr-defined]
