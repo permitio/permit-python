@@ -255,6 +255,28 @@ uv build    # sdist and wheel into dist/
 `dist/` is the only build output; uv's build backend leaves no `build/` or `*.egg-info`
 directory behind.
 
-Releasing is done by publishing a GitHub release, which runs
-`.github/workflows/python-sdk-publish.yml` (build, then security scan, then PyPI). The release
-tag sets the version.
+## Releasing
+
+Publishing a GitHub release runs `.github/workflows/python-sdk-publish.yml`. It runs on
+`published` only, so saving a draft publishes nothing. The release tag sets the version:
+`vX.Y.Z` or `X.Y.Z`, optionally with a PEP 440 suffix such as `rc1` or `.post1`. Any other
+tag, including the hyphenated `X.Y.Z-rc.N` form older releases used, fails the build.
+
+The workflow has three jobs, each of which runs only if the one before it passed:
+
+1. **Build distribution** builds the sdist and the wheel with the uv version and checksum
+   pinned in the workflow. It fails if either one lacks `permit/py.typed` or
+   `permit/_sync_types.pyi`, or ships a package other than `permit`: the wheel may hold only
+   `permit/` and its `.dist-info`, and the sdist no directory but `permit/`. Pull requests
+   run the same check: one leg of the `compatibility` job in `.github/workflows/test.yml`
+   builds both files and checks them with an identical script.
+2. **Security Gate** scans the runtime dependency trees with `.github/scripts/audit-deps.sh`
+   and fails on any fixable HIGH or CRITICAL advisory. The report is kept as the
+   `release-dependency-audit` artifact for 90 days.
+3. **Publish to PyPI** uploads the two files with PyPI trusted publishing, so the job needs
+   no PyPI token. PyPI accepts the upload because the `permit` project on pypi.org lists
+   repository `permitio/permit-python`, workflow `python-sdk-publish.yml` and environment
+   `pypi` as a trusted publisher. Renaming the workflow file or the environment needs the
+   same change on pypi.org first, or the next release cannot upload.
+
+None of the jobs uses the Actions cache, and each has a timeout.
