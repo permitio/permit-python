@@ -422,11 +422,16 @@ def test_an_sdk_only_entry_for_a_route_the_spec_now_lists_goes_stale(tmp_path: P
 
 
 def test_without_an_e2e_record_the_column_says_not_run(tmp_path: Path) -> None:
-    outcome = report(tmp_path)
+    outcome = report(tmp_path, operations=[entry("POST /v2/requests", stage=EAP)])
     assert "End to end: **not run** (no end-to-end record was given)" in outcome.summary
     assert outcome.result["e2e"] == "not run"
     assert {op["e2e"] for op in outcome.result["operations"]} == {"not run"}
     assert "| Control plane | GA | 4 | 4 | 0 | 0 | 0 | 0 | not run |" in outcome.summary
+    covered = "| Control plane | `GET /v2/users/{user_id}` | GA | 1 | not run |"
+    missing = "| `GET /v2/groups/{group_key}` | deprecated | GET /v2/groups/{group_key} | not run |"
+    allowlisted = "| Control plane | `POST /v2/requests` | EAP | PER-1 | a reason | not run |"
+    for row in (covered, missing, allowlisted):
+        assert row in outcome.summary
 
 
 def test_an_e2e_record_without_e2e_requests_also_says_not_run(tmp_path: Path) -> None:
