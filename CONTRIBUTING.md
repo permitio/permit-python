@@ -16,7 +16,7 @@ uv run pre-commit install    # lint, format, type-check and uv.lock checks on ev
 
 `uv sync` installs the SDK from this checkout in editable mode, so the tests and scripts
 import the working tree's `permit`. `.python-version` selects Python 3.11, the version the
-end-to-end CI job runs on. The SDK itself supports Python 3.10 and later.
+end-to-end CI jobs run on. The SDK itself supports Python 3.10 and later.
 
 The ruff, mypy and typos hooks run through `uv run --locked`, which syncs `.venv` to `uv.lock`
 before running the tool, so the versions in `uv.lock` are the only ones in play; the hooks fail
@@ -130,28 +130,69 @@ uv run --only-dev pytest -c .github/scripts/pytest.ini \
 ### End-to-end tests
 
 The tests marked `e2e` talk to a real Permit environment through a running PDP. `uv run
-pytest` with no arguments runs the whole suite (`testpaths` is `tests/`). CI
-(`.github/workflows/test.yml`) creates a scratch environment per run, starts a PDP container
-for it, and sets:
+pytest` with no arguments runs the whole suite (`testpaths` is `tests/`).
+
+CI (`.github/workflows/test.yml`) runs the e2e tests in three jobs. Each job creates its own
+scratch environment in the CI project and deletes it when the job ends, whether the tests
+passed or not:
+
+- `pytest (Pydantic pydantic<2.0.0)` and `pytest (Pydantic pydantic>=2.0.0)`, the required
+  checks, run the whole suite against a PDP container. Its image is `PINNED_PDP_IMAGE` at
+  the top of the workflow: `permitio/pdp-v2` pinned by version and digest, so a new PDP
+  release cannot fail a required check.
+- `e2e (latest PDP image)` is not a required check. Once both `pytest` jobs pass, it runs
+  the whole suite on pydantic 2 against `permitio/pdp-v2:latest` and logs the digest
+  `:latest` resolved to. If it fails while `pytest` passes, the newest PDP release behaves
+  differently from the pinned one.
+- `e2e (cloud PDP)` is not a required check. Once both `pytest` jobs pass, it runs
+  `tests/test_abac_pdp.py` against the hosted cloud PDP, `https://cloudpdp.api.permit.io`,
+  with no container. Those tests apply only to the cloud PDP and skip anywhere else, so this
+  job fails if any of them is skipped.
+
+The jobs set:
 
 - `PDP_API_KEY`: the scratch environment's API key. Every e2e test fails without it.
-- `PDP_URL=http://localhost:7766`: the PDP. This is also the default when unset.
+- `PDP_URL`: `http://localhost:7766`, the PDP container, or `https://cloudpdp.api.permit.io`
+  in `e2e (cloud PDP)`. When it is unset, `tests/test_abac_pdp.py` uses the cloud PDP and
+  every other test `http://localhost:7766`.
 - `API_TIER=prod`: sends the SDK's API calls to `https://api.permit.io`.
 - `ORG_PDP_API_KEY` and `PROJECT_PDP_API_KEY`: the same key, read by
   `tests/endpoints/test_envs.py`.
 
 Without `API_TIER=prod` (or an explicit `PDP_CONTROL_PLANE`), `tests/conftest.py` sends API
-calls to `http://localhost:8000`. To reproduce CI locally with an environment-level API key:
+calls to `http://localhost:8000`. To reproduce the required jobs locally with an
+environment-level API key, on the PDP image they pin:
 
 ```sh
-docker run -d --name permit-pdp -p 7766:7000 -e PDP_API_KEY="$PDP_API_KEY" \
-  permitio/pdp-v2:latest
+PDP_IMAGE=$(grep -Eo 'permitio/pdp-v2:[0-9.]+@sha256:[0-9a-f]{64}' .github/workflows/test.yml)
+docker run -d --name permit-pdp -p 7766:7000 -e PDP_API_KEY="$PDP_API_KEY" "$PDP_IMAGE"
 PDP_URL=http://localhost:7766 API_TIER=prod \
   ORG_PDP_API_KEY="$PDP_API_KEY" PROJECT_PDP_API_KEY="$PDP_API_KEY" \
   uv run pytest -s --cache-clear tests/
 ```
 
+Set `PDP_IMAGE=permitio/pdp-v2:latest` instead to reproduce `e2e (latest PDP image)`. The
+cloud PDP tests need no container:
+
+```sh
+PDP_URL=https://cloudpdp.api.permit.io uv run pytest tests/test_abac_pdp.py
+```
+
 The suite creates and deletes objects in that environment, so use a throwaway one.
+
+### Moving the PDP pin
+
+Dependabot does not update `PINNED_PDP_IMAGE`. To move it to a new PDP release, first check
+that `e2e (latest PDP image)` passed on that release: its `Start the PDP` step logs the
+digest `:latest` resolved to. Then set `PINNED_PDP_IMAGE` to
+`permitio/pdp-v2:<version>@<digest>`, where `<digest>` is the digest of the release's
+multi-arch image index:
+
+```sh
+curl -s https://hub.docker.com/v2/repositories/permitio/pdp-v2/tags/<version> | jq -r .digest
+```
+
+Docker pulls by the digest; the tag only names it.
 
 ## Regenerating the sync stubs
 
