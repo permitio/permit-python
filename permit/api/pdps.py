@@ -50,8 +50,11 @@ class PdpsApi(BasePermitApi):
             configurations it was sent to.
 
         Raises:
+            pydantic.v1.ValidationError: If ``reason`` is longer than 512 characters. Nothing
+                is sent.
             PermitApiError: If the API returns an error HTTP status code, such as 403 for a
-                read-only API key or 404 when the environment has no PDP configuration.
+                read-only API key, 404 when the environment has no PDP configuration, or 422
+                when it has more PDP configurations than one refresh can reach.
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
