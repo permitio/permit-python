@@ -17,6 +17,7 @@ from permit.api.base import (
 )
 from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
 from permit.api.models import (
+    PaginatedResultRelationshipTupleDetailedRead,
     RelationshipTupleCreate,
     RelationshipTupleCreateBulkOperation,
     RelationshipTupleCreateBulkOperationResult,
@@ -26,6 +27,29 @@ from permit.api.models import (
     RelationshipTupleRead,
 )
 from permit.utils.model_input import ModelInput, ModelListInput
+
+
+def _filter_params(
+    *,
+    page: int,
+    per_page: int,
+    subject_key: str | None,
+    relation_key: str | None,
+    object_key: str | None,
+    tenant_key: str | None,
+) -> list[tuple[str, str | int]]:
+    """The query of a relationship tuples list: pagination, then the filters given."""
+    params = list(pagination_params(page, per_page).items())
+
+    if subject_key is not None:
+        params.append(("subject", subject_key))
+    if relation_key is not None:
+        params.append(("relation", relation_key))
+    if object_key is not None:
+        params.append(("object", object_key))
+    if tenant_key is not None:
+        params.append(("tenant", tenant_key))
+    return params
 
 
 class RelationshipTuplesApi(BasePermitApi):
@@ -69,20 +93,76 @@ class RelationshipTuplesApi(BasePermitApi):
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        params = list(pagination_params(page, per_page).items())
-
-        if subject_key is not None:
-            params.append(("subject", subject_key))
-        if relation_key is not None:
-            params.append(("relation", relation_key))
-        if object_key is not None:
-            params.append(("object", object_key))
-        if tenant_key is not None:
-            params.append(("tenant", tenant_key))
+        params = _filter_params(
+            page=page,
+            per_page=per_page,
+            subject_key=subject_key,
+            relation_key=relation_key,
+            object_key=object_key,
+            tenant_key=tenant_key,
+        )
 
         return await self.__relationship_tuples.get(
             "",
             model=list[RelationshipTupleRead],
+            params=params,
+        )
+
+    @validate_arguments
+    async def list_detailed(
+        self,
+        *,
+        page: int = 1,
+        per_page: int = 100,
+        subject_key: str | None = None,
+        relation_key: str | None = None,
+        object_key: str | None = None,
+        tenant_key: str | None = None,
+    ) -> PaginatedResultRelationshipTupleDetailedRead:
+        """Lists relationship tuples with their subject, relation, object and tenant.
+
+        Takes the same filters as ``list()``, as keyword arguments. Each tuple carries what
+        ``list()`` returns, and also fills in the fields ``list()`` leaves empty:
+        ``subject_details`` and ``object_details`` (each resource instance's key, resource
+        type, tenant and attributes), ``relation_details`` (the relation's key, name and
+        description) and ``tenant_details`` (the tenant's key, name, description and
+        attributes).
+
+        Needs an environment-level API key, or a project- or organization-level key with the
+        SDK's API context set to the environment.
+
+        Args:
+            page: The page number to fetch, starting at 1 (default: 1).
+            per_page: How many items to fetch per page, at most 100 (default: 100).
+            subject_key: if specified, only relationship tuples with this subject will be
+                fetched: `resource_type:instance_key` or the resource instance id.
+            relation_key: if specified, only relationship tuples with this relation will be
+                fetched.
+            object_key: if specified, only relationship tuples with this object will be
+                fetched: `resource_type:instance_key` or the resource instance id.
+            tenant_key: if specified, only relationship tuples in this tenant will be fetched.
+
+        Returns:
+            One page of detailed relationship tuples, with the total count across all pages.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
+        await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
+        await self._ensure_context(ApiContextLevel.ENVIRONMENT)
+        params = _filter_params(
+            page=page,
+            per_page=per_page,
+            subject_key=subject_key,
+            relation_key=relation_key,
+            object_key=object_key,
+            tenant_key=tenant_key,
+        )
+        return await self.__relationship_tuples.get(
+            "/detailed",
+            model=PaginatedResultRelationshipTupleDetailedRead,
             params=params,
         )
 

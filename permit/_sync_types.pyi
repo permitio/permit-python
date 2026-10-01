@@ -36,6 +36,9 @@ from permit.api.models import (
     PaginatedResultElementsUserInviteRead,
     PaginatedResultGroupReadSchema,
     PaginatedResultRelationRead,
+    PaginatedResultRelationshipTupleDetailedRead,
+    PaginatedResultResourceInstanceDetailedRead,
+    PaginatedResultRoleAssignmentDetailedRead,
     PaginatedResultUserRead,
     PermitBackendSchemasSchemaDerivedRoleRuleDerivationSettings,
     ProjectCreate,
@@ -922,6 +925,47 @@ class SyncRelationshipTuplesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
+    def list_detailed(
+        self,
+        *,
+        page: int = 1,
+        per_page: int = 100,
+        subject_key: str | None = None,
+        relation_key: str | None = None,
+        object_key: str | None = None,
+        tenant_key: str | None = None,
+    ) -> PaginatedResultRelationshipTupleDetailedRead:
+        """Lists relationship tuples with their subject, relation, object and tenant.
+
+        Takes the same filters as ``list()``, as keyword arguments. Each tuple carries what
+        ``list()`` returns, and also fills in the fields ``list()`` leaves empty:
+        ``subject_details`` and ``object_details`` (each resource instance's key, resource
+        type, tenant and attributes), ``relation_details`` (the relation's key, name and
+        description) and ``tenant_details`` (the tenant's key, name, description and
+        attributes).
+
+        Needs an environment-level API key, or a project- or organization-level key with the
+        SDK's API context set to the environment.
+
+        Args:
+            page: The page number to fetch, starting at 1 (default: 1).
+            per_page: How many items to fetch per page, at most 100 (default: 100).
+            subject_key: if specified, only relationship tuples with this subject will be
+                fetched: `resource_type:instance_key` or the resource instance id.
+            relation_key: if specified, only relationship tuples with this relation will be
+                fetched.
+            object_key: if specified, only relationship tuples with this object will be
+                fetched: `resource_type:instance_key` or the resource instance id.
+            tenant_key: if specified, only relationship tuples in this tenant will be fetched.
+
+        Returns:
+            One page of detailed relationship tuples, with the total count across all pages.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
     def create(self, tuple_data: ModelInput[RelationshipTupleCreate]) -> RelationshipTupleRead:
         """Creates a new relationship tuple.
 
@@ -1376,6 +1420,41 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Returns:
             an array of resource instances.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
+    def list_detailed(
+        self,
+        *,
+        page: int = 1,
+        per_page: int = 100,
+        tenant_key: str | None = None,
+        resource_key: str | None = None,
+        search_key: str | None = None,
+    ) -> PaginatedResultResourceInstanceDetailedRead:
+        """Lists resource instances, each with the relationship tuples it is part of.
+
+        Takes the filters of ``list()``, as keyword arguments, and replaces
+        ``list(detailed_key=True)``. Each instance carries what ``list()`` returns, and
+        ``relationships`` lists the relationship tuples whose subject or object it is, each
+        as its subject, relation and object. ``search_key`` matches an instance key or id
+        exactly, where ``list()`` also matches part of a key.
+
+        Needs an environment-level API key, or a project- or organization-level key with the
+        SDK's API context set to the environment.
+
+        Args:
+            page: The page number to fetch, starting at 1 (default: 1).
+            per_page: How many items to fetch per page, at most 100 (default: 100).
+            tenant_key: Only return instances that belong to this tenant (its key or id).
+            resource_key: Only return instances of this resource type (its key or id).
+            search_key: Only return the instance whose key or id is exactly this.
+
+        Returns:
+            One page of detailed resource instances, with the total count across all pages.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -1980,6 +2059,52 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Returns:
             an array of role assignments.
+
+        Raises:
+            PermitApiError: If the API returns an error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
+    def list_detailed(
+        self,
+        *,
+        user_key: str | builtins.list[str] | None = None,
+        role_key: str | builtins.list[str] | None = None,
+        tenant_key: str | builtins.list[str] | None = None,
+        resource_key: str | None = None,
+        resource_instance_key: str | None = None,
+        page: int = 1,
+        per_page: int = 100,
+    ) -> PaginatedResultRoleAssignmentDetailedRead:
+        """Lists role assignments with the role, user, tenant and resource instance they name.
+
+        Takes the same filters as ``list()``, as keyword arguments. Where ``list()`` returns
+        the keys of the role, user and tenant of each assignment, this returns them as
+        objects: the role's key, name and permissions, the user's key, email, names and
+        attributes, the tenant's key, name and attributes, and, for a resource role, the
+        resource instance's key, resource type and attributes.
+
+        Needs an environment-level API key, or a project- or organization-level key with the
+        SDK's API context set to the environment.
+
+        Args:
+            user_key: if specified, only roles granted to this user, or to any of these
+                users, will be fetched.
+            role_key: if specified, only assignments of this role, or of any of these roles,
+                will be fetched.
+            tenant_key: if specified, only roles granted within this tenant, or within any of
+                these tenants, will be fetched. With ``resource_instance_key``, pass a single
+                tenant: the API resolves the instance in the last tenant given.
+            resource_key: (for resource roles) if specified, only roles granted on instances
+                of this resource type will be fetched.
+            resource_instance_key: (for resource roles) if specified, only roles granted with
+                this instance as the object will be fetched. The instance identity, either
+                `resource_type:instance_key` (like Repository:react) or the instance uuid.
+            page: The page number to fetch, starting at 1 (default: 1).
+            per_page: How many items to fetch per page, at most 1000 (default: 100).
+
+        Returns:
+            One page of detailed role assignments, with the total count across all pages.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
