@@ -14,8 +14,8 @@ from permit.api.models import (
     ResourceInstanceCreate,
     ResourceInstanceRead,
     ResourceRead,
-    RoleCreate,
-    RoleRead,
+    ResourceRoleCreate,
+    ResourceRoleRead,
     TenantCreate,
     TenantRead,
     UserInviteStatus,
@@ -32,7 +32,7 @@ def print_break() -> None:
 class SetupUserInvites(NamedTuple):
     created_resource: ResourceRead
     created_resource_instance: ResourceInstanceRead
-    created_role: RoleRead
+    created_role: ResourceRoleRead
     created_tenant: TenantRead
     to_create_invites: list[ElementsUserInviteCreate]
 
@@ -61,7 +61,7 @@ async def setup_user_invites(permit: Permit) -> AsyncIterator[SetupUserInvites]:
         "first_name": "Test",
         "last_name": "User2",
     }
-    created_role: RoleRead | None = None
+    created_role: ResourceRoleRead | None = None
     created_tenant: TenantRead | None = None
     created_resource: ResourceRead | None = None
     created_resource_instance: ResourceInstanceRead | None = None
@@ -113,16 +113,15 @@ async def setup_user_invites(permit: Permit) -> AsyncIterator[SetupUserInvites]:
         assert created_resource_instance.key == test_resource_instance.key
         logger.info(f"Created test resource instance: {created_resource_instance.key}")
 
-        # Create test role with permissions that match our resource actions
-        test_role = RoleCreate(
+        # The invites target a resource instance, so their role must be a role of that
+        # instance's resource: the API refuses to approve an invite whose role belongs to
+        # another resource (PER-15743).
+        test_role = ResourceRoleCreate(
             key=f"test_role_invites-{run_id.hex}",
             name="Test Role for Invites",
-            permissions=[
-                f"{created_resource.key}:read",
-                f"{created_resource.key}:write",
-            ],  # Use our resource actions
+            permissions=["read", "write"],
         )
-        created_role = await permit.api.roles.create(test_role)
+        created_role = await permit.api.resource_roles.create(created_resource.key, test_role)
         assert created_role is not None
         assert created_role.key == test_role.key
         assert created_role.name == test_role.name
@@ -172,9 +171,9 @@ async def setup_user_invites(permit: Permit) -> AsyncIterator[SetupUserInvites]:
                         logger.warning(f"Failed to delete resource instance {instance_ident}: {e}")
 
             # Delete test role
-            if created_role is not None:
+            if created_role is not None and created_resource is not None:
                 try:
-                    await permit.api.roles.delete(created_role.key)
+                    await permit.api.resource_roles.delete(created_resource.key, created_role.key)
                     logger.info(f"Cleaned up role: {created_role.key}")
                 except PermitApiError as e:
                     if e.status_code != 404:  # Ignore if already deleted
