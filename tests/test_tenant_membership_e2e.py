@@ -2,8 +2,10 @@
 
 ``tenants.add_user`` creates a user as a member of one tenant, with no role there. The
 user must be new: the API answers 409 for a key that already exists, so it does not add
-an existing user to another tenant. ``tenants.delete_tenant_user`` takes the user out of
-the tenant, with every role they hold there.
+an existing user to another tenant. ``tenants.delete_tenant_user`` removes the roles the
+user holds in the tenant, and answers 404 for a member with no role there. A user who
+still holds a role in another tenant stays a member; the API deletes a user left with no
+role in any tenant.
 
 ``get_user_tenants`` asks the PDP for the user's tenants. The PDP lists the tenants in
 which the user holds a role assigned in the tenant, with each tenant's attributes; a
@@ -149,8 +151,13 @@ async def test_add_user_creates_a_member_with_no_role(
     tenants = permit.api.tenants
     tenant = await create_tenant(permit, teardown, "member-tenant")
     other_tenant = await create_tenant(permit, teardown, "other-tenant")
+    role = await create_role(permit, teardown)
     user_key = unique_key("member")
     register_user_delete(permit, teardown, user_key)
+
+    async def members_of(tenant_key: str) -> list[tuple[str, list[tuple[str, list[str]]]]]:
+        listed = await tenants.list_tenant_users(tenant_key)
+        return [(user.key, tenant_roles(user)) for user in listed.data]
 
     member = await tenants.add_user(
         tenant,
@@ -190,9 +197,28 @@ async def test_add_user_creates_a_member_with_no_role(
         await tenants.add_user(missing_tenant, {"key": unadded_key})
     assert no_tenant.value.status_code == NOT_FOUND
 
+    # The member holds no role in the tenant, so delete_tenant_user has nothing to remove.
+    with pytest.raises(PermitApiError) as no_role:
+        await tenants.delete_tenant_user(tenant, user_key)
+    assert no_role.value.status_code == NOT_FOUND
+    assert await members_of(tenant) == [(user_key, [(tenant, [])])]
+
+    await assign_role(permit, teardown, user_key, role, tenant)
+    await assign_role(permit, teardown, user_key, role, other_tenant)
     await tenants.delete_tenant_user(tenant, user_key)
 
-    assert (await tenants.list_tenant_users(tenant)).data == []
+    # The user still holds a role in the other tenant, so they stay a member of this one.
+    assert await members_of(tenant) == [(user_key, [(tenant, [])])]
+    assert await members_of(other_tenant) == [(user_key, [(other_tenant, [role])])]
+
+    await tenants.delete_tenant_user(other_tenant, user_key)
+
+    # No role is left in any tenant, so the API deleted the user, membership and all.
+    assert await members_of(other_tenant) == []
+    assert await members_of(tenant) == []
+    with pytest.raises(PermitApiError) as deleted_user:
+        await permit.api.users.get(user_key)
+    assert deleted_user.value.status_code == NOT_FOUND
     with pytest.raises(PermitApiError) as removed_twice:
         await tenants.delete_tenant_user(tenant, user_key)
     assert removed_twice.value.status_code == NOT_FOUND
