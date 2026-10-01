@@ -27,7 +27,7 @@ import pytest
 from permit import Permit, PermitConfig, User, UserCreate, UserRead
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
-from tests.utils import delete_quietly, handle_cleanup_error, poll_for, unique_key
+from tests.utils import delete_quietly, delete_quietly_blocking, poll_for, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -126,14 +126,6 @@ async def tenants_of(
     """
     tenants = await permit.get_user_tenants(user, context=context)
     return {tenant.key: tenant.attributes for tenant in tenants}
-
-
-def delete_quietly_blocking(delete: Callable[[], None], description: str) -> None:
-    """Delete one object at teardown through the blocking client, as ``delete_quietly``."""
-    try:
-        delete()
-    except PermitApiError as error:
-        handle_cleanup_error(error, f"could not delete {description}")
 
 
 def poll_for_blocking(fetch: Callable[[], T], expected: T) -> T:

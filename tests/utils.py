@@ -110,6 +110,14 @@ async def delete_quietly(delete: Callable[[], Awaitable[None]], description: str
         handle_cleanup_error(error, f"could not delete {description}")
 
 
+def delete_quietly_blocking(delete: Callable[[], None], description: str) -> None:
+    """Delete one object at teardown through the blocking client, as ``delete_quietly``."""
+    try:
+        delete()
+    except PermitApiError as error:
+        handle_cleanup_error(error, f"could not delete {description}")
+
+
 T = TypeVar("T")
 
 
