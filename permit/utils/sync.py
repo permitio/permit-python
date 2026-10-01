@@ -1,8 +1,14 @@
 import asyncio
+import atexit
+import concurrent.futures
+import contextlib
 import functools
 import inspect
+import os
 import sys
+import threading
 import warnings
+import weakref
 from collections.abc import Awaitable, Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
@@ -18,8 +24,13 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
+from permit.utils.sdk_logger import sdk_logger
+
 P = ParamSpec("P")
 T = TypeVar("T")
+
+CloseSessions = Callable[[], Coroutine[Any, Any, None]]
+"""A coroutine function that closes the HTTP sessions of a sync client."""
 
 SYNC_WRAPPER_MARKER = "__permit_sync_wrapper__"
 """Attribute set on every wrapper produced by :func:`async_to_sync`.
@@ -122,6 +133,388 @@ def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
     return _run_blocking(coroutine, _CallSite.from_frame(caller))
 
 
+_BACKGROUND_LOOP_ATTRIBUTE = "_permit_background_loop"
+"""The attribute through which an object of a `SyncClass` class reaches its client's loop.
+
+`_BackgroundLoop.bind` sets it. A blocking method of an object without it runs its coroutine
+in an event loop of its own, as every blocking call did before the sync client had a
+background loop.
+"""
+
+
+class _LoopThread:
+    """An event loop that runs in a daemon thread until it is shut down.
+
+    It tracks the tasks it runs for blocking calls and for session cleanups, so that a
+    shutdown can wait for them, or cancel them.
+    """
+
+    def __init__(self) -> None:
+        self.loop = asyncio.new_event_loop()
+        # Read and written on the loop's thread only.
+        self._tasks: set[asyncio.Task[Any]] = set()
+        self._stopping: asyncio.Task[None] | None = None
+        self.thread = threading.Thread(target=self._serve, name="permit-sync-loop", daemon=True)
+        self.thread.start()
+
+    def _serve(self) -> None:
+        try:
+            self.loop.run_forever()
+            self.loop.run_until_complete(self._settle())
+            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+        finally:
+            self.loop.close()
+
+    async def _settle(self) -> None:
+        """Finish the tasks still on the stopped loop: tracked ones run, any other is cancelled.
+
+        A session cleanup can be scheduled from a finalizer while the loop is stopping.
+        """
+        current = asyncio.current_task()
+        while others := asyncio.all_tasks() - {current}:
+            for task in others - self._tasks:
+                task.cancel()
+            await asyncio.wait(others)
+
+    async def _track(self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
+        """Await `coroutine` as a tracked task that runs for the blocking call made at `call_site`.
+
+        The task runs in a copy of the context of the thread that submitted it, as
+        `call_soon_threadsafe` documents, and `_blocking_call_site` is set in that copy.
+        """
+        # Never None: this coroutine only ever runs as a task.
+        task = cast("asyncio.Task[Any]", asyncio.current_task())
+        self._tasks.add(task)
+        try:
+            _blocking_call_site.set(call_site)
+            return await coroutine
+        finally:
+            self._tasks.discard(task)
+            # An exception the coroutine raised keeps this frame in its traceback, and the
+            # task keeps the exception: without this, the three form a cycle that holds the
+            # coroutine's objects until the cyclic garbage collector runs.
+            del task
+
+    def submit(
+        self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite
+    ) -> concurrent.futures.Future[T]:
+        """Start `coroutine` on the loop, for the blocking call made at `call_site`.
+
+        Args:
+            coroutine: The coroutine to run.
+            call_site: The line that made the blocking call.
+
+        Returns:
+            The future of the coroutine's result.
+
+        Raises:
+            RuntimeError: If the loop is closed. `coroutine` is closed, never started.
+        """
+        tracked = self._track(coroutine, call_site)
+        try:
+            return asyncio.run_coroutine_threadsafe(tracked, self.loop)
+        except BaseException:
+            tracked.close()
+            coroutine.close()
+            raise
+
+    def schedule(self, close_sessions: CloseSessions) -> None:
+        """Start `close_sessions()` on the loop as a tracked task, without waiting for it.
+
+        It takes no lock and does not block, so a finalizer may call it from any thread.
+
+        Raises:
+            RuntimeError: If the loop is closed.
+        """
+        self.loop.call_soon_threadsafe(self._start_cleanup, close_sessions)
+
+    def _start_cleanup(self, close_sessions: CloseSessions) -> None:
+        task = self.loop.create_task(self._track(close_sessions(), _CallSite.from_frame(None)))
+        # Tracked from now, not from its first step: the loop may be stopping, and _settle
+        # cancels the tasks it does not track.
+        self._tasks.add(task)
+        task.add_done_callback(_log_cleanup_failure)
+
+    async def drain(self, *, cancel: bool) -> None:
+        """Wait until no tracked task is left, cancelling each one first when `cancel` is True."""
+        current = asyncio.current_task()
+        while pending := self._tasks - {current}:
+            if cancel:
+                for task in pending:
+                    task.cancel()
+            await asyncio.wait(pending)
+
+    async def _drain_and_close(
+        self, closers: list[CloseSessions], *, cancel_calls: bool, call_site: _CallSite
+    ) -> None:
+        # The sessions' close() may await the client's own converted methods, which must hand
+        # back their coroutines rather than block, as they do in any blocking call's coroutine.
+        _blocking_call_site.set(call_site)
+        await self.drain(cancel=cancel_calls)
+        for close_sessions in closers:
+            await close_sessions()
+
+    def close(
+        self, closers: list[CloseSessions], *, cancel_calls: bool, call_site: _CallSite
+    ) -> None:
+        """Wait for (or cancel) the tracked tasks, run `closers`, then stop the loop and join.
+
+        Args:
+            closers: The coroutine functions that close the sessions opened on this loop.
+            cancel_calls: Cancel the blocking calls in flight instead of waiting for them.
+            call_site: The line that called close().
+        """
+        drained = self._drain_and_close(closers, cancel_calls=cancel_calls, call_site=call_site)
+        try:
+            asyncio.run_coroutine_threadsafe(drained, self.loop).result()
+        finally:
+            self.loop.call_soon_threadsafe(self.loop.stop)
+            self.thread.join()
+
+    def stop_soon(self) -> None:
+        """Stop the loop once its tracked tasks are done, without waiting; safe in a finalizer."""
+        # A closed loop raises; there is nothing left to stop then.
+        with contextlib.suppress(RuntimeError):
+            self.loop.call_soon_threadsafe(self._start_stopping)
+
+    def _start_stopping(self) -> None:
+        self._stopping = self.loop.create_task(self._drain_and_stop())
+
+    async def _drain_and_stop(self) -> None:
+        await self.drain(cancel=False)
+        self.loop.stop()
+
+
+def _finalize_when_collected(
+    obj: T, func: Callable[P, object], *args: P.args, **kwargs: P.kwargs
+) -> "weakref.finalize[P, T]":
+    """`weakref.finalize(obj, func, *args, **kwargs)`, which runs when `obj` is collected only.
+
+    A finalizer runs at interpreter exit too, unless its `atexit` is False. The sync client's
+    exit-time cleanup is `_close_running_loops`, which blocks until the sessions are closed.
+
+    Args:
+        obj: The object whose collection triggers `func`.
+        func: The callback. It must not reference `obj`, or `obj` is never collected.
+        *args: Positional arguments for `func`.
+        **kwargs: Keyword arguments for `func`.
+
+    Returns:
+        The finalizer, which `detach()` cancels.
+    """
+    finalizer = weakref.finalize(obj, func, *args, **kwargs)
+    # Writable, as the weakref documentation says; typeshed declares __slots__ = () on it.
+    finalizer.atexit = False  # type: ignore[misc]
+    return finalizer
+
+
+def _log_cleanup_failure(task: "asyncio.Task[None]") -> None:
+    if not task.cancelled() and (error := task.exception()) is not None:
+        sdk_logger.error(f"Could not close the HTTP sessions of a Permit sync client: {error!r}")
+
+
+class _BackgroundLoop:
+    """The event loop on which a sync client runs its blocking calls, in a daemon thread.
+
+    The thread starts on the first call. Calls from any number of threads are submitted to
+    it and waited for, so they share the client's HTTP sessions and connections. `close()`
+    waits for the calls in flight, closes the sessions and stops the thread; the next call
+    starts a new one. A client that is never closed has its thread stopped once nothing
+    references this object any more, or at interpreter exit.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._thread: _LoopThread | None = None
+        self._stop_when_collected: weakref.finalize[[], _BackgroundLoop] | None = None
+        self._closers: list[weakref.WeakMethod[CloseSessions]] = []
+
+    def bind(self, *roots: object) -> None:
+        """Run the blocking calls of `roots`, and of every `SyncClass` object they hold, here.
+
+        Args:
+            roots: The objects a sync client exposes, such as its enforcer and API clients.
+        """
+        pending = list(roots)
+        seen: set[int] = set()
+        while pending:
+            obj = pending.pop()
+            if id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            if isinstance(type(obj), SyncClass):
+                setattr(obj, _BACKGROUND_LOOP_ATTRIBUTE, self)
+            pending.extend(
+                value for value in vars(obj).values() if isinstance(type(value), SyncClass)
+            )
+
+    def add_closer(self, close_sessions: "weakref.WeakMethod[CloseSessions]") -> None:
+        """Run `close_sessions` on the loop when it is closed, while its object is alive.
+
+        Args:
+            close_sessions: A weak reference to a client's method that closes its sessions.
+        """
+        with self._lock:
+            self._closers = [ref for ref in self._closers if ref() is not None]
+            self._closers.append(close_sessions)
+
+    def run(self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
+        """Run `coroutine` on the loop for the blocking call made at `call_site`, and wait.
+
+        Args:
+            coroutine: The coroutine of the blocking call.
+            call_site: The line that made the blocking call.
+
+        Returns:
+            Whatever the coroutine returns.
+
+        Raises:
+            RuntimeError: If called from the loop's own thread, where waiting would deadlock.
+        """
+        future: concurrent.futures.Future[T] | None = None
+        try:
+            with self._lock:
+                future = self._thread_for_call().submit(coroutine, call_site)
+            return future.result()
+        except BaseException:
+            if future is None:
+                coroutine.close()
+            raise
+        finally:
+            if future is not None:
+                # A no-op once the call is done. When waiting was interrupted, such as by
+                # KeyboardInterrupt, it cancels the call, as asyncio.run() would.
+                future.cancel()
+
+    def _thread_for_call(self) -> _LoopThread:
+        """The loop thread to run a call on, started first if there is none.
+
+        Called with the lock held.
+
+        Raises:
+            RuntimeError: If the caller is that thread, where waiting would deadlock.
+        """
+        if self._thread is None:
+            self._thread = _LoopThread()
+            # At exit, _close_running_loops closes the loop, with the client's sessions.
+            self._stop_when_collected = _finalize_when_collected(self, self._thread.stop_soon)
+            _running_loops.add(self)
+        elif self._thread.thread is threading.current_thread():
+            msg = (
+                "A blocking call of permit.sync.Permit was made on the client's own event loop "
+                f"thread ({self._thread.thread.name}), where it would wait for itself forever. "
+                "Make the call from another thread, or await the async client, permit.Permit."
+            )
+            raise RuntimeError(msg)
+        return self._thread
+
+    def close(self, *, cancel_calls: bool = False) -> None:
+        """Close the sessions opened on the loop and stop its thread, if it is running.
+
+        Args:
+            cancel_calls: Cancel the blocking calls in flight instead of waiting for them.
+
+        Raises:
+            RuntimeError: If called from the loop's own thread, which it would have to join.
+        """
+        caller = sys._getframe(0).f_back  # noqa: SLF001 - see run_coroutine_sync
+        call_site = _CallSite.from_frame(caller)
+        with self._lock:
+            loop_thread = self._thread
+            if loop_thread is None:
+                return
+            if loop_thread.thread is threading.current_thread():
+                msg = (
+                    "permit.sync.Permit.close() was called on the client's own event loop "
+                    f"thread ({loop_thread.thread.name}), which close() stops and joins. "
+                    "Call it from another thread."
+                )
+                raise RuntimeError(msg)
+            self._thread = None
+            if self._stop_when_collected is not None:
+                self._stop_when_collected.detach()
+                self._stop_when_collected = None
+            _running_loops.discard(self)
+            closers = [method for ref in self._closers if (method := ref()) is not None]
+        loop_thread.close(closers, cancel_calls=cancel_calls, call_site=call_site)
+
+    def close_when_collected(self, owner: object, close_sessions: CloseSessions) -> None:
+        """Run `close_sessions()` on the loop once `owner` is garbage collected.
+
+        Args:
+            owner: The sync client whose sessions `close_sessions` closes.
+            close_sessions: Closes the sessions. It must not reference `owner`, or `owner`
+                is never collected.
+        """
+        _finalize_when_collected(owner, self._close_soon, close_sessions)
+
+    def _close_soon(self, close_sessions: CloseSessions) -> None:
+        """Start `close_sessions()` on the running loop, if any, without waiting for it.
+
+        For a finalizer: it takes no lock, as the thread that collects the client may be
+        holding it, and does not block, as that thread may be the loop's own.
+        """
+        loop_thread = self._thread
+        if loop_thread is None:
+            return
+        # A closed loop raises; it closed the sessions it had on the way.
+        with contextlib.suppress(RuntimeError):
+            loop_thread.schedule(close_sessions)
+
+    def forget_thread(self) -> None:
+        """In a child process made by fork(): drop the thread, which the fork did not copy.
+
+        The next call starts a new thread. The old loop is kept referenced, not closed: it
+        still looks like it is running, so closing it would raise, and collecting it would
+        report it, and the sessions bound to it, as unclosed.
+        """
+        self._lock = threading.Lock()
+        if self._thread is not None:
+            _loops_lost_to_fork.append(self._thread)
+            self._thread = None
+        if self._stop_when_collected is not None:
+            self._stop_when_collected.detach()
+            self._stop_when_collected = None
+
+
+_running_loops: "weakref.WeakSet[_BackgroundLoop]" = weakref.WeakSet()
+_loops_lost_to_fork: list[_LoopThread] = []
+
+
+def _close_running_loops() -> None:
+    """At interpreter exit, close every running background loop, with its client's sessions.
+
+    The calls still in flight can only come from daemon threads by then, and are cancelled
+    rather than waited for, so they cannot hold up the exit.
+    """
+    for background_loop in list(_running_loops):
+        _close_at_exit(background_loop)
+
+
+def _close_at_exit(background_loop: _BackgroundLoop) -> None:
+    try:
+        background_loop.close(cancel_calls=True)
+    except Exception as error:  # noqa: BLE001 - logged; the other clients still get closed
+        sdk_logger.error(f"Could not close a Permit sync client at exit: {error!r}")
+
+
+def _forget_threads_after_fork() -> None:
+    for background_loop in list(_running_loops):
+        background_loop.forget_thread()
+    _running_loops.clear()
+
+
+atexit.register(_close_running_loops)
+if sys.platform != "win32":
+    os.register_at_fork(after_in_child=_forget_threads_after_fork)
+
+
+def _background_loop_of(obj: object) -> _BackgroundLoop | None:
+    """The background loop `obj` was bound to, if it was."""
+    candidate = getattr(obj, _BACKGROUND_LOOP_ATTRIBUTE, None)
+    return candidate if isinstance(candidate, _BackgroundLoop) else None
+
+
 def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
     """Turn an async callable into a blocking one.
 
@@ -129,10 +522,12 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
         func: The coroutine function to convert.
 
     Returns:
-        A callable that runs `func` to completion and returns its result. When it
-        is called from inside a coroutine that a blocking call is already driving,
-        the coroutine is handed back untouched instead, so that internal
-        `await self.public_method(...)` calls keep working on a converted class.
+        A callable that runs `func` to completion and returns its result: on the background
+        loop of the sync client that the first argument (`self`, for a method) belongs to,
+        otherwise in an event loop of its own. When it is called from inside a coroutine
+        that a blocking call is already driving, the coroutine is handed back untouched
+        instead, so that internal `await self.public_method(...)` calls keep working on a
+        converted class.
     """
 
     @wraps(func)
@@ -142,7 +537,11 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
         # Read in the caller's thread, while its frame is the one that called us.
         caller = sys._getframe(0).f_back  # noqa: SLF001 - see run_coroutine_sync
         call_site = _CallSite.from_frame(caller)
-        return _run_blocking(func(*args, **kwargs), call_site)
+        background_loop = _background_loop_of(args[0]) if args else None
+        coroutine = func(*args, **kwargs)
+        if background_loop is None:
+            return _run_blocking(coroutine, call_site)
+        return background_loop.run(coroutine, call_site)
 
     setattr(wrapper, SYNC_WRAPPER_MARKER, True)
     return wrapper
