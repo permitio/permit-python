@@ -27,11 +27,16 @@ import pytest
 from permit import Permit, PermitConfig, User, UserCreate, UserRead
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
-from tests.utils import delete_quietly, delete_quietly_blocking, poll_for, unique_key
+from tests.utils import (
+    CLOUD_PDP_URL,
+    delete_quietly,
+    delete_quietly_blocking,
+    poll_for,
+    unique_key,
+)
 
 pytestmark = pytest.mark.e2e
 
-CLOUD_PDP_URL: Final[str] = "https://cloudpdp.api.permit.io"
 NOT_FOUND: Final[int] = 404
 CONFLICT: Final[int] = 409
 REGION: Final[dict[str, Any]] = {"region": "eu"}

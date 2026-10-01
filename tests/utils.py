@@ -63,6 +63,10 @@ def sent(request: Request) -> dict[str, Any]:
 
 # --- end-to-end tests ---------------------------------------------------------
 
+# The hosted cloud PDP. conftest.py's fixtures can default to it, and the e2e tests that
+# run only on it, or never on it, compare the PDP address they are given with it.
+CLOUD_PDP_URL = "https://cloudpdp.api.permit.io"
+
 
 def handle_api_error(error: PermitApiError, message: str) -> None:
     err = (

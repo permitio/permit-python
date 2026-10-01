@@ -23,9 +23,7 @@ from typing import Any, Final
 import pytest
 
 from permit import Permit, PermitConnectionError
-from tests.utils import delete_quietly, poll_for, unique_key
-
-CLOUD_PDP_URL: Final[str] = "https://cloudpdp.api.permit.io"
+from tests.utils import CLOUD_PDP_URL, delete_quietly, poll_for, unique_key
 
 # conftest's `permit_cloud` fixture resolves its address as
 # os.getenv("PDP_URL", CLOUD_PDP_URL), so it only reaches the cloud PDP when

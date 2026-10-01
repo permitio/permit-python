@@ -13,7 +13,7 @@ from permit import Permit, PermitConfig
 from permit.api.base import SimpleHttpClient
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
-from tests.utils import offline_config
+from tests.utils import CLOUD_PDP_URL, offline_config
 
 # pytest_httpserver's `httpserver` fixture binds a free port chosen by the OS,
 # so parallel runs on one machine cannot collide. Tests reach it through
@@ -42,9 +42,7 @@ MISSING_KEY = (
 @pytest.fixture
 def permit_config() -> PermitConfig:
     default_pdp_address = (
-        "https://cloudpdp.api.permit.io"
-        if os.getenv("CLOUD_PDP") == "true"
-        else "http://localhost:7766"
+        CLOUD_PDP_URL if os.getenv("CLOUD_PDP") == "true" else "http://localhost:7766"
     )
     default_api_address = (
         "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
@@ -81,7 +79,7 @@ def sync_permit(permit_config: PermitConfig) -> SyncPermit:
 @pytest.fixture
 def permit_config_cloud() -> PermitConfig:
     token = os.getenv("PDP_API_KEY", "")
-    pdp_address = os.getenv("PDP_URL", "https://cloudpdp.api.permit.io")
+    pdp_address = os.getenv("PDP_URL", CLOUD_PDP_URL)
     api_url = os.getenv("PDP_CONTROL_PLANE", "https://api.permit.io")
 
     if not token:
