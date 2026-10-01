@@ -15,7 +15,6 @@ import sys
 import threading
 import time
 import traceback
-import types
 import warnings
 from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -26,14 +25,13 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from loguru import logger
 from pytest_httpserver import HTTPServer
 
 import permit as permit_package
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
 from permit.utils.deprecation import deprecated
-from permit.utils.sdk_logger import sdk_logger
+from permit.utils.http_sessions import LoopSessions
 from permit.utils.sync import SyncClass, _background_loop_of, _BackgroundLoop, _LoopThread
 from tests.keepalive_server import KeepAliveServer
 from tests.utils import FACTS, offline_config
@@ -451,64 +449,6 @@ def test_close_raises_what_closing_the_sessions_raised_and_still_stops(
     assert loop_thread(client) is None
 
 
-def _probe() -> None:
-    logger.log("ERROR", "permit logging probe")
-
-
-def permit_records_enabled() -> bool:
-    """Whether loguru passes on the records of the permit package now; it has no getter."""
-    received: list[str] = []
-    probe_module = "permit._lifecycle_probe"
-    sink_id = logger.add(received.append, filter=lambda record: record["name"] == probe_module)
-    try:
-        types.FunctionType(_probe.__code__, {"__name__": probe_module, "logger": logger})()
-    finally:
-        logger.remove(sink_id)
-    return bool(received)
-
-
-@pytest.fixture
-def sdk_errors() -> Iterator[list[str]]:
-    """The ERROR records the SDK logs during the test. The logging settings are restored after."""
-    was_enabled = permit_records_enabled()
-    saved = vars(sdk_logger).copy()
-    messages: list[str] = []
-    sink_id = logger.add(
-        lambda message: messages.append(message.record["message"]), level="ERROR", filter="permit"
-    )
-    yield messages
-    logger.remove(sink_id)
-    vars(sdk_logger).update(saved)
-    if was_enabled:
-        logger.enable("permit")
-    else:
-        logger.disable("permit")
-
-
-def test_a_collected_client_whose_sessions_fail_to_close_logs_why(
-    server: KeepAliveServer, sdk_errors: list[str]
-) -> None:
-    config = offline_config(server.url)
-    config.log.enable = True
-    config.log.level = "error"
-    client = FailingPermit(config)
-    check(client)
-    thread = loop_thread(client)
-
-    del client
-    gc.collect()
-
-    assert thread is not None
-    wait_until_stopped(thread)
-    assert not thread.is_alive()
-    assert sdk_errors == [
-        (
-            "[Permit] Could not close the HTTP sessions of a Permit sync client: "
-            "OSError('the sessions did not close')"
-        )
-    ]
-
-
 def test_close_without_a_call_closes_no_sessions(server: KeepAliveServer) -> None:
     client = recording_client(server.url)
 
@@ -518,22 +458,6 @@ def test_close_without_a_call_closes_no_sessions(server: KeepAliveServer) -> Non
 
 
 # --- a client that is never closed -----------------------------------------------------
-
-
-def test_a_collected_client_has_its_sessions_closed_on_its_thread(
-    server: KeepAliveServer,
-) -> None:
-    client = recording_client(server.url)
-    closed_on = client.closed_on
-    check(client)
-    thread = loop_thread(client)
-
-    del client
-    gc.collect()
-
-    assert thread is not None
-    wait_until_stopped(thread)
-    assert closed_on == [LOOP_THREAD_NAME]
 
 
 def test_a_client_that_is_garbage_collected_stops_its_thread(
@@ -568,6 +492,32 @@ def test_an_api_object_outliving_its_client_keeps_working() -> None:
         gc.collect()
         wait_until_stopped(running.thread)
         assert not running.thread.is_alive()
+
+
+def test_a_client_freed_by_the_cycle_collector_closes_its_connection_without_a_warning(
+    server: KeepAliveServer,
+) -> None:
+    """A client held in a reference cycle, as an exception it raised can hold it, is freed by gc.
+
+    The client's sessions must not be collected with it while they are open, or aiohttp
+    reports them unclosed.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        client = SyncPermit(offline_config(server.url))
+        check(client)
+        thread = loop_thread(client)
+        cycle: list[object] = [client]
+        cycle.append(cycle)
+        del client, cycle
+        gc.collect()
+        assert thread is not None
+        wait_until_stopped(thread)
+        gc.collect()
+
+    assert [f"{w.category.__name__}: {w.message}" for w in caught] == []
+    assert not thread.is_alive()
+    assert server.wait_until_closed(1) == 1
 
 
 def test_a_client_never_closed_issues_no_warning(server: KeepAliveServer) -> None:
@@ -819,15 +769,22 @@ def test_close_cancels_the_tasks_a_call_left_running() -> None:
     assert left_running[0].cancelled()
 
 
-def test_a_session_cleanup_scheduled_as_the_loop_stops_still_runs() -> None:
-    """A finalizer can schedule a cleanup after the loop stopped, before it settles."""
+def test_a_session_close_handed_to_the_loop_as_it_stops_still_closes_the_session(
+    server: KeepAliveServer,
+) -> None:
+    """The loop cancels that close as it settles; shutting down its async generators closes it."""
     loop_thread = _LoopThread()
-    ran_on: list[str] = []
-    stopped, release = threading.Event(), threading.Event()
+    sessions = LoopSessions()
 
-    async def close_sessions() -> None:
-        await asyncio.sleep(0)
-        ran_on.append(threading.current_thread().name)
+    async def open_a_connection(through: LoopSessions) -> None:
+        session = await through.current()
+        async with session.post(f"{server.url}/allowed") as response:
+            await response.read()
+
+    opening = open_a_connection(sessions)
+    asyncio.run_coroutine_threadsafe(opening, loop_thread.loop).result(timeout=5)
+    del opening
+    stopped, release = threading.Event(), threading.Event()
 
     def stop_and_hold() -> None:
         # The loop leaves run_forever() once this callback returns.
@@ -837,13 +794,18 @@ def test_a_session_cleanup_scheduled_as_the_loop_stops_still_runs() -> None:
 
     loop_thread.loop.call_soon_threadsafe(stop_and_hold)
     assert stopped.wait(timeout=5)
-    loop_thread.schedule(close_sessions)
-    release.set()
-    loop_thread.thread.join(timeout=5)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        # Collecting the sessions hands the close of the open one to the stopping loop.
+        del sessions
+        release.set()
+        loop_thread.thread.join(timeout=5)
+        gc.collect()
 
     assert not loop_thread.thread.is_alive()
-    assert ran_on == [LOOP_THREAD_NAME]
     assert loop_thread.loop.is_closed()
+    assert server.wait_until_closed(1) == 1
+    assert [f"{w.category.__name__}: {w.message}" for w in caught] == []
 
 
 def test_an_object_bound_to_no_client_runs_each_call_in_a_loop_of_its_own() -> None:

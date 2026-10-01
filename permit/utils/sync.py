@@ -145,8 +145,8 @@ background loop.
 class _LoopThread:
     """An event loop that runs in a daemon thread until it is shut down.
 
-    It tracks the tasks it runs for blocking calls and for session cleanups, so that a
-    shutdown can wait for them, or cancel them.
+    It tracks the tasks it runs for blocking calls, so that a shutdown can wait for them, or
+    cancel them.
     """
 
     def __init__(self) -> None:
@@ -168,7 +168,9 @@ class _LoopThread:
     async def _settle(self) -> None:
         """Finish the tasks still on the stopped loop: tracked ones run, any other is cancelled.
 
-        A session cleanup can be scheduled from a finalizer while the loop is stopping.
+        Another task may be one that a call left running, or the close of an HTTP session
+        that a finalizer handed to the loop as it stopped; shutting down the loop's async
+        generators next closes any session such a close left open.
         """
         current = asyncio.current_task()
         while others := asyncio.all_tasks() - {current}:
@@ -217,23 +219,6 @@ class _LoopThread:
             tracked.close()
             coroutine.close()
             raise
-
-    def schedule(self, close_sessions: CloseSessions) -> None:
-        """Start `close_sessions()` on the loop as a tracked task, without waiting for it.
-
-        It takes no lock and does not block, so a finalizer may call it from any thread.
-
-        Raises:
-            RuntimeError: If the loop is closed.
-        """
-        self.loop.call_soon_threadsafe(self._start_cleanup, close_sessions)
-
-    def _start_cleanup(self, close_sessions: CloseSessions) -> None:
-        task = self.loop.create_task(self._track(close_sessions(), _CallSite.from_frame(None)))
-        # Tracked from now, not from its first step: the loop may be stopping, and _settle
-        # cancels the tasks it does not track.
-        self._tasks.add(task)
-        task.add_done_callback(_log_cleanup_failure)
 
     async def drain(self, *, cancel: bool) -> None:
         """Wait until no tracked task is left, cancelling each one first when `cancel` is True."""
@@ -309,11 +294,6 @@ def _finalize_when_collected(
     # Writable, as the weakref documentation says; typeshed declares __slots__ = () on it.
     finalizer.atexit = False  # type: ignore[misc]
     return finalizer
-
-
-def _log_cleanup_failure(task: "asyncio.Task[None]") -> None:
-    if not task.cancelled() and (error := task.exception()) is not None:
-        sdk_logger.error(f"Could not close the HTTP sessions of a Permit sync client: {error!r}")
 
 
 class _BackgroundLoop:
@@ -439,29 +419,6 @@ class _BackgroundLoop:
             _running_loops.discard(self)
             close_sessions = None if self._closer is None else self._closer()
         loop_thread.close(close_sessions, cancel_calls=cancel_calls, call_site=call_site)
-
-    def close_when_collected(self, owner: object, close_sessions: CloseSessions) -> None:
-        """Run `close_sessions()` on the loop once `owner` is garbage collected.
-
-        Args:
-            owner: The sync client whose sessions `close_sessions` closes.
-            close_sessions: Closes the sessions. It must not reference `owner`, or `owner`
-                is never collected.
-        """
-        _finalize_when_collected(owner, self._close_soon, close_sessions)
-
-    def _close_soon(self, close_sessions: CloseSessions) -> None:
-        """Start `close_sessions()` on the running loop, if any, without waiting for it.
-
-        For a finalizer: it takes no lock, as the thread that collects the client may be
-        holding it, and does not block, as that thread may be the loop's own.
-        """
-        loop_thread = self._thread
-        if loop_thread is None:
-            return
-        # A closed loop raises; it closed the sessions it had on the way.
-        with contextlib.suppress(RuntimeError):
-            loop_thread.schedule(close_sessions)
 
     def forget_thread(self) -> None:
         """In a child process made by fork(): drop the thread, which the fork did not copy.

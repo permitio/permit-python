@@ -33,7 +33,12 @@ class LoopSessions:
       ``asyncio.Runner`` do before they close the loop, so a program that never calls
       ``close()`` does not leave it open;
     - as the interpreter exits, if its loop is still open then: on that loop if it is not
-      running, or by that loop's thread if it runs in another thread.
+      running, or by that loop's thread if it runs in another thread;
+    - once this object is garbage collected, on its loop if that loop is running. Until
+      then, and until the session is closed, a finalizer holds it apart from this object:
+      the garbage collector never finds an open session unreachable, so aiohttp never
+      reports one unclosed, even when the client that holds this object ends up in a
+      reference cycle.
 
     A child process made by ``fork()`` sets the sessions it inherits aside, untouched: their
     loops cannot run in the child, and their connections are the parent's. The child's
@@ -46,8 +51,13 @@ class LoopSessions:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        # Changed in place only: the finalizer holds this dict.
         self._sessions: dict[asyncio.AbstractEventLoop, _LoopSession] = {}
         _open_at_exit.add(self)
+        finalizer = weakref.finalize(self, _orphan, self._sessions)
+        # Writable, as the weakref documentation says; typeshed declares __slots__ = () on
+        # it. At exit, the exit hook below closes the sessions of the objects still alive.
+        finalizer.atexit = False  # type: ignore[misc]
 
     async def current(self) -> aiohttp.ClientSession:
         """The session of the running event loop, created by the first call from that loop.
@@ -60,7 +70,7 @@ class LoopSessions:
             existing = self._sessions.get(loop)
             if existing is not None:
                 return existing.session
-            abandoned = self._take_sessions_of_closed_loops()
+            abandoned = self._take_sessions_of_closed_loops() + _take_orphans_of_closed_loops()
             session = aiohttp.ClientSession(
                 # No limit on concurrent connections, as when every request had a session of
                 # its own; idle connections are kept open for the next request.
@@ -155,7 +165,7 @@ async def _close_with_loop(
     """An async generator that closes ``session`` when it is closed.
 
     It holds ``sessions`` weakly, so that a client dropped without ``close()`` is garbage
-    collected; the event loop then closes this generator, and so the session.
+    collected.
     """
     try:
         yield
@@ -163,7 +173,10 @@ async def _close_with_loop(
         owner = sessions()
         if owner is not None:
             owner._forget(loop, session)  # noqa: SLF001 - this module's own class
-        await session.close()
+        try:
+            await session.close()
+        finally:
+            _orphaned.pop(id(session), None)
 
 
 async def _aclose(closer: AsyncGenerator[None, None]) -> None:
@@ -201,7 +214,34 @@ def _close_at_exit_on(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[No
     return True
 
 
+def _orphan(sessions: dict[asyncio.AbstractEventLoop, _LoopSession]) -> None:
+    """Keep the sessions of a collected `LoopSessions` until they are closed.
+
+    The session of a running loop is closed on that loop now; the session of a loop that is
+    not running is closed when that loop shuts down its async generators; one of a closed
+    loop is marked closed by the next request from any loop. As a finalizer, this may run
+    in any thread, so it only hands the closes to the loops.
+    """
+    entries = list(sessions.items())
+    sessions.clear()
+    for loop, entry in entries:
+        _orphaned[id(entry.session)] = (loop, entry)
+        if loop.is_running():
+            _start_closing(loop, entry.closer)
+
+
+def _take_orphans_of_closed_loops() -> list[_LoopSession]:
+    """Remove and return the orphaned sessions of loops closed without shutting them down."""
+    taken = []
+    for key, (loop, entry) in list(_orphaned.items()):
+        if loop.is_closed() and _orphaned.pop(key, None) is not None:
+            taken.append(entry)
+    return taken
+
+
 _open_at_exit: weakref.WeakSet[LoopSessions] = weakref.WeakSet()
+# The open sessions of collected LoopSessions, by the id of the session.
+_orphaned: dict[int, tuple[asyncio.AbstractEventLoop, _LoopSession]] = {}
 _sessions_lost_to_fork: list[_LoopSession] = []
 
 

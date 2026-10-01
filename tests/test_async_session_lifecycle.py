@@ -199,6 +199,29 @@ async def test_a_client_dropped_without_close_closes_its_connection(
         gc.enable()
 
 
+async def test_a_client_freed_by_the_cycle_collector_closes_its_connection_without_a_warning(
+    server: KeepAliveServer,
+) -> None:
+    """A client held in a reference cycle, as an exception it raised can hold it, is freed by gc.
+
+    The client's sessions must not be collected with it while they are open, or aiohttp
+    reports them unclosed.
+    """
+    client = Permit(offline_config(server.url))
+    assert await check(client)
+    cycle: list[object] = [client]
+    cycle.append(cycle)
+    del client, cycle
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        gc.collect()
+        # Waits in another thread, so that this loop runs the close it was given.
+        assert await asyncio.to_thread(server.wait_until_closed, 1) == 1
+
+    assert [f"{w.category.__name__}: {w.message}" for w in caught] == []
+
+
 def assert_nothing_reported_unclosed(drop: Callable[[], None]) -> None:
     """Run ``drop`` and a garbage collection, and check aiohttp reported nothing unclosed."""
     with warnings.catch_warnings(record=True) as caught:
@@ -502,7 +525,29 @@ def test_close_closes_the_session_of_a_loop_closed_without_shutting_down(
     assert_nothing_reported_unclosed(drop)
 
 
-# --- interpreter exit ----------------------------------------------------------
+def test_a_client_dropped_after_its_loop_closed_without_shutting_down_reports_nothing(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    """Its session is kept until the next request, from any client, marks it closed."""
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    client = Permit(config)
+    assert run_on_a_loop_closed_without_shutting_down(check(client))
+    [entry] = client._pdp_sessions._sessions.values()
+    session = weakref.ref(entry.session)
+    del entry
+
+    def drop() -> None:
+        nonlocal client
+        del client
+
+    assert_nothing_reported_unclosed(drop)
+    assert session() is not None
+
+    assert asyncio.run(check(Permit(config)))
+    gc.collect()
+
+    assert session() is None
+
 
 EXIT_SCRIPT = """
 import asyncio
@@ -529,6 +574,11 @@ assert loop.run_until_complete(check)
     "a loop closed without shutting down": """
 assert loop.run_until_complete(check)
 loop.close()
+""",
+    "a client dropped after its loop closed without shutting down": """
+assert loop.run_until_complete(check)
+loop.close()
+del check, client
 """,
 }
 

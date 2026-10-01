@@ -52,15 +52,11 @@ class Permit(AsyncPermit):
         # Before super().__init__, which calls _connect.
         self._background_loop = _BackgroundLoop()
         super().__init__(config, **options)
-        # close() and the exit hook close the sessions while the client is alive. When the
-        # client is collected, a finalizer closes them on the loop they belong to; it must
-        # not keep the client alive, so it goes through a view of its attributes. Copies
-        # made by wait_for_sync() use the sessions and the loop of the client that made
-        # them, and leave closing both to it.
+        # close() and the exit hook close the sessions on the loop while the client is
+        # alive; once it is collected, the sessions close themselves there. Copies made by
+        # wait_for_sync() use the sessions and the loop of the client that made them, and
+        # leave closing both to it.
         self._background_loop.set_closer(weakref.WeakMethod(self._close_sessions))
-        view = _view_of(self)
-        close_sessions = view._close_sessions  # noqa: SLF001 - this class's own method
-        self._background_loop.close_when_collected(self, close_sessions)
 
     def _connect(self) -> None:
         self._enforcer = SyncEnforcer(self._config)  # type: ignore[assignment]
@@ -353,15 +349,3 @@ class Permit(AsyncPermit):
             PermitConnectionError: If an error occurs while sending the request to the PDP
         """
         return self._enforcer.filter_objects(user, action, context, resources)  # type: ignore[return-value]
-
-
-def _view_of(client: Permit) -> Permit:
-    """A second object that shares `client`'s attributes, without keeping `client` alive.
-
-    The two share one attribute dict, so the view sees every attribute set on the client
-    after it was made. A finalizer of `client` can then close, through the view, the sessions
-    that `client`'s attributes hold.
-    """
-    view = object.__new__(type(client))
-    view.__dict__ = client.__dict__
-    return view

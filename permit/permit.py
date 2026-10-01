@@ -36,7 +36,8 @@ class Permit:
             await permit.check("user", "read", "document")
 
     A client that is never closed leaves nothing open behind it under ``asyncio.run()``,
-    which closes the loop's sessions as it shuts the loop down.
+    which closes the loop's sessions as it shuts the loop down, nor once it is garbage
+    collected while its loop runs.
 
     Args:
         config: The SDK configuration.

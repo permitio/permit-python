@@ -42,9 +42,10 @@ async with Permit(token="<YOUR_API_KEY>") as permit:
   opens new connections.
 - A client you never close leaves nothing open when its loop shuts down through
   `asyncio.run()`, `asyncio.Runner` or anything else that shuts down the loop's async
-  generators before closing it: the client's connections on that loop are closed then. As
-  the interpreter exits, the client closes what is still open, so aiohttp reports no
-  unclosed session.
+  generators before closing it: the client's connections on that loop are closed then. A
+  client that is garbage collected while its loop runs closes its connections on that
+  loop. As the interpreter exits, the client closes what is still open, so aiohttp reports
+  no unclosed session.
 - If you drive an event loop yourself, run `await permit.close()` on it before you close it.
   A loop closed with `loop.close()` alone cannot close its connections any more.
 - Close the client once no request is in flight: a request in flight when `close()` runs
