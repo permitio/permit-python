@@ -232,13 +232,15 @@ def test_sync_client_never_logs_the_api_key(
     assert_api_key_not_logged(httpserver, app_sinks, expected_levels)
 
 
+def echo_the_key(request: Request) -> Response:
+    """A PDP that rejects the request and echoes the API key it was sent."""
+    return Response(f"rejected key: {request.headers['Authorization']}", status=403)
+
+
 @pytest.mark.parametrize("enabled_by", ["config", "application"])
 async def test_an_api_key_the_pdp_echoes_back_is_redacted(
     httpserver: HTTPServer, app_sinks: AppSinks, enabled_by: str
 ) -> None:
-    def echo_the_key(request: Request) -> Response:
-        return Response(f"rejected key: {request.headers['Authorization']}", status=403)
-
     httpserver.expect_request("/allowed", method="POST").respond_with_handler(echo_the_key)
     if enabled_by == "config":
         permit = Permit(make_config(httpserver, enable=True))
@@ -253,6 +255,23 @@ async def test_an_api_key_the_pdp_echoes_back_is_redacted(
     [record] = [record for record in app_sinks.sdk_records() if record["level"]["name"] == "ERROR"]
     assert f"rejected key: Bearer {REDACTED}" in record["message"]
     assert SENTINEL not in app_sinks.everything()
+
+
+async def test_a_key_is_redacted_whole_when_another_key_is_a_prefix_of_it(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    # Clients created earlier in the process with keys the real key starts with.
+    for length in range(len("permit_key_"), len(SENTINEL), 2):
+        Permit(make_config(httpserver, token=SENTINEL[:length], enable=True))
+    httpserver.expect_request("/allowed", method="POST").respond_with_handler(echo_the_key)
+    permit = Permit(make_config(httpserver, enable=True))
+
+    with pytest.raises(PermitConnectionError):
+        await permit.check("user-1", "read", "document")
+
+    [record] = [record for record in app_sinks.sdk_records() if record["level"]["name"] == "ERROR"]
+    assert record["message"].endswith(f"rejected key: Bearer {REDACTED}")
+    assert SENTINEL[-8:] not in app_sinks.everything()
 
 
 @pytest.mark.parametrize(

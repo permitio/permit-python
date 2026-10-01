@@ -22,9 +22,11 @@ class SdkLogger:
         self._min_level_no = 0
         self._label = ""
         self._secrets_lock = threading.Lock()
-        # Replaced, never mutated, so a thread that logs while another registers a secret
-        # reads either the old set or the new one.
-        self._secrets: frozenset[str] = frozenset()
+        # Longest first: where one secret contains another, such as a key and a prefix of
+        # it, the whole of the longer one is replaced, not just the shorter part. Replaced,
+        # never mutated, so a thread that logs while another registers a secret reads
+        # either the old tuple or the new one.
+        self._secrets: tuple[str, ...] = ()
 
     def configure(self, *, min_level_no: int, label: str) -> None:
         """Set the minimum severity of the records to keep and the label to prefix them with.
@@ -45,7 +47,21 @@ class SdkLogger:
         if not secret:
             return
         with self._secrets_lock:
-            self._secrets |= {secret}
+            if secret not in self._secrets:
+                self._secrets = tuple(sorted((*self._secrets, secret), key=len, reverse=True))
+
+    def scrub(self, text: str) -> str:
+        """Return `text` with every registered secret replaced with `[REDACTED]`.
+
+        Args:
+            text: Any text the SDK logs or puts in an exception.
+
+        Returns:
+            The text without any registered secret.
+        """
+        for secret in self._secrets:
+            text = text.replace(secret, REDACTED)
+        return text
 
     def debug(self, message: str) -> None:
         """Log `message` with severity DEBUG."""
@@ -62,8 +78,7 @@ class SdkLogger:
     def _log(self, level: str, message: str) -> None:
         if logger.level(level).no < self._min_level_no:
             return
-        for secret in self._secrets:
-            message = message.replace(secret, REDACTED)
+        message = self.scrub(message)
         if self._label:
             message = f"[{self._label}] {message}"
         # depth=2 skips this method and the one that called it, so loguru attributes the
