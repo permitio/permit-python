@@ -1,6 +1,7 @@
 import copy
 from collections.abc import Generator
 from contextlib import contextmanager
+from types import TracebackType
 from typing import Any, Literal
 
 from typing_extensions import Self
@@ -28,8 +29,14 @@ class Permit:
 
     The client keeps its HTTP connections open and reuses them: one aiohttp session, with
     its own pool of connections, for the Permit API and one for the PDP, per event loop it
-    is used on. They are created by the first request from each loop, and closed when that
-    loop shuts down its async generators, as ``asyncio.run()`` does.
+    is used on. They are created by the first request from each loop. Close them with
+    ``await permit.close()``, or use the client as an async context manager::
+
+        async with Permit(token="<YOUR_API_KEY>") as permit:
+            await permit.check("user", "read", "document")
+
+    A client that is never closed leaves nothing open behind it under ``asyncio.run()``,
+    which closes the loop's sessions as it shuts the loop down.
 
     Args:
         config: The SDK configuration.
@@ -43,6 +50,9 @@ class Permit:
         configure_logger(self._config)
         self._api_sessions = LoopSessions()
         self._pdp_sessions = LoopSessions()
+        # A copy made by wait_for_sync() shares the sessions of the client it copies, and
+        # leaves closing them to that client.
+        self._owns_sessions = True
         self._connect()
         self._share_sessions()
         sdk_logger.debug(
@@ -62,6 +72,40 @@ class Permit:
         self._pdp_api._use_sessions(self._pdp_sessions)  # noqa: SLF001 - SDK-internal
         self._api._use_sessions(self._api_sessions)  # noqa: SLF001 - SDK-internal
         self._elements._use_sessions(self._api_sessions)  # noqa: SLF001 - SDK-internal
+
+    async def close(self) -> None:
+        """Close the HTTP connections this client keeps open.
+
+        It closes the sessions of the event loop it runs on, of loops already closed, and of
+        loops running in other threads, on those loops, waiting for them. The session of a
+        loop that is neither running nor closed stays open until that loop shuts down its
+        async generators, as ``asyncio.run()`` does, or ``close()`` runs on it.
+
+        A request still in flight when ``close()`` runs fails. Calling ``close()`` again
+        closes nothing more. The client stays usable: a request sent after ``close()``
+        opens new connections, which a later ``close()`` closes.
+
+        A client yielded by ``wait_for_sync()`` sends its requests over the connections of
+        the client it was made from: its ``close()`` does nothing, and the other client's
+        ``close()`` closes them.
+        """
+        if not self._owns_sessions:
+            return
+        try:
+            await self._api_sessions.close()
+        finally:
+            await self._pdp_sessions.close()
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        await self.close()
 
     @property
     def config(self) -> PermitConfig:
@@ -95,7 +139,8 @@ class Permit:
 
         Yields:
             Permit: A Permit instance that is configured to wait for facts to be synced. It
-            sends its requests over this client's connections.
+            sends its requests over this client's connections, so it needs no ``close()``:
+            closing this client closes them.
 
         See Also:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
@@ -114,6 +159,7 @@ class Permit:
         # client instead would apply its log settings to the whole process again.
         waiting: Self = copy.copy(self)
         waiting._config = contextualized_config
+        waiting._owns_sessions = False
         waiting._connect()
         waiting._share_sessions()
         yield waiting

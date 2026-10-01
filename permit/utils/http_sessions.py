@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import threading
 import weakref
 from collections.abc import AsyncGenerator
@@ -22,8 +23,12 @@ class LoopSessions:
     one in an application that runs one loop, a new one for each ``asyncio.run()`` call.
     Each is created by the first request sent from its loop.
 
-    A session is closed when its loop shuts down its async generators, as ``asyncio.run()``
-    and ``asyncio.Runner`` do before they close the loop.
+    A session is closed:
+
+    - by ``close()``;
+    - when its loop shuts down its async generators, as ``asyncio.run()`` and
+      ``asyncio.Runner`` do before they close the loop, so a program that never calls
+      ``close()`` does not leave it open.
 
     The sessions carry no headers, base URL or timeout: each request brings its own, so one
     session serves every request sent from its loop. They keep no cookies either, so a
@@ -61,6 +66,36 @@ class LoopSessions:
             await stale.session.close()
         return session
 
+    async def close(self) -> None:
+        """Close the sessions of every loop that can close them now.
+
+        The session of the running loop, and those of loops already closed, are closed here.
+        The session of a loop running in another thread is closed on that loop, and this
+        waits for it. A loop that is neither running nor closed cannot run anything now: its
+        session stays open until that loop shuts down its async generators, or ``close()``
+        runs on it. A request in flight on a session being closed fails.
+        """
+        running = asyncio.get_running_loop()
+        with self._lock:
+            closable = {
+                loop: entry
+                for loop, entry in self._sessions.items()
+                if loop is running or loop.is_closed() or loop.is_running()
+            }
+            for loop in closable:
+                del self._sessions[loop]
+        for loop, entry in closable.items():
+            if loop is running:
+                await entry.closer.aclose()
+                continue
+            closing = None if loop.is_closed() else _start_closing(loop, entry.closer)
+            if closing is None:
+                # Nothing touches the closed loop: its connections cannot be closed any
+                # more, and this only marks the session closed.
+                await entry.session.close()
+            else:
+                await asyncio.wrap_future(closing)
+
     def _forget(self, loop: asyncio.AbstractEventLoop, session: aiohttp.ClientSession) -> None:
         """Drop ``session`` from the sessions, if it is still the one of ``loop``."""
         with self._lock:
@@ -84,7 +119,7 @@ async def _close_with_loop(
 ) -> AsyncGenerator[None, None]:
     """An async generator that closes ``session`` when it is closed.
 
-    It holds ``sessions`` weakly, so that a client dropped while its loop runs is garbage
+    It holds ``sessions`` weakly, so that a client dropped without ``close()`` is garbage
     collected; the event loop then closes this generator, and so the session.
     """
     try:
@@ -94,3 +129,19 @@ async def _close_with_loop(
         if owner is not None:
             owner._forget(loop, session)  # noqa: SLF001 - this module's own class
         await session.close()
+
+
+async def _aclose(closer: AsyncGenerator[None, None]) -> None:
+    await closer.aclose()
+
+
+def _start_closing(
+    loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]
+) -> concurrent.futures.Future[None] | None:
+    """Close ``closer`` on ``loop`` from another thread; None if ``loop`` is closed already."""
+    closing = _aclose(closer)
+    try:
+        return asyncio.run_coroutine_threadsafe(closing, loop)
+    except RuntimeError:
+        closing.close()
+        return None

@@ -8,6 +8,8 @@ API and the PDP do.
 
 import asyncio
 import gc
+import threading
+import time
 import warnings
 import weakref
 from collections.abc import Callable, Coroutine, Iterator
@@ -27,6 +29,8 @@ from tests.keepalive_server import KeepAliveServer, ServedRequest
 from tests.utils import FACTS, offline_config
 
 USERS_PAGE = {"data": [], "total_count": 0, "page_count": 0}
+# How long a test waits for a loop in another thread.
+THREAD_TIMEOUT_SECONDS = 5.0
 
 
 @pytest.fixture
@@ -332,3 +336,163 @@ async def outcome(resolve: Callable[[], Coroutine[Any, Any, URL]]) -> URL | tupl
         return await resolve()
     except ValueError as error:
         return type(error), str(error)
+
+
+# --- close() and the context manager -------------------------------------------
+
+
+async def test_close_closes_the_connections(server: KeepAliveServer, client: Permit) -> None:
+    assert await check(client)
+    await client.api.users.list()
+
+    await client.close()
+
+    assert server.wait_until_closed(2) == 2
+
+
+async def test_async_with_yields_the_client_and_closes_it_on_exit(
+    server: KeepAliveServer,
+) -> None:
+    client = Permit(offline_config(server.url))
+
+    async with client as entered:
+        assert entered is client
+        assert await check(client)
+
+    assert server.wait_until_closed(1) == 1
+
+
+async def test_async_with_closes_the_client_when_the_block_raises(
+    server: KeepAliveServer,
+) -> None:
+    async def check_then_fail() -> None:
+        async with Permit(offline_config(server.url)) as client:
+            assert await check(client)
+            raise LookupError
+
+    with pytest.raises(LookupError):
+        await check_then_fail()
+
+    assert server.wait_until_closed(1) == 1
+
+
+async def test_closing_twice_closes_nothing_more(server: KeepAliveServer, client: Permit) -> None:
+    assert await check(client)
+
+    await client.close()
+    await client.close()
+
+    assert server.wait_until_closed(1) == 1
+    assert server.opened == 1
+
+
+async def test_close_on_a_client_that_sent_nothing_does_nothing(server: KeepAliveServer) -> None:
+    await Permit(offline_config(server.url)).close()
+
+    assert (server.opened, server.closed) == (0, 0)
+
+
+async def test_a_request_after_close_opens_a_new_connection(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    assert await check(client)
+    await client.close()
+
+    assert await check(client)
+    assert await check(client)
+
+    assert server.opened == 2
+    assert server.wait_until_closed(1) == 1
+    await client.close()
+    assert server.wait_until_closed(2) == 2
+
+
+async def test_a_wait_for_sync_copy_shares_the_connection_and_leaves_closing_it_to_its_client(
+    server: KeepAliveServer,
+) -> None:
+    config = offline_config(server.url)
+    config.proxy_facts_via_pdp = True
+    client = Permit(config)
+
+    with client.wait_for_sync(timeout=3.0, policy="fail") as waiting:
+        await waiting.api.tenants.delete("tenant-1")
+        await waiting.close()
+    await client.api.tenants.delete("tenant-2")
+
+    waited, not_waited = server.requests
+    assert (header(waited, "X-Wait-Timeout"), header(waited, "X-Timeout-Policy")) == ("3.0", "fail")
+    assert (header(not_waited, "X-Wait-Timeout"), header(not_waited, "X-Timeout-Policy")) == (
+        None,
+        None,
+    )
+    # The copy's close() left the connection open: the client's request went over it.
+    assert server.opened == 1
+
+    await client.close()
+    assert server.wait_until_closed(1) == 1
+    # The copy still works after its client closed: it opens a new connection.
+    await waiting.api.tenants.delete("tenant-3")
+    assert server.opened == 2
+    await client.close()
+    assert server.wait_until_closed(2) == 2
+
+
+async def test_close_also_closes_the_connection_of_a_loop_running_in_another_thread(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        assert asyncio.run_coroutine_threadsafe(check(client), loop).result(THREAD_TIMEOUT_SECONDS)
+        assert await check(client)
+        assert server.opened == 2
+        other_session = asyncio.run_coroutine_threadsafe(
+            client._pdp_sessions.current(), loop
+        ).result(THREAD_TIMEOUT_SECONDS)
+        # Keep the other loop busy, so its session is closed only if close() waits for it.
+        loop.call_soon_threadsafe(time.sleep, 0.2)
+
+        await client.close()
+
+        assert other_session.closed
+        assert server.wait_until_closed(2) == 2
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(THREAD_TIMEOUT_SECONDS)
+        loop.close()
+
+
+def test_close_leaves_the_connection_of_an_idle_loop_to_that_loop(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    """A loop that is not running cannot close its session from another loop's close()."""
+    idle = asyncio.new_event_loop()
+    try:
+        assert idle.run_until_complete(check(client))
+
+        asyncio.run(client.close())
+        # The idle loop's connection is still open: its next request goes over it.
+        assert idle.run_until_complete(check(client))
+        assert server.opened == 1
+
+        idle.run_until_complete(client.close())
+        assert server.wait_until_closed(1) == 1
+    finally:
+        idle.close()
+
+
+def test_close_closes_the_session_of_a_loop_closed_without_shutting_down(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    client = Permit(config)
+    assert run_on_a_loop_closed_without_shutting_down(check(client))
+
+    asyncio.run(client.close())
+
+    def drop() -> None:
+        nonlocal client
+        del client
+
+    assert_nothing_reported_unclosed(drop)
