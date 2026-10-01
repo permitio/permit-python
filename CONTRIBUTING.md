@@ -206,7 +206,8 @@ curl -s https://hub.docker.com/v2/repositories/permitio/pdp-v2/tags/<version> | 
 Docker pulls by the digest; the tag only names it.
 
 Then refresh the PDP spec snapshot the API coverage report reads, from a container of the
-new image (see "API coverage report" below).
+new image (see "API coverage report" below). Until then, the `Audit Script Tests` job fails:
+a test there checks that `.github/api-specs/pdp.source.json` names the pinned image.
 
 ## Regenerating the sync stubs
 

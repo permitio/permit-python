@@ -986,6 +986,24 @@ def test_the_committed_snapshots_are_their_own_inventory(tmp_path: Path, api: st
     assert json.loads((tmp_path / f"{api}.source.json").read_text(encoding="utf-8")) == sidecar
 
 
+TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "test.yml"
+PINNED_PDP_IMAGE = re.compile(r"^\s*PINNED_PDP_IMAGE:\s*(?:>-\s*\n\s*)?(\S+)\s*$", re.MULTILINE)
+SNAPSHOT_IMAGE = re.compile(r"^GET /openapi\.json on a container of (\S+) ")
+
+
+def test_the_pdp_snapshot_comes_from_the_pinned_pdp_image() -> None:
+    """Moving PINNED_PDP_IMAGE without refreshing the PDP snapshot fails here."""
+    pins = PINNED_PDP_IMAGE.findall(TEST_WORKFLOW.read_text(encoding="utf-8"))
+    assert len(pins) == 1, f"expected one PINNED_PDP_IMAGE in {TEST_WORKFLOW}, found {pins}"
+    source = json.loads((SNAPSHOTS / "pdp.source.json").read_text(encoding="utf-8"))["source"]
+    taken_from = SNAPSHOT_IMAGE.match(source)
+    assert taken_from is not None, f"pdp.source.json names no PDP image: {source}"
+    assert taken_from.group(1) == pins[0], (
+        f"pdp.json was taken from {taken_from.group(1)}, but test.yml pins {pins[0]}: "
+        "refresh it (CONTRIBUTING.md, 'API coverage report')"
+    )
+
+
 # --- the committed snapshots and allowlist, with planted failures -------------
 
 
