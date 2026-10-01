@@ -17,10 +17,22 @@ permissions:
 env:
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
+  # The PDP the required `pytest` jobs run against, pinned by version and by the
+  # digest of that version's multi-arch image index, so a new PDP release cannot
+  # fail a required check. Docker pulls by the digest; the tag only names it.
+  # Dependabot does not update this. The `e2e (latest PDP image)` job runs the
+  # suite against permitio/pdp-v2:latest, so a new release shows up there first.
+  # To move the pin, take the version's `digest` from
+  # https://hub.docker.com/v2/repositories/permitio/pdp-v2/tags/<version>.
+  PINNED_PDP_IMAGE: >-
+    permitio/pdp-v2:0.9.16@sha256:e3cf30794ec2d256636b4714641df46e51ee58a3f1f0d24c606e214e0bf8669a
 
 jobs:
   pytest:
     runs-on: ubuntu-24.04
+    # A run takes 5-6 minutes, the PDP wait included. The limit stops a hung
+    # test from holding a runner for GitHub's default of six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -121,13 +133,14 @@ jobs:
       - name: Start the PDP
         env:
           ENV_API_KEY: ${{ env.ENV_API_KEY }}
+          PDP_IMAGE: ${{ env.PINNED_PDP_IMAGE }}
         run: |
           set -euo pipefail
           docker run -d --name permit-pdp \
             -p 7766:7000 \
             -e PDP_API_KEY="${ENV_API_KEY}" \
             -e PDP_DEBUG=true \
-            permitio/pdp-v2:latest
+            "${PDP_IMAGE}"
           echo "PDP container started; it warms up while dependencies install."
 
       # --locked fails the job if uv.lock is out of date with pyproject.toml
@@ -224,11 +237,210 @@ jobs:
             echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
           fi
 
+  # The e2e tests against PDPs this repository does not pin. Neither leg is a
+  # required check, so a new PDP release or a change to the cloud PDP shows up
+  # here without blocking a PR.
+  # - latest PDP image: the suite against permitio/pdp-v2:latest, on pydantic 2.
+  #   Red here with `pytest` green means the newest PDP release behaves unlike
+  #   PINNED_PDP_IMAGE.
+  # - cloud PDP: tests/test_abac_pdp.py against the hosted cloud PDP. Those
+  #   tests apply only there, and skip under `pytest` (see that module).
+  # Each leg makes its own scratch environment, keyed by run, attempt and leg,
+  # so it never shares one with a `pytest` lane, the other leg or a re-run.
+  e2e-unpinned-pdp:
+    name: e2e (${{ matrix.pdp }})
+    # Starts once both `pytest` lanes pass, so it never repeats a failure they
+    # already report. With them green, a red latest-PDP leg points at the PDP.
+    needs: pytest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pdp: latest PDP image
+            env-suffix: pdp-latest
+            pdp-image: permitio/pdp-v2:latest
+            pdp-url: http://localhost:7766
+            tests: tests/
+            all-must-run: false
+          - pdp: cloud PDP
+            env-suffix: cloud-pdp
+            # No container: the tests call the hosted PDP.
+            pdp-image: ''
+            pdp-url: https://cloudpdp.api.permit.io
+            tests: tests/test_abac_pdp.py
+            all-must-run: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: "3.11.8"
+          enable-cache: true
+          # The entry the pydantic 2 lane of `pytest` saves: the same lock,
+          # group and Python, so the same packages.
+          cache-suffix: pydantic-v2
+
+      # As in `pytest`, values reach the shell through env:, never ${{ }}.
+      - name: Create the scratch environment
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_NAME: ${{ env.ENV_NAME }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          ENV_SUFFIX: ${{ matrix.env-suffix }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
+        run: |
+          set -euo pipefail
+          ENV_KEY="${ENV_NAME}-${RUN_ID}-${RUN_ATTEMPT}-${ENV_SUFFIX}"
+          echo "ENV_KEY=$ENV_KEY" >> "$GITHUB_ENV"
+
+          response=$(curl -sS -X POST \
+            "https://api.permit.io/v2/projects/${PROJECT_ID}/envs" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"key\": \"${ENV_KEY}\", \"name\": \"${ENV_KEY}\"}")
+
+          ENV_ID=$(echo "$response" | jq -r '.id')
+          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
+            echo "::error title=Env creation failed::Could not create the scratch environment."
+            exit 1
+          fi
+          echo "ENV_ID=$ENV_ID" >> "$GITHUB_ENV"
+          echo "New env created with key: $ENV_KEY"
+
+      - name: Fetch the scratch environment's API key
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_ID: ${{ env.ENV_ID }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
+        run: |
+          set -euo pipefail
+          response=$(curl -sS -X GET \
+            "https://api.permit.io/v2/api-key/${PROJECT_ID}/${ENV_ID}" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}")
+
+          ENV_API_KEY=$(echo "$response" | jq -r '.secret')
+          if [ -z "$ENV_API_KEY" ] || [ "$ENV_API_KEY" = "null" ]; then
+            echo "::error title=API key fetch failed::Could not read the scratch environment's key."
+            exit 1
+          fi
+          # Mask before export so the key can never surface in the job log.
+          echo "::add-mask::$ENV_API_KEY"
+          echo "ENV_API_KEY=$ENV_API_KEY" >> "$GITHUB_ENV"
+
+      # Prints the digest :latest resolved to, which names the PDP release a
+      # failure here is about (look it up on Docker Hub).
+      - name: Start the PDP
+        if: matrix.pdp-image != ''
+        env:
+          ENV_API_KEY: ${{ env.ENV_API_KEY }}
+          PDP_IMAGE: ${{ matrix.pdp-image }}
+        run: |
+          set -euo pipefail
+          docker run -d --name permit-pdp \
+            -p 7766:7000 \
+            -e PDP_API_KEY="${ENV_API_KEY}" \
+            -e PDP_DEBUG=true \
+            "${PDP_IMAGE}"
+          docker image inspect --format '{{join .RepoDigests ", "}}' "${PDP_IMAGE}"
+
+      - name: Install dependencies
+        run: uv sync --locked --group pydantic-v2
+
+      - name: Show installed packages
+        run: uv pip list
+
+      # The same wait as in `pytest`, for the same reasons.
+      - name: Wait for the PDP
+        if: matrix.pdp-image != ''
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 300); do
+            if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
+              echo "PDP healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=PDP did not become healthy::/healthy never returned 200 within 300s"
+          exit 1
+
+      - name: Test with pytest
+        env:
+          PDP_URL: ${{ matrix.pdp-url }}
+          API_TIER: prod
+          ORG_PDP_API_KEY: ${{ env.ENV_API_KEY }}
+          PROJECT_PDP_API_KEY: ${{ env.ENV_API_KEY }}
+          PDP_API_KEY: ${{ env.ENV_API_KEY }}
+          TESTS: ${{ matrix.tests }}
+        run: >-
+          uv run --no-sync pytest -s --cache-clear
+          --junitxml="${RUNNER_TEMP}/junit.xml" "${TESTS}"
+
+      # Cloud leg only. tests/test_abac_pdp.py skips itself unless PDP_URL is the
+      # cloud PDP. If that check and this leg's PDP_URL ever disagree, every test
+      # skips and the leg passes having tested nothing. The whole suite, which
+      # the latest-PDP leg runs, has tests that skip by design.
+      - name: Check that no test was skipped
+        if: matrix.all-must-run
+        run: |
+          set -euo pipefail
+          uv run --no-sync python - "${RUNNER_TEMP}/junit.xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          suite = ET.parse(sys.argv[1]).getroot().find("testsuite")
+          tests, skipped = int(suite.get("tests")), int(suite.get("skipped"))
+          if skipped:
+              sys.exit(f"{skipped} of {tests} tests were skipped; this leg must run them all")
+          print(f"all {tests} tests ran")
+          PY
+
+      - name: PDP logs
+        if: failure() && matrix.pdp-image != ''
+        run: |
+          docker logs permit-pdp 2>&1 \
+            | grep -Ev 'GET /health|Health check failed: horizon' \
+            | tail -300 || true
+
+      - name: Stop the PDP
+        if: always() && matrix.pdp-image != ''
+        run: docker rm -f permit-pdp || true
+
+      - name: Delete the scratch environment
+        if: always()
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_ID: ${{ env.ENV_ID }}
+          PROJECT_API_KEY: ${{ secrets.PROJECT_API_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -z "${ENV_ID:-}" ] || [ "${ENV_ID}" = "null" ]; then
+            echo "::warning::No ENV_ID recorded; nothing to delete."
+            exit 0
+          fi
+          if ! curl -sS -f -X DELETE \
+            "https://api.permit.io/v2/projects/${PROJECT_ID}/envs/${ENV_ID}" \
+            -H "Authorization: Bearer ${PROJECT_API_KEY}"; then
+            leaked="Failed to delete environment ${ENV_ID}. Delete it by hand."
+            echo "::warning title=Scratch env leaked::${leaked}"
+          fi
+
   # Offline suite on every supported Python. It needs no secrets and no PDP, so
   # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
   # matrix are required status checks.
   compatibility:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
