@@ -165,6 +165,9 @@ The jobs set:
 - `API_TIER=prod`: sends the SDK's API calls to `https://api.permit.io`.
 - `ORG_PDP_API_KEY` and `PROJECT_PDP_API_KEY`: the same key, read by
   `tests/endpoints/test_envs.py`.
+- `PERMIT_API_COVERAGE_RECORD`, in the `pytest` jobs only: where the request recorder writes
+  the requests the tests send. The `API Coverage` job reads the e2e tests' requests from
+  it (see "API coverage report").
 
 Without `API_TIER=prod` (or an explicit `PDP_CONTROL_PLANE`), `tests/conftest.py` sends API
 calls to `http://localhost:8000`. To reproduce the required jobs locally with an
