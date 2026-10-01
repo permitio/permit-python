@@ -503,12 +503,16 @@ class SyncGroupsApi(BasePermitApi):
     """Manage groups, whose members inherit the roles granted to the group.
 
     A group is an instance of a group resource type (``group`` unless you name another) in
-    one tenant. A user added to a group gets the ``member`` role on the group instance. A
-    role granted to a group is a resource role on one resource instance, and it reaches the
-    group's members through ReBAC: a role derivation grants it to every user who has the
-    ``member`` role on the group instance. ``permit.check()`` then allows a member what that
-    role allows on that instance. It is not a tenant-wide (RBAC) role: a check must name
-    the resource instance, and a check that names only the resource type does not use it.
+    one tenant. A group resource type is any resource type with a ``member`` role;
+    ``create()`` adds that role to the type if it has none. A user added to a group gets
+    the ``member`` role on the group instance.
+
+    A role granted to a group is a resource role on one resource instance, and it reaches
+    the group's members through ReBAC: a role derivation grants it to every user who has
+    the ``member`` role on the group instance. ``permit.check()`` then allows a member what
+    that role allows on that instance. It is not a tenant-wide (RBAC) role: a check must
+    name the resource instance, and a check that names only the resource type does not use
+    it.
 
     Every method needs an environment-level API key, or a project- or organization-level
     key with the SDK's API context set to the environment.
@@ -525,6 +529,9 @@ class SyncGroupsApi(BasePermitApi):
     """
     def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultGroupReadSchema:
         """Lists the environment's groups, of every group resource type.
+
+        The API returns the instances of every resource type that has a ``member`` role,
+        including types that were not made for groups.
 
         Needs an environment-level API key, or a broader key with the SDK's API context
         set to the environment.
