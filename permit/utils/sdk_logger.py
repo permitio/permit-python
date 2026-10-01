@@ -6,21 +6,35 @@ REDACTED = "[REDACTED]"
 
 
 class SdkLogger:
-    """Logs the SDK's own records to loguru's logger, without the API keys in them.
+    """Logs the SDK's own records to loguru's logger, applying the SDK's `log` settings.
 
     Each record reaches loguru from the SDK module that logged it, so
     `logger.disable("permit")`, `logger.enable("permit")` and the application's sinks treat
-    it as a record of that module. On the way, this replaces every registered API key with
-    `[REDACTED]`.
+    it as a record of that module. On the way, this drops records below the minimum
+    severity, replaces every registered API key with `[REDACTED]` and prefixes the message
+    with the label.
 
-    The registered keys are process-wide, like loguru's logger.
+    Its settings are process-wide, like loguru's logger. Until `configure` is called, it
+    keeps every record and adds no label.
     """
 
     def __init__(self) -> None:
+        self._min_level_no = 0
+        self._label = ""
         self._secrets_lock = threading.Lock()
         # Replaced, never mutated, so a thread that logs while another registers a secret
         # reads either the old set or the new one.
         self._secrets: frozenset[str] = frozenset()
+
+    def configure(self, *, min_level_no: int, label: str) -> None:
+        """Set the minimum severity of the records to keep and the label to prefix them with.
+
+        Args:
+            min_level_no: The loguru severity number below which records are dropped.
+            label: The text put in brackets before each message; an empty string adds none.
+        """
+        self._min_level_no = min_level_no
+        self._label = label
 
     def redact(self, secret: str) -> None:
         """Replace `secret` with `[REDACTED]` in every record logged from now on.
@@ -46,8 +60,12 @@ class SdkLogger:
         self._log("ERROR", message)
 
     def _log(self, level: str, message: str) -> None:
+        if logger.level(level).no < self._min_level_no:
+            return
         for secret in self._secrets:
             message = message.replace(secret, REDACTED)
+        if self._label:
+            message = f"[{self._label}] {message}"
         # depth=2 skips this method and the one that called it, so loguru attributes the
         # record to the SDK module that logged it. The message goes without arguments, so
         # loguru does not call str.format on it and braces in it are kept as they are.
