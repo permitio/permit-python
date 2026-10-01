@@ -555,8 +555,9 @@ class Enforcer:
 
         The PDP lists a tenant when the user has a tenant-level role in it, the kind
         ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
-        neither does membership without a role. The PDP answers from the data it has synced,
-        so a change made through the API shows up once the PDP has it.
+        neither does membership without a role, such as ``api.tenants.add_user()`` creates.
+        The PDP answers from the data it has synced, so a change made through the API shows
+        up once the PDP has it.
 
         Only the container PDP serves this query. The cloud PDP does not, and answers 404,
         which this method raises as a ``PermitConnectionError`` that says so.

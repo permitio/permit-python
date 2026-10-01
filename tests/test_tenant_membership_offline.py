@@ -1,4 +1,4 @@
-"""Offline tests for tenant membership (PER-16678): get_user_tenants().
+"""Offline tests for tenant membership (PER-16678): tenants.add_user() and get_user_tenants().
 
 Each call goes through the async and the blocking client, and the test checks the request
 it puts on the wire (method, path, query string, headers and JSON body) and what the
@@ -16,12 +16,18 @@ from pydantic.v1 import ValidationError
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
-from permit import Permit, TenantDetails
+from permit import Permit, TenantDetails, UserCreate, UserRead
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import Enforcer
-from permit.exceptions import PermitConnectionError
+from permit.exceptions import (
+    PermitAlreadyExistsError,
+    PermitApiError,
+    PermitConnectionError,
+    PermitContextError,
+    PermitNotFoundError,
+)
 from permit.sync import Permit as SyncPermit
-from tests.utils import Call, call, sent
+from tests.utils import FACTS, ORG, PROJECT, Call, call, sent
 
 FLAVOURS = ["async", "sync"]
 
@@ -277,3 +283,186 @@ def test_tenant_details_gives_each_tenant_its_own_attributes() -> None:
     first.attributes["tier"] = "gold"
 
     assert TenantDetails(key="t2").attributes == {}
+
+
+# --- tenants.add_user() -----------------------------------------------------------
+
+
+NOW = "2024-01-01T00:00:00+00:00"
+TENANT_ID = "00000000-0000-4000-8000-000000000020"
+TENANT_USERS = f"{FACTS}/tenants/t1/users"
+
+NEW_USER = {
+    "key": "alice",
+    "email": "alice@example.com",
+    "first_name": "Alice",
+    "attributes": {"dept": "eng"},
+}
+USER_WITH_ROLES = {"key": "alice", "role_assignments": [{"role": "viewer", "tenant": "t2"}]}
+USER_READ = {
+    "key": "alice",
+    "id": "00000000-0000-4000-8000-000000000021",
+    "organization_id": "00000000-0000-4000-8000-000000000022",
+    "project_id": "00000000-0000-4000-8000-000000000023",
+    "environment_id": "00000000-0000-4000-8000-000000000024",
+    "associated_tenants": [{"tenant": "t1", "roles": [], "status": "active"}],
+    "roles": [],
+    "created_at": NOW,
+    "updated_at": NOW,
+    "email": "alice@example.com",
+    "first_name": "Alice",
+    "attributes": {"dept": "eng"},
+}
+
+ADD_USER_CASES = {
+    "model": Case(
+        call("api.tenants.add_user", "t1", UserCreate(**NEW_USER)), TENANT_USERS, NEW_USER
+    ),
+    "dict": Case(call("api.tenants.add_user", "t1", NEW_USER), TENANT_USERS, NEW_USER),
+    "key-only": Case(
+        call("api.tenants.add_user", "t1", {"key": "bob"}), TENANT_USERS, {"key": "bob"}
+    ),
+    "tenant-id-keywords": Case(
+        call("api.tenants.add_user", tenant_key=TENANT_ID, user_data={"key": "alice"}),
+        f"{FACTS}/tenants/{TENANT_ID}/users",
+        {"key": "alice"},
+    ),
+    "role-assignments": Case(
+        call("api.tenants.add_user", "t1", USER_WITH_ROLES), TENANT_USERS, USER_WITH_ROLES
+    ),
+}
+
+
+@pytest.fixture
+def pdp_server(httpserver_ipv4: HTTPServer) -> HTTPServer:
+    """A server of its own for the PDP, so a request reaching it is told from one to the API."""
+    return httpserver_ipv4
+
+
+@pytest.fixture
+def split_config(config: PermitConfig, pdp_server: HTTPServer) -> PermitConfig:
+    """The offline config with the API on ``httpserver`` and the PDP on ``pdp_server``."""
+    config.pdp = pdp_server.url_for("").rstrip("/")
+    return config
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize("proxy_facts_via_pdp", [False, True], ids=["api", "proxy-via-pdp"])
+@pytest.mark.parametrize("case", ADD_USER_CASES.values(), ids=ADD_USER_CASES.keys())
+def test_add_user_posts_the_user_to_the_api(
+    *,
+    httpserver: HTTPServer,
+    pdp_server: HTTPServer,
+    split_config: PermitConfig,
+    case: Case,
+    proxy_facts_via_pdp: bool,
+    flavour: str,
+) -> None:
+    """add_user() goes to the Permit REST API whether or not facts are proxied via the PDP."""
+    split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
+    httpserver.expect_request(case.path, method="POST").respond_with_json(USER_READ)
+
+    result = invoke(split_config, flavour, case.call)
+
+    assert [sent(request) for request, _ in httpserver.log] == [
+        {"method": "POST", "path": case.path, "query": [], "body": case.body}
+    ]
+    assert [sent_headers(request) for request, _ in httpserver.log] == [JSON_HEADERS]
+    assert pdp_server.log == []
+    assert type(result) is UserRead
+    assert result == UserRead.parse_obj(USER_READ)
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    ("proxy_facts_via_pdp", "path"),
+    [(False, f"{TENANT_USERS}/alice"), (True, "/facts/tenants/t1/users/alice")],
+    ids=["api", "proxy-via-pdp"],
+)
+def test_delete_tenant_user_still_follows_proxy_facts_via_pdp(
+    *,
+    httpserver: HTTPServer,
+    pdp_server: HTTPServer,
+    split_config: PermitConfig,
+    proxy_facts_via_pdp: bool,
+    path: str,
+    flavour: str,
+) -> None:
+    """The tenants API's other calls keep the routing add_user() opts out of."""
+    split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
+    server, other = (pdp_server, httpserver) if proxy_facts_via_pdp else (httpserver, pdp_server)
+    server.expect_request(path, method="DELETE").respond_with_data("", status=204)
+
+    invoke(split_config, flavour, call("api.tenants.delete_tenant_user", "t1", "alice"))
+
+    assert [sent(request) for request, _ in server.log] == [
+        {"method": "DELETE", "path": path, "query": [], "body": None}
+    ]
+    assert other.log == []
+
+
+class ApiError(NamedTuple):
+    """An error status, the error code the API sends with it, and what the SDK raises."""
+
+    status: int
+    error_code: str
+    raises: type[PermitApiError]
+
+
+API_ERRORS = {
+    "tenant-not-found": ApiError(404, "NOT_FOUND", PermitNotFoundError),
+    "user-exists": ApiError(409, "DUPLICATE_ENTITY", PermitAlreadyExistsError),
+}
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize("error", API_ERRORS.values(), ids=API_ERRORS.keys())
+def test_add_user_raises_the_matching_permit_api_error(
+    httpserver: HTTPServer, config: PermitConfig, error: ApiError, flavour: str
+) -> None:
+    detail = {
+        "id": "request-1",
+        "title": f"status {error.status}",
+        "error_code": error.error_code,
+        "message": f"status {error.status}",
+    }
+    httpserver.expect_request(TENANT_USERS, method="POST").respond_with_json(
+        detail, status=error.status
+    )
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(config, flavour, call("api.tenants.add_user", "t1", {"key": "alice"}))
+
+    assert type(raised.value) is error.raises
+    assert raised.value.status_code == error.status
+    assert raised.value.details == detail
+    assert len(httpserver.log) == 1
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_add_user_refuses_a_project_context_before_sending(
+    httpserver: HTTPServer, config: PermitConfig, flavour: str
+) -> None:
+    """A project-level key needs the SDK's API context set to an environment first."""
+    config.api_context._save_api_key_accessible_scope(org=ORG, project=PROJECT)
+    config.api_context.set_project_level_context(ORG, PROJECT)
+
+    with pytest.raises(PermitContextError):
+        invoke(config, flavour, call("api.tenants.add_user", "t1", {"key": "alice"}))
+
+    assert httpserver.log == []
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    "user_data",
+    [{"email": "alice@example.com"}, {"key": "has space"}, {"key": "alice", "email": "nope"}],
+    ids=["no-key", "invalid-key", "invalid-email"],
+)
+def test_add_user_rejects_an_invalid_user_before_sending(
+    httpserver: HTTPServer, config: PermitConfig, user_data: dict[str, Any], flavour: str
+) -> None:
+    with pytest.raises(ValidationError):
+        invoke(config, flavour, call("api.tenants.add_user", "t1", user_data))
+
+    assert httpserver.log == []

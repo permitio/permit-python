@@ -2219,6 +2219,37 @@ class SyncTenantsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
+    def add_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
+        """Creates a user as a member of a tenant.
+
+        The API creates the user and adds it to the tenant without any role. It answers 409
+        when a user with that key already exists, whichever tenants it is in, so this cannot
+        add an existing user to another tenant: grant that user a role in the tenant with
+        ``api.users.assign_role()`` instead. Role assignments listed in ``user_data`` are
+        granted as ``api.users.create()`` grants them, each in the tenant it names.
+
+        The request always goes to the Permit REST API, even with ``proxy_facts_via_pdp``
+        set, so ``wait_for_sync()`` does not make it wait for the PDP. A membership without a
+        role does not show in ``permit.get_user_tenants()``, which lists the tenants in which
+        the user has a role.
+
+        Needs an environment-level API key, or a broader key with the SDK's API context set
+        to the environment.
+
+        Args:
+            tenant_key: The key or id of the tenant.
+            user_data: The user to create, as a ``UserCreate`` or an equivalent dict.
+
+        Returns:
+            the created user, whose ``associated_tenants`` include the tenant.
+
+        Raises:
+            PermitAlreadyExistsError: If a user with this key already exists.
+            PermitNotFoundError: If the tenant does not exist.
+            PermitApiError: If the API returns any other error HTTP status code.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
+        """
     def get(self, tenant_key: str) -> TenantRead:
         """Retrieves a tenant by its key.
 
@@ -2775,8 +2806,9 @@ class SyncEnforcer:
 
         The PDP lists a tenant when the user has a tenant-level role in it, the kind
         ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
-        neither does membership without a role. The PDP answers from the data it has synced,
-        so a change made through the API shows up once the PDP has it.
+        neither does membership without a role, such as ``api.tenants.add_user()`` creates.
+        The PDP answers from the data it has synced, so a change made through the API shows
+        up once the PDP has it.
 
         Only the container PDP serves this query. The cloud PDP does not, and answers 404,
         which this method raises as a ``PermitConnectionError`` that says so.
