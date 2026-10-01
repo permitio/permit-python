@@ -17,6 +17,7 @@ from permit.enforcement.interfaces import (
 from permit.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 from permit.utils.dicts import deep_merge
+from permit.utils.http_sessions import LoopSessions
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 from permit.utils.sdk_logger import sdk_logger
 from permit.utils.sync import SyncClass
@@ -105,6 +106,11 @@ class Enforcer:
             "Authorization": f"Bearer {self._config.token}",
         }
         self._base_url = self._config.pdp
+        self._sessions = LoopSessions()
+
+    def _use_sessions(self, sessions: LoopSessions) -> None:
+        """Send the queries through ``sessions`` from now on."""
+        self._sessions = sessions
 
     @property
     def context_store(self) -> ContextStore:
@@ -169,71 +175,73 @@ class Enforcer:
             "context": query_context,
         }
 
-        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
-            check_url = f"{self._base_url}/authorized_users"
-            try:
-                async with session.post(
-                    check_url,
-                    data=json.dumps(request_body),
-                ) as response:
-                    if response.status != HTTPStatus.OK:
-                        if response.status == HTTPStatus.NOT_IMPLEMENTED:
-                            msg = (
-                                f"Permit SDK got an error: {response.status}, "
-                                f"and cannot connect to the PDP container."
-                                f"\nPlease ensure you are not using ABAC/ReBAC policies,"
-                                f"as the cloud PDP is not compatible with these kinds "
-                                f"of policies.\n"
-                                f"Also, please check your configuration and "
-                                f"make sure it's running at {self._base_url} "
-                                f"and accepting requests.\n"
-                                f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                            )
-                            raise PermitConnectionError(msg)
-
-                        error_body = await read_error_body(response)
-                        sdk_logger.error(
-                            "error in permit.authorized_users({}, {}):\n{}\n{}".format(
-                                action,
-                                self._resource_repr(normalized_resource),
-                                f"status code: {response.status}",
-                                error_body,
-                            )
-                        )
+        session = await self._sessions.current()
+        check_url = f"{self._base_url}/authorized_users"
+        try:
+            async with session.post(
+                check_url,
+                data=json.dumps(request_body),
+                headers=self._headers,
+                **self._timeout_config,
+            ) as response:
+                if response.status != HTTPStatus.OK:
+                    if response.status == HTTPStatus.NOT_IMPLEMENTED:
                         msg = (
-                            f"Permit SDK got unexpected status code: {response.status} "
-                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
-                            f"The PDP is reachable, so this is a rejected request rather than a "
-                            f"connectivity problem -- a 401/403 usually means the PDP was started "
-                            f"with a different API key than the SDK is using.\n"
+                            f"Permit SDK got an error: {response.status}, "
+                            f"and cannot connect to the PDP container."
+                            f"\nPlease ensure you are not using ABAC/ReBAC policies,"
+                            f"as the cloud PDP is not compatible with these kinds "
+                            f"of policies.\n"
+                            f"Also, please check your configuration and "
+                            f"make sure it's running at {self._base_url} "
+                            f"and accepting requests.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
                         raise PermitConnectionError(msg)
 
-                    content: dict[str, Any] = await response.json()
-                    sdk_logger.debug(
-                        f"permit.authorized_users() response:"
-                        f"\ninput: {pformat(request_body, indent=2)}"
-                        f"\nresponse status: {response.status}"
-                        f"\nresponse data: {pformat(content, indent=2)}"
+                    error_body = await read_error_body(response)
+                    sdk_logger.error(
+                        "error in permit.authorized_users({}, {}):\n{}\n{}".format(
+                            action,
+                            self._resource_repr(normalized_resource),
+                            f"status code: {response.status}",
+                            error_body,
+                        )
                     )
-                    result: AuthorizedUsersResult = parse_obj_as(AuthorizedUsersResult, content)
-                    return result
-            except aiohttp.ClientError as err:
-                sdk_logger.error(
-                    f"error in permit.authorized_users({action}, "
-                    f"{self._resource_repr(normalized_resource)}):\n{err}"
+                    msg = (
+                        f"Permit SDK got unexpected status code: {response.status} "
+                        f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                        f"The PDP is reachable, so this is a rejected request rather than a "
+                        f"connectivity problem -- a 401/403 usually means the PDP was started "
+                        f"with a different API key than the SDK is using.\n"
+                        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                    )
+                    raise PermitConnectionError(msg)
+
+                content: dict[str, Any] = await response.json()
+                sdk_logger.debug(
+                    f"permit.authorized_users() response:"
+                    f"\ninput: {pformat(request_body, indent=2)}"
+                    f"\nresponse status: {response.status}"
+                    f"\nresponse data: {pformat(content, indent=2)}"
                 )
-                msg = (
-                    f"Permit SDK got error: {err}, and cannot connect to the PDP container.\n"
-                    f"Please check your configuration and make sure it's running at "
-                    f"{self._base_url} and accepting requests.\n "
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                )
-                raise PermitConnectionError(
-                    msg,
-                    error=err,
-                ) from err
+                result: AuthorizedUsersResult = parse_obj_as(AuthorizedUsersResult, content)
+                return result
+        except aiohttp.ClientError as err:
+            sdk_logger.error(
+                f"error in permit.authorized_users({action}, "
+                f"{self._resource_repr(normalized_resource)}):\n{err}"
+            )
+            msg = (
+                f"Permit SDK got error: {err}, and cannot connect to the PDP container.\n"
+                f"Please check your configuration and make sure it's running at "
+                f"{self._base_url} and accepting requests.\n "
+                f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+            )
+            raise PermitConnectionError(
+                msg,
+                error=err,
+            ) from err
 
     async def bulk_check(
         self,
@@ -304,57 +312,59 @@ class Enforcer:
                 }
             )
 
-        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
-            check_url = f"{self._base_url}/allowed/bulk"
-            try:
-                async with session.post(
-                    check_url,
-                    data=json.dumps(request_body),
-                ) as response:
-                    if response.status != HTTPStatus.OK:
-                        error_body = await read_error_body(response)
-                        msg = "error in permit.check({}):\n{}\n{}".format(
-                            (
-                                [
-                                    [
-                                        check.get("user"),
-                                        check.get("action"),
-                                        check.get("resource"),
-                                    ]
-                                    for check in request_body
-                                ]
-                            ),
-                            f"status code: {response.status}",
-                            error_body,
-                        )
-                        sdk_logger.error(msg)
-                        raise PermitConnectionError(msg)
-                    content: dict[str, Any] = await response.json()
-                    sdk_logger.debug(
-                        f"permit.check() response:\n"
-                        f"input: {pformat(request_body, indent=2)}\n"
-                        f"response status: {response.status}\n"
-                        f"response data: {pformat(content, indent=2)}"
-                    )
-                    data = content.get("allow", content.get("result", {}).get("allow", []))
-                    decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
-            except aiohttp.ClientError as err:
-                msg = "error in permit.check({}):\n{}".format(
-                    (
-                        [
+        session = await self._sessions.current()
+        check_url = f"{self._base_url}/allowed/bulk"
+        try:
+            async with session.post(
+                check_url,
+                data=json.dumps(request_body),
+                headers=self._headers,
+                **self._timeout_config,
+            ) as response:
+                if response.status != HTTPStatus.OK:
+                    error_body = await read_error_body(response)
+                    msg = "error in permit.check({}):\n{}\n{}".format(
+                        (
                             [
-                                check.get("user"),
-                                check.get("action"),
-                                check.get("resource"),
+                                [
+                                    check.get("user"),
+                                    check.get("action"),
+                                    check.get("resource"),
+                                ]
+                                for check in request_body
                             ]
-                            for check in request_body
-                        ]
-                    ),
-                    err,
+                        ),
+                        f"status code: {response.status}",
+                        error_body,
+                    )
+                    sdk_logger.error(msg)
+                    raise PermitConnectionError(msg)
+                content: dict[str, Any] = await response.json()
+                sdk_logger.debug(
+                    f"permit.check() response:\n"
+                    f"input: {pformat(request_body, indent=2)}\n"
+                    f"response status: {response.status}\n"
+                    f"response data: {pformat(content, indent=2)}"
                 )
-                sdk_logger.error(msg)
-                raise PermitConnectionError(msg, error=err) from err
-            return decisions
+                data = content.get("allow", content.get("result", {}).get("allow", []))
+                decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
+        except aiohttp.ClientError as err:
+            msg = "error in permit.check({}):\n{}".format(
+                (
+                    [
+                        [
+                            check.get("user"),
+                            check.get("action"),
+                            check.get("resource"),
+                        ]
+                        for check in request_body
+                    ]
+                ),
+                err,
+            )
+            sdk_logger.error(msg)
+            raise PermitConnectionError(msg, error=err) from err
+        return decisions
 
     async def check(
         self,
@@ -407,73 +417,75 @@ class Enforcer:
             "resource": normalized_resource.dict(exclude_unset=True),
             "context": query_context,
         }
-        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
-            check_url = f"{self._base_url}/allowed"
-            try:
-                async with session.post(
-                    check_url,
-                    data=json.dumps(body),
-                ) as response:
-                    if response.status != HTTPStatus.OK:
-                        if response.status == HTTPStatus.NOT_IMPLEMENTED:
-                            msg = (
-                                f"Permit SDK got an error: {response.status}, "
-                                f"and cannot connect to the PDP container."
-                                f"\nPlease ensure you are not using ABAC/ReBAC policies,\n"
-                                f"as the cloud PDP is not compatible with these kinds "
-                                f"of policies.\n"
-                                f"Also, please check your configuration and make sure it's running "
-                                f"at {self._base_url} and accepting requests.\n"
-                                f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                            )
-                            raise PermitConnectionError(msg)
-
-                        error_body = await read_error_body(response)
-                        sdk_logger.error(
-                            "error in permit.check({}, {}, {}):\n{}\n{}".format(
-                                normalized_user,
-                                action,
-                                self._resource_repr(normalized_resource),
-                                f"status code: {response.status}",
-                                error_body,
-                            )
-                        )
+        session = await self._sessions.current()
+        check_url = f"{self._base_url}/allowed"
+        try:
+            async with session.post(
+                check_url,
+                data=json.dumps(body),
+                headers=self._headers,
+                **self._timeout_config,
+            ) as response:
+                if response.status != HTTPStatus.OK:
+                    if response.status == HTTPStatus.NOT_IMPLEMENTED:
                         msg = (
-                            f"Permit SDK got unexpected status code: {response.status} "
-                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
-                            f"The PDP is reachable, so this is a rejected request rather than a "
-                            f"connectivity problem -- a 401/403 usually means the PDP was started "
-                            f"with a different API key than the SDK is using.\n"
+                            f"Permit SDK got an error: {response.status}, "
+                            f"and cannot connect to the PDP container."
+                            f"\nPlease ensure you are not using ABAC/ReBAC policies,\n"
+                            f"as the cloud PDP is not compatible with these kinds "
+                            f"of policies.\n"
+                            f"Also, please check your configuration and make sure it's running "
+                            f"at {self._base_url} and accepting requests.\n"
                             f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                         )
                         raise PermitConnectionError(msg)
 
-                    content: dict[str, Any] = await response.json()
-                    sdk_logger.debug(
-                        f"permit.check() response:\n"
-                        f"body: {pformat(body, indent=2)}\n"
-                        f"response status: {response.status}\n"
-                        f"response data: {pformat(content, indent=2)}"
+                    error_body = await read_error_body(response)
+                    sdk_logger.error(
+                        "error in permit.check({}, {}, {}):\n{}\n{}".format(
+                            normalized_user,
+                            action,
+                            self._resource_repr(normalized_resource),
+                            f"status code: {response.status}",
+                            error_body,
+                        )
                     )
-                    decision: bool = bool(content.get("allow", False))
-                    return decision
-            except aiohttp.ClientError as err:
-                sdk_logger.error(
-                    f"error in permit.check({normalized_user}, {action}, "
-                    f"{self._resource_repr(normalized_resource)}):"
-                    f"\n{err}"
+                    msg = (
+                        f"Permit SDK got unexpected status code: {response.status} "
+                        f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                        f"The PDP is reachable, so this is a rejected request rather than a "
+                        f"connectivity problem -- a 401/403 usually means the PDP was started "
+                        f"with a different API key than the SDK is using.\n"
+                        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                    )
+                    raise PermitConnectionError(msg)
+
+                content: dict[str, Any] = await response.json()
+                sdk_logger.debug(
+                    f"permit.check() response:\n"
+                    f"body: {pformat(body, indent=2)}\n"
+                    f"response status: {response.status}\n"
+                    f"response data: {pformat(content, indent=2)}"
                 )
-                msg = (
-                    f"Permit SDK got error: {err}, \n"
-                    f"and cannot connect to the PDP container, please check your configuration "
-                    f"and make sure it's "
-                    f"running at {self._base_url} and accepting requests. \n"
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                )
-                raise PermitConnectionError(
-                    msg,
-                    error=err,
-                ) from err
+                decision: bool = bool(content.get("allow", False))
+                return decision
+        except aiohttp.ClientError as err:
+            sdk_logger.error(
+                f"error in permit.check({normalized_user}, {action}, "
+                f"{self._resource_repr(normalized_resource)}):"
+                f"\n{err}"
+            )
+            msg = (
+                f"Permit SDK got error: {err}, \n"
+                f"and cannot connect to the PDP container, please check your configuration "
+                f"and make sure it's "
+                f"running at {self._base_url} and accepting requests. \n"
+                f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+            )
+            raise PermitConnectionError(
+                msg,
+                error=err,
+            ) from err
 
     async def get_user_permissions(
         self,
@@ -510,50 +522,52 @@ class Enforcer:
         if context is not None:
             input_data["context"] = self._context_store.get_derived_context(context)
 
-        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
-            url = f"{self._base_url}/user-permissions"
-            try:
-                async with session.post(
-                    url,
-                    data=json.dumps(input_data),
-                ) as response:
-                    if response.status != HTTPStatus.OK:
-                        msg = (
-                            f"Permit.getUserPermissions() got an unexpected status code: "
-                            f"{response.status}, "
-                            f"please check your SDK init and make sure the PDP sidecar "
-                            f"is configured correctly.\n"
-                            f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                        )
-                        raise PermitConnectionError(msg)
-
-                    content = await response.json()
-                    permissions: dict[str, Any] = (
-                        content.get("result", {}).get("permissions", {})
-                        if "result" in content
-                        else content
+        session = await self._sessions.current()
+        url = f"{self._base_url}/user-permissions"
+        try:
+            async with session.post(
+                url,
+                data=json.dumps(input_data),
+                headers=self._headers,
+                **self._timeout_config,
+            ) as response:
+                if response.status != HTTPStatus.OK:
+                    msg = (
+                        f"Permit.getUserPermissions() got an unexpected status code: "
+                        f"{response.status}, "
+                        f"please check your SDK init and make sure the PDP sidecar "
+                        f"is configured correctly.\n"
+                        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                     )
+                    raise PermitConnectionError(msg)
 
-                    sdk_logger.debug(
-                        f"permit.get_user_permissions() response:\n"
-                        f"input: {pformat(input_data, indent=2)}\n"
-                        f"response data: {pformat(permissions, indent=2)}"
-                    )
-                    return permissions
-
-            except aiohttp.ClientError as err:
-                sdk_logger.error(f"Error in permit.get_user_permissions(): {err}")
-                msg = (
-                    f"Permit SDK got error: {err}, \n"
-                    f"and cannot connect to the PDP container, please check your configuration "
-                    f"and make sure it's "
-                    f"running at {self._base_url} and accepting requests. \n"
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                content = await response.json()
+                permissions: dict[str, Any] = (
+                    content.get("result", {}).get("permissions", {})
+                    if "result" in content
+                    else content
                 )
-                raise PermitConnectionError(
-                    msg,
-                    error=err,
-                ) from err
+
+                sdk_logger.debug(
+                    f"permit.get_user_permissions() response:\n"
+                    f"input: {pformat(input_data, indent=2)}\n"
+                    f"response data: {pformat(permissions, indent=2)}"
+                )
+                return permissions
+
+        except aiohttp.ClientError as err:
+            sdk_logger.error(f"Error in permit.get_user_permissions(): {err}")
+            msg = (
+                f"Permit SDK got error: {err}, \n"
+                f"and cannot connect to the PDP container, please check your configuration "
+                f"and make sure it's "
+                f"running at {self._base_url} and accepting requests. \n"
+                f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+            )
+            raise PermitConnectionError(
+                msg,
+                error=err,
+            ) from err
 
     async def get_user_tenants(
         self, user: User, context: Context | None = None
@@ -591,38 +605,40 @@ class Enforcer:
             "context": self._context_store.get_derived_context(context or {}),
         }
 
-        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
-            url = f"{self._base_url}/user-tenants"
-            try:
-                async with session.post(url, data=json.dumps(body)) as response:
-                    if response.status == HTTPStatus.NOT_FOUND:
-                        msg = (
-                            f"permit.get_user_tenants() got status code 404 from the PDP at "
-                            f"{self._base_url}: only the container PDP serves /user-tenants, "
-                            f"and the cloud PDP does not.\n"
-                            f"Point the SDK's `pdp` setting at a container PDP to use it.\n"
-                            f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                        )
-                        raise PermitConnectionError(msg)
-                    if response.status != HTTPStatus.OK:
-                        error_body = await read_error_body(response)
-                        msg = (
-                            f"permit.get_user_tenants() got an unexpected status code: "
-                            f"{response.status} from the PDP at {self._base_url}.\n"
-                            f"Response body: {error_body}\n"
-                            f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                        )
-                        raise PermitConnectionError(msg)
-                    content = await response.json()
-            except aiohttp.ClientError as err:
-                sdk_logger.error(f"Error in permit.get_user_tenants(): {err}")
-                msg = (
-                    f"Permit SDK got error: {err}, \n"
-                    f"and cannot connect to the PDP container, please check your configuration "
-                    f"and make sure it's running at {self._base_url} and accepting requests. \n"
-                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
-                )
-                raise PermitConnectionError(msg, error=err) from err
+        session = await self._sessions.current()
+        url = f"{self._base_url}/user-tenants"
+        try:
+            async with session.post(
+                url, data=json.dumps(body), headers=self._headers, **self._timeout_config
+            ) as response:
+                if response.status == HTTPStatus.NOT_FOUND:
+                    msg = (
+                        f"permit.get_user_tenants() got status code 404 from the PDP at "
+                        f"{self._base_url}: only the container PDP serves /user-tenants, "
+                        f"and the cloud PDP does not.\n"
+                        f"Point the SDK's `pdp` setting at a container PDP to use it.\n"
+                        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                    )
+                    raise PermitConnectionError(msg)
+                if response.status != HTTPStatus.OK:
+                    error_body = await read_error_body(response)
+                    msg = (
+                        f"permit.get_user_tenants() got an unexpected status code: "
+                        f"{response.status} from the PDP at {self._base_url}.\n"
+                        f"Response body: {error_body}\n"
+                        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                    )
+                    raise PermitConnectionError(msg)
+                content = await response.json()
+        except aiohttp.ClientError as err:
+            sdk_logger.error(f"Error in permit.get_user_tenants(): {err}")
+            msg = (
+                f"Permit SDK got error: {err}, \n"
+                f"and cannot connect to the PDP container, please check your configuration "
+                f"and make sure it's running at {self._base_url} and accepting requests. \n"
+                f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+            )
+            raise PermitConnectionError(msg, error=err) from err
 
         sdk_logger.debug(
             f"permit.get_user_tenants() response:\n"
