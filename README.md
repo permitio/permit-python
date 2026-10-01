@@ -60,7 +60,9 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   requests and the PDP's responses at `"debug"`. With `"enable": True`, a level name loguru
   does not know raises `ValueError` when the client is created.
 - `label` (default `"Permit"`) is put in square brackets before every message the SDK logs.
-- `json` is not applied: for JSON output, add a sink with `logger.add(sys.stderr, serialize=True)`.
+- `json` is not applied. For JSON output, give your application a serialized sink in place
+  of loguru's default one: `logger.remove()`, then `logger.add(sys.stderr, serialize=True)`.
+  Added next to the default sink, it prints every record a second time.
 - loguru's logger is process-wide, so these settings are too: the client created last
   decides whether the SDK logs, and the last one created with `"enable": True` decides the
   level and the label, for every client in the process. `wait_for_sync()` creates no

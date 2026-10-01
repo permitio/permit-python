@@ -26,8 +26,9 @@ def configure_logger(config: PermitConfig) -> None:
       for the package or one of its modules still applies.
     - `log.level` drops the SDK's records below that severity before they reach any sink.
     - `log.label` is put in brackets before each message.
-    - `log.log_as_json` is not applied: loguru serializes per sink, with
-      `logger.add(..., serialize=True)`.
+    - `log.log_as_json` is not applied: loguru serializes per sink. For JSON output, the
+      application replaces loguru's default sink with a serialized one: `logger.remove()`,
+      then `logger.add(sys.stderr, serialize=True)`.
 
     Whatever the settings, the API key in `config.token` is replaced with `[REDACTED]` in
     every message the SDK logs and in the PDP error bodies it puts in a

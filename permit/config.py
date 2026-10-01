@@ -51,7 +51,8 @@ class LoggerConfig(BaseModel):
         default=False,
         alias="json",
         description="Not applied. The format of the SDK's records is that of the loguru sinks "
-        "they reach: for JSON, add a sink with logger.add(..., serialize=True).",
+        "they reach. For JSON, the application replaces loguru's default sink with a "
+        "serialized one: logger.remove(), then logger.add(sys.stderr, serialize=True).",
     )
 
 
