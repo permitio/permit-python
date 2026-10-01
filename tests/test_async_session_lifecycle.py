@@ -41,10 +41,8 @@ THREAD_TIMEOUT_SECONDS = 5.0
 
 @pytest.fixture
 def server() -> Iterator[KeepAliveServer]:
-    server = KeepAliveServer()
-    server.start()
-    yield server
-    server.stop()
+    with KeepAliveServer() as server:
+        yield server
 
 
 @pytest.fixture

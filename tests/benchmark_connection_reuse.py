@@ -24,7 +24,7 @@ from loguru import logger
 import permit
 from permit import Permit
 from permit.sync import Permit as SyncPermit
-from tests.connection_counting_server import ConnectionCountingServer
+from tests.keepalive_server import KeepAliveServer
 from tests.utils import offline_config
 
 if TYPE_CHECKING:
@@ -96,9 +96,9 @@ def main() -> None:
     logger.disable("permit")
     rows: list[tuple[str, ...]] = [COLUMNS]
     for name, measure in (("async", time_async_client), ("sync", time_sync_client)):
-        with ConnectionCountingServer() as server:
+        with KeepAliveServer() as server:
             durations = measure(server.url, args.calls)
-            rows.append(row(name, server.accepted, durations))
+            rows.append(row(name, server.opened, durations))
 
     print(f"permit from {Path(permit.__file__).parent}")
     widths = [max(len(line[column]) for line in rows) for column in range(len(COLUMNS))]

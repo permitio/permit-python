@@ -35,7 +35,7 @@ from permit.sync import Permit as SyncPermit
 from permit.utils.deprecation import deprecated
 from permit.utils.sdk_logger import sdk_logger
 from permit.utils.sync import SyncClass, _background_loop_of, _BackgroundLoop, _LoopThread
-from tests.connection_counting_server import ConnectionCountingServer
+from tests.keepalive_server import KeepAliveServer
 from tests.utils import FACTS, offline_config
 
 REPO_ROOT = Path(permit_package.__file__).resolve().parents[1]
@@ -43,13 +43,13 @@ LOOP_THREAD_NAME = "permit-sync-loop"
 
 
 @pytest.fixture
-def server() -> Iterator[ConnectionCountingServer]:
-    with ConnectionCountingServer() as server:
+def server() -> Iterator[KeepAliveServer]:
+    with KeepAliveServer() as server:
         yield server
 
 
 @pytest.fixture
-def permit(server: ConnectionCountingServer) -> Iterator[SyncPermit]:
+def permit(server: KeepAliveServer) -> Iterator[SyncPermit]:
     client = SyncPermit(offline_config(server.url))
     yield client
     client.close()
@@ -114,7 +114,7 @@ def test_the_calls_of_a_client_run_on_one_daemon_thread(permit: SyncPermit) -> N
 
 
 def test_many_threads_share_one_client_and_its_thread(
-    permit: SyncPermit, server: ConnectionCountingServer
+    permit: SyncPermit, server: KeepAliveServer
 ) -> None:
     threads, calls = 16, 10
     all_started = threading.Barrier(threads)
@@ -128,7 +128,7 @@ def test_many_threads_share_one_client_and_its_thread(
         results = list(executor.map(caller, range(threads)))
 
     assert results == [[True] * calls] * threads
-    assert server.requests == threads * calls
+    assert len(server.requests) == threads * calls
     assert started_loop_threads(before) == [loop_thread(permit)]
 
 
@@ -218,7 +218,7 @@ def test_close_stops_and_joins_the_thread(permit: SyncPermit) -> None:
     assert loop_thread(permit) is None
 
 
-def test_close_can_be_called_twice_and_before_any_call(server: ConnectionCountingServer) -> None:
+def test_close_can_be_called_twice_and_before_any_call(server: KeepAliveServer) -> None:
     unused = SyncPermit(offline_config(server.url))
     unused.close()
     unused.close()
@@ -244,7 +244,7 @@ def test_a_call_after_close_starts_a_new_thread(permit: SyncPermit) -> None:
     assert second.is_alive()
 
 
-def test_a_with_block_gives_the_client_and_closes_it(server: ConnectionCountingServer) -> None:
+def test_a_with_block_gives_the_client_and_closes_it(server: KeepAliveServer) -> None:
     client = SyncPermit(offline_config(server.url))
 
     with client as entered:
@@ -257,7 +257,7 @@ def test_a_with_block_gives_the_client_and_closes_it(server: ConnectionCountingS
 
 
 def test_a_with_block_that_raises_still_closes_the_client(
-    server: ConnectionCountingServer,
+    server: KeepAliveServer,
 ) -> None:
     client = SyncPermit(offline_config(server.url))
     check(client)
@@ -274,7 +274,7 @@ def test_a_with_block_that_raises_still_closes_the_client(
     assert not thread.is_alive()
 
 
-def test_async_with_is_refused(server: ConnectionCountingServer) -> None:
+def test_async_with_is_refused(server: KeepAliveServer) -> None:
     client = SyncPermit(offline_config(server.url))
 
     async def enter() -> None:
@@ -284,13 +284,11 @@ def test_async_with_is_refused(server: ConnectionCountingServer) -> None:
     with pytest.raises(TypeError, match=r"use `with Permit\(\.\.\.\) as permit:`"):
         asyncio.run(enter())
     assert loop_thread(client) is None
-    assert server.accepted == 0
+    assert server.opened == 0
 
 
-def test_close_waits_for_a_call_in_flight(
-    permit: SyncPermit, server: ConnectionCountingServer
-) -> None:
-    server.response_delay = 0.5
+def test_close_waits_for_a_call_in_flight(permit: SyncPermit, server: KeepAliveServer) -> None:
+    server.respond("/allowed", {"allow": True}, delay=0.5)
     with ThreadPoolExecutor(max_workers=1) as executor:
         in_flight = executor.submit(check, permit)
         assert server.wait_for_requests(1)
@@ -299,16 +297,16 @@ def test_close_waits_for_a_call_in_flight(
         assert in_flight.result(timeout=5) is True
 
 
-def test_close_closes_the_connections(permit: SyncPermit, server: ConnectionCountingServer) -> None:
+def test_close_closes_the_connections(permit: SyncPermit, server: KeepAliveServer) -> None:
     check(permit)
 
     permit.close()
 
-    assert server.wait_for_open(0)
+    assert server.wait_until_closed(1) == 1
 
 
 def test_closing_a_wait_for_sync_copy_leaves_its_client_thread_and_connection_open(
-    server: ConnectionCountingServer,
+    server: KeepAliveServer,
 ) -> None:
     """A copy runs on its client's thread and connections, and leaves closing them to it."""
     config = offline_config(server.url)
@@ -325,12 +323,12 @@ def test_closing_a_wait_for_sync_copy_leaves_its_client_thread_and_connection_op
     assert thread.is_alive()
     assert check(client) is True
     assert loop_thread(client) is thread
-    assert (server.accepted, server.open) == (1, 1)
+    assert (server.opened, server.closed) == (1, 0)
 
     client.close()
 
     assert not thread.is_alive()
-    assert server.wait_for_open(0)
+    assert server.wait_until_closed(1) == 1
 
 
 # --- errors and re-entrancy ------------------------------------------------------------
@@ -439,7 +437,7 @@ class FailingPermit(SyncPermit):
 
 
 def test_close_raises_what_closing_the_sessions_raised_and_still_stops(
-    server: ConnectionCountingServer,
+    server: KeepAliveServer,
 ) -> None:
     client = FailingPermit(offline_config(server.url))
     check(client)
@@ -488,7 +486,7 @@ def sdk_errors() -> Iterator[list[str]]:
 
 
 def test_a_collected_client_whose_sessions_fail_to_close_logs_why(
-    server: ConnectionCountingServer, sdk_errors: list[str]
+    server: KeepAliveServer, sdk_errors: list[str]
 ) -> None:
     config = offline_config(server.url)
     config.log.enable = True
@@ -511,7 +509,7 @@ def test_a_collected_client_whose_sessions_fail_to_close_logs_why(
     ]
 
 
-def test_close_without_a_call_closes_no_sessions(server: ConnectionCountingServer) -> None:
+def test_close_without_a_call_closes_no_sessions(server: KeepAliveServer) -> None:
     client = recording_client(server.url)
 
     client.close()
@@ -523,7 +521,7 @@ def test_close_without_a_call_closes_no_sessions(server: ConnectionCountingServe
 
 
 def test_a_collected_client_has_its_sessions_closed_on_its_thread(
-    server: ConnectionCountingServer,
+    server: KeepAliveServer,
 ) -> None:
     client = recording_client(server.url)
     closed_on = client.closed_on
@@ -539,7 +537,7 @@ def test_a_collected_client_has_its_sessions_closed_on_its_thread(
 
 
 def test_a_client_that_is_garbage_collected_stops_its_thread(
-    server: ConnectionCountingServer,
+    server: KeepAliveServer,
 ) -> None:
     client = SyncPermit(offline_config(server.url))
     check(client)
@@ -551,11 +549,12 @@ def test_a_client_that_is_garbage_collected_stops_its_thread(
     assert thread is not None
     wait_until_stopped(thread)
     assert not thread.is_alive()
-    assert server.wait_for_open(0)
+    assert server.wait_until_closed(1) == 1
 
 
 def test_an_api_object_outliving_its_client_keeps_working() -> None:
-    with ConnectionCountingServer(body=[]) as server:
+    with KeepAliveServer() as server:
+        server.respond("/local/role_assignments", [])
         role_assignments = SyncPermit(offline_config(server.url)).pdp_api.role_assignments
         gc.collect()
 
@@ -571,7 +570,7 @@ def test_an_api_object_outliving_its_client_keeps_working() -> None:
         assert not running.thread.is_alive()
 
 
-def test_a_client_never_closed_issues_no_warning(server: ConnectionCountingServer) -> None:
+def test_a_client_never_closed_issues_no_warning(server: KeepAliveServer) -> None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         client = SyncPermit(offline_config(server.url))
@@ -619,15 +618,16 @@ import threading
 
 from loguru import logger
 
-from tests.connection_counting_server import ConnectionCountingServer
+from tests.keepalive_server import KeepAliveServer
 
 logger.disable("permit")
-server = ConnectionCountingServer()
+server = KeepAliveServer()
 server.start()
 
 
 def report() -> None:
-    print("connections closed:", server.wait_for_open(0))
+    opened = server.opened
+    print("connections closed:", server.wait_until_closed(opened) == opened)
     loop_threads = [t for t in threading.enumerate() if t.name == "permit-sync-loop"]
     print("loop threads left:", len(loop_threads))
 
@@ -659,7 +659,7 @@ def test_a_client_never_closed_is_closed_at_exit_without_noise() -> None:
 
 def test_a_call_in_flight_does_not_hold_up_the_exit() -> None:
     script = SCRIPT_HEADER + (
-        "server.response_delay = 60\n"
+        "server.respond('/allowed', {'allow': True}, delay=60)\n"
         "def call():\n"
         "    try:\n"
         "        client.check('user', 'read', 'document')\n"
@@ -896,17 +896,15 @@ def test_a_deprecated_method_of_the_client_warns_at_the_caller(
 # --- connection reuse ------------------------------------------------------------------
 
 
-def test_sequential_calls_reuse_one_connection(
-    permit: SyncPermit, server: ConnectionCountingServer
-) -> None:
+def test_sequential_calls_reuse_one_connection(permit: SyncPermit, server: KeepAliveServer) -> None:
     for _ in range(20):
         check(permit)
 
-    assert (server.accepted, server.open) == (1, 1)
+    assert (server.opened, server.closed) == (1, 0)
 
 
 def test_concurrent_threads_open_at_most_one_connection_each(
-    permit: SyncPermit, server: ConnectionCountingServer
+    permit: SyncPermit, server: KeepAliveServer
 ) -> None:
     threads = 8
     all_started = threading.Barrier(threads)
@@ -919,5 +917,5 @@ def test_concurrent_threads_open_at_most_one_connection_each(
     with ThreadPoolExecutor(max_workers=threads) as executor:
         list(executor.map(caller, range(threads)))
 
-    assert server.requests == threads * 10
-    assert server.accepted <= threads
+    assert len(server.requests) == threads * 10
+    assert server.opened <= threads
