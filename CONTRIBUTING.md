@@ -117,14 +117,15 @@ See [skills/tests/README.md](skills/tests/README.md).
 
 ### The CI scripts' tests
 
-`.github/scripts` holds the dependency audit's report formatter and the schema drift check,
-with their tests. They need only pytest and the standard library, and run with their own
-pytest config, which turns every warning into an error. The command is the one the
-`Audit Script Tests` job runs:
+`.github/scripts` holds the dependency audit's report formatter, the schema drift check and
+the API coverage report, with their tests. They need only pytest and the standard library,
+and run with their own pytest config, which turns every warning into an error. The command
+is the one the `Audit Script Tests` job runs:
 
 ```sh
 uv run --only-dev pytest -c .github/scripts/pytest.ini \
-  .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py
+  .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py \
+  .github/scripts/test_api_coverage.py
 ```
 
 ### End-to-end tests
@@ -200,6 +201,9 @@ curl -s https://hub.docker.com/v2/repositories/permitio/pdp-v2/tags/<version> | 
 ```
 
 Docker pulls by the digest; the tag only names it.
+
+Then refresh the PDP spec snapshot the API coverage report reads, from a container of the
+new image (see "API coverage report" below).
 
 ## Regenerating the sync stubs
 
@@ -293,6 +297,81 @@ or 2 (the comparison did not run). `.github/workflows/schema-drift.yml` runs it 
 manual dispatch and on pull requests that change `permit/api/models.py`,
 `.github/scripts/check_schema_drift.py`, `.github/scripts/schema_drift_allowlist.json` or the
 workflow itself.
+
+## API coverage report
+
+`.github/scripts/api_coverage.py` reports which operations of the Permit API the SDK covers
+(PER-16337). An operation counts as covered when an offline test sends a request that
+matches it: `tests/api_coverage_recorder.py`, a pytest plugin that `tests/conftest.py`
+loads, writes down the method and path of every request the tests send when it is given a
+record file, and does nothing otherwise. The report matches each request to an operation
+of two specs: the control plane's (`https://api.permit.io/v2/openapi.json`) and the
+container PDP's (`/openapi.json` on the PDP image `PINNED_PDP_IMAGE` names). It reads them
+from the operation inventories committed under `.github/api-specs/`, each with a
+`.source.json` file that says where and when it was taken. Request and response shapes are
+the schema drift check's job (above), not this one's.
+
+```sh
+uv run pytest -q -m "not e2e" --api-coverage-record /tmp/offline.jsonl
+uv run python .github/scripts/api_coverage.py report \
+  --spec control-plane=.github/api-specs/control-plane.json \
+  --spec pdp=.github/api-specs/pdp.json \
+  --allowlist .github/scripts/api_coverage_allowlist.json \
+  --record /tmp/offline.jsonl
+```
+
+An operation no offline test sends a request to must be in
+`.github/scripts/api_coverage_allowlist.json`, with the stage the spec gives it (`GA`,
+`EAP` or `deprecated`), a status and one reason:
+
+- `excluded`: the SDK does not mean to cover it.
+- `deferred`: planned, with the ticket that plans it.
+- `untested`: an SDK method sends it, but no offline test does. The reason names the method.
+
+A request that matches no operation in either spec is SDK-only, and needs an `sdk_only`
+entry: `undocumented` (the SDK calls a route the spec does not list, with a ticket) or
+`test-only` (a made-up route a test sends to). An entry's path may use `{name}` for a path
+segment.
+
+The report exits 1 on a GA operation that is neither covered nor allowlisted, on a stale
+entry (its operation is covered now, or is not in the spec, or no request matches an
+`sdk_only` entry), on an entry whose stage no longer matches the spec, and on an SDK-only
+request no entry explains. EAP and deprecated operations that are not allowlisted are
+listed, but do not fail it. It exits 2 when it did not run: a spec it cannot read or that
+lists too few operations, an invalid allowlist, or a record that is missing, comes from a
+session that failed or did not finish, or holds too few requests. So when a test for an
+`untested` operation lands, its allowlist entry has to go in the same change.
+
+CI runs it in two places:
+
+- The `API Coverage` job in `.github/workflows/test.yml`, on every pull request, against
+  the committed snapshots. The `pytest` jobs record their requests too, and the report's
+  end-to-end column shows which operations their e2e tests got a 2xx or 3xx answer from,
+  or "not run" when there is no record.
+- `.github/workflows/api-coverage.yml`, weekly and on manual dispatch, against the live
+  control-plane spec. It lists how the live spec differs from the committed snapshot,
+  fails on an untriaged GA operation, and posts to Slack when it fails.
+
+When the live spec changes, refresh the control-plane snapshot. The weekly run's
+`api-coverage-live` artifact holds a ready one under `live/`; or take it yourself:
+
+```sh
+curl -fsS -o /tmp/openapi.json https://api.permit.io/v2/openapi.json
+uv run python .github/scripts/api_coverage.py snapshot control-plane /tmp/openapi.json \
+  --source https://api.permit.io/v2/openapi.json
+```
+
+For the PDP, start a container of the pinned image with an environment's API key, as in
+"End-to-end tests" (it answers 503 until it has loaded that environment's configuration),
+then:
+
+```sh
+curl -fsS -o /tmp/pdp-openapi.json http://localhost:7766/openapi.json
+uv run python .github/scripts/api_coverage.py snapshot pdp /tmp/pdp-openapi.json \
+  --source "GET /openapi.json on a container of $PDP_IMAGE (PINNED_PDP_IMAGE in .github/workflows/test.yml)"
+```
+
+Commit the snapshot together with the allowlist entries for whatever it adds.
 
 ## Building
 
