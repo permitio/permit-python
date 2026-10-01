@@ -5,6 +5,7 @@ from permit.api.condition_sets import ConditionSetsApi
 from permit.api.deprecated import DeprecatedApi
 from permit.api.environments import EnvironmentsApi
 from permit.api.groups import GroupsApi
+from permit.api.pdps import PdpsApi
 from permit.api.projects import ProjectsApi
 from permit.api.relationship_tuples import RelationshipTuplesApi
 from permit.api.resource_action_groups import ResourceActionGroupsApi
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from permit._sync_types import SyncDeprecatedApi as SyncDeprecatedApi
     from permit._sync_types import SyncEnvironmentsApi as SyncEnvironmentsApi
     from permit._sync_types import SyncGroupsApi as SyncGroupsApi
+    from permit._sync_types import SyncPdpsApi as SyncPdpsApi
     from permit._sync_types import SyncProjectsApi as SyncProjectsApi
     from permit._sync_types import SyncRelationshipTuplesApi as SyncRelationshipTuplesApi
     from permit._sync_types import SyncResourceActionGroupsApi as SyncResourceActionGroupsApi
@@ -60,6 +62,9 @@ else:
 
     class SyncGroupsApi(GroupsApi, metaclass=SyncClass):
         """Blocking variant of `GroupsApi`."""
+
+    class SyncPdpsApi(PdpsApi, metaclass=SyncClass):
+        """Blocking variant of `PdpsApi`."""
 
     class SyncProjectsApi(ProjectsApi, metaclass=SyncClass):
         """Blocking variant of `ProjectsApi`."""
@@ -119,6 +124,7 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         self._condition_sets = SyncConditionSetsApi(config)
         self._environments = SyncEnvironmentsApi(config)
         self._groups = SyncGroupsApi(config)
+        self._pdps = SyncPdpsApi(config)
         self._projects = SyncProjectsApi(config)
         self._relationship_tuples = SyncRelationshipTuplesApi(config)
         self._action_groups = SyncResourceActionGroupsApi(config)
@@ -173,6 +179,14 @@ class SyncPermitApiClient(SyncDeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Groups
         """
         return self._groups
+
+    @property
+    def pdps(self) -> SyncPdpsApi:
+        """API for acting on the environment's PDPs, such as refreshing their data.
+
+        See: https://api.permit.io/v2/redoc#tag/Policy-Decision-Points
+        """
+        return self._pdps
 
     @property
     def action_groups(self) -> SyncResourceActionGroupsApi:

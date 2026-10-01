@@ -43,18 +43,6 @@
       "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
     },
     {
-      "id": "class_added:PDPDataRefreshRequest",
-      "sdk": "(absent)",
-      "spec": "model",
-      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
-    },
-    {
-      "id": "class_added:PDPDataRefreshResponse",
-      "sdk": "(absent)",
-      "spec": "model",
-      "reason": "In the API schema but not in models.py (generated 2025-09-17); no SDK method uses it."
-    },
-    {
       "id": "class_added:PaginatedResultAccessRequestList",
       "sdk": "(absent)",
       "spec": "model",

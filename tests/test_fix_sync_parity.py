@@ -31,7 +31,7 @@ Surface = dict[str, Any]
 # PermitApiClient has this many sub-API properties. The walk descends only through
 # properties, so if it finds fewer it has stopped seeing them, and the parity checks
 # pass without having looked. Lower it only when a sub-API is removed.
-API_SUB_API_COUNT = 18
+API_SUB_API_COUNT = 19
 
 # The walk only reads attributes, so nothing is ever sent here.
 NO_SERVER = "http://localhost:1"

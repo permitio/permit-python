@@ -128,7 +128,8 @@ async def test_resource_instances_list_sends_detailed_filter_as_query_string(
     """detailed_key must reach the wire as a string: yarl rejects bool query values."""
     httpserver.expect_request(f"{FACTS}/resource_instances", method="GET").respond_with_json([])
 
-    await ResourceInstancesApi(config).list(detailed_key=True)
+    with pytest.warns(DeprecationWarning, match="detailed_key"):
+        await ResourceInstancesApi(config).list(detailed_key=True)
 
     assert single_request(httpserver).args["detailed"] == "true"
 
@@ -138,7 +139,8 @@ async def test_resource_instances_list_sends_detailed_false_as_query_string(
 ) -> None:
     httpserver.expect_request(f"{FACTS}/resource_instances", method="GET").respond_with_json([])
 
-    await ResourceInstancesApi(config).list(detailed_key=False)
+    with pytest.warns(DeprecationWarning, match="detailed_key"):
+        await ResourceInstancesApi(config).list(detailed_key=False)
 
     assert single_request(httpserver).args["detailed"] == "false"
 

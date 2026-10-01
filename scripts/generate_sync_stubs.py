@@ -331,13 +331,18 @@ def resolve(module_name: str, tree: ast.Module, name: str) -> tuple[str, str | N
     raise StubError(msg)
 
 
-def member_sort_key(name: str) -> tuple[int, str]:
-    """The order isort's order-by-type uses: constants, then classes, then everything else."""
+def member_sort_key(name: str) -> tuple[int, str, str]:
+    """The order isort's order-by-type uses: constants, then classes, then everything else.
+
+    Within each group ruff compares names case-insensitively, so ``PaginatedResultUserRead``
+    comes before ``PDPDataRefreshResponse``; the name as written breaks a tie.
+    """
+    folded = name.lower()
     if name.isupper() and len(name) > 1:
-        return 0, name
+        return 0, folded, name
     if name[0].isupper():
-        return 1, name
-    return 2, name
+        return 1, folded, name
+    return 2, folded, name
 
 
 def import_block(imports: dict[str, set[str | None]]) -> str:

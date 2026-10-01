@@ -481,6 +481,7 @@ class Enforcer:
         tenants: list[str] | None = None,
         resources: list[str] | None = None,
         resource_types: list[str] | None = None,
+        context: Context | None = None,
     ) -> dict[str, Any]:
         """Get all permissions of a user.
 
@@ -489,6 +490,10 @@ class Enforcer:
             tenants: Only return permissions in these tenants.
             resources: Only return permissions on these resources.
             resource_types: Only return permissions on these resource types.
+            context: The query's context, which ABAC policies can read, merged over the
+                context store's base context as ``check()`` merges it. When it is None (the
+                default), the request carries no context, and the base context is not sent
+                either; pass ``{}`` to send the base context alone.
 
         Returns:
             The user's permissions per tenant and resource.
@@ -496,12 +501,14 @@ class Enforcer:
         Raises:
             PermitConnectionError: If the PDP rejects the request or cannot be reached.
         """
-        input_data = {
+        input_data: dict[str, Any] = {
             "user": {"key": user} if isinstance(user, str) else user,
             "tenants": tenants,
             "resources": resources,
             "resource_types": resource_types,
         }
+        if context is not None:
+            input_data["context"] = self._context_store.get_derived_context(context)
 
         async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             url = f"{self._base_url}/user-permissions"
