@@ -274,6 +274,20 @@ async def test_a_key_is_redacted_whole_when_another_key_is_a_prefix_of_it(
     assert SENTINEL[-8:] not in app_sinks.everything()
 
 
+async def test_a_key_with_a_trailing_space_is_redacted_when_echoed_without_it(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    httpserver.expect_request("/allowed", method="POST").respond_with_handler(echo_the_key)
+    permit = Permit(make_config(httpserver, token=f"{SENTINEL} ", enable=True))
+
+    with pytest.raises(PermitConnectionError):
+        await permit.check("user-1", "read", "document")
+
+    [record] = [record for record in app_sinks.sdk_records() if record["level"]["name"] == "ERROR"]
+    assert record["message"].endswith(f"rejected key: Bearer {REDACTED}")
+    assert SENTINEL not in app_sinks.everything()
+
+
 @pytest.mark.parametrize(
     ("log", "expected_levels"),
     [
@@ -406,8 +420,11 @@ def test_an_empty_label_adds_no_prefix(httpserver: HTTPServer, app_sinks: AppSin
     assert record["message"].startswith(WAIT_FOR_SYNC_WARNING)
 
 
-def test_an_empty_api_key_redacts_nothing(httpserver: HTTPServer, app_sinks: AppSinks) -> None:
-    with SyncPermit(make_config(httpserver, token="", enable=True)).wait_for_sync():
+@pytest.mark.parametrize("token", ["", " "])
+def test_an_empty_api_key_redacts_nothing(
+    httpserver: HTTPServer, app_sinks: AppSinks, token: str
+) -> None:
+    with SyncPermit(make_config(httpserver, token=token, enable=True)).wait_for_sync():
         pass
 
     [record] = app_sinks.wait_for_sync_warnings()

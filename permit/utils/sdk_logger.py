@@ -41,14 +41,21 @@ class SdkLogger:
     def redact(self, secret: str) -> None:
         """Replace `secret` with `[REDACTED]` in every record logged from now on.
 
+        The secret without its leading and trailing whitespace is replaced too: a key read
+        from a file or an environment variable may end with a space, which an HTTP server
+        that echoes the key back has stripped.
+
         Args:
-            secret: A credential, such as an API key. An empty string is ignored.
+            secret: A credential, such as an API key. A secret that is empty or only
+                whitespace is ignored.
         """
-        if not secret:
+        trimmed = secret.strip()
+        if not trimmed:
             return
         with self._secrets_lock:
-            if secret not in self._secrets:
-                self._secrets = tuple(sorted((*self._secrets, secret), key=len, reverse=True))
+            new = {secret, trimmed}.difference(self._secrets)
+            if new:
+                self._secrets = tuple(sorted((*self._secrets, *new), key=len, reverse=True))
 
     def scrub(self, text: str) -> str:
         """Return `text` with every registered secret replaced with `[REDACTED]`.
