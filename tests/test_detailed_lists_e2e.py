@@ -140,9 +140,10 @@ async def policy(permit: Permit) -> AsyncIterator[Policy]:
             "object": policy.document,
             "tenant": policy.tenant,
         }
-        on_teardown(
-            functools.partial(api.relationship_tuples.delete, relationship), str(relationship)
-        )
+        # The delete body names the tuple by subject, relation and object; the API
+        # rejects a tenant there with a 422.
+        unrelate = {key: relationship[key] for key in ("subject", "relation", "object")}
+        on_teardown(functools.partial(api.relationship_tuples.delete, unrelate), str(unrelate))
         await api.relationship_tuples.create(relationship)
         for assignment in (
             {"user": policy.user, "role": policy.role, "tenant": policy.tenant},
