@@ -41,12 +41,14 @@ await permit.check("alice", "edit", {"type": "document", "key": "readme", "tenan
 - A role granted to a group is a resource role on one resource instance. Members get it
   through ReBAC role derivation over the group instance, so `permit.check()` allows it on
   that instance. It is not a tenant-wide (RBAC) role.
-- A method's `group_instance_key` takes the group's instance id, `"<type>:<key>"` such as
-  `"group:engineering"` or `"team:engineering"`, or the key alone (`"engineering"`), which
-  finds only groups of the `group` resource type.
+- A method's first argument, `group_instance_key`, takes the group's instance id,
+  `"<type>:<key>"` such as `"group:engineering"` or `"team:engineering"`, or the key alone
+  (`"engineering"`), which finds only groups of the `group` resource type.
 - `assign_group("group:leads", {"group_instance_key": "engineering"})` makes the members of
   `leads` members of `engineering`, so they get the roles granted to `engineering`. The
-  members of `engineering` get nothing from `leads`. `remove_group()` undoes it.
+  members of `engineering` get nothing from `leads`. `remove_group()` undoes it. Both groups
+  must be of the same resource type, and the second argument names its group by instance id
+  or by key alone, never `"<type>:<key>"`.
 - The other methods are `list()`, `get()`, `delete()`, `remove_user()` and `remove_role()`.
   The blocking client, `permit.sync.Permit`, has the same methods.
 
