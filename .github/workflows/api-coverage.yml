@@ -1,0 +1,186 @@
+name: API Coverage (live spec)
+
+# Runs the API coverage report (.github/scripts/api_coverage.py) against the live
+# control-plane spec, https://api.permit.io/v2/openapi.json. Pull requests run the same
+# report in test.yml's `API Coverage` job against the snapshot committed under
+# .github/api-specs/, so their result depends only on the commit; this is what notices
+# that the API moved. A new GA operation, or one whose stage changed, that no offline
+# test sends a request to and the allowlist does not list fails the run until someone
+# triages it: add an offline test or an allowlist entry, and commit the refreshed
+# snapshot this run uploads (CONTRIBUTING.md, "API coverage report"). The PDP's spec is
+# the committed snapshot here too: it changes only when PINNED_PDP_IMAGE moves.
+#
+# A scheduled run that fails or cannot run posts the counts and a link to Slack, and
+# so does every manual run; the operations themselves are in the job summary.
+#
+# NOT a required status check: it reads a live external spec, which can change
+# without any change to this repository.
+on:
+  schedule:
+    - cron: "0 10 * * 1" # Mondays 10:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-coverage-live-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  coverage:
+    name: API Coverage (live spec)
+    runs-on: ubuntu-24.04
+    # The offline suite takes under a minute; this also bounds the setup steps and the
+    # spec download's retries.
+    timeout-minutes: 20
+    outputs:
+      exit: ${{ steps.report.outputs.exit }}
+      missing: ${{ steps.report.outputs.missing }}
+      stale: ${{ steps.report.outputs.stale }}
+      changed: ${{ steps.report.outputs.changed }}
+      sdk_only: ${{ steps.report.outputs.sdk_only }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: "3.11.8"
+          enable-cache: true
+          cache-suffix: pydantic-v2
+
+      - name: Install dependencies
+        run: uv sync --locked --group pydantic-v2
+
+      - name: Offline tests with the request recorder
+        run: >-
+          uv run --no-sync pytest -q -m "not e2e"
+          --api-coverage-record "${RUNNER_TEMP}/api-coverage/offline.jsonl"
+
+      # Writes the live spec's operation inventory the way the committed snapshot was
+      # written, so the artifact holds a ready replacement for it.
+      - name: Fetch the live control-plane spec
+        if: ${{ !cancelled() }}
+        env:
+          SPEC_URL: https://api.permit.io/v2/openapi.json
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/api-coverage/live"
+          curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+            --max-time 60 --output "${RUNNER_TEMP}/api-coverage/openapi.json" "${SPEC_URL}"
+          uv run --no-sync python .github/scripts/api_coverage.py snapshot control-plane \
+            "${RUNNER_TEMP}/api-coverage/openapi.json" --source "${SPEC_URL}" \
+            --out-dir "${RUNNER_TEMP}/api-coverage/live"
+
+      # Exit 1 is an untriaged operation or a stale or changed allowlist entry; exit 2
+      # means the report did not run (a failed download leaves no spec to read). Both
+      # fail the job; the summary says which.
+      - name: Report
+        id: report
+        if: ${{ !cancelled() }}
+        run: |
+          set -uo pipefail
+          set +e
+          uv run --no-sync python .github/scripts/api_coverage.py report \
+            --spec "control-plane=${RUNNER_TEMP}/api-coverage/live/control-plane.json" \
+            --spec pdp=.github/api-specs/pdp.json \
+            --baseline control-plane=.github/api-specs/control-plane.json \
+            --allowlist .github/scripts/api_coverage_allowlist.json \
+            --record "${RUNNER_TEMP}/api-coverage/offline.jsonl" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --json "${RUNNER_TEMP}/api-coverage/report.json" \
+            --github-output "$GITHUB_OUTPUT"
+          report_exit=$?
+          set -e
+          echo "exit=${report_exit}" >> "$GITHUB_OUTPUT"
+          if [ "${report_exit}" -eq 1 ]; then
+            echo "::error title=API coverage::The live spec has an operation that is uncovered and not allowlisted, or the allowlist is out of date. See the job summary."
+          elif [ "${report_exit}" -ne 0 ]; then
+            echo "::error title=API coverage report did not run::There is no result. See the log."
+          fi
+          exit "${report_exit}"
+
+      - name: Upload the report and the live snapshot
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: api-coverage-live
+          path: ${{ runner.temp }}/api-coverage/
+          retention-days: 30
+          if-no-files-found: warn
+
+  # A scheduled run has no PR to report on, so Slack is the only channel that reaches
+  # a person; it posts only when the run did not pass. A manual run always posts, pass
+  # or fail, so the Slack path can be tried on demand. The message carries counts and a
+  # link; the operations themselves are in the job summary.
+  notify:
+    name: Notify Slack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [coverage]
+    if: |
+      always() && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'schedule' && needs.coverage.result != 'success')
+      )
+    env:
+      # The secrets context is not available in a job-level `if:`, so the webhook is
+      # read into the environment here and the steps below gate on whether it is set.
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      # A fork, or any repository without SLACK_WEBHOOK_URL, gets a warning here
+      # instead of a failed job.
+      - name: Check Slack webhook is configured
+        id: check
+        run: |
+          set -uo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning title=Slack not configured::SLACK_WEBHOOK_URL is not set on this repository, so the API coverage result was not posted. Add the secret to enable notifications."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Render Slack message
+        id: slack
+        if: steps.check.outputs.configured == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          REPORT_EXIT: ${{ needs.coverage.outputs.exit }}
+          MISSING: ${{ needs.coverage.outputs.missing }}
+          STALE: ${{ needs.coverage.outputs.stale }}
+          CHANGED: ${{ needs.coverage.outputs.changed }}
+          SDK_ONLY: ${{ needs.coverage.outputs.sdk_only }}
+        run: |
+          set -uo pipefail
+          {
+            echo "text<<SLACK_EOF"
+            if [ "${REPORT_EXIT:-}" = "0" ]; then
+              echo ":white_check_mark: *${REPO} - API coverage against the live spec passed*"
+              echo ">Every GA operation in the live control-plane spec is covered or allowlisted."
+            elif [ "${REPORT_EXIT:-}" = "1" ]; then
+              echo ":warning: *${REPO} - API coverage: the live spec needs triage*"
+              echo ">${MISSING:-0} GA operation(s) neither covered nor allowlisted, ${CHANGED:-0} allowlisted operation(s) whose stage changed, ${STALE:-0} stale allowlist entry(ies), ${SDK_ONLY:-0} unexplained SDK-only request(s)."
+            else
+              echo ":warning: *${REPO} - API coverage check did not complete*"
+              echo ">The report did not run, so there is no result."
+            fi
+            echo ">${RUN_URL}"
+            echo "SLACK_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post to Slack
+        if: steps.check.outputs.configured == 'true'
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          # toJSON quotes and escapes the rendered text for the payload.
+          payload: |
+            text: ${{ toJSON(steps.slack.outputs.text) }}
