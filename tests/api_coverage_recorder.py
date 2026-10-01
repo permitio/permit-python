@@ -1,6 +1,6 @@
 """A pytest plugin that records every HTTP request the SDK sends (PER-16337).
 
-The API coverage report (.github/scripts/api_coverage_report.py) learns which API
+The API coverage report (.github/scripts/api_coverage.py) learns which API
 operation each SDK method calls from the requests the tests actually send: the
 offline wire tests for the coverage column, the end-to-end tests for the column of
 operations exercised against a real backend and PDP.
