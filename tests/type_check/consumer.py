@@ -244,6 +244,13 @@ def sync_client() -> None:
         assert_type(listed.key, str)
 
 
+def sync_client_lifecycle() -> None:
+    with SyncPermit(CONFIG) as permit:
+        assert_type(permit, SyncPermit)
+        assert_type(permit.check("user", "read", "document"), bool)
+    permit.close()
+
+
 async def mistakes_stay_errors() -> None:
     permit = Permit(CONFIG)
     sync_permit = SyncPermit(CONFIG)
@@ -264,5 +271,6 @@ async def mistakes_stay_errors() -> None:
     # The blocking client returns values, not awaitables.
     await sync_permit.api.users.get("u")  # type: ignore[misc]
     await sync_permit.get_user_tenants("u")  # type: ignore[misc]
+    await sync_permit.close()  # type: ignore[func-returns-value, misc]
     # The async client returns awaitables, not values.
     _ = permit.api.users.get("u").email  # type: ignore[attr-defined]
