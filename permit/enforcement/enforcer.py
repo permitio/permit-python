@@ -53,7 +53,15 @@ async def read_error_body(response: aiohttp.ClientResponse) -> str:
     surrounding handler and re-reported as "cannot connect to the PDP
     container". A 403 for a wrong API key was indistinguishable from the PDP
     being down, which is a genuinely misleading error to hand a user.
+
+    Every API key the SDK knows is replaced with ``[REDACTED]``: the body goes into
+    the SDK's log record and into the PermitConnectionError raised to the caller,
+    and a PDP may echo back the key it rejected.
     """
+    return sdk_logger.scrub(await _read_body_text(response))
+
+
+async def _read_body_text(response: aiohttp.ClientResponse) -> str:
     try:
         return repr(await response.json())
     except (aiohttp.ClientError, ValueError):

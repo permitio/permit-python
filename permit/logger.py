@@ -27,8 +27,9 @@ def configure_logger(config: PermitConfig) -> None:
     - `log.log_as_json` is not applied: loguru serializes per sink, with
       `logger.add(..., serialize=True)`.
 
-    The API key in `config.token` is replaced with `[REDACTED]` in every record the SDK
-    logs, whatever the settings.
+    Whatever the settings, the API key in `config.token` is replaced with `[REDACTED]` in
+    every message the SDK logs and in the PDP error bodies it puts in a
+    `PermitConnectionError`.
 
     Args:
         config: The SDK configuration.

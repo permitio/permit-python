@@ -249,12 +249,41 @@ async def test_an_api_key_the_pdp_echoes_back_is_redacted(
         permit = Permit(make_config(httpserver))
         logger.enable("permit")
 
-    with pytest.raises(PermitConnectionError):
+    with pytest.raises(PermitConnectionError) as raised:
         await permit.check("user-1", "read", "document")
 
     [record] = [record for record in app_sinks.sdk_records() if record["level"]["name"] == "ERROR"]
     assert f"rejected key: Bearer {REDACTED}" in record["message"]
     assert SENTINEL not in app_sinks.everything()
+    # The application gets the body too, in the exception it may log or report.
+    assert f"rejected key: Bearer {REDACTED}" in str(raised.value)
+    assert SENTINEL not in str(raised.value)
+
+
+async def test_errors_raised_for_a_pdp_that_echoes_the_key_do_not_hold_it(
+    httpserver: HTTPServer,
+) -> None:
+    for path in ("/allowed", "/allowed/bulk", "/authorized_users"):
+        httpserver.expect_request(path, method="POST").respond_with_handler(echo_the_key)
+    permit = Permit(make_config(httpserver))
+    sync_permit = SyncPermit(make_config(httpserver))
+
+    raised: list[PermitConnectionError] = []
+    for call in (
+        lambda: permit.check("user-1", "read", "document"),
+        lambda: permit.bulk_check(BULK),
+        lambda: permit.authorized_users("read", "document"),
+    ):
+        with pytest.raises(PermitConnectionError) as error:
+            await call()
+        raised.append(error.value)
+    with pytest.raises(PermitConnectionError) as error:
+        sync_permit.check("user-1", "read", "document")
+    raised.append(error.value)
+
+    for error_value in raised:
+        assert f"rejected key: Bearer {REDACTED}" in str(error_value)
+        assert SENTINEL not in str(error_value)
 
 
 async def test_a_key_is_redacted_whole_when_another_key_is_a_prefix_of_it(

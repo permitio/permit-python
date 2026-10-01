@@ -60,7 +60,10 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
 - loguru's logger is process-wide, so these settings are too: the client created last
   decides whether the SDK logs, and the last one created with `"enable": True` decides the
   level and the label, for every client in the process.
-- No record the SDK logs contains the API key.
+- The SDK replaces the API key of every client in the process with `[REDACTED]` in the
+  messages it logs and in the PDP error bodies it puts in a `PermitConnectionError`, so a
+  PDP that echoes the key back does not expose it. A user name and password written into
+  the `api_url` or `pdp` URL are not replaced: the SDK logs its request URLs at `"debug"`.
 
 ## Deprecations
 

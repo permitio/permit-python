@@ -19,8 +19,12 @@ class LoggerConfig(BaseModel):
     the application has added, or to loguru's default stderr sink, in the format of those
     sinks. loguru's logger is process-wide, so these settings are too: the client created
     last decides whether the SDK logs, and the last one created with `enable` True decides
-    the level and the label, for every client in the process. No record the SDK logs
-    contains the API key: it is replaced with `[REDACTED]`.
+    the level and the label, for every client in the process.
+
+    Whatever these settings, the SDK replaces the API key of every client in the process
+    with `[REDACTED]` in the messages it logs and in the PDP error bodies it puts in a
+    `PermitConnectionError`. A user name and password written into the `api_url` or `pdp`
+    URL are not replaced.
     """
 
     enable: bool = Field(
