@@ -146,11 +146,12 @@ passed or not:
   differently from the pinned one.
 - `e2e (cloud PDP)` is not a required check. Once both `pytest` jobs pass, it runs
   `tests/test_cloud_pdp_e2e.py` against the hosted cloud PDP,
-  `https://cloudpdp.api.permit.io`, with no container. Each test creates its own small RBAC
-  policy in the scratch environment, waits for the cloud PDP to apply it, and checks the
-  exact answers of `check`, `bulk_check`, `get_user_permissions` and `filter_objects`. The
-  module runs only against the cloud PDP and skips anywhere else, so this job fails if any
-  of its tests is skipped.
+  `https://cloudpdp.api.permit.io`, with no container. Its tests create a small RBAC policy
+  in the scratch environment, wait for the cloud PDP to apply it, and check the exact
+  answers of `check`, `bulk_check`, `get_user_permissions` and `filter_objects`. One more
+  checks that `get_user_tenants`, which the cloud PDP does not serve, raises the SDK's
+  error for its 404. The module runs only against the cloud PDP and skips anywhere else,
+  so this job fails if any of its tests is skipped.
 
 The jobs set:
 

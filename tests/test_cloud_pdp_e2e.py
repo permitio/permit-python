@@ -8,6 +8,9 @@ the policy, then asserts the exact answers of ``check``, ``bulk_check``,
 
 RBAC decides on the resource type and tenant alone, so the resources these tests ask
 about need not exist as resource instances.
+
+``get_user_tenants`` needs no policy: only the container PDP serves it, and its test
+checks that the cloud PDP's 404 for it reaches the caller as the error that says so.
 """
 
 import functools
@@ -19,7 +22,7 @@ from typing import Any, Final
 
 import pytest
 
-from permit import Permit
+from permit import Permit, PermitConnectionError
 from tests.utils import delete_quietly, poll_for, unique_key
 
 CLOUD_PDP_URL: Final[str] = "https://cloudpdp.api.permit.io"
@@ -253,3 +256,13 @@ async def test_filter_objects(permit_cloud: Permit, cloud_policy: CloudPolicy) -
 
     assert kept == expected
     assert await permit_cloud.filter_objects(policy.user, DENIED_ACTION, {}, resources) == []
+
+
+async def test_get_user_tenants_is_not_served(permit_cloud: Permit) -> None:
+    with pytest.raises(PermitConnectionError) as raised:
+        await permit_cloud.get_user_tenants(unique_key("cloud-user"))
+
+    message = str(raised.value)
+    assert "got status code 404 from the PDP" in message
+    assert "only the container PDP serves /user-tenants" in message
+    assert raised.value.original_error is None
