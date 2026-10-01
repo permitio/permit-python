@@ -1,3 +1,5 @@
+import contextlib
+
 from loguru import logger
 
 from permit.config import PermitConfig
@@ -43,14 +45,15 @@ def configure_logger(config: PermitConfig) -> None:
 
 
 def _level_no(level: str) -> int:
-    name = level.upper()
-    name = _LEVEL_ALIASES.get(name, name)
-    try:
-        return logger.level(name).no
-    except ValueError:
-        msg = (
-            f"Invalid log level {level!r} in the Permit SDK config (log.level): use trace, "
-            "debug, info, success, warning, error or critical, or a level added with "
-            "loguru's logger.level()."
-        )
-        raise ValueError(msg) from None
+    upper = level.upper()
+    # loguru's level names are case-sensitive: try the name as given first, so a level the
+    # application added in lower case is found, then the upper-case name of a built-in one.
+    for name in (level, _LEVEL_ALIASES.get(upper, upper)):
+        with contextlib.suppress(ValueError):
+            return logger.level(name).no
+    msg = (
+        f"Invalid log level {level!r} in the Permit SDK config (log.level): use trace, "
+        "debug, info, success, warning, error or critical, or a level added with "
+        "loguru's logger.level()."
+    )
+    raise ValueError(msg)

@@ -7,10 +7,12 @@ served by a local pytest_httpserver.
 """
 
 import json
+import subprocess
 import sys
 import types
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -282,6 +284,56 @@ async def test_level_drops_the_sdk_records_below_it(
 def test_an_unknown_level_fails_when_the_client_is_created(httpserver: HTTPServer) -> None:
     with pytest.raises(ValueError, match=r"Invalid log level 'verbose'"):
         SyncPermit(make_config(httpserver, enable=True, level="verbose"))
+
+
+# loguru cannot remove a level once added, so this application runs in its own process.
+CUSTOM_LEVEL_APP = f"""
+import sys
+
+from loguru import logger
+
+from permit import PermitConnectionError
+from permit.sync import Permit
+
+logger.remove()
+logger.add(sys.stdout, serialize=True)
+logger.level("audit", no=35)
+url = sys.argv[1]
+permit = Permit(
+    token="{SENTINEL}", api_url=url, pdp=url, log={{"enable": True, "level": "audit"}}
+)
+with permit.wait_for_sync():
+    pass
+try:
+    permit.check("user-1", "read", "document")
+except PermitConnectionError:
+    pass
+"""
+
+
+def test_level_accepts_a_level_the_application_added(
+    httpserver: HTTPServer, tmp_path: Path
+) -> None:
+    httpserver.expect_request("/allowed", method="POST").respond_with_data(
+        "PDP failure", status=500
+    )
+    app = tmp_path / "app.py"
+    app.write_text(CUSTOM_LEVEL_APP)
+
+    result = subprocess.run(
+        [sys.executable, str(app), httpserver.url_for("").rstrip("/")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    # "audit" (35) sits between WARNING (30) and ERROR (40): only the ERROR record is kept.
+    [record] = [json.loads(line)["record"] for line in result.stdout.splitlines()]
+    assert record["level"]["name"] == "ERROR"
+    assert record["message"].startswith("[Permit] error in permit.check(")
+    assert SENTINEL not in result.stdout + result.stderr
 
 
 @pytest.mark.parametrize(
