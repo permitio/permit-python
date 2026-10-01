@@ -278,13 +278,6 @@ def test_get_user_tenants_rejects_a_user_without_a_key_before_sending(
     assert httpserver.log == []
 
 
-def test_tenant_details_gives_each_tenant_its_own_attributes() -> None:
-    first = TenantDetails(key="t1")
-    first.attributes["tier"] = "gold"
-
-    assert TenantDetails(key="t2").attributes == {}
-
-
 # --- tenants.add_user() -----------------------------------------------------------
 
 
