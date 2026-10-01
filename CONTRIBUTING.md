@@ -339,8 +339,13 @@ entry (its operation is covered now, or is not in the spec, or no request matche
 request no entry explains. EAP and deprecated operations that are not allowlisted are
 listed, but do not fail it. It exits 2 when it did not run: a spec it cannot read or that
 lists too few operations, an invalid allowlist, or a record that is missing, comes from a
-session that failed or did not finish, or holds too few requests. So when a test for an
-`untested` operation lands, its allowlist entry has to go in the same change.
+session that failed or did not finish, or holds too few requests.
+
+So when an offline test starts sending an allowlisted operation's request (the wire test
+of a new method for a `deferred` operation, or a new test for an `untested` one), its
+entry has to go in the same change. A method's wire test with `proxy_facts_via_pdp` on may
+also send a `/facts/...` request that the PDP forwards to the control plane but does not
+list in its spec; that request needs an `undocumented` `sdk_only` entry.
 
 CI runs it in two places:
 
