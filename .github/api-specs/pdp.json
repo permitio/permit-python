@@ -1,0 +1,306 @@
+{
+  "info": {
+    "title": "Permit.io PDP",
+    "version": "0.2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/allowed": {
+      "post": {
+        "operationId": "is_allowed_allowed_post",
+        "summary": "Is Allowed",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/allowed/all-tenants": {
+      "post": {
+        "operationId": "is_allowed_all_tenants_allowed_all_tenants_post",
+        "summary": "Is Allowed All Tenants",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/allowed/bulk": {
+      "post": {
+        "operationId": "is_allowed_bulk_allowed_bulk_post",
+        "summary": "Is Allowed Bulk",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/allowed_url": {
+      "post": {
+        "operationId": "is_allowed_url_allowed_url_post",
+        "summary": "Is Allowed Url",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/authorized_users": {
+      "post": {
+        "operationId": "authorized_users_authorized_users_post",
+        "summary": "Authorized Users",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/callbacks": {
+      "get": {
+        "operationId": "list_callbacks_callbacks_get",
+        "summary": "List Callbacks",
+        "tags": [
+          "Callbacks"
+        ]
+      },
+      "post": {
+        "operationId": "register_callback_callbacks_post",
+        "summary": "Register Callback",
+        "tags": [
+          "Callbacks"
+        ]
+      }
+    },
+    "/callbacks/{key}": {
+      "delete": {
+        "operationId": "get_callback_by_key_callbacks__key__delete",
+        "summary": "Get Callback By Key",
+        "tags": [
+          "Callbacks"
+        ]
+      },
+      "get": {
+        "operationId": "get_callback_by_key_callbacks__key__get",
+        "summary": "Get Callback By Key",
+        "tags": [
+          "Callbacks"
+        ]
+      }
+    },
+    "/data-updater/trigger": {
+      "post": {
+        "operationId": "trigger_data_update_data_updater_trigger_post",
+        "summary": "Trigger a full base-data reload",
+        "tags": [
+          "Data Updater"
+        ]
+      }
+    },
+    "/facts/relationship_tuples": {
+      "post": {
+        "operationId": "create_relationship_tuple_facts_relationship_tuples_post",
+        "summary": "Create Relationship Tuple",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/resource_instances": {
+      "post": {
+        "operationId": "create_resource_instance_facts_resource_instances_post",
+        "summary": "Create Resource Instance",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/resource_instances/{instance_id}": {
+      "patch": {
+        "operationId": "update_resource_instance_facts_resource_instances__instance_id__patch",
+        "summary": "Update Resource Instance",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/role_assignments": {
+      "delete": {
+        "operationId": "delete_role_assignment_facts_role_assignments_delete",
+        "summary": "Delete Role Assignment",
+        "tags": [
+          "Local Facts API"
+        ]
+      },
+      "post": {
+        "operationId": "create_role_assignment_facts_role_assignments_post",
+        "summary": "Create Role Assignment",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/tenants": {
+      "post": {
+        "operationId": "create_tenant_facts_tenants_post",
+        "summary": "Create Tenant",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/users": {
+      "post": {
+        "operationId": "create_user_facts_users_post",
+        "summary": "Create User",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/users/{user_id}": {
+      "patch": {
+        "operationId": "update_user_facts_users__user_id__patch",
+        "summary": "Update User",
+        "tags": [
+          "Local Facts API"
+        ]
+      },
+      "put": {
+        "operationId": "sync_user_facts_users__user_id__put",
+        "summary": "Sync User",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/facts/users/{user_id}/roles": {
+      "delete": {
+        "operationId": "unassign_user_role_facts_users__user_id__roles_delete",
+        "summary": "Unassign User Role",
+        "tags": [
+          "Local Facts API"
+        ]
+      },
+      "post": {
+        "operationId": "assign_user_role_facts_users__user_id__roles_post",
+        "summary": "Assign User Role",
+        "tags": [
+          "Local Facts API"
+        ]
+      }
+    },
+    "/healthchecks/opa/healthy": {
+      "get": {
+        "operationId": "health_opa_healthcheck_healthchecks_opa_healthy_get",
+        "summary": "Proxy healthy healthcheck -  OPAL_OPA_HEALTH_CHECK_POLICY_ENABLED must be set to True",
+        "tags": [
+          "Cloud API Proxy"
+        ]
+      }
+    },
+    "/healthchecks/opa/ready": {
+      "get": {
+        "operationId": "ready_opa_healthcheck_healthchecks_opa_ready_get",
+        "summary": "Proxy ready healthcheck - OPAL_OPA_HEALTH_CHECK_POLICY_ENABLED must be set to True",
+        "tags": [
+          "Cloud API Proxy"
+        ]
+      }
+    },
+    "/healthchecks/opa/system": {
+      "get": {
+        "operationId": "system_opa_healthcheck_healthchecks_opa_system_get",
+        "summary": "Proxy system data -  OPAL_OPA_HEALTH_CHECK_POLICY_ENABLED must be set to True",
+        "tags": [
+          "Cloud API Proxy"
+        ]
+      }
+    },
+    "/kong": {
+      "post": {
+        "operationId": "is_allowed_kong_kong_post",
+        "summary": "Is Allowed Kong",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/local/role_assignments": {
+      "get": {
+        "operationId": "list_role_assignments_local_role_assignments_get",
+        "summary": "List Role Assignments",
+        "tags": [
+          "Local Queries"
+        ]
+      }
+    },
+    "/nginx_allowed": {
+      "post": {
+        "operationId": "is_allowed_nginx_nginx_allowed_post",
+        "summary": "Is Allowed Nginx",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/opal-server/connectivity": {
+      "get": {
+        "operationId": "get_connectivity_status_opal_server_connectivity_get",
+        "summary": "Get OPAL server connectivity status",
+        "tags": [
+          "OPAL Server Connectivity"
+        ]
+      }
+    },
+    "/opal-server/connectivity/disable": {
+      "post": {
+        "operationId": "disable_connectivity_opal_server_connectivity_disable_post",
+        "summary": "Disable OPAL server connectivity",
+        "tags": [
+          "OPAL Server Connectivity"
+        ]
+      }
+    },
+    "/opal-server/connectivity/enable": {
+      "post": {
+        "operationId": "enable_connectivity_opal_server_connectivity_enable_post",
+        "summary": "Enable OPAL server connectivity",
+        "tags": [
+          "OPAL Server Connectivity"
+        ]
+      }
+    },
+    "/policy-store/config": {
+      "get": {
+        "deprecated": true,
+        "operationId": "get_policy_store_details_policy_store_config_get",
+        "summary": "Get Policy Store Details",
+        "tags": [
+          "Policy Store"
+        ]
+      }
+    },
+    "/policy-updater/trigger": {
+      "post": {
+        "operationId": "trigger_policy_update_policy_updater_trigger_post",
+        "summary": "Trigger a full policy reload",
+        "tags": [
+          "Policy Updater"
+        ]
+      }
+    },
+    "/user-permissions": {
+      "post": {
+        "operationId": "Get_User_Permissions_user_permissions_post",
+        "summary": "Get User Permissions",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    },
+    "/user-tenants": {
+      "post": {
+        "operationId": "Get_User_Tenants_user_tenants_post",
+        "summary": "Get User Tenants",
+        "tags": [
+          "Authorization API"
+        ]
+      }
+    }
+  }
+}
