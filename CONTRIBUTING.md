@@ -145,17 +145,19 @@ passed or not:
   `:latest` resolved to. If it fails while `pytest` passes, the newest PDP release behaves
   differently from the pinned one.
 - `e2e (cloud PDP)` is not a required check. Once both `pytest` jobs pass, it runs
-  `tests/test_abac_pdp.py` against the hosted cloud PDP, `https://cloudpdp.api.permit.io`,
-  with no container. Those tests apply only to the cloud PDP and skip anywhere else, so this
-  job fails if any of them is skipped. Each test passes only if the cloud PDP answers 501
-  (not implemented): a rejected key, a server error or an unreachable PDP fails it.
+  `tests/test_cloud_pdp_e2e.py` against the hosted cloud PDP,
+  `https://cloudpdp.api.permit.io`, with no container. Each test creates its own small RBAC
+  policy in the scratch environment, waits for the cloud PDP to apply it, and checks the
+  exact answers of `check`, `bulk_check`, `get_user_permissions` and `filter_objects`. The
+  module runs only against the cloud PDP and skips anywhere else, so this job fails if any
+  of its tests is skipped.
 
 The jobs set:
 
 - `PDP_API_KEY`: the scratch environment's API key. Every e2e test fails without it.
 - `PDP_URL`: `http://localhost:7766`, the PDP container, or `https://cloudpdp.api.permit.io`
-  in `e2e (cloud PDP)`. When it is unset, `tests/test_abac_pdp.py` uses the cloud PDP and
-  every other test `http://localhost:7766`.
+  in `e2e (cloud PDP)`. When it is unset, `tests/test_cloud_pdp_e2e.py` uses the cloud PDP
+  and every other test `http://localhost:7766`.
 - `API_TIER=prod`: sends the SDK's API calls to `https://api.permit.io`.
 - `ORG_PDP_API_KEY` and `PROJECT_PDP_API_KEY`: the same key, read by
   `tests/endpoints/test_envs.py`.
@@ -173,10 +175,11 @@ PDP_URL=http://localhost:7766 API_TIER=prod \
 ```
 
 Set `PDP_IMAGE=permitio/pdp-v2:latest` instead to reproduce `e2e (latest PDP image)`. The
-cloud PDP tests need no container:
+cloud PDP tests need no container. They send their API calls to `https://api.permit.io`
+whatever `API_TIER` is, unless `PDP_CONTROL_PLANE` is set:
 
 ```sh
-PDP_URL=https://cloudpdp.api.permit.io uv run pytest tests/test_abac_pdp.py
+PDP_URL=https://cloudpdp.api.permit.io uv run pytest tests/test_cloud_pdp_e2e.py
 ```
 
 The suite creates and deletes objects in that environment, so use a throwaway one.
