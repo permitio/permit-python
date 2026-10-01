@@ -132,7 +132,7 @@ uv run --only-dev pytest -c .github/scripts/pytest.ini \
 The tests marked `e2e` talk to a real Permit environment through a running PDP. `uv run
 pytest` with no arguments runs the whole suite (`testpaths` is `tests/`).
 
-CI (`.github/workflows/test.yml`) runs the e2e tests in three jobs. Each job creates its own
+CI (`.github/workflows/test.yml`) runs the e2e tests in four jobs. Each job creates its own
 scratch environment in the CI project and deletes it when the job ends, whether the tests
 passed or not:
 
