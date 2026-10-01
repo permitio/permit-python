@@ -55,7 +55,8 @@ await permit.check("alice", "edit", {"type": "document", "key": "readme", "tenan
 ## Tenant membership
 
 `permit.api.tenants.add_user("acme", {"key": "alice"})` creates the user as a member of the
-`acme` tenant with no role, unless the user data lists `role_assignments`. It fails with
+`acme` tenant, with no role there. Any `role_assignments` in the user data are granted as
+`permit.api.users.create()` grants them, each in the tenant it names. It fails with
 `PermitAlreadyExistsError` (409) when a user with that key already exists, so give an existing
 user a role in the tenant with `permit.api.users.assign_role()` instead. The request always
 goes to the Permit REST API, even with `proxy_facts_via_pdp`, and needs an environment-level
