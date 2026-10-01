@@ -98,7 +98,7 @@ PARAMETER = re.compile(r"\{[^/{}]*\}")
 
 # The request record format tests/api_coverage_recorder.py writes.
 RECORD_VERSION = 1
-# Far below what the suite sends today (about 590 requests), so the sentinel only trips
+# Far below what the suite sends today (about 700 requests), so the sentinel only trips
 # when the record is truncated or the recorder stopped seeing requests.
 DEFAULT_MIN_RECORDS = 400
 # Far below today's counts (263 and 34), for the same reason.
