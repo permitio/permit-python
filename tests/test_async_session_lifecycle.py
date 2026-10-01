@@ -605,7 +605,14 @@ def test_a_forked_child_leaves_the_parent_sessions_alone(server: KeepAliveServer
     }
 
     result = subprocess.run(
-        [sys.executable, "-c", FORK_SCRIPT, server.url],
+        [
+            sys.executable,
+            "-W",
+            "ignore:Support for pydantic 1 is deprecated:DeprecationWarning",
+            "-c",
+            FORK_SCRIPT,
+            server.url,
+        ],
         cwd=REPO_ROOT,
         env=env,
         capture_output=True,
