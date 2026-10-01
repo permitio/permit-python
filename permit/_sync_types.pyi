@@ -2079,6 +2079,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
     ) -> list[RoleAssignmentRead]:
         """Retrieves a list of role assignments based on the specified filters.
 
+        With ``proxy_facts_via_pdp``, the request goes through the PDP, which forwards only
+        the last value of a filter given as a list: ``user_key=["alice", "bob"]`` lists only
+        bob's assignments. Pass lists only with ``proxy_facts_via_pdp`` off.
+
         Args:
             user_key: if specified, only role granted to this user will be fetched.
             role_key: if specified, only assignments of this role will be fetched.
@@ -2122,6 +2126,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
 
         Needs an environment-level API key, or a project- or organization-level key with the
         SDK's API context set to the environment.
+
+        With ``proxy_facts_via_pdp``, the request goes through the PDP, which forwards only
+        the last value of a filter given as a list: ``user_key=["alice", "bob"]`` lists only
+        bob's assignments. Pass lists only with ``proxy_facts_via_pdp`` off.
 
         Args:
             user_key: if specified, only roles granted to this user, or to any of these
