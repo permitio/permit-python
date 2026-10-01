@@ -39,8 +39,8 @@ class LoggerConfig(BaseModel):
         description="The lowest severity the SDK logs, such as 'debug', 'info', 'warning' or "
         "'error', in any case; 'warn' and 'fatal' are read as 'warning' and 'critical'. The SDK "
         "drops its records below it before they reach any sink. "
-        "Read only when enable is True; a name loguru does not know raises ValueError when the "
-        "client is created.",
+        "Read only when enable is True; for a name loguru does not know, the SDK logs a "
+        "warning and uses 'info'.",
     )
     label: str = Field(
         default="Permit",

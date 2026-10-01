@@ -349,23 +349,42 @@ async def test_level_drops_the_sdk_records_below_it(
     assert "an application record" in [record["message"] for record in app_sinks.records()]
 
 
-def test_an_unknown_level_fails_when_the_client_is_created(httpserver: HTTPServer) -> None:
-    with pytest.raises(ValueError, match=r"Invalid log level 'verbose'"):
-        SyncPermit(make_config(httpserver, enable=True, level="verbose"))
+async def test_an_unknown_level_warns_and_logs_at_info(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    serve(httpserver)
+
+    await use_async_client(Permit(make_config(httpserver, enable=True, level="verbose")))
+
+    warnings = [
+        record
+        for record in app_sinks.sdk_records()
+        if record["level"]["name"] == "WARNING"
+        and "Unknown log level 'verbose'" in record["message"]
+    ]
+    assert len(warnings) == 1
+    assert "logs at INFO" in warnings[0]["message"]
+    # The same records as with level "info": no DEBUG ones.
+    assert app_sinks.sdk_levels() == {"WARNING", "ERROR"}
 
 
 def test_the_traceback_of_a_failed_client_creation_hides_the_api_key(
-    httpserver: HTTPServer,
+    httpserver: HTTPServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    def fail(**_: object) -> None:
+        msg = "the SDK could not configure its logger"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr("permit.logger.sdk_logger.enable", fail)
     lines: list[str] = []
     # diagnose=True, loguru's default, prints the value of each name on every line of the
     # traceback, and the SDK's frames pass the config around.
     sink_id = logger.add(lines.append, diagnose=True, backtrace=True)
-    config = make_config(httpserver, enable=True, level="verbose")
+    config = make_config(httpserver, enable=True)
     try:
         try:
             SyncPermit(config)
-        except ValueError:
+        except RuntimeError:
             logger.exception("the application could not start")
     finally:
         logger.remove(sink_id)

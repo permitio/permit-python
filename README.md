@@ -57,8 +57,8 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   applies. When it does undo it, loguru also drops any `permit.*` module disable made since.
 - `level` (default `"info"`) is the lowest severity the SDK logs. Its records below it never
   reach a sink. Your application's own records are not affected. The SDK logs its HTTP
-  requests and the PDP's responses at `"debug"`. With `"enable": True`, a level name loguru
-  does not know raises `ValueError` when the client is created.
+  requests and the PDP's responses at `"debug"`. With `"enable": True`, for a level name
+  loguru does not know, the SDK logs a warning that names it and uses `"info"`.
 - `label` (default `"Permit"`) is put in square brackets before every message the SDK logs.
 - `json` is not applied. For JSON output, give your application a serialized sink in place
   of loguru's default one: `logger.remove()`, then `logger.add(sys.stderr, serialize=True)`.

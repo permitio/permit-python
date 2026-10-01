@@ -34,29 +34,33 @@ def configure_logger(config: PermitConfig) -> None:
     every message the SDK logs and in the PDP error bodies it puts in a
     `PermitConnectionError`.
 
+    An unknown `log.level` does not fail client creation: the SDK logs a warning that names
+    the value and uses INFO.
+
     Args:
         config: The SDK configuration.
-
-    Raises:
-        ValueError: If `log.enable` is True and `log.level` is not the name of a loguru level.
     """
     sdk_logger.redact(config.token)
     if not config.log.enable:
         sdk_logger.disable()
         return
-    sdk_logger.enable(min_level_no=_level_no(config.log.level), label=config.log.label)
+    level_no = _level_no(config.log.level)
+    if level_no is None:
+        sdk_logger.enable(min_level_no=logger.level("INFO").no, label=config.log.label)
+        sdk_logger.warning(
+            f"Unknown log level {config.log.level!r} in the Permit SDK config (log.level), "
+            "so the SDK logs at INFO. Use trace, debug, info, success, warning, error or "
+            "critical, or a level added with loguru's logger.level()."
+        )
+        return
+    sdk_logger.enable(min_level_no=level_no, label=config.log.label)
 
 
-def _level_no(level: str) -> int:
+def _level_no(level: str) -> int | None:
     upper = level.upper()
     # loguru's level names are case-sensitive: try the name as given first, so a level the
     # application added in lower case is found, then the upper-case name of a built-in one.
     for name in (level, _LEVEL_ALIASES.get(upper, upper)):
         with contextlib.suppress(ValueError):
             return logger.level(name).no
-    msg = (
-        f"Invalid log level {level!r} in the Permit SDK config (log.level): use trace, "
-        "debug, info, success, warning, error or critical, or a level added with "
-        "loguru's logger.level()."
-    )
-    raise ValueError(msg)
+    return None
