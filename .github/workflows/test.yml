@@ -17,6 +17,15 @@ permissions:
 env:
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
+  # The PDP the required `pytest` jobs run against, pinned by version and by the
+  # digest of that version's multi-arch image index, so a new PDP release cannot
+  # fail a required check. Docker pulls by the digest; the tag only names it.
+  # Dependabot does not update this. The `e2e (latest PDP image)` job runs the
+  # suite against permitio/pdp-v2:latest, so a new release shows up there first.
+  # To move the pin, take the version's `digest` from
+  # https://hub.docker.com/v2/repositories/permitio/pdp-v2/tags/<version>.
+  PINNED_PDP_IMAGE: >-
+    permitio/pdp-v2:0.9.16@sha256:e3cf30794ec2d256636b4714641df46e51ee58a3f1f0d24c606e214e0bf8669a
 
 jobs:
   pytest:
@@ -121,13 +130,14 @@ jobs:
       - name: Start the PDP
         env:
           ENV_API_KEY: ${{ env.ENV_API_KEY }}
+          PDP_IMAGE: ${{ env.PINNED_PDP_IMAGE }}
         run: |
           set -euo pipefail
           docker run -d --name permit-pdp \
             -p 7766:7000 \
             -e PDP_API_KEY="${ENV_API_KEY}" \
             -e PDP_DEBUG=true \
-            permitio/pdp-v2:latest
+            "${PDP_IMAGE}"
           echo "PDP container started; it warms up while dependencies install."
 
       # --locked fails the job if uv.lock is out of date with pyproject.toml
