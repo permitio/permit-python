@@ -628,6 +628,55 @@ def test_one_operation_below_the_minimum_exits_2(tmp_path: Path) -> None:
     assert_did_not_run(outcome, "PDP spec at .* lists 1 operations, fewer than the minimum of 2")
 
 
+def run_with_defaults(tmp_path: Path, *extra: str) -> Outcome:
+    """Rerun the report with each minimum not in `extra` at its default, as CI runs it."""
+    return run_report(
+        tmp_path,
+        "--spec",
+        f"control-plane={tmp_path / 'cp.json'}",
+        "--spec",
+        f"pdp={tmp_path / 'pdp.json'}",
+        "--allowlist",
+        str(tmp_path / "allowlist.json"),
+        "--record",
+        str(tmp_path / "offline.jsonl"),
+        *extra,
+    )
+
+
+def test_the_default_minimum_of_offline_requests_is_400(tmp_path: Path) -> None:
+    small_specs = ("--min-operations", "control-plane=1", "--min-operations", "pdp=1")
+    report(tmp_path, requests=[COVERING[index % len(COVERING)] for index in range(399)])
+    assert_did_not_run(
+        run_with_defaults(tmp_path, *small_specs),
+        "holds 399 offline requests, fewer than the minimum of 400",
+    )
+    report(tmp_path, requests=[COVERING[index % len(COVERING)] for index in range(400)])
+    outcome = run_with_defaults(tmp_path, *small_specs)
+    assert outcome.code == 0, outcome.summary
+
+
+@pytest.mark.parametrize(("api", "minimum"), [(CONTROL_PLANE, 200), ("pdp", 20)])
+def test_the_default_minimum_of_operations_per_spec(tmp_path: Path, api: str, minimum: int) -> None:
+    def run_with_operations(count: int) -> Outcome:
+        ops = [("POST", f"/{api}/{index}", {"tags": ["Users"]}) for index in range(count)]
+        requests = [(method, path) for method, path, _ in ops]
+        if api == CONTROL_PLANE:
+            report(tmp_path, cp_ops=ops, requests=[*requests, ("POST", "/allowed")])
+            other = "pdp=1"
+        else:
+            report(tmp_path, pdp_ops=ops, requests=[*COVERING[:4], *requests])
+            other = "control-plane=1"
+        return run_with_defaults(tmp_path, "--min-records", "1", "--min-operations", other)
+
+    assert_did_not_run(
+        run_with_operations(minimum - 1),
+        f"lists {minimum - 1} operations, fewer than the minimum of {minimum}",
+    )
+    outcome = run_with_operations(minimum)
+    assert outcome.code == 0, outcome.summary
+
+
 def test_e2e_requests_do_not_count_towards_the_offline_minimum(tmp_path: Path) -> None:
     report(tmp_path)
     requests = [request_line(m, p) for m, p in COVERING] + [
