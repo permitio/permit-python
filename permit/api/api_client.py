@@ -3,6 +3,7 @@ from permit.api.condition_sets import ConditionSetsApi
 from permit.api.deprecated import DeprecatedApi
 from permit.api.environments import EnvironmentsApi
 from permit.api.groups import GroupsApi
+from permit.api.pdps import PdpsApi
 from permit.api.projects import ProjectsApi
 from permit.api.relationship_tuples import RelationshipTuplesApi
 from permit.api.resource_action_groups import ResourceActionGroupsApi
@@ -35,6 +36,7 @@ class PermitApiClient(DeprecatedApi):
         self._condition_sets = ConditionSetsApi(config)
         self._environments = EnvironmentsApi(config)
         self._groups = GroupsApi(config)
+        self._pdps = PdpsApi(config)
         self._projects = ProjectsApi(config)
         self._action_groups = ResourceActionGroupsApi(config)
         self._resource_actions = ResourceActionsApi(config)
@@ -89,6 +91,14 @@ class PermitApiClient(DeprecatedApi):
         See: https://api.permit.io/v2/redoc#tag/Groups
         """
         return self._groups
+
+    @property
+    def pdps(self) -> PdpsApi:
+        """API for acting on the environment's PDPs, such as refreshing their data.
+
+        See: https://api.permit.io/v2/redoc#tag/Policy-Decision-Points
+        """
+        return self._pdps
 
     @property
     def action_groups(self) -> ResourceActionGroupsApi:

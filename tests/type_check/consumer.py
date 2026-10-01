@@ -8,6 +8,7 @@ errors: with warn_unused_ignores, the check fails if one of them stops being rep
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
+from uuid import UUID
 
 from typing_extensions import assert_type
 
@@ -32,6 +33,7 @@ from permit.api.models import (
     PaginatedResultResourceInstanceDetailedRead,
     PaginatedResultRoleAssignmentDetailedRead,
     PaginatedResultUserRead,
+    PDPDataRefreshResponse,
     RoleAssignmentCreate,
     RoleAssignmentRead,
     RoleCreate,
@@ -149,6 +151,9 @@ async def async_client() -> None:
         await permit.api.relationship_tuples.list_detailed(subject_key="folder:docs"),
         PaginatedResultRelationshipTupleDetailedRead,
     )
+    refreshed = await permit.api.pdps.refresh("nightly import")
+    assert_type(refreshed, PDPDataRefreshResponse)
+    assert_type(refreshed.pdp_ids, list[UUID])
 
     # A list built before a bulk call is accepted too, whether of models or of dicts.
     users = [UserCreate(key=key) for key in ("u4", "u5")]
@@ -221,6 +226,8 @@ def sync_client() -> None:
         permit.api.relationship_tuples.list_detailed(per_page=10),
         PaginatedResultRelationshipTupleDetailedRead,
     )
+    assert_type(permit.api.pdps.refresh(), PDPDataRefreshResponse)
+    assert_type(permit.api.pdps.refresh(reason="sync").update_id, UUID)
     assert_type(permit.api.groups.assign_user("eng", "u", "t1"), GroupRead)
     assert_type(
         permit.api.groups.assign_group("group:leads", {"group_instance_key": "eng"}), GroupRead

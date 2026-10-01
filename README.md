@@ -93,6 +93,24 @@ for assignment in page.data:
 They need the API key `list()` needs: an environment-level key, or a broader key with the
 SDK's API context set to the environment. The blocking client has the same methods.
 
+## PDP data refresh
+
+`permit.api.pdps.refresh()` makes every PDP connected to the environment fetch all of its
+authorization data from Permit again now, instead of at its next periodic update, for
+example after data the PDPs decide on changed in an external data source:
+
+```py
+refreshed = await permit.api.pdps.refresh(reason="nightly import")
+print(refreshed.update_id, refreshed.pdp_ids)
+```
+
+- It returns once Permit has triggered the refresh, not once the PDPs have finished it, so
+  a check sent right after it may still be answered from the old data.
+- `reason` is optional, at most 512 characters, and shows in the PDPs' logs.
+- It needs an environment-level API key with write or admin access, or a broader key with
+  the SDK's API context set to the environment. The API rejects a read-only key with 403,
+  and answers 404 for an environment with no PDP configuration.
+
 ## Type checking
 
 The package ships a `py.typed` marker (PEP 561), so mypy, pyright and IDEs check your
