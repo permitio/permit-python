@@ -30,6 +30,9 @@ env:
 jobs:
   pytest:
     runs-on: ubuntu-24.04
+    # A run takes 5-6 minutes, the PDP wait included. The limit stops a hung
+    # test from holding a runner for GitHub's default of six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -239,6 +242,7 @@ jobs:
   # matrix are required status checks.
   compatibility:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
