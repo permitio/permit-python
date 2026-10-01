@@ -269,7 +269,7 @@ async def test_an_api_key_the_pdp_echoes_back_is_redacted(
 async def test_errors_raised_for_a_pdp_that_echoes_the_key_do_not_hold_it(
     httpserver: HTTPServer,
 ) -> None:
-    for path in ("/allowed", "/allowed/bulk", "/authorized_users"):
+    for path in ("/allowed", "/allowed/bulk", "/authorized_users", "/user-tenants"):
         httpserver.expect_request(path, method="POST").respond_with_handler(echo_the_key)
     permit = Permit(make_config(httpserver))
     sync_permit = SyncPermit(make_config(httpserver))
@@ -279,6 +279,7 @@ async def test_errors_raised_for_a_pdp_that_echoes_the_key_do_not_hold_it(
         lambda: permit.check("user-1", "read", "document"),
         lambda: permit.bulk_check(BULK),
         lambda: permit.authorized_users("read", "document"),
+        lambda: permit.get_user_tenants("user-1"),
     ):
         with pytest.raises(PermitConnectionError) as error:
             await call()
