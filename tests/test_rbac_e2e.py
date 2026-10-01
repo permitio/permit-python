@@ -437,6 +437,15 @@ async def test_permission_check_e2e(
         print_break()
 
         logger.info("testing list role assignments")
+
+        # The PDP's list of role assignments can trail its decisions, so poll for it too.
+        async def assignment_listed() -> bool:
+            listed = await permit.pdp_api.role_assignments.list(
+                user_key=user.key, tenant_key=tenant.key
+            )
+            return len(listed) == 1
+
+        await wait_until(assignment_listed, f"the PDP to list the role assignment of '{user.key}'")
         # scoped to this test's user and tenant: the environment is shared, so
         # the unfiltered list contains every other test's assignments too.
         assignments_returned: list[RoleAssignment] = await permit.pdp_api.role_assignments.list(
