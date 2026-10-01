@@ -12,13 +12,11 @@ that fails part way still removes what it made. Teardown runs in reverse order o
 registration, and a 404 there counts as success.
 """
 
-import asyncio
 import functools
-import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, ExitStack
 from dataclasses import dataclass
-from typing import Any, Final, TypeVar
+from typing import Any, Final
 from uuid import UUID
 
 import pytest
@@ -27,7 +25,7 @@ from permit import Permit
 from permit.api.models import GroupAddRole, GroupAssignment, GroupRead, GroupReadSchema, UserRead
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
-from tests.utils import handle_cleanup_error, unique_key
+from tests.utils import delete_quietly, handle_cleanup_error, poll_for, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -49,29 +47,7 @@ CONFLICT: Final[int] = 409
 PROPAGATION_TIMEOUT: Final[float] = 60.0
 POLL_INTERVAL: Final[float] = 0.5
 
-T = TypeVar("T")
-
-
-async def settled(fetch: Callable[[], Awaitable[T]], expected: T) -> T:
-    """Poll ``fetch`` until it returns ``expected``, for up to PROPAGATION_TIMEOUT seconds.
-
-    The last answer is returned either way, so the caller's assertion reports the value
-    the PDP gave.
-    """
-    deadline = time.monotonic() + PROPAGATION_TIMEOUT
-    answer = await fetch()
-    while answer != expected and time.monotonic() < deadline:
-        await asyncio.sleep(POLL_INTERVAL)
-        answer = await fetch()
-    return answer
-
-
-async def delete_quietly(delete: Callable[[], Awaitable[None]], description: str) -> None:
-    """Delete one object at teardown. A 404 means it is already gone, which is the goal."""
-    try:
-        await delete()
-    except PermitApiError as error:
-        handle_cleanup_error(error, f"could not delete {description}")
+settled = functools.partial(poll_for, timeout=PROPAGATION_TIMEOUT, interval=POLL_INTERVAL)
 
 
 def delete_quietly_blocking(delete: Callable[[], None], description: str) -> None:
