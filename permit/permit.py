@@ -1,4 +1,3 @@
-import json
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
@@ -40,8 +39,7 @@ class Permit:
         self._elements = ElementsApi(self._config)
         self._pdp_api = PermitPdpApiClient(self._config)
         logger.debug(
-            "Permit SDK initialized with config:\n${}",
-            json.dumps(self._config.dict(exclude={"api_context"})),
+            f"Permit SDK initialized: api_url={self._config.api_url}, pdp={self._config.pdp}"
         )
 
     @property
