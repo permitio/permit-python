@@ -244,6 +244,13 @@ def sync_client() -> None:
         assert_type(listed.key, str)
 
 
+async def async_client_lifecycle() -> None:
+    async with Permit(CONFIG) as permit:
+        assert_type(permit, Permit)
+        assert_type(await permit.check("user", "read", "document"), bool)
+    await permit.close()
+
+
 def sync_client_lifecycle() -> None:
     with SyncPermit(CONFIG) as permit:
         assert_type(permit, SyncPermit)
@@ -274,3 +281,7 @@ async def mistakes_stay_errors() -> None:
     await sync_permit.close()  # type: ignore[func-returns-value, misc]
     # The async client returns awaitables, not values.
     _ = permit.api.users.get("u").email  # type: ignore[attr-defined]
+    permit.close()  # type: ignore[unused-coroutine]
+    # Each client has the context manager of its kind only.
+    with permit:  # type: ignore[attr-defined]
+        pass
