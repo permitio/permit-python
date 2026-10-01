@@ -8,7 +8,12 @@ from aiohttp import ClientTimeout
 from typing_extensions import NotRequired, TypedDict
 
 from permit.config import PermitConfig
-from permit.enforcement.interfaces import AuthorizedUsersResult, ResourceInput, UserInput
+from permit.enforcement.interfaces import (
+    AuthorizedUsersResult,
+    ResourceInput,
+    TenantDetails,
+    UserInput,
+)
 from permit.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 from permit.utils.dicts import deep_merge
@@ -542,6 +547,82 @@ class Enforcer:
                     msg,
                     error=err,
                 ) from err
+
+    async def get_user_tenants(
+        self, user: User, context: Context | None = None
+    ) -> list[TenantDetails]:
+        """Get the tenants in which a user has a role, as the PDP knows them.
+
+        The PDP lists a tenant when the user has a tenant-level role in it, the kind
+        ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
+        neither does membership without a role. The PDP answers from the data it has synced,
+        so a change made through the API shows up once the PDP has it.
+
+        Only the container PDP serves this query. The cloud PDP does not, and answers 404,
+        which this method raises as a ``PermitConnectionError`` that says so.
+
+        Args:
+            user: The user key, or a user dict with a ``key`` and optionally ``attributes``,
+                ``email``, ``first_name`` and ``last_name``, as ``check()`` takes it.
+            context: The query's context, merged over the context store's base context.
+                Defaults to None.
+
+        Returns:
+            The user's tenants, each with its key and attributes. Empty when the user has no
+            tenant-level role or the PDP does not know the user.
+
+        Raises:
+            PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any
+                other error status, or cannot be reached.
+        """
+        normalized_user: UserInput = (
+            UserInput(key=user) if isinstance(user, str) else UserInput(**user)
+        )
+        body = {
+            "user": normalized_user.dict(exclude_unset=True),
+            "context": self._context_store.get_derived_context(context or {}),
+        }
+
+        async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
+            url = f"{self._base_url}/user-tenants"
+            try:
+                async with session.post(url, data=json.dumps(body)) as response:
+                    if response.status == HTTPStatus.NOT_FOUND:
+                        msg = (
+                            f"permit.get_user_tenants() got status code 404 from the PDP at "
+                            f"{self._base_url}: only the container PDP serves /user-tenants, "
+                            f"and the cloud PDP does not.\n"
+                            f"Point the SDK's `pdp` setting at a container PDP to use it.\n"
+                            f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                        )
+                        raise PermitConnectionError(msg)
+                    if response.status != HTTPStatus.OK:
+                        error_body = await read_error_body(response)
+                        msg = (
+                            f"permit.get_user_tenants() got an unexpected status code: "
+                            f"{response.status} from the PDP at {self._base_url}.\n"
+                            f"Response body: {error_body}\n"
+                            f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                        )
+                        raise PermitConnectionError(msg)
+                    content = await response.json()
+            except aiohttp.ClientError as err:
+                sdk_logger.error(f"Error in permit.get_user_tenants(): {err}")
+                msg = (
+                    f"Permit SDK got error: {err}, \n"
+                    f"and cannot connect to the PDP container, please check your configuration "
+                    f"and make sure it's running at {self._base_url} and accepting requests. \n"
+                    f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                )
+                raise PermitConnectionError(msg, error=err) from err
+
+        sdk_logger.debug(
+            f"permit.get_user_tenants() response:\n"
+            f"input: {pformat(body, indent=2)}\n"
+            f"response data: {pformat(content, indent=2)}"
+        )
+        tenants: list[TenantDetails] = parse_obj_as(list[TenantDetails], content)
+        return tenants
 
     async def filter_objects(
         self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]

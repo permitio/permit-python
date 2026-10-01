@@ -11,7 +11,15 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from typing_extensions import assert_type
 
-from permit import Permit, PermitApiError, PermitConfig, UserCreate, UserInput, UserRead
+from permit import (
+    Permit,
+    PermitApiError,
+    PermitConfig,
+    TenantDetails,
+    UserCreate,
+    UserInput,
+    UserRead,
+)
 from permit.api.elements import UserLoginAsResponse
 from permit.api.models import (
     BulkRoleAssignmentReport,
@@ -70,6 +78,16 @@ async def async_client() -> None:
         list[bool],
     )
     assert_type(await permit.get_user_permissions("u"), dict[str, Any])
+    tenants = await permit.get_user_tenants("u")
+    assert_type(tenants, list[TenantDetails])
+    assert_type(tenants[0].key, str)
+    assert_type(tenants[0].attributes, dict[str, Any])
+    assert_type(
+        await permit.get_user_tenants(
+            {"key": "u", "attributes": {"dept": "eng"}}, context={"region": "eu"}
+        ),
+        list[TenantDetails],
+    )
 
     # Optional model fields are optional to the type checker too.
     user = UserCreate(key="u")
@@ -158,6 +176,8 @@ def sync_client() -> None:
 
     assert_type(permit.check("user", "read", "document"), bool)
     assert_type(permit.get_user_permissions("u"), dict[str, Any])
+    assert_type(permit.get_user_tenants("u"), list[TenantDetails])
+    assert_type(permit.get_user_tenants({"key": "u"}, {"region": "eu"}), list[TenantDetails])
     assert_type(permit.api.users.get("u"), UserRead)
     assert_type(permit.api.users.list(), PaginatedResultUserRead)
     assert_type(permit.api.tenants.create(TenantCreate(key="t1", name="T1")), TenantRead)
@@ -195,5 +215,6 @@ async def mistakes_stay_errors() -> None:
     UserCreate(key="u").model_dump()  # type: ignore[attr-defined]
     # The blocking client returns values, not awaitables.
     await sync_permit.api.users.get("u")  # type: ignore[misc]
+    await sync_permit.get_user_tenants("u")  # type: ignore[misc]
     # The async client returns awaitables, not values.
     _ = permit.api.users.get("u").email  # type: ignore[attr-defined]

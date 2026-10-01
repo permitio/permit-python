@@ -90,7 +90,7 @@ from permit.api.models import (
 from permit.api.users import _UserSyncInput
 from permit.config import PermitConfig
 from permit.enforcement.enforcer import Action, CheckQuery, Resource, User
-from permit.enforcement.interfaces import AuthorizedUsersResult
+from permit.enforcement.interfaces import AuthorizedUsersResult, TenantDetails
 from permit.pdp_api.base import BasePdpPermitApi
 from permit.pdp_api.models import RoleAssignment
 from permit.utils.context import Context, ContextStore
@@ -2769,6 +2769,31 @@ class SyncEnforcer:
 
         Raises:
             PermitConnectionError: If the PDP rejects the request or cannot be reached.
+        """
+    def get_user_tenants(self, user: User, context: Context | None = None) -> list[TenantDetails]:
+        """Get the tenants in which a user has a role, as the PDP knows them.
+
+        The PDP lists a tenant when the user has a tenant-level role in it, the kind
+        ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
+        neither does membership without a role. The PDP answers from the data it has synced,
+        so a change made through the API shows up once the PDP has it.
+
+        Only the container PDP serves this query. The cloud PDP does not, and answers 404,
+        which this method raises as a ``PermitConnectionError`` that says so.
+
+        Args:
+            user: The user key, or a user dict with a ``key`` and optionally ``attributes``,
+                ``email``, ``first_name`` and ``last_name``, as ``check()`` takes it.
+            context: The query's context, merged over the context store's base context.
+                Defaults to None.
+
+        Returns:
+            The user's tenants, each with its key and attributes. Empty when the user has no
+            tenant-level role or the PDP does not know the user.
+
+        Raises:
+            PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any
+                other error status, or cannot be reached.
         """
     def filter_objects(
         self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]
