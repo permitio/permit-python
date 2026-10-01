@@ -961,11 +961,15 @@ def test_a_snapshot_keeps_what_the_report_reads_and_records_its_source(tmp_path:
     assert "a snapshot of https://example.test/openapi.json taken 2026-01-02" in reduced.source
 
 
-def test_a_snapshot_of_a_document_without_operations_fails(tmp_path: Path) -> None:
+@pytest.mark.parametrize("document", ['{"paths": {}}', "{}", "[]"])
+def test_a_snapshot_of_a_document_without_operations_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], document: str
+) -> None:
     source = tmp_path / "empty.json"
-    source.write_text('{"paths": {}}', encoding="utf-8")
+    source.write_text(document, encoding="utf-8")
     code = main(["snapshot", "pdp", str(source), "--source", "x", "--out-dir", str(tmp_path)])
     assert code == 2
+    assert "could not write the snapshot: the PDP spec at" in capsys.readouterr().err
     assert not (tmp_path / "pdp.json").exists()
 
 

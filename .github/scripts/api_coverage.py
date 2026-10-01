@@ -185,7 +185,7 @@ class Spec:
         return max(candidates, key=lambda op: (specificity(op.path), op.path))
 
 
-def read_json(path: Path, what: str) -> Any:  # noqa: ANN401 - whatever the JSON document holds
+def read_json(path: Path, what: str) -> object:
     """Read a JSON file.
 
     Raises:
@@ -201,7 +201,7 @@ def read_json(path: Path, what: str) -> Any:  # noqa: ANN401 - whatever the JSON
         raise CoverageError(msg) from exc
 
 
-def operations_of(document: Any, api: str, label: str) -> list[Operation]:  # noqa: ANN401
+def operations_of(document: object, api: str, label: str) -> list[Operation]:
     """List the operations of an OpenAPI document or of a committed operation inventory.
 
     Raises:
@@ -1183,12 +1183,15 @@ def _write_report(args: argparse.Namespace, report: Report) -> int:
     return report.exit_code
 
 
-def inventory(document: Any, api: str, label: str) -> dict[str, Any]:  # noqa: ANN401
+def inventory(document: object, api: str, label: str) -> dict[str, Any]:
     """The part of a spec the report reads: each operation's id, summary, tags and stage.
 
     Raises:
-        CoverageError: If the document has no operations.
+        CoverageError: If the document has no `paths` object or no operations.
     """
+    if not isinstance(document, dict):
+        msg = f"{label} has no `paths` object"
+        raise CoverageError(msg)
     paths: dict[str, dict[str, Any]] = {}
     for operation in operations_of(document, api, label):
         source = document["paths"][operation.path][operation.method.lower()]
