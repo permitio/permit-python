@@ -31,6 +31,8 @@ class Permit(AsyncPermit):
 
     def __init__(self, config: PermitConfig | None = None, **options: Any) -> None:
         super().__init__(config, **options)
+
+    def _connect(self) -> None:
         self._enforcer = SyncEnforcer(self._config)  # type: ignore[assignment]
         self._api = SyncPermitApiClient(self._config)  # type: ignore[assignment]
         self._elements = SyncElementsApi(self._config)  # type: ignore[assignment]

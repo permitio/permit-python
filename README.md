@@ -63,7 +63,8 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
 - `json` is not applied: for JSON output, add a sink with `logger.add(sys.stderr, serialize=True)`.
 - loguru's logger is process-wide, so these settings are too: the client created last
   decides whether the SDK logs, and the last one created with `"enable": True` decides the
-  level and the label, for every client in the process.
+  level and the label, for every client in the process. `wait_for_sync()` creates no
+  client: it yields a copy of the client it is called on.
 - The SDK replaces the API key of every client in the process with `[REDACTED]` in the
   messages it logs and in the PDP error bodies it puts in a `PermitConnectionError`, so a
   PDP that echoes the key back does not expose it. A user name and password written into

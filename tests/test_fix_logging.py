@@ -7,6 +7,7 @@ served by a local pytest_httpserver.
 """
 
 import json
+import re
 import subprocess
 import sys
 import types
@@ -563,6 +564,78 @@ def test_an_enabled_client_keeps_a_disable_the_application_set_for_the_sdk(
         pass
 
     assert app_sinks.sdk_records() == []
+
+
+def proxied_config(httpserver: HTTPServer, **log: Any) -> PermitConfig:
+    """A config that writes facts through the PDP, so `wait_for_sync` derives a client."""
+    config = make_config(httpserver, **log)
+    config.proxy_facts_via_pdp = True
+    return config
+
+
+def test_wait_for_sync_keeps_logging_off_after_a_disabled_client(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    proxied = SyncPermit(proxied_config(httpserver, enable=True))
+    unproxied = SyncPermit(make_config(httpserver, enable=True))
+    SyncPermit(make_config(httpserver))
+
+    with proxied.wait_for_sync():
+        pass
+    with unproxied.wait_for_sync():
+        pass
+
+    assert app_sinks.sdk_records() == []
+
+
+def test_wait_for_sync_keeps_the_level_and_label_of_the_client_created_last(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    proxied = SyncPermit(proxied_config(httpserver, enable=True, level="debug", label="first"))
+    last = SyncPermit(make_config(httpserver, enable=True, level="warning", label="last"))
+    records_before = len(app_sinks.sdk_records())
+
+    with proxied.wait_for_sync():
+        pass
+    with last.wait_for_sync():
+        pass
+
+    [record] = app_sinks.sdk_records()[records_before:]
+    assert record["message"].startswith(f"[last] {WAIT_FOR_SYNC_WARNING}")
+
+
+@pytest.mark.parametrize(
+    "client_class", [pytest.param(Permit, id="async"), pytest.param(SyncPermit, id="sync")]
+)
+async def test_wait_for_sync_yields_a_client_that_waits_for_the_facts(
+    httpserver: HTTPServer, client_class: type[Permit]
+) -> None:
+    serve(httpserver)
+    httpserver.expect_request(re.compile(r"/facts/tenants/.*"), method="DELETE").respond_with_data(
+        "", status=204
+    )
+    permit = client_class(proxied_config(httpserver))
+
+    with permit.wait_for_sync(timeout=3.0, policy="fail") as waiting:
+        assert type(waiting) is client_class
+        assert waiting.config.facts_sync_timeout == 3.0
+        deleted = waiting.api.tenants.delete("tenant-1")
+        if client_class is Permit:
+            await deleted
+    deleted = permit.api.tenants.delete("tenant-2")
+    if client_class is Permit:
+        await deleted
+
+    [waited, not_waited] = [
+        request for request, _ in httpserver.log if request.path.startswith("/facts/")
+    ]
+    assert waited.path == "/facts/tenants/tenant-1"
+    assert (waited.headers.get("X-Wait-Timeout"), waited.headers.get("X-Timeout-Policy")) == (
+        "3.0",
+        "fail",
+    )
+    assert "X-Wait-Timeout" not in not_waited.headers
+    assert permit.config.facts_sync_timeout is None
 
 
 def test_the_application_can_still_turn_the_sdk_records_on_itself(

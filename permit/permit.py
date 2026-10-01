@@ -1,3 +1,4 @@
+import copy
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
@@ -34,13 +35,17 @@ class Permit:
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
 
         configure_logger(self._config)
+        self._connect()
+        sdk_logger.debug(
+            f"Permit SDK initialized: api_url={self._config.api_url}, pdp={self._config.pdp}"
+        )
+
+    def _connect(self) -> None:
+        """Create the clients that send this client's requests, from its config."""
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
         self._pdp_api = PermitPdpApiClient(self._config)
-        sdk_logger.debug(
-            f"Permit SDK initialized: api_url={self._config.api_url}, pdp={self._config.pdp}"
-        )
 
     @property
     def config(self) -> PermitConfig:
@@ -88,7 +93,12 @@ class Permit:
         contextualized_config.facts_sync_timeout = timeout
         if policy is not None:
             contextualized_config.facts_sync_timeout_policy = policy
-        yield self.__class__(contextualized_config)
+        # A copy of this client that sends its requests with the new config. Creating a new
+        # client instead would apply its log settings to the whole process again.
+        waiting: Self = copy.copy(self)
+        waiting._config = contextualized_config
+        waiting._connect()
+        yield waiting
 
     @property
     def api(self) -> PermitApiClient:
