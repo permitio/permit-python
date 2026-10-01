@@ -726,17 +726,23 @@ background_loop.close()
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="os.fork")
-def test_a_forked_child_starts_a_thread_of_its_own() -> None:
+def test_a_forked_child_starts_a_thread_of_its_own_and_closes_it() -> None:
+    """The child leaves the parent's loop and connections alone, so close() cannot hang on them."""
     script = SCRIPT_HEADER + (
         "import os\n"
+        "import sys\n"
         "import warnings\n"
         "print('parent:', client.check('user', 'read', 'document'), flush=True)\n"
         "# Python 3.12+ warns that forking a process that runs threads can deadlock the child.\n"
         "warnings.simplefilter('ignore', DeprecationWarning)\n"
         "pid = os.fork()\n"
         "if pid == 0:\n"
+        "    # The server's thread runs in the parent only.\n"
+        "    atexit.unregister(report)\n"
         "    print('child:', client.check('user', 'read', 'document'), flush=True)\n"
-        "    os._exit(0)\n"
+        "    client.close()\n"
+        "    print('child:', client.check('user', 'read', 'document'), flush=True)\n"
+        "    sys.exit(0)\n"
         "_, status = os.waitpid(pid, 0)\n"
         "print('child exit status:', status)\n"
     )
@@ -744,7 +750,13 @@ def test_a_forked_child_starts_a_thread_of_its_own() -> None:
     result = run_script(script, timeout=30)
 
     assert (result.returncode, result.stderr) == (0, "")
-    assert result.stdout == "parent: True\nchild: True\nchild exit status: 0\n" + AT_EXIT
+    closed_in_the_child = "sessions closed on permit-sync-loop\n"
+    assert result.stdout == (
+        "parent: True\n"
+        f"child: True\n{closed_in_the_child}"
+        f"child: True\n{closed_in_the_child}"
+        "child exit status: 0\n" + AT_EXIT
+    )
 
 
 # --- the background loop on its own ----------------------------------------------------

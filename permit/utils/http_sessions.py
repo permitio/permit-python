@@ -1,6 +1,8 @@
 import asyncio
 import atexit
 import concurrent.futures
+import os
+import sys
 import threading
 import weakref
 from collections.abc import AsyncGenerator
@@ -32,6 +34,10 @@ class LoopSessions:
       ``close()`` does not leave it open;
     - as the interpreter exits, if its loop is still open then: on that loop if it is not
       running, or by that loop's thread if it runs in another thread.
+
+    A child process made by ``fork()`` sets the sessions it inherits aside, untouched: their
+    loops cannot run in the child, and their connections are the parent's. The child's
+    requests open sessions of their own.
 
     The sessions carry no headers, base URL or timeout: each request brings its own, so one
     session serves every request sent from its loop. They keep no cookies either, so a
@@ -115,6 +121,18 @@ class LoopSessions:
         closed = [loop for loop in self._sessions if loop.is_closed()]
         return [self._sessions.pop(loop) for loop in closed]
 
+    def _set_aside_after_fork(self) -> None:
+        """In a child made by ``fork()``: keep the inherited sessions, but never use them.
+
+        Only the thread that forked runs in the child, so the lock may be held by a thread
+        that is gone, and no loop of the parent runs. Closing an inherited session would
+        close connections the parent still uses, so they stay open, and referenced, for the
+        life of the child.
+        """
+        self._lock = threading.Lock()
+        _sessions_lost_to_fork.extend(self._sessions.values())
+        self._sessions.clear()
+
     def _close_at_exit(self) -> None:
         """Close every session as the interpreter exits, from a thread that runs no loop."""
         with self._lock:
@@ -184,9 +202,19 @@ def _close_at_exit_on(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[No
 
 
 _open_at_exit: weakref.WeakSet[LoopSessions] = weakref.WeakSet()
+_sessions_lost_to_fork: list[_LoopSession] = []
 
 
 @atexit.register
 def _close_open_sessions_at_exit() -> None:
     for sessions in list(_open_at_exit):
         sessions._close_at_exit()  # noqa: SLF001 - this module's own class
+
+
+def _set_aside_sessions_after_fork() -> None:
+    for sessions in list(_open_at_exit):
+        sessions._set_aside_after_fork()  # noqa: SLF001 - this module's own class
+
+
+if sys.platform != "win32":
+    os.register_at_fork(after_in_child=_set_aside_sessions_after_fork)

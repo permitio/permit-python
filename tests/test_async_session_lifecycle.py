@@ -566,3 +566,55 @@ def test_a_client_never_closed_reports_nothing_unclosed_at_exit(
         if "nclosed" in line or "Exception ignored" in line
     ]
     assert reported == []
+
+
+FORK_SCRIPT = """
+import asyncio
+import os
+import sys
+import threading
+import warnings
+
+from permit import Permit
+
+client = Permit(token="test-token", pdp=sys.argv[1], api_url=sys.argv[1])
+loop = asyncio.new_event_loop()
+threading.Thread(target=loop.run_forever, daemon=True).start()
+check = client.check("user-1", "read", "document")
+assert asyncio.run_coroutine_threadsafe(check, loop).result(5)
+# Python 3.12+ warns that forking a process that runs threads can deadlock the child.
+warnings.simplefilter("ignore", DeprecationWarning)
+pid = os.fork()
+if pid == 0:
+    print("child:", asyncio.run(client.check("user-1", "read", "document")), flush=True)
+    asyncio.run(client.close())
+    print("child closed", flush=True)
+    sys.exit(0)
+_, status = os.waitpid(pid, 0)
+print("child exit status:", status)
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="os.fork")
+def test_a_forked_child_leaves_the_parent_sessions_alone(server: KeepAliveServer) -> None:
+    """The parent's loop does not run in the child, so close() must not wait for it there."""
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-c", FORK_SCRIPT, server.url],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+    assert (result.returncode, result.stderr) == (0, "")
+    assert result.stdout == "child: True\nchild closed\nchild exit status: 0\n"
+    # The parent's connection and the child's, which the child's asyncio.run() closed.
+    assert server.opened == 2
