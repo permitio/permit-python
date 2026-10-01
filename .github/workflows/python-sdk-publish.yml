@@ -85,7 +85,8 @@ jobs:
       # wheel installed a top-level `tests` package, which shadowed the
       # consumer's own `tests` module. [tool.uv.build-backend] in
       # pyproject.toml keeps it out now; this check fails the release if it
-      # comes back.
+      # comes back. test.yml's compatibility job runs the same check on pull
+      # requests to main; keep the two identical.
       - name: Check the wheel and sdist contents
         run: |
           set -euo pipefail
