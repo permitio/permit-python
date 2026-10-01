@@ -1360,6 +1360,38 @@ class PDPContext(BaseModel):
     env_id: UUID = Field(..., title='Env Id')
 
 
+class PDPDataRefreshRequest(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    reason: Optional[constr(max_length=512)] = Field(
+        default=None,
+        description='Optional human-readable reason for the refresh, propagated to the OPAL DataUpdate and visible in PDP/OPAL logs.',
+        title='Reason',
+    )
+    shard_id: Optional[conint(ge=0)] = Field(
+        default=None,
+        description="For sharded PDPs, target only this shard. When omitted, the refresh targets the PDP's main topic (all shards).",
+        title='Shard Id',
+    )
+
+
+class PDPDataRefreshResponse(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    update_id: UUID = Field(
+        ...,
+        description='The id of the generated OPAL DataUpdate. It is injected as the X-Permit-Update-Id header and surfaced in PDP/OPAL logs for correlation. Because the refresh is a full-data reload (dst_path=""), the PDP confirms it by advancing PDPInstance.current_data_date once the new bundle is fetched and saved (most_recent_data_fetch_id is only set for scoped/delta updates).',
+        title='Update Id',
+    )
+    pdp_ids: List[UUID] = Field(
+        ...,
+        description='The ids of the PDP configurations that were targeted by this refresh.',
+        title='Pdp Ids',
+    )
+
+
 class PDPShardMigration(BaseModel):
     class Config:
         extra = Extra.allow
