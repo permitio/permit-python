@@ -459,6 +459,20 @@ def test_e2e_requests_never_make_an_operation_covered(tmp_path: Path) -> None:
     )
     assert outcome.code == 1
     assert problems(outcome, "missing") == ["Control plane GET /v2/users/{user_id}"]
+    assert "| Control plane | `GET /v2/users/{user_id}` | GA | GET /v2/users/{user_id} | yes |" in (
+        outcome.summary
+    )
+
+
+def test_an_allowlisted_operation_shows_whether_e2e_tests_exercised_it(tmp_path: Path) -> None:
+    outcome = report(
+        tmp_path,
+        requests=[r for r in COVERING if r[1] != "/v2/users/u1"],
+        operations=[entry("GET /v2/users/{user_id}", status="untested", reason="users.get()")],
+        e2e=[[request_line("GET", "/v2/users/u1", e2e=True)]],
+    )
+    assert outcome.code == 0, outcome.summary
+    assert "| `GET /v2/users/{user_id}` | GA | PER-1 | users.get() | yes |" in outcome.summary
 
 
 def test_records_from_several_e2e_runs_add_up(tmp_path: Path) -> None:

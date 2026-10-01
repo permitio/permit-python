@@ -923,14 +923,15 @@ def _operation_tables(report: Report) -> list[str]:
         out += _details(
             f"Missing operations ({len(missing)})",
             [
-                _row("API", "Operation", "Stage", "Summary"),
-                _row(*["---"] * 4),
+                _row("API", "Operation", "Stage", "Summary", "End to end"),
+                _row(*["---"] * 5),
                 *(
                     _row(
                         API_TITLES[r.operation.api],
                         _code(r.operation.name),
                         r.operation.stage,
                         _cell(r.operation.summary),
+                        _e2e_cell(r),
                     )
                     for r in missing
                 ),
@@ -942,8 +943,8 @@ def _operation_tables(report: Report) -> list[str]:
             out += _details(
                 f"{status.capitalize()} operations ({len(listed)})",
                 [
-                    _row("API", "Operation", "Stage", "Ticket", "Reason"),
-                    _row(*["---"] * 5),
+                    _row("API", "Operation", "Stage", "Ticket", "Reason", "End to end"),
+                    _row(*["---"] * 6),
                     *(
                         _row(
                             API_TITLES[r.operation.api],
@@ -951,6 +952,7 @@ def _operation_tables(report: Report) -> list[str]:
                             r.operation.stage,
                             _cell(entry.ticket),
                             _cell(entry.reason),
+                            _e2e_cell(r),
                         )
                         for r, entry in listed
                     ),
