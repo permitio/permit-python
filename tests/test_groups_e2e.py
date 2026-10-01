@@ -279,6 +279,15 @@ async def test_list_and_get_return_the_group(
     assert created.group_resource_type_key == policy.group_type
     assert created.group_tenant == policy.tenant
     assert not created.users
+    with pytest.raises(PermitApiError) as duplicate:
+        await permit.api.groups.create(
+            {
+                "group_resource_type_key": policy.group_type,
+                "group_instance_key": key,
+                "group_tenant": policy.tenant,
+            }
+        )
+    assert duplicate.value.status_code == CONFLICT
 
     fetched = await permit.api.groups.get(policy.group(key))
     assert fetched.group_instance_key == key
