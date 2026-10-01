@@ -525,6 +525,33 @@ def test_close_closes_the_session_of_a_loop_closed_without_shutting_down(
     assert_nothing_reported_unclosed(drop)
 
 
+def test_a_close_handed_to_a_loop_that_closes_first_leaves_nothing_unawaited(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    """A client collected on its running loop hands it the close, and the loop may stop first."""
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    client = Permit(config)
+    loop = asyncio.new_event_loop()
+    assert loop.run_until_complete(check(client))
+
+    def drop_and_stop() -> None:
+        nonlocal client
+        del client
+        loop.stop()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        loop.call_soon(drop_and_stop)
+        loop.run_forever()
+        loop.close()
+        gc.collect()
+        # The next request marks the session of the closed loop closed.
+        assert asyncio.run(check(Permit(config)))
+        gc.collect()
+
+    assert [f"{w.category.__name__}: {w.message}" for w in caught] == []
+
+
 def test_a_client_dropped_after_its_loop_closed_without_shutting_down_reports_nothing(
     httpserver: HTTPServer, config: PermitConfig
 ) -> None:

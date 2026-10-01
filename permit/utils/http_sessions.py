@@ -1,6 +1,7 @@
 import asyncio
 import atexit
 import concurrent.futures
+import contextlib
 import os
 import sys
 import threading
@@ -227,7 +228,17 @@ def _orphan(sessions: dict[asyncio.AbstractEventLoop, _LoopSession]) -> None:
     for loop, entry in entries:
         _orphaned[id(entry.session)] = (loop, entry)
         if loop.is_running():
-            _start_closing(loop, entry.closer)
+            # The coroutine is created on the loop: one the loop never runs, because it
+            # closes first, would be reported as never awaited.
+            with contextlib.suppress(RuntimeError):  # the loop closed meanwhile
+                loop.call_soon_threadsafe(_start_aclose, loop, entry.closer)
+
+
+def _start_aclose(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]) -> None:
+    task = loop.create_task(_aclose(closer))
+    # The loop holds its tasks weakly: this keeps the task until it is done.
+    _closing.add(task)
+    task.add_done_callback(_closing.discard)
 
 
 def _take_orphans_of_closed_loops() -> list[_LoopSession]:
@@ -242,6 +253,7 @@ def _take_orphans_of_closed_loops() -> list[_LoopSession]:
 _open_at_exit: weakref.WeakSet[LoopSessions] = weakref.WeakSet()
 # The open sessions of collected LoopSessions, by the id of the session.
 _orphaned: dict[int, tuple[asyncio.AbstractEventLoop, _LoopSession]] = {}
+_closing: set[asyncio.Task[None]] = set()
 _sessions_lost_to_fork: list[_LoopSession] = []
 
 
