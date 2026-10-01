@@ -30,7 +30,9 @@ class LoggerConfig(BaseModel):
     enable: bool = Field(
         default=False,
         description="Whether the SDK logs. False calls loguru's logger.disable('permit'), so "
-        "nothing is logged; True calls logger.enable('permit').",
+        "nothing is logged. True undoes that call with logger.enable('permit') if an earlier "
+        "client made it, and otherwise leaves loguru's switches alone, so a logger.disable() "
+        "the application made for 'permit' or one of its modules still applies.",
     )
     level: str = Field(
         default="info",

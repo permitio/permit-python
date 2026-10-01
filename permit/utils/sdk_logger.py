@@ -3,6 +3,8 @@ import threading
 from loguru import logger
 
 REDACTED = "[REDACTED]"
+# The package whose records loguru's logger.enable() and logger.disable() switch on and off.
+PACKAGE = "permit"
 
 
 class SdkLogger:
@@ -14,13 +16,15 @@ class SdkLogger:
     severity, replaces every registered API key with `[REDACTED]` and prefixes the message
     with the label.
 
-    Its settings are process-wide, like loguru's logger. Until `configure` is called, it
+    Its settings are process-wide, like loguru's logger. Until `enable` is called, it
     keeps every record and adds no label.
     """
 
     def __init__(self) -> None:
         self._min_level_no = 0
         self._label = ""
+        # Whether `disable` called logger.disable("permit") after the last `enable`.
+        self._disabled_package = False
         self._secrets_lock = threading.Lock()
         # Longest first: where one secret contains another, such as a key and a prefix of
         # it, the whole of the longer one is replaced, not just the shorter part. Replaced,
@@ -28,8 +32,18 @@ class SdkLogger:
         # either the old tuple or the new one.
         self._secrets: tuple[str, ...] = ()
 
-    def configure(self, *, min_level_no: int, label: str) -> None:
-        """Set the minimum severity of the records to keep and the label to prefix them with.
+    def disable(self) -> None:
+        """Stop loguru from passing on any record of the package: `logger.disable("permit")`."""
+        logger.disable(PACKAGE)
+        self._disabled_package = True
+
+    def enable(self, *, min_level_no: int, label: str) -> None:
+        """Keep the records from `min_level_no` up, with `label` before each message.
+
+        If `disable` was called since the last `enable`, this undoes it with
+        `logger.enable("permit")`. Otherwise it leaves loguru's switches alone: loguru's
+        enable would also drop every `logger.disable` the application set for a module of
+        the package, and override an application-wide `logger.disable("")`.
 
         Args:
             min_level_no: The loguru severity number below which records are dropped.
@@ -37,6 +51,9 @@ class SdkLogger:
         """
         self._min_level_no = min_level_no
         self._label = label
+        if self._disabled_package:
+            logger.enable(PACKAGE)
+            self._disabled_package = False
 
     def redact(self, secret: str) -> None:
         """Replace `secret` with `[REDACTED]` in every record logged from now on.

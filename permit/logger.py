@@ -3,9 +3,9 @@ import contextlib
 from loguru import logger
 
 from permit.config import PermitConfig
-from permit.utils.sdk_logger import sdk_logger
+from permit.utils.sdk_logger import PACKAGE, sdk_logger
 
-PERMIT_MODULE = "permit"
+PERMIT_MODULE = PACKAGE
 
 # The names Python's logging module also accepts, and the ones the Node SDK's logger uses.
 _LEVEL_ALIASES = {"WARN": "WARNING", "FATAL": "CRITICAL"}
@@ -20,8 +20,10 @@ def configure_logger(config: PermitConfig) -> None:
     and levels alone, so its records are written wherever loguru writes the application's,
     in the format of those sinks.
 
-    - `log.enable` False calls `logger.disable("permit")`, so nothing is logged; True calls
-      `logger.enable("permit")`.
+    - `log.enable` False calls `logger.disable("permit")`, so nothing is logged. True
+      undoes that call with `logger.enable("permit")` if an earlier client made it, and
+      otherwise leaves loguru's switches alone, so a `logger.disable` the application made
+      for the package or one of its modules still applies.
     - `log.level` drops the SDK's records below that severity before they reach any sink.
     - `log.label` is put in brackets before each message.
     - `log.log_as_json` is not applied: loguru serializes per sink, with
@@ -39,10 +41,9 @@ def configure_logger(config: PermitConfig) -> None:
     """
     sdk_logger.redact(config.token)
     if not config.log.enable:
-        logger.disable(PERMIT_MODULE)
+        sdk_logger.disable()
         return
-    sdk_logger.configure(min_level_no=_level_no(config.log.level), label=config.log.label)
-    logger.enable(PERMIT_MODULE)
+    sdk_logger.enable(min_level_no=_level_no(config.log.level), label=config.log.label)
 
 
 def _level_no(level: str) -> int:

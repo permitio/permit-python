@@ -51,6 +51,10 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
 
 - The SDK adds no loguru sink of its own. Its records go to the sinks your application has
   added, or to loguru's default stderr sink, in the format of those sinks.
+- `"enable": False` (the default) calls loguru's `logger.disable("permit")`. `"enable": True`
+  undoes that call, with `logger.enable("permit")`, only if an earlier client made it, so a
+  `logger.disable()` your application made for `permit` or one of its modules still
+  applies. When it does undo it, loguru also drops any `permit.*` module disable made since.
 - `level` (default `"info"`) is the lowest severity the SDK logs. Its records below it never
   reach a sink. Your application's own records are not affected. The SDK logs its HTTP
   requests and the PDP's responses at `"debug"`. With `"enable": True`, a level name loguru

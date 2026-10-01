@@ -58,10 +58,15 @@ def _permit_records_enabled() -> bool:
 
 @pytest.fixture(autouse=True)
 def isolated_logging() -> Iterator[None]:
-    """Start from a fresh SdkLogger, and put both it and loguru's permit switch back after."""
+    """Start as a fresh process does, and put the SdkLogger and loguru's switches back after.
+
+    Restoring loguru's switch for "permit" also drops any switch a test set for a module of
+    the package.
+    """
     was_enabled = _permit_records_enabled()
     saved = vars(sdk_logger).copy()
     vars(sdk_logger).update(vars(SdkLogger()))
+    logger.enable("permit")
     yield
     vars(sdk_logger).update(saved)
     if was_enabled:
@@ -533,6 +538,31 @@ def test_the_client_created_last_decides_whether_the_sdk_logs(
     with enabled.wait_for_sync():
         pass
     assert len(app_sinks.wait_for_sync_warnings()) == 1
+
+
+def test_an_enabled_client_keeps_a_disable_the_application_set_for_an_sdk_module(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    logger.disable("permit.enforcement")
+
+    permit = SyncPermit(make_config(httpserver, enable=True, level="debug"))
+    assert permit.check("user-1", "read", "document")
+
+    modules = {record["name"] for record in app_sinks.sdk_records()}
+    assert "permit.permit" in modules
+    assert [module for module in modules if module.startswith("permit.enforcement")] == []
+
+
+def test_an_enabled_client_keeps_a_disable_the_application_set_for_the_sdk(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    logger.disable("permit")
+
+    with SyncPermit(make_config(httpserver, enable=True)).wait_for_sync():
+        pass
+
+    assert app_sinks.sdk_records() == []
 
 
 def test_the_application_can_still_turn_the_sdk_records_on_itself(
