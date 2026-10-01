@@ -13,22 +13,39 @@ else:
 
 
 class LoggerConfig(BaseModel):
-    """Logging settings of the SDK."""
+    """Logging settings of the SDK.
+
+    The SDK logs with loguru and adds no sink of its own: its records go to the loguru sinks
+    the application has added, or to loguru's default stderr sink, in the format of those
+    sinks. loguru's logger is process-wide, so these settings are too: the client created
+    last decides whether the SDK logs, and the last one created with `enable` True decides
+    the level and the label, for every client in the process. No record the SDK logs
+    contains the API key: it is replaced with `[REDACTED]`.
+    """
 
     enable: bool = Field(
-        default=False, description="Whether or not to enable logging from the Permit library"
+        default=False,
+        description="Whether the SDK logs. False calls loguru's logger.disable('permit'), so "
+        "nothing is logged; True calls logger.enable('permit').",
     )
     level: str = Field(
-        default="info", description="Sets the log level configured for the Permit SDK Logger."
+        default="info",
+        description="The lowest severity the SDK logs, such as 'debug', 'info', 'warning' or "
+        "'error', in any case; 'warn' and 'fatal' are read as 'warning' and 'critical'. The SDK "
+        "drops its records below it before they reach any sink. "
+        "Read only when enable is True; a name loguru does not know raises ValueError when the "
+        "client is created.",
     )
     label: str = Field(
         default="Permit",
-        description="Sets the label configured for logs emitted by the Permit SDK Logger.",
+        description="Put in square brackets before the message of every record the SDK logs, "
+        "as in '[Permit] ...'. An empty string adds nothing. Read only when enable is True.",
     )
     log_as_json: bool = Field(
         default=False,
         alias="json",
-        description="Sets whether the SDK log output should be in JSON format.",
+        description="Not applied. The format of the SDK's records is that of the loguru sinks "
+        "they reach: for JSON, add a sink with logger.add(..., serialize=True).",
     )
 
 

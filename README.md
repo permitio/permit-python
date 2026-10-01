@@ -40,6 +40,26 @@ calls into the SDK against its type annotations. No pydantic mypy plugin is need
 - The blocking client, `permit.sync.Permit`, is typed as blocking:
   `permit.api.users.get("user")` returns a `UserRead`, not a coroutine.
 
+## Logging
+
+The SDK logs with [loguru](https://github.com/Delgan/loguru) and logs nothing unless you
+enable it in the `log` option:
+
+```py
+permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
+```
+
+- The SDK adds no loguru sink of its own. Its records go to the sinks your application has
+  added, or to loguru's default stderr sink, in the format of those sinks.
+- `level` (default `"info"`) is the lowest severity the SDK logs. Its records below it never
+  reach a sink. Your application's own records are not affected.
+- `label` (default `"Permit"`) is put in square brackets before every message the SDK logs.
+- `json` is not applied: for JSON output, add a sink with `logger.add(sys.stderr, serialize=True)`.
+- loguru's logger is process-wide, so these settings are too: the client created last
+  decides whether the SDK logs, and the last one created with `"enable": True` decides the
+  level and the label, for every client in the process.
+- No record the SDK logs contains the API key.
+
 ## Deprecations
 
 A future major release, permit 4.0, will remove the following. They still work in 3.x, and
