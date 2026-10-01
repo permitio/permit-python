@@ -245,10 +245,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [scan]
-    # PyPI trusted publishing: there is no PyPI token. PyPI accepts the upload
-    # only from the trusted publisher registered on the permit project, which
-    # names this repository, this workflow file and this environment. Renaming
-    # any of the three stops releases until the registration on pypi.org is
+    # PyPI trusted publishing: this job holds no PyPI token. PyPI accepts its
+    # upload because this repository, this workflow file and this environment
+    # are registered as a trusted publisher of the permit project on pypi.org.
+    # Renaming any of the three stops releases until that registration is
     # changed to match.
     environment:
       name: pypi
