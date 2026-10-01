@@ -142,9 +142,11 @@ async def test_the_pdp_answers_with_a_context_as_without_one(
     )
 
 
-async def test_the_blocking_client_sends_the_context_too(
+async def test_the_blocking_client_accepts_a_context(
     sync_permit: SyncPermit, policy: Policy
 ) -> None:
+    """The PDP accepts the blocking client's context; the offline test pins its bytes."""
+
     async def granted() -> dict[str, list[str]]:
         answer = sync_permit.get_user_permissions(
             policy.user, [policy.tenant], context=CONTEXTS[-1]
