@@ -319,6 +319,8 @@ The workflow has three jobs, each of which runs only if the one before it passed
    no PyPI token. PyPI accepts the upload because the `permit` project on pypi.org lists
    repository `permitio/permit-python`, workflow `python-sdk-publish.yml` and environment
    `pypi` as a trusted publisher. Renaming the workflow file or the environment needs the
-   same change on pypi.org first, or the next release cannot upload.
+   same change on pypi.org first, or the next release cannot upload. PyPI does not check
+   which branch or tag the job ran from, so the `pypi` environment's deployment rules
+   (Settings, Environments) are what keep a branch that edits the workflow from uploading.
 
 None of the jobs uses the Actions cache, and each has a timeout.

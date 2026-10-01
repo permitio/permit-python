@@ -249,7 +249,10 @@ jobs:
     # upload because this repository, this workflow file and this environment
     # are registered as a trusted publisher of the permit project on pypi.org.
     # Renaming any of the three stops releases until that registration is
-    # changed to match.
+    # changed to match. PyPI does not check which branch or tag the job ran
+    # from, so a branch that edits this file to run on push could upload too.
+    # What limits uploads to release tags is the pypi environment's deployment
+    # rules, a repository setting, not anything in this file.
     environment:
       name: pypi
       url: https://pypi.org/p/permit
