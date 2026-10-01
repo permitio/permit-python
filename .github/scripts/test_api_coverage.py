@@ -443,17 +443,19 @@ def test_an_e2e_record_without_e2e_requests_also_says_not_run(tmp_path: Path) ->
 def test_e2e_requests_fill_the_column_only_on_success(tmp_path: Path) -> None:
     e2e = [
         request_line("GET", "/v2/users", status=200, e2e=True),
-        request_line("GET", "/v2/users/u1", status=404, e2e=True),
+        request_line("GET", "/v2/templates/", status=399, e2e=True),
+        request_line("GET", "/v2/users/u1", status=400, e2e=True),
         request_line("POST", "/allowed", status=None, e2e=True),
         request_line("GET", "/v2/groups/direct", status=200, e2e=False),
     ]
     outcome = report(tmp_path, e2e=[e2e])
     exercised = {op["operation"]: op["e2e"] for op in outcome.result["operations"]}
     assert exercised["GET /v2/users"] is True
+    assert exercised["GET /v2/templates/"] is True
     assert exercised["GET /v2/users/{user_id}"] is False
     assert exercised["POST /allowed"] is False
     assert exercised["GET /v2/groups/direct"] is False
-    assert "| Control plane | GA | 4 | 4 | 0 | 0 | 0 | 0 | 1 |" in outcome.summary
+    assert "| Control plane | GA | 4 | 4 | 0 | 0 | 0 | 0 | 2 |" in outcome.summary
 
 
 def test_e2e_requests_never_make_an_operation_covered(tmp_path: Path) -> None:
