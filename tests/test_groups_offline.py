@@ -28,7 +28,7 @@ from permit.api.models import (
     PaginatedResultGroupReadSchema,
 )
 from permit.config import PermitConfig
-from permit.exceptions import PermitApiError
+from permit.exceptions import PermitAlreadyExistsError, PermitApiError, PermitNotFoundError
 from permit.sync import Permit as SyncPermit
 from tests.utils import SCHEMA, Call, call, sent
 
@@ -334,21 +334,41 @@ def test_request_and_response(
         assert result == case.model.parse_obj(case.response)
 
 
+class ApiError(NamedTuple):
+    """An error status, the error code the API sends with it, and what the SDK raises."""
+
+    status: int
+    error_code: str
+    raises: type[PermitApiError]
+
+
+API_ERRORS = {
+    "404": ApiError(404, "NOT_FOUND", PermitNotFoundError),
+    "409": ApiError(409, "DUPLICATE_ENTITY", PermitAlreadyExistsError),
+}
+
+
 @pytest.mark.parametrize("flavour", ["async", "sync"])
-@pytest.mark.parametrize("status", [404, 409])
+@pytest.mark.parametrize("error", API_ERRORS.values(), ids=API_ERRORS.keys())
 @pytest.mark.parametrize("case", BASIC_CASES.values(), ids=BASIC_CASES.keys())
-def test_error_status_raises_permit_api_error(
-    httpserver: HTTPServer, config: PermitConfig, case: Case, status: int, flavour: str
+def test_an_api_error_raises_the_matching_permit_api_error(
+    httpserver: HTTPServer, config: PermitConfig, case: Case, error: ApiError, flavour: str
 ) -> None:
-    detail = {"error_code": "ERROR", "message": f"status {status}"}
+    detail = {
+        "id": "request-1",
+        "title": f"status {error.status}",
+        "error_code": error.error_code,
+        "message": f"status {error.status}",
+    }
     httpserver.expect_request(case.path, method=case.method).respond_with_json(
-        detail, status=status
+        detail, status=error.status
     )
 
     with pytest.raises(PermitApiError) as raised:
         invoke(config, flavour, case.call)
 
-    assert raised.value.status_code == status
+    assert type(raised.value) is error.raises
+    assert raised.value.status_code == error.status
     assert raised.value.details == detail
     assert len(httpserver.log) == 1
 
