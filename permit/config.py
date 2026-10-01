@@ -71,8 +71,11 @@ class PermitConfig(BaseModel):
 
     # A positional `...`, not `default=...`: type checkers take any `default=`
     # keyword as a default, so `PermitConfig()` without a token would pass them.
+    # repr=False keeps the key out of repr() and str() of the config, and so out of
+    # tracebacks that print frame values, such as loguru's with diagnose=True.
     token: str = Field(
         ...,
+        repr=False,
         description="The token (API Key) used for authorization against the PDP "
         "and the Permit REST API.",
     )

@@ -286,6 +286,29 @@ def test_an_unknown_level_fails_when_the_client_is_created(httpserver: HTTPServe
         SyncPermit(make_config(httpserver, enable=True, level="verbose"))
 
 
+def test_the_traceback_of_a_failed_client_creation_hides_the_api_key(
+    httpserver: HTTPServer,
+) -> None:
+    lines: list[str] = []
+    # diagnose=True, loguru's default, prints the value of each name on every line of the
+    # traceback, and the SDK's frames pass the config around.
+    sink_id = logger.add(lines.append, diagnose=True, backtrace=True)
+    config = make_config(httpserver, enable=True, level="verbose")
+    try:
+        try:
+            SyncPermit(config)
+        except ValueError:
+            logger.exception("the application could not start")
+    finally:
+        logger.remove(sink_id)
+
+    output = "".join(lines)
+    assert "configure_logger(" in output
+    assert "PermitConfig(pdp=" in output
+    assert SENTINEL not in output
+    assert SENTINEL not in str(config)
+
+
 # loguru cannot remove a level once added, so this application runs in its own process.
 CUSTOM_LEVEL_APP = f"""
 import sys
