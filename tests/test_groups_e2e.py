@@ -91,7 +91,7 @@ class GroupPolicy:
     document_type: str
 
     def group(self, key: str) -> str:
-        """The group's identifier in the ``<resource_key>:<resource_instance_key>`` form."""
+        """The group's identifier in the ``"<type>:<key>"`` form."""
         return f"{self.group_type}:{key}"
 
     def document(self, key: str) -> dict[str, Any]:
@@ -299,7 +299,7 @@ async def test_list_and_get_return_the_group(
     await assert_no_group(permit, key)
 
 
-@pytest.mark.parametrize("form", ["resource_key:instance_key", "id"])
+@pytest.mark.parametrize("form", ["type:key", "id"])
 async def test_a_group_is_managed_by_either_identifier(
     permit: Permit, teardown: AsyncExitStack, group_policy: GroupPolicy, form: str
 ) -> None:
@@ -443,10 +443,10 @@ async def test_assign_group_makes_the_group_a_member_of_the_other(
         await groups.assign_group(inner, {"group_instance_key": outer_key})
     assert duplicate.value.status_code == CONFLICT
     # The group in the body is looked up by its instance key or id among groups of the
-    # path group's type; the qualified form names none of them.
-    with pytest.raises(PermitApiError) as qualified:
+    # path group's type; the "<type>:<key>" form names none of them.
+    with pytest.raises(PermitApiError) as type_and_key:
         await groups.assign_group(inner, {"group_instance_key": outer})
-    assert qualified.value.status_code == NOT_FOUND
+    assert type_and_key.value.status_code == NOT_FOUND
 
     await groups.remove_group(inner, GroupAssignment(group_instance_key=outer_key))
 
