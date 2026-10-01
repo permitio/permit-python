@@ -242,10 +242,11 @@ jobs:
   # - latest PDP image: the suite against permitio/pdp-v2:latest, on pydantic 2.
   #   Red here with `pytest` green means the newest PDP release behaves unlike
   #   PINNED_PDP_IMAGE.
-  # - cloud PDP: tests/test_abac_pdp.py against the hosted cloud PDP. Those
-  #   tests apply only there, and skip under `pytest` (see that module). They
-  #   pass only on the cloud PDP's 501 answer, not on a rejected key or a
-  #   PDP that cannot be reached.
+  # - cloud PDP: tests/test_cloud_pdp_e2e.py against the hosted cloud PDP. Each
+  #   test builds a small RBAC policy in the scratch environment, waits for the
+  #   cloud PDP to apply it, and asserts the exact answers of check, bulk_check,
+  #   get_user_permissions and filter_objects. The module skips wherever PDP_URL
+  #   points at a PDP container (see that module).
   # Each leg makes its own scratch environment, keyed by run, attempt and leg,
   # so it never shares one with a `pytest` lane, the other leg or a re-run.
   e2e-unpinned-pdp:
@@ -272,7 +273,7 @@ jobs:
             # No container: the tests call the hosted PDP.
             pdp-image: ''
             pdp-url: https://cloudpdp.api.permit.io
-            tests: tests/test_abac_pdp.py
+            tests: tests/test_cloud_pdp_e2e.py
             all-must-run: true
     steps:
       - name: Checkout code
@@ -387,10 +388,10 @@ jobs:
           uv run --no-sync pytest -s --cache-clear
           --junitxml="${RUNNER_TEMP}/junit.xml" "${TESTS}"
 
-      # Cloud leg only. tests/test_abac_pdp.py skips itself unless PDP_URL is the
-      # cloud PDP. If that check and this leg's PDP_URL ever disagree, every test
-      # skips and the leg passes having tested nothing. The whole suite, which
-      # the latest-PDP leg runs, has tests that skip by design.
+      # Cloud leg only. tests/test_cloud_pdp_e2e.py skips itself unless PDP_URL is
+      # the cloud PDP. If that check and this leg's PDP_URL ever disagree, every
+      # test skips and the leg passes having tested nothing. The whole suite,
+      # which the latest-PDP leg runs, has tests that skip by design.
       - name: Check that no test was skipped
         if: matrix.all-must-run
         run: |

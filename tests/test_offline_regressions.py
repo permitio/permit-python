@@ -14,6 +14,7 @@ import warnings
 from collections.abc import AsyncIterator, Sequence
 from datetime import datetime, timezone
 from decimal import Decimal
+from operator import attrgetter
 from pathlib import Path
 from typing import Any, get_type_hints
 from uuid import UUID, uuid4
@@ -62,7 +63,7 @@ from permit.pdp_api.pdp_api_client import SyncPDPApi
 from permit.utils import pydantic_version
 from permit.utils.context import ContextStore
 from permit.utils.deprecation import deprecated
-from tests.utils import FACTS
+from tests.utils import FACTS, Call, call
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -598,6 +599,55 @@ def test_check_query_context_is_optional() -> None:
     # is valid and the TypedDict must not make type checkers demand it.
     assert CheckQuery.__required_keys__ == {"user", "action", "resource"}
     assert CheckQuery.__optional_keys__ == {"context"}
+
+
+# How each decision call reports the status: "got an error: 501" (check), "status code: 501"
+# (get_user_permissions and bulk_check, which filter_objects calls). The message also holds
+# the PDP's URL, and a random httpserver port can contain 501, so a bare "501" proves nothing.
+NOT_IMPLEMENTED = r"(?:status code|got an error): 501\b"
+
+
+@pytest.mark.parametrize(
+    ("pdp_path", "target"),
+    [
+        pytest.param(
+            "/allowed",
+            call("check", "user-1", "read", {"type": "document", "tenant": "t1"}),
+            id="check",
+        ),
+        pytest.param(
+            "/user-permissions",
+            call("get_user_permissions", "user-1", tenants=["t1"]),
+            id="get_user_permissions",
+        ),
+        pytest.param(
+            "/allowed/bulk",
+            call(
+                "filter_objects",
+                "user-1",
+                "read",
+                {},
+                [{"type": "document", "key": "doc-1", "tenant": "t1"}],
+            ),
+            id="filter_objects",
+        ),
+    ],
+)
+async def test_a_pdp_answering_501_raises_a_connection_error_naming_the_status(
+    httpserver: HTTPServer, config: PermitConfig, pdp_path: str, target: Call
+) -> None:
+    """A PDP that does not implement a decision call answers 501 (Not Implemented).
+
+    The SDK must raise rather than return a decision, and say which status it got.
+    """
+    httpserver.expect_request(pdp_path, method="POST").respond_with_json(
+        {"detail": "not implemented"}, status=501
+    )
+
+    with pytest.raises(PermitConnectionError, match=NOT_IMPLEMENTED):
+        await attrgetter(target.path)(Permit(config))(*target.args, **target.kwargs)
+
+    assert single_request(httpserver).path == pdp_path
 
 
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
