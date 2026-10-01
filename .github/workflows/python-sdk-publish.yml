@@ -20,6 +20,9 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-24.04
+    # Each job here usually takes under a minute. The timeouts end a hung
+    # step long before GitHub's default of six hours.
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,6 +140,7 @@ jobs:
   scan:
     name: Security Gate
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     needs: [build]
     steps:
       - name: Checkout code
@@ -238,6 +242,7 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     needs: [scan]
     # PyPI trusted publishing: there is no PyPI token. PyPI accepts the upload
     # only from the trusted publisher registered on the permit project, which
