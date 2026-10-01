@@ -1,9 +1,8 @@
 name: Test
 on:
+  # Every PR, whatever its base: a stacked PR, whose base is another PR's
+  # branch, gets the full suite before it merges.
   pull_request:
-    branches:
-      - main
-      - master
   push:
     branches:
       - main
