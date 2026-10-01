@@ -1,9 +1,11 @@
 from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
-import aiohttp
 from aiohttp import ClientTimeout
+from multidict import CIMultiDict
+from yarl import URL
 
 from permit.api.encoders import jsonable_encoder
+from permit.utils.http_sessions import LoopSessions
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 from permit.utils.sdk_logger import sdk_logger
 
@@ -56,16 +58,100 @@ class ClientConfig(BaseModel):
     )
 
 
+# What a SimpleHttpClient's client_config may set. The other options of an aiohttp session
+# cannot be set per client, since the client sends its requests through shared sessions.
+_CLIENT_CONFIG_KEYS = frozenset({"base_url", "headers", "timeout"})
+
+
+def _session_base_url(base_url: str | URL) -> URL:
+    """``base_url`` as ``aiohttp.ClientSession(base_url=...)`` reads it, raising what it raises.
+
+    Raises:
+        ValueError: If ``base_url`` has no scheme or host, or its path does not end with "/".
+    """
+    if isinstance(base_url, URL):
+        url = base_url
+    else:
+        url = URL(base_url)
+        url.origin()  # raises ValueError for a URL without a scheme and a host
+    if not url.path.endswith("/"):
+        msg = "base_url must have a trailing '/'"
+        raise ValueError(msg)
+    return url
+
+
 class SimpleHttpClient:
-    """wraps aiohttp client to reduce boilerplace."""
+    """Sends requests to one endpoint and parses their JSON responses.
+
+    The requests go through ``sessions``, which keep their connections open for the next
+    request. Everything else a request carries comes from this client and the call itself,
+    so the sessions can serve every client of an SDK client.
+
+    Args:
+        client_config: Optional request settings: ``base_url``, the server a relative request
+            URL is resolved against, as ``aiohttp.ClientSession(base_url=...)`` resolves it;
+            ``headers``, sent with every request; and ``timeout``, an
+            ``aiohttp.ClientTimeout``.
+        base_url: The endpoint's path, put before the URL of every request.
+        timeout: The total timeout of each request in seconds, in place of
+            ``client_config["timeout"]``.
+        sessions: The sessions to send the requests through. Without them, the client has
+            sessions of its own.
+
+    Raises:
+        TypeError: If ``client_config`` has a key other than those above.
+    """
 
     def __init__(
-        self, client_config: dict[str, Any], base_url: str = "", timeout: int | None = None
+        self,
+        client_config: dict[str, Any],
+        base_url: str = "",
+        timeout: int | None = None,
+        *,
+        sessions: LoopSessions | None = None,
     ) -> None:
-        self._client_config = client_config
+        unsupported = sorted(set(client_config) - _CLIENT_CONFIG_KEYS)
+        if unsupported:
+            msg = (
+                f"SimpleHttpClient does not take the client_config keys {unsupported}: "
+                f"it sets only {sorted(_CLIENT_CONFIG_KEYS)} on its requests."
+            )
+            raise TypeError(msg)
+        self._server_url: str | URL | None = client_config.get("base_url")
+        self._headers: dict[str, str] | None = client_config.get("headers")
+        self._timeout: ClientTimeout | None = (
+            ClientTimeout(total=timeout) if timeout is not None else client_config.get("timeout")
+        )
         self._base_url = base_url
-        if timeout is not None:
-            self._client_config["timeout"] = ClientTimeout(total=timeout)
+        self._sessions = sessions if sessions is not None else LoopSessions()
+
+    def _use_sessions(self, sessions: LoopSessions) -> None:
+        """Send the requests through ``sessions`` from now on."""
+        self._sessions = sessions
+
+    def _request_url(self, url: str) -> URL:
+        """``url`` resolved against the client's ``base_url``, as an aiohttp session does it.
+
+        Raises:
+            ValueError: If the client's ``base_url`` is not one an aiohttp session takes.
+        """
+        target = URL(url)
+        if self._server_url is None:
+            return target
+        server_url = _session_base_url(self._server_url)
+        return target if target.absolute else server_url.join(target)
+
+    def _request_options(self, options: dict[str, Any]) -> dict[str, Any]:
+        """The client's headers and timeout, with a request's own aiohttp ``options`` over them.
+
+        The request's options win, as they did over the options of a session of the
+        client's own: a header in ``options["headers"]`` replaces the client's header of
+        that name.
+        """
+        headers = CIMultiDict(self._headers or {})
+        headers.update(options.get("headers") or {})
+        defaults = {} if self._timeout is None else {"timeout": self._timeout}
+        return {**defaults, **options, "headers": headers}
 
     def _log_request(self, url: str, method: str) -> None:
         sdk_logger.debug(f"Sending HTTP request: {method} {url}")
@@ -100,13 +186,14 @@ class SimpleHttpClient:
     async def get(self, url: str, model: type[TModel], **kwargs: Any) -> TModel:
         """Send a GET request and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
-        async with aiohttp.ClientSession(**self._client_config) as client:
-            self._log_request(url, "GET")
-            async with client.get(url, **kwargs) as response:
-                await handle_api_error(response)
-                self._log_response(url, "GET", response.status)
-                data = await response.json()
-                return parse_obj_as(model, data)
+        target = self._request_url(url)
+        client = await self._sessions.current()
+        self._log_request(url, "GET")
+        async with client.get(target, **self._request_options(kwargs)) as response:
+            await handle_api_error(response)
+            self._log_response(url, "GET", response.status)
+            data = await response.json()
+            return parse_obj_as(model, data)
 
     @handle_client_error
     async def post(
@@ -118,13 +205,16 @@ class SimpleHttpClient:
     ) -> TModel:
         """Send a POST request with a JSON body and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
-        async with aiohttp.ClientSession(**self._client_config) as client:
-            self._log_request(url, "POST")
-            async with client.post(url, json=self._prepare_json(json), **kwargs) as response:
-                await handle_api_error(response)
-                self._log_response(url, "POST", response.status)
-                data = await response.json()
-                return parse_obj_as(model, data)
+        target = self._request_url(url)
+        client = await self._sessions.current()
+        self._log_request(url, "POST")
+        async with client.post(
+            target, json=self._prepare_json(json), **self._request_options(kwargs)
+        ) as response:
+            await handle_api_error(response)
+            self._log_response(url, "POST", response.status)
+            data = await response.json()
+            return parse_obj_as(model, data)
 
     @handle_client_error
     async def put(
@@ -136,13 +226,16 @@ class SimpleHttpClient:
     ) -> TModel:
         """Send a PUT request with a JSON body and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
-        async with aiohttp.ClientSession(**self._client_config) as client:
-            self._log_request(url, "PUT")
-            async with client.put(url, json=self._prepare_json(json), **kwargs) as response:
-                await handle_api_error(response)
-                self._log_response(url, "PUT", response.status)
-                data = await response.json()
-                return parse_obj_as(model, data)
+        target = self._request_url(url)
+        client = await self._sessions.current()
+        self._log_request(url, "PUT")
+        async with client.put(
+            target, json=self._prepare_json(json), **self._request_options(kwargs)
+        ) as response:
+            await handle_api_error(response)
+            self._log_response(url, "PUT", response.status)
+            data = await response.json()
+            return parse_obj_as(model, data)
 
     @handle_client_error
     async def patch(
@@ -154,13 +247,16 @@ class SimpleHttpClient:
     ) -> TModel:
         """Send a PATCH request with a JSON body and parse the JSON response into `model`."""
         url = f"{self._base_url}{url}"
-        async with aiohttp.ClientSession(**self._client_config) as client:
-            self._log_request(url, "PATCH")
-            async with client.patch(url, json=self._prepare_json(json), **kwargs) as response:
-                await handle_api_error(response)
-                self._log_response(url, "PATCH", response.status)
-                data = await response.json()
-                return parse_obj_as(model, data)
+        target = self._request_url(url)
+        client = await self._sessions.current()
+        self._log_request(url, "PATCH")
+        async with client.patch(
+            target, json=self._prepare_json(json), **self._request_options(kwargs)
+        ) as response:
+            await handle_api_error(response)
+            self._log_response(url, "PATCH", response.status)
+            data = await response.json()
+            return parse_obj_as(model, data)
 
     @overload
     async def delete(
@@ -190,15 +286,18 @@ class SimpleHttpClient:
     ) -> TModel | None:
         """Send a DELETE request; parse the JSON response into `model` if one is given."""
         url = f"{self._base_url}{url}"
-        async with aiohttp.ClientSession(**self._client_config) as client:
-            self._log_request(url, "DELETE")
-            async with client.delete(url, json=self._prepare_json(json), **kwargs) as response:
-                await handle_api_error(response)
-                self._log_response(url, "DELETE", response.status)
-                if model is None:
-                    return None
-                data = await response.json()
-                return parse_obj_as(model, data)
+        target = self._request_url(url)
+        client = await self._sessions.current()
+        self._log_request(url, "DELETE")
+        async with client.delete(
+            target, json=self._prepare_json(json), **self._request_options(kwargs)
+        ) as response:
+            await handle_api_error(response)
+            self._log_response(url, "DELETE", response.status)
+            if model is None:
+                return None
+            data = await response.json()
+            return parse_obj_as(model, data)
 
 
 class BasePermitApi:
@@ -211,10 +310,21 @@ class BasePermitApi:
             config: The Permit SDK configuration.
         """
         self.config = config
+        self._sessions = LoopSessions()
         self.__api_keys = self._build_http_client("/v2/api-key")
 
+    def _use_sessions(self, sessions: LoopSessions) -> None:
+        """Send the requests of this API and of the APIs and clients it holds through ``sessions``.
+
+        A Permit client calls it so that all of its APIs share one session per event loop.
+        """
+        self._sessions = sessions
+        for value in vars(self).values():
+            if isinstance(value, (BasePermitApi, SimpleHttpClient)):
+                value._use_sessions(sessions)  # noqa: SLF001 - SDK-internal
+
     def _build_http_client(
-        self, endpoint_url: str = "", *, use_pdp: bool = False, **kwargs: Any
+        self, endpoint_url: str = "", *, use_pdp: bool = False
     ) -> SimpleHttpClient:
         optional_headers = {}
         if self.config.proxy_facts_via_pdp:
@@ -231,12 +341,11 @@ class BasePermitApi:
                 **optional_headers,
             },
         )
-        client_config_dict = client_config.dict()
-        client_config_dict.update(kwargs)
         return SimpleHttpClient(
-            client_config_dict,
+            client_config.dict(),
             base_url=endpoint_url,
             timeout=self.config.api_timeout,
+            sessions=self._sessions,
         )
 
     async def _set_context_from_api_key(self) -> None:

@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from permit.config import PermitConfig
 from permit.pdp_api.role_assignments import RoleAssignmentsApi
+from permit.utils.http_sessions import LoopSessions
 from permit.utils.sync import SyncClass
 
 # Type checkers read this class from a generated stub: the SyncClass metaclass
@@ -35,6 +36,10 @@ class PermitPdpApiClient:
         self._base_url = self._config.pdp
 
         self._role_assignments = RoleAssignmentsApi(config)
+
+    def _use_sessions(self, sessions: LoopSessions) -> None:
+        """Send the requests of every API of this client through ``sessions`` from now on."""
+        self._role_assignments._use_sessions(sessions)  # noqa: SLF001 - SDK-internal
 
     @property
     def role_assignments(self) -> RoleAssignmentsApi:

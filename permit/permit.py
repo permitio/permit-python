@@ -19,11 +19,17 @@ from permit.enforcement.interfaces import AuthorizedUsersResult, TenantDetails
 from permit.logger import configure_logger
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
 from permit.utils.context import Context
+from permit.utils.http_sessions import LoopSessions
 from permit.utils.sdk_logger import sdk_logger
 
 
 class Permit:
     """The Permit SDK client (asyncio): authorization checks and the Permit REST API.
+
+    The client keeps its HTTP connections open and reuses them: one aiohttp session, with
+    its own pool of connections, for the Permit API and one for the PDP, per event loop it
+    is used on. They are created by the first request from each loop, and closed when that
+    loop shuts down its async generators, as ``asyncio.run()`` does.
 
     Args:
         config: The SDK configuration.
@@ -35,7 +41,10 @@ class Permit:
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
 
         configure_logger(self._config)
+        self._api_sessions = LoopSessions()
+        self._pdp_sessions = LoopSessions()
         self._connect()
+        self._share_sessions()
         sdk_logger.debug(
             f"Permit SDK initialized: api_url={self._config.api_url}, pdp={self._config.pdp}"
         )
@@ -46,6 +55,13 @@ class Permit:
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
         self._pdp_api = PermitPdpApiClient(self._config)
+
+    def _share_sessions(self) -> None:
+        """Make the clients `_connect()` created send their requests through the sessions."""
+        self._enforcer._use_sessions(self._pdp_sessions)  # noqa: SLF001 - SDK-internal
+        self._pdp_api._use_sessions(self._pdp_sessions)  # noqa: SLF001 - SDK-internal
+        self._api._use_sessions(self._api_sessions)  # noqa: SLF001 - SDK-internal
+        self._elements._use_sessions(self._api_sessions)  # noqa: SLF001 - SDK-internal
 
     @property
     def config(self) -> PermitConfig:
@@ -78,7 +94,8 @@ class Permit:
             PDP.
 
         Yields:
-            Permit: A Permit instance that is configured to wait for facts to be synced.
+            Permit: A Permit instance that is configured to wait for facts to be synced. It
+            sends its requests over this client's connections.
 
         See Also:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
@@ -98,6 +115,7 @@ class Permit:
         waiting: Self = copy.copy(self)
         waiting._config = contextualized_config
         waiting._connect()
+        waiting._share_sessions()
         yield waiting
 
     @property
