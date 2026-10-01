@@ -274,6 +274,19 @@ def test_a_with_block_that_raises_still_closes_the_client(
     assert not thread.is_alive()
 
 
+def test_async_with_is_refused(server: ConnectionCountingServer) -> None:
+    client = SyncPermit(offline_config(server.url))
+
+    async def enter() -> None:
+        async with client:
+            check(client)
+
+    with pytest.raises(TypeError, match=r"use `with Permit\(\.\.\.\) as permit:`"):
+        asyncio.run(enter())
+    assert loop_thread(client) is None
+    assert server.accepted == 0
+
+
 def test_close_waits_for_a_call_in_flight(
     permit: SyncPermit, server: ConnectionCountingServer
 ) -> None:
