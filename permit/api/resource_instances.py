@@ -24,7 +24,13 @@ from permit.api.models import (
     ResourceInstanceRead,
     ResourceInstanceUpdate,
 )
+from permit.utils.deprecation import _warn_deprecated
 from permit.utils.model_input import ModelInput, ModelListInput
+
+_DETAILED_KEY_DEPRECATION = (
+    "The detailed_key argument of permit.api.resource_instances.list() is deprecated and will "
+    "be removed in permit 4.0; use permit.api.resource_instances.list_detailed() instead."
+)
 
 
 def _filter_params(
@@ -86,7 +92,9 @@ class ResourceInstancesApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
             tenant_key: Only return instances that belong to this tenant.
             resource_key: Only return instances of this resource type.
-            detailed_key: Whether to return detailed instances.
+            detailed_key: Deprecated, to be removed in permit 4.0: use ``list_detailed()``.
+                Whether to return detailed instances. Passing True or False sends the API's
+                deprecated ``detailed`` query parameter and issues a ``DeprecationWarning``.
             search_key: Only return instances matching this search string.
 
         Returns:
@@ -97,6 +105,8 @@ class ResourceInstancesApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
+        if detailed_key is not None:
+            _warn_deprecated(_DETAILED_KEY_DEPRECATION)
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         params = _filter_params(

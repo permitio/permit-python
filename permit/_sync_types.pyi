@@ -1415,7 +1415,9 @@ class SyncResourceInstancesApi(BasePermitApi):
             per_page: How many items to fetch per page (default: 100).
             tenant_key: Only return instances that belong to this tenant.
             resource_key: Only return instances of this resource type.
-            detailed_key: Whether to return detailed instances.
+            detailed_key: Deprecated, to be removed in permit 4.0: use ``list_detailed()``.
+                Whether to return detailed instances. Passing True or False sends the API's
+                deprecated ``detailed`` query parameter and issues a ``DeprecationWarning``.
             search_key: Only return instances matching this search string.
 
         Returns:

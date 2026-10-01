@@ -1,4 +1,4 @@
-"""Offline tests for the detailed lists (PER-16337).
+"""Offline tests for the detailed lists and the detailed_key deprecation (PER-16337).
 
 ``list_detailed()`` on ``role_assignments``, ``resource_instances`` and
 ``relationship_tuples`` is called through the async and the blocking client. The tests
@@ -6,12 +6,15 @@ check the request it puts on the wire (method, path, query string, headers and b
 what the response parses into. For the same filters it must send exactly the query its
 module's ``list()`` sends, to the ``/detailed`` route next to it.
 
-Every request is served by a local ``pytest_httpserver`` and the API context is
+``resource_instances.list(detailed_key=...)`` keeps sending what it sent in 3.0, and warns
+once, at the line that called it, on both clients; a call without ``detailed_key`` does not
+warn. Every request is served by a local ``pytest_httpserver`` and the API context is
 pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
 import asyncio
 import inspect
+import warnings
 from operator import attrgetter
 from typing import Any, NamedTuple
 
@@ -444,3 +447,89 @@ def test_list_detailed_refuses_a_project_context_before_sending(
         invoke(config, flavour, call(f"api.{module}.list_detailed"))
 
     assert httpserver.log == []
+
+
+# --- resource_instances.list(detailed_key=...) -------------------------------------------
+
+INSTANCES = f"{FACTS}/resource_instances"
+DETAILED_KEY_WARNING = (
+    "The detailed_key argument of permit.api.resource_instances.list() is deprecated and will "
+    "be removed in permit 4.0; use permit.api.resource_instances.list_detailed() instead."
+)
+
+
+def list_blocking(permit: SyncPermit, target: Call) -> object:
+    return permit.api.resource_instances.list(*target.args, **target.kwargs)
+
+
+async def list_awaiting(permit: Permit, target: Call) -> object:
+    return await permit.api.resource_instances.list(*target.args, **target.kwargs)
+
+
+# The line each client's warning must name: the one statement of the helper above that
+# calls list() on that client.
+CALL_SITES = {
+    "sync": (__file__, list_blocking.__code__.co_firstlineno + 1),
+    "async": (__file__, list_awaiting.__code__.co_firstlineno + 1),
+}
+
+
+def call_list(config: PermitConfig, flavour: str, target: Call) -> list[tuple[str, str, int]]:
+    """Call resource_instances.list(), and return the DeprecationWarnings it issued.
+
+    Each warning is its message and the file and line it names. Other categories are left
+    out: a ResourceWarning, for one, comes from garbage collection and can land anywhere.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        if flavour == "async":
+            asyncio.run(list_awaiting(Permit(config), target))
+        else:
+            list_blocking(SyncPermit(config), target)
+    return [
+        (str(warning.message), warning.filename, warning.lineno)
+        for warning in caught
+        if issubclass(warning.category, DeprecationWarning)
+    ]
+
+
+DETAILED_KEY_CALLS = {
+    "true": (call("list", detailed_key=True), "true"),
+    "false": (call("list", detailed_key=False), "false"),
+    # A positional detailed_key is the case under test, so the bare boolean is the point.
+    "positional": (call("list", 1, 100, None, None, True), "true"),  # noqa: FBT003
+    "with-filters": (call("list", tenant_key="t1", detailed_key=True, search_key="r"), "true"),
+}
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    ("target", "detailed"), DETAILED_KEY_CALLS.values(), ids=DETAILED_KEY_CALLS.keys()
+)
+def test_detailed_key_warns_once_at_the_call_and_still_sends_the_detailed_flag(
+    httpserver: HTTPServer, config: PermitConfig, target: Call, detailed: str, flavour: str
+) -> None:
+    httpserver.expect_request(INSTANCES, method="GET").respond_with_json([])
+
+    caught = call_list(config, flavour, target)
+
+    assert caught == [(DETAILED_KEY_WARNING, *CALL_SITES[flavour])]
+    ((request, _),) = httpserver.log
+    assert ("detailed", detailed) in sent(request)["query"]
+    assert request.args.getlist("detailed") == [detailed]
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    "target",
+    [call("list"), call("list", detailed_key=None), call("list", 2, 10, "t1", "document")],
+    ids=["no-arguments", "detailed-key-none", "other-filters"],
+)
+def test_list_without_detailed_key_neither_warns_nor_sends_the_flag(
+    httpserver: HTTPServer, config: PermitConfig, target: Call, flavour: str
+) -> None:
+    httpserver.expect_request(INSTANCES, method="GET").respond_with_json([])
+
+    assert call_list(config, flavour, target) == []
+    ((request, _),) = httpserver.log
+    assert "detailed" not in request.args

@@ -159,6 +159,10 @@ each one issues a `DeprecationWarning` that says what to do instead.
   replacement.
 - **`permit.api.tenants.add_user()`**, an alias of `permit.api.tenants.create_user()`. The
   route creates the user, so `create_user()` is the name that says what it does.
+- **The `detailed_key` argument of `permit.api.resource_instances.list()`**, which sends a
+  query parameter the API has deprecated. Use `permit.api.resource_instances.list_detailed()`
+  instead (see [Detailed lists](#detailed-lists)). Only a call that passes `detailed_key=True`
+  or `detailed_key=False` warns.
 
 By default, Python shows these warnings only when the code that triggers them is in
 `__main__`, such as the script you run. pytest shows them in its warnings summary. To see
