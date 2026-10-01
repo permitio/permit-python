@@ -147,7 +147,8 @@ passed or not:
 - `e2e (cloud PDP)` is not a required check. Once both `pytest` jobs pass, it runs
   `tests/test_abac_pdp.py` against the hosted cloud PDP, `https://cloudpdp.api.permit.io`,
   with no container. Those tests apply only to the cloud PDP and skip anywhere else, so this
-  job fails if any of them is skipped.
+  job fails if any of them is skipped. Each test passes only if the cloud PDP answers 501
+  (not implemented): a rejected key, a server error or an unreachable PDP fails it.
 
 The jobs set:
 

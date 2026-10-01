@@ -244,7 +244,9 @@ jobs:
   #   Red here with `pytest` green means the newest PDP release behaves unlike
   #   PINNED_PDP_IMAGE.
   # - cloud PDP: tests/test_abac_pdp.py against the hosted cloud PDP. Those
-  #   tests apply only there, and skip under `pytest` (see that module).
+  #   tests apply only there, and skip under `pytest` (see that module). They
+  #   pass only on the cloud PDP's 501 answer, not on a rejected key or a
+  #   PDP that cannot be reached.
   # Each leg makes its own scratch environment, keyed by run, attempt and leg,
   # so it never shares one with a `pytest` lane, the other leg or a re-run.
   e2e-unpinned-pdp:

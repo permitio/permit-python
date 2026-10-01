@@ -1,7 +1,6 @@
 import os
 from typing import Any
 
-import aiohttp
 import pytest
 
 from permit import Permit, PermitConnectionError, TenantCreate, UserCreate
@@ -24,6 +23,12 @@ CLOUD_PDP_URL = "https://cloudpdp.api.permit.io"
 # with the reason, where they are not. The `e2e (cloud PDP)` job in the same
 # workflow sets PDP_URL to the cloud PDP and fails if any of them is skipped.
 CONFIGURED_PDP_URL = os.getenv("PDP_URL", CLOUD_PDP_URL)
+
+# The SDK raises PermitConnectionError for any non-200 answer and for a PDP it
+# cannot reach, and puts the status code in the message. Matching 501 tells
+# the cloud PDP's "not implemented" apart from a rejected key (401/403), a
+# server error or a network failure, which must fail these tests.
+NOT_IMPLEMENTED = r"(?:status code|got an error): 501\b"
 
 pytestmark = [
     pytest.mark.e2e,
@@ -51,7 +56,7 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit) -> None:
     )
     tesla = TenantCreate(key="tesla", name="Tesla Inc")
 
-    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
+    with pytest.raises(PermitConnectionError, match=NOT_IMPLEMENTED):
         await permit_cloud.check(
             abac_user(user_test),
             "sign",
@@ -61,7 +66,6 @@ async def test_abac_pdp_cloud_error(permit_cloud: Permit) -> None:
                 "attributes": {"private": False},
             },
         )
-    assert isinstance(exc_info.value, PermitConnectionError)
 
 
 async def test_get_user_permissions_cloud_error(permit_cloud: Permit) -> None:
@@ -73,7 +77,7 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit) -> None:
         attributes={"age": 23},
     )
 
-    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
+    with pytest.raises(PermitConnectionError, match=NOT_IMPLEMENTED):
         await permit_cloud.get_user_permissions(
             user={
                 "key": user_test.key,
@@ -84,7 +88,6 @@ async def test_get_user_permissions_cloud_error(permit_cloud: Permit) -> None:
             resources=["Blog:dddddd"],
             resource_types=["Blog"],
         )
-    assert isinstance(exc_info.value, PermitConnectionError)
 
 
 async def test_filter_objects_cloud_error(permit_cloud: Permit) -> None:
@@ -95,8 +98,7 @@ async def test_filter_objects_cloud_error(permit_cloud: Permit) -> None:
         {"type": "Document", "key": "doc2", "context": {}, "attributes": {}, "tenant": "default"},
     ]
 
-    with pytest.raises((PermitConnectionError, aiohttp.ClientError)) as exc_info:
+    with pytest.raises(PermitConnectionError, match=NOT_IMPLEMENTED):
         await permit_cloud.filter_objects(
             user=user_test, action="read", context={}, resources=test_resources
         )
-    assert isinstance(exc_info.value, PermitConnectionError)
