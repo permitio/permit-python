@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import concurrent.futures
 import threading
 import weakref
@@ -28,7 +29,9 @@ class LoopSessions:
     - by ``close()``;
     - when its loop shuts down its async generators, as ``asyncio.run()`` and
       ``asyncio.Runner`` do before they close the loop, so a program that never calls
-      ``close()`` does not leave it open.
+      ``close()`` does not leave it open;
+    - as the interpreter exits, if its loop is still open then: on that loop if it is not
+      running, or by that loop's thread if it runs in another thread.
 
     The sessions carry no headers, base URL or timeout: each request brings its own, so one
     session serves every request sent from its loop. They keep no cookies either, so a
@@ -38,6 +41,7 @@ class LoopSessions:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._sessions: dict[asyncio.AbstractEventLoop, _LoopSession] = {}
+        _open_at_exit.add(self)
 
     async def current(self) -> aiohttp.ClientSession:
         """The session of the running event loop, created by the first call from that loop.
@@ -111,6 +115,19 @@ class LoopSessions:
         closed = [loop for loop in self._sessions if loop.is_closed()]
         return [self._sessions.pop(loop) for loop in closed]
 
+    def _close_at_exit(self) -> None:
+        """Close every session as the interpreter exits, from a thread that runs no loop."""
+        with self._lock:
+            entries = list(self._sessions.items())
+            self._sessions.clear()
+        of_closed_loops = [
+            entry.session for loop, entry in entries if not _close_at_exit_on(loop, entry.closer)
+        ]
+        if of_closed_loops:
+            # The connections of a closed loop cannot be closed, but its sessions can be
+            # marked closed from any loop, which keeps aiohttp from reporting them unclosed.
+            asyncio.run(_close_all(of_closed_loops))
+
 
 async def _close_with_loop(
     sessions: weakref.ref[LoopSessions],
@@ -135,6 +152,11 @@ async def _aclose(closer: AsyncGenerator[None, None]) -> None:
     await closer.aclose()
 
 
+async def _close_all(sessions: list[aiohttp.ClientSession]) -> None:
+    for session in sessions:
+        await session.close()
+
+
 def _start_closing(
     loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]
 ) -> concurrent.futures.Future[None] | None:
@@ -145,3 +167,26 @@ def _start_closing(
     except RuntimeError:
         closing.close()
         return None
+
+
+def _close_at_exit_on(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]) -> bool:
+    """Close ``closer`` on ``loop`` as the interpreter exits; False if ``loop`` is closed.
+
+    A loop running in another thread gets the close to run, and is not waited for: its
+    thread, if it is a daemon, may be stopped first, which leaves nothing to report.
+    """
+    if loop.is_closed():
+        return False
+    if loop.is_running():
+        return _start_closing(loop, closer) is not None
+    loop.run_until_complete(closer.aclose())
+    return True
+
+
+_open_at_exit: weakref.WeakSet[LoopSessions] = weakref.WeakSet()
+
+
+@atexit.register
+def _close_open_sessions_at_exit() -> None:
+    for sessions in list(_open_at_exit):
+        sessions._close_at_exit()  # noqa: SLF001 - this module's own class

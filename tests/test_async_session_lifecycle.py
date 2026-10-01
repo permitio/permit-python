@@ -8,11 +8,16 @@ API and the PDP do.
 
 import asyncio
 import gc
+import os
+import subprocess
+import sys
+import textwrap
 import threading
 import time
 import warnings
 import weakref
 from collections.abc import Callable, Coroutine, Iterator
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -28,6 +33,7 @@ from permit.utils.http_sessions import LoopSessions
 from tests.keepalive_server import KeepAliveServer, ServedRequest
 from tests.utils import FACTS, offline_config
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 USERS_PAGE = {"data": [], "total_count": 0, "page_count": 0}
 # How long a test waits for a loop in another thread.
 THREAD_TIMEOUT_SECONDS = 5.0
@@ -496,3 +502,69 @@ def test_close_closes_the_session_of_a_loop_closed_without_shutting_down(
         del client
 
     assert_nothing_reported_unclosed(drop)
+
+
+# --- interpreter exit ----------------------------------------------------------
+
+EXIT_SCRIPT = """
+import asyncio
+import sys
+import threading
+
+from permit import Permit
+
+client = Permit(token="test-token", pdp=sys.argv[1], api_url=sys.argv[1])
+loop = asyncio.new_event_loop()
+check = client.check("user-1", "read", "document")
+{use}
+print("checked")
+"""
+
+EXIT_SCENARIOS = {
+    "a loop still running in a daemon thread": """
+threading.Thread(target=loop.run_forever, daemon=True).start()
+assert asyncio.run_coroutine_threadsafe(check, loop).result(5)
+""",
+    "a loop that is not running": """
+assert loop.run_until_complete(check)
+""",
+    "a loop closed without shutting down": """
+assert loop.run_until_complete(check)
+loop.close()
+""",
+}
+
+
+@pytest.mark.parametrize("use", EXIT_SCENARIOS.values(), ids=EXIT_SCENARIOS.keys())
+def test_a_client_never_closed_reports_nothing_unclosed_at_exit(
+    server: KeepAliveServer, use: str
+) -> None:
+    """The interpreter's exit closes the sessions whose loop it finds still open.
+
+    The script runs under Python's default warning filters, as an application does: they
+    hide ResourceWarnings, but not what aiohttp logs about a session it finds unclosed.
+    """
+    script = EXIT_SCRIPT.format(use=textwrap.dedent(use))
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-c", script, server.url],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout) == (0, "checked\n"), result.stderr
+    reported = [
+        line
+        for line in result.stderr.splitlines()
+        if "nclosed" in line or "Exception ignored" in line
+    ]
+    assert reported == []
