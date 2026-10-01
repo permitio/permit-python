@@ -1,4 +1,4 @@
-"""Offline tests for tenant membership (PER-16678): tenants.add_user() and get_user_tenants().
+"""Offline tests for tenant membership (PER-16678): tenants.create_user() and get_user_tenants().
 
 Each call goes through the async and the blocking client, and the test checks the request
 it puts on the wire (method, path, query string, headers and JSON body) and what the
@@ -278,7 +278,7 @@ def test_get_user_tenants_rejects_a_user_without_a_key_before_sending(
     assert httpserver.log == []
 
 
-# --- tenants.add_user() -----------------------------------------------------------
+# --- tenants.create_user() -----------------------------------------------------------
 
 
 NOW = "2024-01-01T00:00:00+00:00"
@@ -307,21 +307,21 @@ USER_READ = {
     "attributes": {"dept": "eng"},
 }
 
-ADD_USER_CASES = {
+CREATE_USER_CASES = {
     "model": Case(
-        call("api.tenants.add_user", "t1", UserCreate(**NEW_USER)), TENANT_USERS, NEW_USER
+        call("api.tenants.create_user", "t1", UserCreate(**NEW_USER)), TENANT_USERS, NEW_USER
     ),
-    "dict": Case(call("api.tenants.add_user", "t1", NEW_USER), TENANT_USERS, NEW_USER),
+    "dict": Case(call("api.tenants.create_user", "t1", NEW_USER), TENANT_USERS, NEW_USER),
     "key-only": Case(
-        call("api.tenants.add_user", "t1", {"key": "bob"}), TENANT_USERS, {"key": "bob"}
+        call("api.tenants.create_user", "t1", {"key": "bob"}), TENANT_USERS, {"key": "bob"}
     ),
     "tenant-id-keywords": Case(
-        call("api.tenants.add_user", tenant_key=TENANT_ID, user_data={"key": "alice"}),
+        call("api.tenants.create_user", tenant_key=TENANT_ID, user_data={"key": "alice"}),
         f"{FACTS}/tenants/{TENANT_ID}/users",
         {"key": "alice"},
     ),
     "role-assignments": Case(
-        call("api.tenants.add_user", "t1", USER_WITH_ROLES), TENANT_USERS, USER_WITH_ROLES
+        call("api.tenants.create_user", "t1", USER_WITH_ROLES), TENANT_USERS, USER_WITH_ROLES
     ),
 }
 
@@ -341,8 +341,8 @@ def split_config(config: PermitConfig, pdp_server: HTTPServer) -> PermitConfig:
 
 @pytest.mark.parametrize("flavour", FLAVOURS)
 @pytest.mark.parametrize("proxy_facts_via_pdp", [False, True], ids=["api", "proxy-via-pdp"])
-@pytest.mark.parametrize("case", ADD_USER_CASES.values(), ids=ADD_USER_CASES.keys())
-def test_add_user_posts_the_user_to_the_api(
+@pytest.mark.parametrize("case", CREATE_USER_CASES.values(), ids=CREATE_USER_CASES.keys())
+def test_create_user_posts_the_user_to_the_api(
     *,
     httpserver: HTTPServer,
     pdp_server: HTTPServer,
@@ -351,7 +351,7 @@ def test_add_user_posts_the_user_to_the_api(
     proxy_facts_via_pdp: bool,
     flavour: str,
 ) -> None:
-    """add_user() goes to the Permit REST API whether or not facts are proxied via the PDP."""
+    """create_user() goes to the Permit REST API whether or not facts are proxied via the PDP."""
     split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
     httpserver.expect_request(case.path, method="POST").respond_with_json(USER_READ)
 
@@ -363,6 +363,35 @@ def test_add_user_posts_the_user_to_the_api(
     assert [sent_headers(request) for request, _ in httpserver.log] == [JSON_HEADERS]
     assert pdp_server.log == []
     assert type(result) is UserRead
+    assert result == UserRead.parse_obj(USER_READ)
+
+
+ADD_USER_WARNING = (
+    r"^permit\.api\.tenants\.add_user\(\) is deprecated and will be removed in permit 4\.0; "
+    r"use permit\.api\.tenants\.create_user\(\) instead\.$"
+)
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_add_user_warns_at_the_call_and_sends_what_create_user_sends(
+    httpserver: HTTPServer, config: PermitConfig, flavour: str
+) -> None:
+    """add_user() is a deprecated alias of create_user(): one warning, then the same request."""
+    httpserver.expect_request(TENANT_USERS, method="POST").respond_with_json(USER_READ)
+
+    async def call_awaiting() -> UserRead:
+        return await Permit(config).api.tenants.add_user("t1", NEW_USER)
+
+    def call_blocking() -> UserRead:
+        return SyncPermit(config).api.tenants.add_user("t1", NEW_USER)
+
+    with pytest.warns(DeprecationWarning, match=ADD_USER_WARNING) as caught:
+        result = asyncio.run(call_awaiting()) if flavour == "async" else call_blocking()
+
+    assert [warning.filename for warning in caught] == [__file__]
+    assert [sent(request) for request, _ in httpserver.log] == [
+        {"method": "POST", "path": TENANT_USERS, "query": [], "body": NEW_USER}
+    ]
     assert result == UserRead.parse_obj(USER_READ)
 
 
@@ -381,7 +410,7 @@ def test_delete_tenant_user_still_follows_proxy_facts_via_pdp(
     path: str,
     flavour: str,
 ) -> None:
-    """The tenants API's other calls keep the routing add_user() opts out of."""
+    """The tenants API's other calls keep the routing create_user() opts out of."""
     split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
     server, other = (pdp_server, httpserver) if proxy_facts_via_pdp else (httpserver, pdp_server)
     server.expect_request(path, method="DELETE").respond_with_data("", status=204)
@@ -410,7 +439,7 @@ API_ERRORS = {
 
 @pytest.mark.parametrize("flavour", FLAVOURS)
 @pytest.mark.parametrize("error", API_ERRORS.values(), ids=API_ERRORS.keys())
-def test_add_user_raises_the_matching_permit_api_error(
+def test_create_user_raises_the_matching_permit_api_error(
     httpserver: HTTPServer, config: PermitConfig, error: ApiError, flavour: str
 ) -> None:
     detail = {
@@ -424,7 +453,7 @@ def test_add_user_raises_the_matching_permit_api_error(
     )
 
     with pytest.raises(PermitApiError) as raised:
-        invoke(config, flavour, call("api.tenants.add_user", "t1", {"key": "alice"}))
+        invoke(config, flavour, call("api.tenants.create_user", "t1", {"key": "alice"}))
 
     assert type(raised.value) is error.raises
     assert raised.value.status_code == error.status
@@ -433,7 +462,7 @@ def test_add_user_raises_the_matching_permit_api_error(
 
 
 @pytest.mark.parametrize("flavour", FLAVOURS)
-def test_add_user_refuses_a_project_context_before_sending(
+def test_create_user_refuses_a_project_context_before_sending(
     httpserver: HTTPServer, config: PermitConfig, flavour: str
 ) -> None:
     """A project-level key needs the SDK's API context set to an environment first."""
@@ -441,7 +470,7 @@ def test_add_user_refuses_a_project_context_before_sending(
     config.api_context.set_project_level_context(ORG, PROJECT)
 
     with pytest.raises(PermitContextError):
-        invoke(config, flavour, call("api.tenants.add_user", "t1", {"key": "alice"}))
+        invoke(config, flavour, call("api.tenants.create_user", "t1", {"key": "alice"}))
 
     assert httpserver.log == []
 
@@ -452,10 +481,10 @@ def test_add_user_refuses_a_project_context_before_sending(
     [{"email": "alice@example.com"}, {"key": "has space"}, {"key": "alice", "email": "nope"}],
     ids=["no-key", "invalid-key", "invalid-email"],
 )
-def test_add_user_rejects_an_invalid_user_before_sending(
+def test_create_user_rejects_an_invalid_user_before_sending(
     httpserver: HTTPServer, config: PermitConfig, user_data: dict[str, Any], flavour: str
 ) -> None:
     with pytest.raises(ValidationError):
-        invoke(config, flavour, call("api.tenants.add_user", "t1", user_data))
+        invoke(config, flavour, call("api.tenants.create_user", "t1", user_data))
 
     assert httpserver.log == []

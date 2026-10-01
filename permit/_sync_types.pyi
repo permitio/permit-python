@@ -2219,7 +2219,7 @@ class SyncTenantsApi(BasePermitApi):
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
         """
-    def add_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
+    def create_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
         """Creates a user as a member of a tenant.
 
         The API creates the user and adds it to the tenant without any role. It answers 409
@@ -2253,6 +2253,18 @@ class SyncTenantsApi(BasePermitApi):
             PermitApiError: If the API returns any other error HTTP status code.
             PermitContextError: If the configured ApiContext does not match the required endpoint
                 context.
+        """
+    def add_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
+        """Deprecated: use ``create_user()`` instead, which this calls.
+
+        The route creates the user, so it cannot add an existing user to a tenant.
+
+        Args:
+            tenant_key: The key or id of the tenant.
+            user_data: The user to create, as a ``UserCreate`` or an equivalent dict.
+
+        Returns:
+            the created user, as ``create_user()`` returns it.
         """
     def get(self, tenant_key: str) -> TenantRead:
         """Retrieves a tenant by its key.
@@ -2347,12 +2359,12 @@ class SyncTenantsApi(BasePermitApi):
         """Removes the roles a user holds in a tenant.
 
         The API removes the user's tenant-level roles in the tenant, and answers 404 when the
-        user holds none there. That includes a member that ``add_user()`` created without a
+        user holds none there. That includes a member that ``create_user()`` created without a
         role, which this cannot remove: delete such a user with ``api.users.delete()``.
 
         When the user is then left with no tenant-level role in any tenant, the API deletes
         the user, even if the user is still a member of a tenant without a role or holds roles
-        on resource instances, so ``add_user()`` can create a user with that key again.
+        on resource instances, so ``create_user()`` can create a user with that key again.
         Otherwise the user stays a member of the tenant, with no tenant-level role there.
 
         Args:
@@ -2820,7 +2832,7 @@ class SyncEnforcer:
 
         The PDP lists a tenant when the user has a tenant-level role in it, the kind
         ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
-        neither does membership without a role, such as ``api.tenants.add_user()`` creates.
+        neither does membership without a role, such as ``api.tenants.create_user()`` creates.
         The PDP answers from the data it has synced, so a change made through the API shows
         up once the PDP has it.
 

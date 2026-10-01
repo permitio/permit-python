@@ -1,6 +1,6 @@
 """Tenant membership against the Permit API and a container PDP (PER-16678).
 
-``tenants.add_user`` creates a user as a member of one tenant, with no role there. The
+``tenants.create_user`` creates a user as a member of one tenant, with no role there. The
 user must be new: the API answers 409 for a key that already exists, so it does not add
 an existing user to another tenant. ``tenants.delete_tenant_user`` removes the roles the
 user holds in the tenant, and answers 404 for a member with no role there. A user who
@@ -100,7 +100,7 @@ async def create_role(permit: Permit, teardown: AsyncExitStack) -> str:
 
 
 def register_user_delete(permit: Permit, teardown: AsyncExitStack, user_key: str) -> None:
-    """Register the delete of a user that ``add_user`` is about to create."""
+    """Register the delete of a user that ``create_user`` is about to create."""
     teardown.push_async_callback(
         delete_quietly, functools.partial(permit.api.users.delete, user_key), f"user '{user_key}'"
     )
@@ -145,7 +145,7 @@ def poll_for_blocking(fetch: Callable[[], T], expected: T) -> T:
     return answer
 
 
-async def test_add_user_creates_a_member_with_no_role(
+async def test_create_user_creates_a_member_with_no_role(
     permit: Permit, teardown: AsyncExitStack
 ) -> None:
     tenants = permit.api.tenants
@@ -159,7 +159,7 @@ async def test_add_user_creates_a_member_with_no_role(
         listed = await tenants.list_tenant_users(tenant_key)
         return [(user.key, tenant_roles(user)) for user in listed.data]
 
-    member = await tenants.add_user(
+    member = await tenants.create_user(
         tenant,
         UserCreate(
             key=user_key,
@@ -186,7 +186,7 @@ async def test_add_user_creates_a_member_with_no_role(
     # The API creates the user, so a key that already exists is refused rather than added
     # to the other tenant.
     with pytest.raises(PermitApiError) as existing_user:
-        await tenants.add_user(other_tenant, {"key": user_key})
+        await tenants.create_user(other_tenant, {"key": user_key})
     assert existing_user.value.status_code == CONFLICT
     assert (await tenants.list_tenant_users(other_tenant)).data == []
 
@@ -194,7 +194,7 @@ async def test_add_user_creates_a_member_with_no_role(
     unadded_key = unique_key("member")
     register_user_delete(permit, teardown, unadded_key)
     with pytest.raises(PermitApiError) as no_tenant:
-        await tenants.add_user(missing_tenant, {"key": unadded_key})
+        await tenants.create_user(missing_tenant, {"key": unadded_key})
     assert no_tenant.value.status_code == NOT_FOUND
 
     # The member holds no role in the tenant, so delete_tenant_user has nothing to remove.
@@ -243,7 +243,7 @@ async def test_get_user_tenants_lists_the_tenants_the_user_holds_a_role_in(
         answered.update(tenants)
         return tenants
 
-    await permit.api.tenants.add_user(member_tenant, {"key": user_key})
+    await permit.api.tenants.create_user(member_tenant, {"key": user_key})
     await assign_role(permit, teardown, user_key, role, role_tenant)
 
     # The user is a member of both tenants, and holds a role in one of them only.
@@ -304,7 +304,7 @@ def test_the_blocking_client_adds_a_member_and_lists_their_tenants(
             f"user '{user_key}'",
         )
 
-        member = api.tenants.add_user(tenant, {"key": user_key})
+        member = api.tenants.create_user(tenant, {"key": user_key})
 
         assert member.key == user_key
         assert tenant_roles(member) == [(tenant, [])]

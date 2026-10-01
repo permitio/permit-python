@@ -26,6 +26,7 @@ from permit.api.models import (
     UserCreate,
     UserRead,
 )
+from permit.utils.deprecation import deprecated
 from permit.utils.model_input import ModelInput, ModelListInput
 
 
@@ -103,7 +104,7 @@ class TenantsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def add_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
+    async def create_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
         """Creates a user as a member of a tenant.
 
         The API creates the user and adds it to the tenant without any role. It answers 409
@@ -141,6 +142,24 @@ class TenantsApi(BasePermitApi):
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__api_tenants.post(f"/{tenant_key}/users", model=UserRead, json=user_data)
+
+    @deprecated(
+        "permit.api.tenants.add_user() is deprecated and will be removed in permit 4.0; "
+        "use permit.api.tenants.create_user() instead."
+    )
+    async def add_user(self, tenant_key: str, user_data: ModelInput[UserCreate]) -> UserRead:
+        """Deprecated: use ``create_user()`` instead, which this calls.
+
+        The route creates the user, so it cannot add an existing user to a tenant.
+
+        Args:
+            tenant_key: The key or id of the tenant.
+            user_data: The user to create, as a ``UserCreate`` or an equivalent dict.
+
+        Returns:
+            the created user, as ``create_user()`` returns it.
+        """
+        return await self.create_user(tenant_key, user_data)
 
     async def _get(self, tenant_key: str) -> TenantRead:
         return await self.__tenants.get(f"/{tenant_key}", model=TenantRead)
@@ -269,12 +288,12 @@ class TenantsApi(BasePermitApi):
         """Removes the roles a user holds in a tenant.
 
         The API removes the user's tenant-level roles in the tenant, and answers 404 when the
-        user holds none there. That includes a member that ``add_user()`` created without a
+        user holds none there. That includes a member that ``create_user()`` created without a
         role, which this cannot remove: delete such a user with ``api.users.delete()``.
 
         When the user is then left with no tenant-level role in any tenant, the API deletes
         the user, even if the user is still a member of a tenant without a role or holds roles
-        on resource instances, so ``add_user()`` can create a user with that key again.
+        on resource instances, so ``create_user()`` can create a user with that key again.
         Otherwise the user stays a member of the tenant, with no tenant-level role there.
 
         Args:

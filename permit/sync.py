@@ -216,7 +216,7 @@ class Permit(AsyncPermit):
 
         The PDP lists a tenant when the user has a tenant-level role in it, the kind
         ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
-        neither does membership without a role, such as ``api.tenants.add_user()`` creates.
+        neither does membership without a role, such as ``api.tenants.create_user()`` creates.
         The PDP answers from the data it has synced, so a change made through the API shows
         up once the PDP has it.
 

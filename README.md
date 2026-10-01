@@ -54,7 +54,7 @@ await permit.check("alice", "edit", {"type": "document", "key": "readme", "tenan
 
 ## Tenant membership
 
-`permit.api.tenants.add_user("acme", {"key": "alice"})` creates the user as a member of the
+`permit.api.tenants.create_user("acme", {"key": "alice"})` creates the user as a member of the
 `acme` tenant, with no role there. Any `role_assignments` in the user data are granted as
 `permit.api.users.create()` grants them, each in the tenant it names. It fails with
 `PermitAlreadyExistsError` (409) when a user with that key already exists, so give an existing
@@ -66,7 +66,7 @@ such a member with `permit.api.users.delete()`.
 
 `permit.get_user_tenants("alice")` asks the PDP for the tenants in which the user has a
 tenant-level role, as `TenantDetails` objects with a `key` and `attributes`. Membership
-without a role, such as `add_user()` creates, is not listed. Only the container PDP serves
+without a role, such as `create_user()` creates, is not listed. Only the container PDP serves
 this query: the cloud PDP answers 404, which the SDK raises as a `PermitConnectionError`.
 Both methods are on the blocking client too.
 
@@ -134,6 +134,8 @@ each one issues a `DeprecationWarning` that says what to do instead.
 - **The flat methods on `permit.api`**, such as `permit.api.get_user()`. Use the grouped
   APIs instead, such as `permit.api.users.get()`. Each flat method's warning names its
   replacement.
+- **`permit.api.tenants.add_user()`**, an alias of `permit.api.tenants.create_user()`. The
+  route creates the user, so `create_user()` is the name that says what it does.
 
 By default, Python shows these warnings only when the code that triggers them is in
 `__main__`, such as the script you run. pytest shows them in its warnings summary. To see
