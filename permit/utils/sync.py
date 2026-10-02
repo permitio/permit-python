@@ -101,7 +101,8 @@ def creation_site(instance: object) -> _CallSite:
         for cls in type(instance).__mro__
         if isinstance(init := vars(cls).get("__init__"), FunctionType)
     }
-    frame: FrameType | None = sys._getframe(1)  # noqa: SLF001 - see run_coroutine_sync
+    here = inspect.currentframe()
+    frame = here.f_back if here is not None else None
     while frame is not None and frame.f_code in inits:
         frame = frame.f_back
     return _CallSite.from_frame(frame)
