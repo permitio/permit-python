@@ -8,6 +8,7 @@ errors: with warn_unused_ignores, the check fails if one of them stops being rep
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
+from uuid import UUID
 
 from typing_extensions import assert_type
 
@@ -28,7 +29,11 @@ from permit.api.models import (
     GroupRead,
     GroupReadSchema,
     PaginatedResultGroupReadSchema,
+    PaginatedResultRelationshipTupleDetailedRead,
+    PaginatedResultResourceInstanceDetailedRead,
+    PaginatedResultRoleAssignmentDetailedRead,
     PaginatedResultUserRead,
+    PDPDataRefreshResponse,
     RoleAssignmentCreate,
     RoleAssignmentRead,
     RoleCreate,
@@ -78,6 +83,10 @@ async def async_client() -> None:
         list[bool],
     )
     assert_type(await permit.get_user_permissions("u"), dict[str, Any])
+    assert_type(
+        await permit.get_user_permissions("u", ["t1"], context={"ip": "10.0.0.1"}),
+        dict[str, Any],
+    )
     tenants = await permit.get_user_tenants("u")
     assert_type(tenants, list[TenantDetails])
     assert_type(tenants[0].key, str)
@@ -135,6 +144,20 @@ async def async_client() -> None:
     group_role = GroupAddRole(role="editor", resource="doc", resource_instance="d1", tenant="t1")
     assert_type(await permit.api.groups.assign_role("eng", group_role), GroupRead)
     await permit.api.groups.remove_role("eng", group_role)
+    detailed = await permit.api.role_assignments.list_detailed(user_key=["u", "v"], page=2)
+    assert_type(detailed, PaginatedResultRoleAssignmentDetailedRead)
+    assert_type(detailed.data[0].user.key, str)
+    assert_type(
+        await permit.api.resource_instances.list_detailed(search_key="doc-1"),
+        PaginatedResultResourceInstanceDetailedRead,
+    )
+    assert_type(
+        await permit.api.relationship_tuples.list_detailed(subject_key="folder:docs"),
+        PaginatedResultRelationshipTupleDetailedRead,
+    )
+    refreshed = await permit.api.pdps.refresh("nightly import")
+    assert_type(refreshed, PDPDataRefreshResponse)
+    assert_type(refreshed.pdp_ids, list[UUID])
 
     # A list built before a bulk call is accepted too, whether of models or of dicts.
     users = [UserCreate(key=key) for key in ("u4", "u5")]
@@ -179,6 +202,7 @@ def sync_client() -> None:
 
     assert_type(permit.check("user", "read", "document"), bool)
     assert_type(permit.get_user_permissions("u"), dict[str, Any])
+    assert_type(permit.get_user_permissions("u", context={"ip": "10.0.0.1"}), dict[str, Any])
     assert_type(permit.get_user_tenants("u"), list[TenantDetails])
     assert_type(permit.get_user_tenants({"key": "u"}, {"region": "eu"}), list[TenantDetails])
     assert_type(permit.api.users.get("u"), UserRead)
@@ -195,6 +219,20 @@ def sync_client() -> None:
     permit.api.users.bulk_replace(users)
     assert_type(permit.api.get_user("u"), UserRead)
     assert_type(permit.api.groups.list(), PaginatedResultGroupReadSchema)
+    assert_type(
+        permit.api.role_assignments.list_detailed(tenant_key="t1"),
+        PaginatedResultRoleAssignmentDetailedRead,
+    )
+    assert_type(
+        permit.api.resource_instances.list_detailed(),
+        PaginatedResultResourceInstanceDetailedRead,
+    )
+    assert_type(
+        permit.api.relationship_tuples.list_detailed(per_page=10),
+        PaginatedResultRelationshipTupleDetailedRead,
+    )
+    assert_type(permit.api.pdps.refresh(), PDPDataRefreshResponse)
+    assert_type(permit.api.pdps.refresh(reason="sync").update_id, UUID)
     assert_type(permit.api.groups.assign_user("eng", "u", "t1"), GroupRead)
     assert_type(
         permit.api.groups.assign_group("group:leads", {"group_instance_key": "eng"}), GroupRead
@@ -218,6 +256,9 @@ async def mistakes_stay_errors() -> None:
     # Accepting dicts does not mean accepting anything.
     await permit.api.users.create("u")  # type: ignore[arg-type]
     await permit.api.tenants.create_user("t1", "u")  # type: ignore[arg-type]
+    # The detailed lists take their filters as keywords only.
+    await permit.api.role_assignments.list_detailed("u")  # type: ignore[call-arg]
+    sync_permit.api.resource_instances.list_detailed(1, 100)  # type: ignore[call-arg]
     # SDK models are pydantic v1 models, so the pydantic v2 API does not exist on them.
     UserCreate(key="u").model_dump()  # type: ignore[attr-defined]
     # The blocking client returns values, not awaitables.

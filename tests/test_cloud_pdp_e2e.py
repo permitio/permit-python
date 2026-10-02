@@ -4,7 +4,7 @@ Each test builds its own small RBAC policy in the environment the API key belong
 resource type with two actions, a role that grants one of them, a tenant where the user
 has that role and a second tenant where it has none. It waits for the cloud PDP to apply
 the policy, then asserts the exact answers of ``check``, ``bulk_check``,
-``get_user_permissions`` and ``filter_objects``.
+``get_user_permissions`` (with and without a context) and ``filter_objects``.
 
 RBAC decides on the resource type and tenant alone, so the resources these tests ask
 about need not exist as resource instances.
@@ -236,6 +236,25 @@ async def test_get_user_permissions(permit_cloud: Permit, cloud_policy: CloudPol
     }
 
     assert await settled(tenant_grants, expected=expected) == expected
+
+
+async def test_get_user_permissions_with_a_context(
+    permit_cloud: Permit, cloud_policy: CloudPolicy
+) -> None:
+    """The cloud PDP accepts a context, and RBAC, which does not read it, answers the same."""
+    policy = cloud_policy
+
+    async def tenant_permissions() -> dict[str, list[str]]:
+        permissions = await permit_cloud.get_user_permissions(
+            policy.user,
+            tenants=[policy.tenant, policy.other_tenant],
+            context={"ip": "10.0.0.1", "flags": {"beta": True, "ratio": 0.5}},
+        )
+        return {key: entry["permissions"] for key, entry in permissions.items()}
+
+    expected = {f"__tenant:{policy.tenant}": [policy.granted_permission]}
+
+    assert await settled(tenant_permissions, expected=expected) == expected
 
 
 async def test_filter_objects(permit_cloud: Permit, cloud_policy: CloudPolicy) -> None:

@@ -70,6 +70,55 @@ without a role, such as `create_user()` creates, is not listed. Only the contain
 this query: the cloud PDP answers 404, which the SDK raises as a `PermitConnectionError`.
 Both methods are on the blocking client too.
 
+## User permissions with context
+
+`permit.get_user_permissions("alice", context={"ip": "10.0.0.1"})` sends the context with the
+query, for ABAC policies to read. It is merged over the context store's base context, as
+`permit.check()` merges it. A call without `context` sends no context, as in 3.0, so the base
+context is not sent either; pass `context={}` to send the base context alone. The blocking
+client takes the same argument.
+
+## Detailed lists
+
+`list_detailed()` on `permit.api.role_assignments`, `permit.api.resource_instances` and
+`permit.api.relationship_tuples` takes the filters of that API's `list()`, as keyword
+arguments, and returns one page of results with the total count:
+
+```py
+page = await permit.api.role_assignments.list_detailed(user_key="alice", tenant_key="default")
+for assignment in page.data:
+    print(assignment.role.name, assignment.tenant.name, assignment.user.email)
+```
+
+- A role assignment comes with its role, user and tenant, and the resource instance of a
+  resource role, as objects with their names and attributes where `list()` gives their keys.
+- A resource instance comes with `relationships`, the relationship tuples whose subject or
+  object it is. Its `search_key` matches an instance key or id exactly, where `list()` also
+  matches part of a key.
+- A relationship tuple comes with `subject_details`, `relation_details`, `object_details` and
+  `tenant_details`, which `list()` leaves empty.
+
+They need the API key `list()` needs: an environment-level key, or a broader key with the
+SDK's API context set to the environment. The blocking client has the same methods.
+
+## PDP data refresh
+
+`permit.api.pdps.refresh()` makes every PDP connected to the environment fetch all of its
+authorization data from Permit again now, instead of at its next periodic update, for
+example after data the PDPs decide on changed in an external data source:
+
+```py
+refreshed = await permit.api.pdps.refresh(reason="nightly import")
+print(refreshed.update_id, refreshed.pdp_ids)
+```
+
+- It returns once Permit has triggered the refresh, not once the PDPs have finished it, so
+  a check sent right after it may still be answered from the old data.
+- `reason` is optional, at most 512 characters, and shows in the PDPs' logs.
+- It needs an environment-level API key with write or admin access, or a broader key with
+  the SDK's API context set to the environment. The API rejects a read-only key with 403,
+  and answers 404 for an environment with no PDP configuration.
+
 ## Type checking
 
 The package ships a `py.typed` marker (PEP 561), so mypy, pyright and IDEs check your
@@ -136,6 +185,10 @@ each one issues a `DeprecationWarning` that says what to do instead.
   replacement.
 - **`permit.api.tenants.add_user()`**, an alias of `permit.api.tenants.create_user()`. The
   route creates the user, so `create_user()` is the name that says what it does.
+- **The `detailed_key` argument of `permit.api.resource_instances.list()`**, which sends a
+  query parameter the API has deprecated. Use `permit.api.resource_instances.list_detailed()`
+  instead (see [Detailed lists](#detailed-lists)). Only a call that passes `detailed_key=True`
+  or `detailed_key=False` warns.
 
 By default, Python shows these warnings only when the code that triggers them is in
 `__main__`, such as the script you run. pytest shows them in its warnings summary. To see

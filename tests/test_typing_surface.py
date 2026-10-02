@@ -72,6 +72,27 @@ def test_sync_stub_matches_the_async_classes() -> None:
     assert not diff, f"permit/_sync_types.pyi is out of date. Run `{regenerate}`.\n{diff}"
 
 
+def test_stub_imports_order_names_as_ruff_does() -> None:
+    """Constants, then classes, then the rest, each group compared case-insensitively."""
+    generator = load_stub_generator()
+    names: set[str | None] = {
+        "Pdpx",
+        "a_var",
+        "PDPDataRefreshResponse",
+        "CONST",
+        "Ab",
+        "APIa",
+        "PaginatedResultUserRead",
+    }
+
+    block = generator.import_block({"models": names})
+
+    assert block == (
+        "from models import CONST, Ab, APIa, PaginatedResultUserRead, PDPDataRefreshResponse, "
+        "Pdpx, a_var"
+    )
+
+
 def runtime_sync_classes() -> dict[str, type]:
     """Every class declared with ``metaclass=SyncClass``, keyed by qualified name."""
     found: dict[str, type] = {}

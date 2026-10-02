@@ -1,0 +1,2176 @@
+{
+  "info": {
+    "title": "Permit.io API",
+    "version": "2.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v2/activity": {
+      "get": {
+        "operationId": "list_activity_events",
+        "summary": "List Activity Events",
+        "tags": [
+          "Activity Log"
+        ]
+      }
+    },
+    "/v2/activity/types": {
+      "get": {
+        "operationId": "list_activity_types",
+        "summary": "List Activity Types",
+        "tags": [
+          "Activity Log"
+        ]
+      }
+    },
+    "/v2/api-key": {
+      "get": {
+        "operationId": "list_api_keys",
+        "summary": "List Api Keys",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "post": {
+        "operationId": "create_api_key",
+        "summary": "Create Api Key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/v2/api-key/scope": {
+      "get": {
+        "operationId": "get_api_key_scope",
+        "summary": "Get Api Key Scope",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/v2/api-key/{api_key_id}": {
+      "delete": {
+        "operationId": "delete_api_key",
+        "summary": "Delete Api Key",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "get": {
+        "operationId": "get_api_key",
+        "summary": "Get Api Key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/v2/api-key/{api_key_id}/rotate-secret": {
+      "post": {
+        "operationId": "rotate_api_key",
+        "summary": "Rotate API Key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/v2/api-key/{proj_id}/{env_id}": {
+      "get": {
+        "operationId": "get_environment_api_key",
+        "summary": "Get Environment Api Key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/v2/audit-log-replay": {
+      "post": {
+        "operationId": "run_audit_log_replay",
+        "summary": "Run the audit log replay",
+        "tags": [
+          "Audit Log Replay"
+        ]
+      }
+    },
+    "/v2/data-export": {
+      "post": {
+        "operationId": "start_organization_export",
+        "summary": "Start an export of your organization's data",
+        "tags": [
+          "Data Export"
+        ]
+      }
+    },
+    "/v2/data-export/{task_id}": {
+      "get": {
+        "operationId": "get_organization_export",
+        "summary": "Get the status / download URL of an export",
+        "tags": [
+          "Data Export"
+        ]
+      }
+    },
+    "/v2/deprecated/activity": {
+      "get": {
+        "deprecated": true,
+        "operationId": "list_activity_events_v2_deprecated_activity_get",
+        "summary": "List Activity Events",
+        "tags": []
+      }
+    },
+    "/v2/deprecated/activity/types": {
+      "get": {
+        "deprecated": true,
+        "operationId": "list_activity_types_v2_deprecated_activity_types_get",
+        "summary": "List Activity Types",
+        "tags": []
+      }
+    },
+    "/v2/deprecated/history": {
+      "get": {
+        "deprecated": true,
+        "operationId": "list_api_events",
+        "summary": "List Api Events",
+        "tags": []
+      }
+    },
+    "/v2/deprecated/history/{event_id}": {
+      "get": {
+        "deprecated": true,
+        "operationId": "get_api_event",
+        "summary": "Get Api Event",
+        "tags": []
+      }
+    },
+    "/v2/deprecated/history/{event_id}/request": {
+      "get": {
+        "deprecated": true,
+        "operationId": "get_request_body",
+        "summary": "Get Request Body",
+        "tags": []
+      }
+    },
+    "/v2/deprecated/history/{event_id}/response": {
+      "get": {
+        "deprecated": true,
+        "operationId": "get_response_body",
+        "summary": "Get Response Body",
+        "tags": []
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config": {
+      "get": {
+        "operationId": "list_elements_configs",
+        "summary": "List Elements Configs",
+        "tags": [
+          "Elements Configs (EAP)"
+        ]
+      },
+      "post": {
+        "operationId": "create_elements_config",
+        "summary": "Create Elements Config",
+        "tags": [
+          "Elements Configs (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}": {
+      "get": {
+        "operationId": "get_elements_config",
+        "summary": "Get Elements Config",
+        "tags": [
+          "Elements Configs (EAP)"
+        ]
+      },
+      "patch": {
+        "operationId": "update_elements_config",
+        "summary": "Update Elements Config",
+        "tags": [
+          "Elements Configs (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests": {
+      "get": {
+        "operationId": "list_access_requests_v2_elements__proj_id___env_id__config__elements_config_id__access_requests_get",
+        "summary": "List Access Requests",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      },
+      "post": {
+        "operationId": "create_access_request_v2_elements__proj_id___env_id__config__elements_config_id__access_requests_post",
+        "summary": "Create Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}": {
+      "get": {
+        "operationId": "get_access_request_v2_elements__proj_id___env_id__config__elements_config_id__access_requests__access_request_id__get",
+        "summary": "Get Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/approve": {
+      "put": {
+        "operationId": "approve_access_request_v2_elements__proj_id___env_id__config__elements_config_id__access_requests__access_request_id__approve_put",
+        "summary": "Approve Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/cancel": {
+      "put": {
+        "operationId": "cancel_access_request_v2_elements__proj_id___env_id__config__elements_config_id__access_requests__access_request_id__cancel_put",
+        "summary": "Cancel Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/deny": {
+      "put": {
+        "operationId": "deny_access_request_v2_elements__proj_id___env_id__config__elements_config_id__access_requests__access_request_id__deny_put",
+        "summary": "Deny Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/access_requests/{access_request_id}/reviewer": {
+      "patch": {
+        "operationId": "update_access_request_reviewer_v2_elements__proj_id___env_id__config__elements_config_id__access_requests__access_request_id__reviewer_patch",
+        "summary": "Update Access Request Reviewer",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/active": {
+      "post": {
+        "operationId": "set_config_active",
+        "summary": "Set Config Active",
+        "tags": [
+          "Users Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/audit_logs": {
+      "get": {
+        "operationId": "elements_list_audit_logs",
+        "summary": "List audit logs",
+        "tags": [
+          "Audit Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/roles": {
+      "get": {
+        "operationId": "elements_list_roles",
+        "summary": "List roles",
+        "tags": [
+          "Users Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/user-invites": {
+      "get": {
+        "operationId": "list_elements_user_invites",
+        "summary": "List all Elements User Invites",
+        "tags": [
+          "Users Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users": {
+      "get": {
+        "operationId": "elements_list_users",
+        "summary": "List users",
+        "tags": [
+          "Users Elements Data"
+        ]
+      },
+      "post": {
+        "operationId": "elements_create_user",
+        "summary": "Create user",
+        "tags": [
+          "Users Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users/{user_id}": {
+      "delete": {
+        "operationId": "elements_delete_user",
+        "summary": "Delete user",
+        "tags": [
+          "Users Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/data/users/{user_id}/roles": {
+      "delete": {
+        "operationId": "elements_unassign_role_from_user",
+        "summary": "Unassign role from user",
+        "tags": [
+          "Users Elements Data"
+        ]
+      },
+      "post": {
+        "operationId": "elements_assign_role_to_user",
+        "summary": "Assign role to user",
+        "tags": [
+          "Users Elements Data"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval": {
+      "get": {
+        "operationId": "list_operation_approvals",
+        "summary": "List Operation Approvals",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      },
+      "post": {
+        "operationId": "create_operation_approval",
+        "summary": "Create Operation Approval",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}": {
+      "get": {
+        "operationId": "get_operation_approval",
+        "summary": "Get Operation Approval",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/approve": {
+      "put": {
+        "operationId": "approve_operation_approval",
+        "summary": "Approve Operation Approval",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/cancel": {
+      "put": {
+        "operationId": "cancel_operation_approval",
+        "summary": "Cancel Operation Approval",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/deny": {
+      "put": {
+        "operationId": "deny_operation_approval",
+        "summary": "Deny Operation Approval",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/operation_approval/{operation_approval_id}/reviewer": {
+      "patch": {
+        "operationId": "update_operation_approval_reviewer",
+        "summary": "Update Operation Approval Reviewer",
+        "tags": [
+          "Operation Approval (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/config/{elements_config_id}/runtime": {
+      "get": {
+        "operationId": "get_elements_config_runtime",
+        "summary": "Get Elements Config Runtime",
+        "tags": [
+          "Elements Configs (EAP)"
+        ]
+      }
+    },
+    "/v2/elements/{proj_id}/{env_id}/{elements_config_id}": {
+      "delete": {
+        "operationId": "delete_elements_config",
+        "summary": "Delete Elements Config",
+        "tags": [
+          "Elements Configs (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}": {
+      "get": {
+        "operationId": "list_access_requests",
+        "summary": "List Access Requests",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      },
+      "post": {
+        "operationId": "create_access_request",
+        "summary": "Create Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}": {
+      "get": {
+        "operationId": "get_access_request",
+        "summary": "Get Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/approve": {
+      "put": {
+        "operationId": "approve_access_request",
+        "summary": "Approve Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/cancel": {
+      "put": {
+        "operationId": "cancel_access_request",
+        "summary": "Cancel Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/deny": {
+      "put": {
+        "operationId": "deny_access_request",
+        "summary": "Deny Access Request",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/access_requests/{elements_config_id}/user/{user_id}/tenant/{tenant_id}/{access_request_id}/reviewer": {
+      "patch": {
+        "operationId": "update_access_request_reviewer",
+        "summary": "Update Access Request Reviewer",
+        "tags": [
+          "Access Requests (EAP)"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/bulk/resource_instances": {
+      "delete": {
+        "operationId": "bulk_delete_resource_instances",
+        "summary": "Bulk Delete Resource Instances",
+        "tags": [
+          "Bulk Operations"
+        ]
+      },
+      "put": {
+        "operationId": "bulk_replace_resource_instances",
+        "summary": "Bulk Replace Resource Instances",
+        "tags": [
+          "Bulk Operations"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/bulk/tenants": {
+      "delete": {
+        "operationId": "bulk_delete_tenants",
+        "summary": "Bulk Delete Tenants",
+        "tags": [
+          "Bulk Operations"
+        ]
+      },
+      "post": {
+        "operationId": "bulk_create_tenants",
+        "summary": "Bulk Create Tenants",
+        "tags": [
+          "Bulk Operations"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/bulk/users": {
+      "delete": {
+        "operationId": "bulk_delete_users",
+        "summary": "Bulk Delete Users",
+        "tags": [
+          "Bulk Operations"
+        ]
+      },
+      "post": {
+        "operationId": "bulk_create_users",
+        "summary": "Bulk Create Users",
+        "tags": [
+          "Bulk Operations"
+        ]
+      },
+      "put": {
+        "operationId": "bulk_replace_users",
+        "summary": "Bulk Replace Users",
+        "tags": [
+          "Bulk Operations"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/email_configurations": {
+      "get": {
+        "operationId": "get_email_configuration",
+        "summary": "Get Email Configuration",
+        "tags": [
+          "Email Configurations"
+        ]
+      },
+      "post": {
+        "operationId": "create_or_update_email_configuration",
+        "summary": "Create Or Update Email Configuration",
+        "tags": [
+          "Email Configurations"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/email_configurations/send_test_email": {
+      "post": {
+        "operationId": "send_test_email",
+        "summary": "Send Test Email",
+        "tags": [
+          "Email Configurations"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/email_templates/": {
+      "get": {
+        "operationId": "list_templates",
+        "summary": "List Templates",
+        "tags": [
+          "Email Templates"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/email_templates/{template_type}": {
+      "get": {
+        "operationId": "get_template_by_type",
+        "summary": "Get Template By Type",
+        "tags": [
+          "Email Templates"
+        ]
+      },
+      "post": {
+        "operationId": "update_template_by_type",
+        "summary": "Update Template By Type",
+        "tags": [
+          "Email Templates"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/email_templates/{template_type}/send_test_email": {
+      "post": {
+        "operationId": "send_test_email_by_type",
+        "summary": "Send Test Email By Type",
+        "tags": [
+          "Email Templates"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/proxy_configs": {
+      "get": {
+        "operationId": "list_proxy_configs",
+        "summary": "List Proxy Configs",
+        "tags": [
+          "Proxy Config"
+        ]
+      },
+      "post": {
+        "operationId": "create_proxy_config",
+        "summary": "Create Proxy Config",
+        "tags": [
+          "Proxy Config"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/proxy_configs/{proxy_config_id}": {
+      "delete": {
+        "operationId": "delete_proxy_config",
+        "summary": "Delete Proxy Config",
+        "tags": [
+          "Proxy Config"
+        ]
+      },
+      "get": {
+        "operationId": "get_proxy_config",
+        "summary": "Get Proxy Config",
+        "tags": [
+          "Proxy Config"
+        ]
+      },
+      "patch": {
+        "operationId": "update_proxy_config",
+        "summary": "Update Proxy Config",
+        "tags": [
+          "Proxy Config"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/relationship_tuples": {
+      "delete": {
+        "operationId": "delete_relationship_tuple",
+        "summary": "Delete Relationship Tuple",
+        "tags": [
+          "Relationship tuples"
+        ]
+      },
+      "get": {
+        "operationId": "list_relationship_tuples",
+        "summary": "List Relationship Tuples",
+        "tags": [
+          "Relationship tuples"
+        ]
+      },
+      "post": {
+        "operationId": "create_relationship_tuple",
+        "summary": "Create Relationship Tuple",
+        "tags": [
+          "Relationship tuples"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk": {
+      "delete": {
+        "operationId": "bulk_delete_relationship_tuples",
+        "summary": "Bulk Delete Relationship Tuples",
+        "tags": [
+          "Relationship tuples"
+        ]
+      },
+      "post": {
+        "operationId": "bulk_create_relationship_tuples",
+        "summary": "Bulk create relationship tuples",
+        "tags": [
+          "Relationship tuples"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/relationship_tuples/detailed": {
+      "get": {
+        "operationId": "list_relationship_tuples_detailed",
+        "summary": "List Relationship Tuples Detailed",
+        "tags": [
+          "Relationship tuples"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/resource_instances": {
+      "get": {
+        "operationId": "list_resource_instances",
+        "summary": "List Resource Instances",
+        "tags": [
+          "Resource Instances"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_instance",
+        "summary": "Create Resource Instance",
+        "tags": [
+          "Resource Instances"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/resource_instances/detailed": {
+      "get": {
+        "operationId": "list_resource_instances_detailed",
+        "summary": "List Resource Instances Detailed",
+        "tags": [
+          "Resource Instances"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}": {
+      "delete": {
+        "operationId": "delete_resource_instance",
+        "summary": "Delete Resource Instance",
+        "tags": [
+          "Resource Instances"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource_instance",
+        "summary": "Get Resource Instance",
+        "tags": [
+          "Resource Instances"
+        ]
+      },
+      "patch": {
+        "operationId": "update_resource_instance",
+        "summary": "Update Resource Instance",
+        "tags": [
+          "Resource Instances"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/role_assignments": {
+      "delete": {
+        "operationId": "unassign_role",
+        "summary": "Unassign Role",
+        "tags": [
+          "Role Assignments"
+        ]
+      },
+      "get": {
+        "operationId": "list_role_assignments",
+        "summary": "List Role Assignments",
+        "tags": [
+          "Role Assignments"
+        ]
+      },
+      "post": {
+        "operationId": "assign_role",
+        "summary": "Assign Role",
+        "tags": [
+          "Role Assignments"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/role_assignments/bulk": {
+      "delete": {
+        "operationId": "bulk_unassign_role",
+        "summary": "Bulk Unassign Role",
+        "tags": [
+          "Role Assignments",
+          "Bulk Operations"
+        ]
+      },
+      "post": {
+        "operationId": "bulk_assign_role",
+        "summary": "Bulk create role assignments",
+        "tags": [
+          "Role Assignments",
+          "Bulk Operations"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/role_assignments/detailed": {
+      "get": {
+        "operationId": "list_role_assignments_detailed",
+        "summary": "List Role Assignments Detailed",
+        "tags": [
+          "Role Assignments"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/set_rules": {
+      "delete": {
+        "operationId": "unassign_set_permissions",
+        "summary": "Unassign Set Permissions",
+        "tags": [
+          "Condition Set Rules"
+        ]
+      },
+      "get": {
+        "operationId": "list_set_permissions",
+        "summary": "List Set Permissions",
+        "tags": [
+          "Condition Set Rules"
+        ]
+      },
+      "post": {
+        "operationId": "assign_set_permissions",
+        "summary": "Assign Set Permissions",
+        "tags": [
+          "Condition Set Rules"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/tenants": {
+      "get": {
+        "operationId": "list_tenants",
+        "summary": "List Tenants",
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "post": {
+        "operationId": "create_tenant",
+        "summary": "Create Tenant",
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}": {
+      "delete": {
+        "operationId": "delete_tenant",
+        "summary": "Delete Tenant",
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "get": {
+        "operationId": "get_tenant",
+        "summary": "Get Tenant",
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "patch": {
+        "operationId": "update_tenant",
+        "summary": "Update Tenant",
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users": {
+      "get": {
+        "operationId": "list_tenant_users",
+        "summary": "List Tenant Users",
+        "tags": [
+          "Tenants"
+        ]
+      },
+      "post": {
+        "operationId": "add_user_to_tenant",
+        "summary": "Add User To Tenant",
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users/{user_id}": {
+      "delete": {
+        "operationId": "delete_tenant_user",
+        "summary": "Delete Tenant User",
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/user_invites": {
+      "get": {
+        "operationId": "list_user_invites",
+        "summary": "List User Invites",
+        "tags": [
+          "User Invites"
+        ]
+      },
+      "post": {
+        "operationId": "create_user_invite",
+        "summary": "Create User Invite",
+        "tags": [
+          "User Invites"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}": {
+      "delete": {
+        "operationId": "delete_user_invite",
+        "summary": "Delete User Invite",
+        "tags": [
+          "User Invites"
+        ]
+      },
+      "get": {
+        "operationId": "get_user_invite",
+        "summary": "Get User Invite",
+        "tags": [
+          "User Invites"
+        ]
+      },
+      "patch": {
+        "operationId": "update_user_invite",
+        "summary": "Update User Invite",
+        "tags": [
+          "User Invites"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}/approve": {
+      "post": {
+        "operationId": "approve_user_invite",
+        "summary": "Approve User Invite",
+        "tags": [
+          "User Invites"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/users": {
+      "get": {
+        "operationId": "list_users",
+        "summary": "List Users",
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "create_user",
+        "summary": "Create User",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/users/{user_id}": {
+      "delete": {
+        "operationId": "delete_user",
+        "summary": "Delete User",
+        "tags": [
+          "Users"
+        ]
+      },
+      "get": {
+        "operationId": "get_user",
+        "summary": "Get User",
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "update_user",
+        "summary": "Update User",
+        "tags": [
+          "Users"
+        ]
+      },
+      "put": {
+        "operationId": "replace_user",
+        "summary": "Replace User",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v2/facts/{proj_id}/{env_id}/users/{user_id}/roles": {
+      "delete": {
+        "operationId": "unassign_role_from_user",
+        "summary": "Unassign Role From User",
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "assign_role_to_user",
+        "summary": "Assign Role To User",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v2/history": {
+      "get": {
+        "operationId": "list_api_events_v2_history_get",
+        "summary": "List Api Events",
+        "tags": [
+          "API History"
+        ]
+      }
+    },
+    "/v2/history/{event_id}": {
+      "get": {
+        "operationId": "get_api_event_v2_history__event_id__get",
+        "summary": "Get Api Event",
+        "tags": [
+          "API History"
+        ]
+      }
+    },
+    "/v2/history/{event_id}/request": {
+      "get": {
+        "operationId": "get_request_body_v2_history__event_id__request_get",
+        "summary": "Get Request Body",
+        "tags": [
+          "API History"
+        ]
+      }
+    },
+    "/v2/history/{event_id}/response": {
+      "get": {
+        "operationId": "get_response_body_v2_history__event_id__response_get",
+        "summary": "Get Response Body",
+        "tags": [
+          "API History"
+        ]
+      }
+    },
+    "/v2/internal/opal_data/{org_id}/{proj_id}/{env_id}": {
+      "get": {
+        "operationId": "get_all_data",
+        "summary": "Get All Data",
+        "tags": [
+          "OPAL Data ( EAP )"
+        ]
+      }
+    },
+    "/v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/optimized": {
+      "get": {
+        "operationId": "get_all_data_optimized",
+        "summary": "Get All Data Optimized",
+        "tags": [
+          "OPAL Data ( EAP )"
+        ]
+      }
+    },
+    "/v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/relationships": {
+      "get": {
+        "operationId": "get_all_relationships_data",
+        "summary": "Get All Relationships Data",
+        "tags": [
+          "OPAL Data ( EAP )"
+        ]
+      }
+    },
+    "/v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/resource_instances": {
+      "get": {
+        "operationId": "get_all_resource_instances_data",
+        "summary": "Get All Resource Instances Data",
+        "tags": [
+          "OPAL Data ( EAP )"
+        ]
+      }
+    },
+    "/v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/role_assignments": {
+      "get": {
+        "operationId": "get_all_role_assignments_data",
+        "summary": "Get All Role Assignments Data",
+        "tags": [
+          "OPAL Data ( EAP )"
+        ]
+      }
+    },
+    "/v2/internal/opal_data/{org_id}/{proj_id}/{env_id}/users": {
+      "get": {
+        "operationId": "get_all_users_data",
+        "summary": "Get All Users Data",
+        "tags": [
+          "OPAL Data ( EAP )"
+        ]
+      }
+    },
+    "/v2/members": {
+      "delete": {
+        "operationId": "delete_organization_permissions",
+        "summary": "Remove permission",
+        "tags": [
+          "Members"
+        ]
+      },
+      "get": {
+        "operationId": "list_organization_members",
+        "summary": "List Organization Members",
+        "tags": [
+          "Members"
+        ]
+      },
+      "post": {
+        "operationId": "create_organization_members",
+        "summary": "Invite new members",
+        "tags": [
+          "Members"
+        ]
+      }
+    },
+    "/v2/members/me": {
+      "get": {
+        "operationId": "get_authenticated_member",
+        "summary": "Get the authenticated account member",
+        "tags": [
+          "Members"
+        ]
+      }
+    },
+    "/v2/members/{member_id}": {
+      "delete": {
+        "operationId": "delete_organization_member",
+        "summary": "Remove member",
+        "tags": [
+          "Members"
+        ]
+      },
+      "get": {
+        "operationId": "get_organization_member",
+        "summary": "Get Organization Member",
+        "tags": [
+          "Members"
+        ]
+      },
+      "patch": {
+        "operationId": "update_organization_member",
+        "summary": "Edit members",
+        "tags": [
+          "Members"
+        ]
+      }
+    },
+    "/v2/orgs": {
+      "get": {
+        "operationId": "list_organizations",
+        "summary": "List Organizations",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "post": {
+        "operationId": "create_organization",
+        "summary": "Create Organization",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v2/orgs/active/org": {
+      "get": {
+        "operationId": "get_active_organization",
+        "summary": "Get Active Organization",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v2/orgs/{org_id}": {
+      "delete": {
+        "operationId": "delete_organization",
+        "summary": "Delete Organization",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "get": {
+        "operationId": "get_organization",
+        "summary": "Get Organization",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "patch": {
+        "operationId": "update_organization",
+        "summary": "Update Organization",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v2/orgs/{org_id}/invites": {
+      "get": {
+        "operationId": "list_organization_invites",
+        "summary": "List Organization Invites",
+        "tags": [
+          "Invites"
+        ]
+      },
+      "post": {
+        "operationId": "invite_members_to_organization",
+        "summary": "Invite Members To Organization",
+        "tags": [
+          "Invites"
+        ]
+      }
+    },
+    "/v2/orgs/{org_id}/invites/{invite_id}": {
+      "delete": {
+        "operationId": "cancel_invite",
+        "summary": "Cancel Invite",
+        "tags": [
+          "Invites"
+        ]
+      }
+    },
+    "/v2/orgs/{org_id}/restore": {
+      "post": {
+        "operationId": "restore_organization",
+        "summary": "Restore Organization",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v2/orgs/{org_id}/stats": {
+      "get": {
+        "operationId": "stats_organization",
+        "summary": "Stats Organization",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/audit_logs": {
+      "get": {
+        "operationId": "list_audit_logs",
+        "summary": "List Audit Logs",
+        "tags": [
+          "Audit Logs"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/audit_logs/{log_id}": {
+      "get": {
+        "operationId": "get_detailed_audit_log",
+        "summary": "Get detailed audit log",
+        "tags": [
+          "Audit Logs"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs": {
+      "get": {
+        "operationId": "list_pdp_configs",
+        "summary": "List PDP configurations",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/migrate-shards": {
+      "post": {
+        "operationId": "migrate_shards",
+        "summary": "Migrate PDP Config number of shards",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/refresh": {
+      "post": {
+        "operationId": "refresh_environment_pdp_data",
+        "summary": "Refresh data for all PDPs in the environment",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/debug-audit-logs/disable": {
+      "put": {
+        "operationId": "disable_debug_audit_logs",
+        "summary": "Disable debug audit logs",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/debug-audit-logs/enable": {
+      "put": {
+        "operationId": "enable_debug_audit_logs",
+        "summary": "Enable debug audit logs",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/refresh": {
+      "post": {
+        "operationId": "refresh_pdp_data",
+        "summary": "Refresh PDP data",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/rotate-api-key": {
+      "post": {
+        "operationId": "rotate_pdp_api_key",
+        "summary": "Rotate PDP API Key",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/pdps/{proj_id}/{env_id}/configs/{pdp_id}/values": {
+      "get": {
+        "operationId": "get_pdp_config_values",
+        "summary": "Get PDP configuration",
+        "tags": [
+          "Policy Decision Points"
+        ]
+      }
+    },
+    "/v2/policy_guards/scopes": {
+      "get": {
+        "operationId": "list_policy_guard_scopes",
+        "summary": "List Policy Guard Scopes",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      },
+      "post": {
+        "operationId": "create_policy_guard_scope",
+        "summary": "Create Policy Guard Scope",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      }
+    },
+    "/v2/policy_guards/scopes/{policy_guard_scope_id}": {
+      "delete": {
+        "operationId": "delete_policy_guard_scope",
+        "summary": "Delete Policy Guard Scope",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      },
+      "get": {
+        "operationId": "get_policy_guard_scope",
+        "summary": "Get Policy Guard Scope",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      }
+    },
+    "/v2/policy_guards/scopes/{policy_guard_scope_id}/associate": {
+      "post": {
+        "operationId": "associate_policy_guard_scope",
+        "summary": "Associate Policy Guard Scope",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      }
+    },
+    "/v2/policy_guards/scopes/{policy_guard_scope_id}/disassociate": {
+      "delete": {
+        "operationId": "disassociate_policy_guard_scope",
+        "summary": "Disassociate Policy Guard Scope",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      }
+    },
+    "/v2/policy_guards/scopes/{policy_guard_scope_id}/rules": {
+      "delete": {
+        "operationId": "delete_policy_guard_rule",
+        "summary": "Delete Policy Guard Rule",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      },
+      "get": {
+        "operationId": "list_policy_guard_rules",
+        "summary": "List Policy Guard Rules",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      },
+      "post": {
+        "operationId": "create_policy_guard_rule",
+        "summary": "Create Policy Guard Rule",
+        "tags": [
+          "Policy Guards (EAP)"
+        ]
+      }
+    },
+    "/v2/projects": {
+      "get": {
+        "operationId": "list_projects",
+        "summary": "List Projects",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "post": {
+        "operationId": "create_project",
+        "summary": "Create Project",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}": {
+      "delete": {
+        "operationId": "delete_project",
+        "summary": "Delete Project",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "get": {
+        "operationId": "get_project",
+        "summary": "Get Project",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "patch": {
+        "operationId": "update_project",
+        "summary": "Update Project",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs": {
+      "get": {
+        "operationId": "list_environments",
+        "summary": "List Environments",
+        "tags": [
+          "Environments"
+        ]
+      },
+      "post": {
+        "operationId": "create_environment",
+        "summary": "Create Environment",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs/{env_id}": {
+      "delete": {
+        "operationId": "delete_environment",
+        "summary": "Delete Environment",
+        "tags": [
+          "Environments"
+        ]
+      },
+      "get": {
+        "operationId": "get_environment",
+        "summary": "Get Environment",
+        "tags": [
+          "Environments"
+        ]
+      },
+      "patch": {
+        "operationId": "update_environment",
+        "summary": "Update Environment",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs/{env_id}/copy": {
+      "post": {
+        "operationId": "copy_environment",
+        "summary": "Copy Environment",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs/{env_id}/copy/async": {
+      "post": {
+        "operationId": "copy_environment_async",
+        "summary": "Copy Environment Async",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs/{env_id}/copy/async/{task_id}/result": {
+      "get": {
+        "operationId": "get_copy_environment_async_result",
+        "summary": "Get Copy Environment Task Result",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs/{env_id}/stats": {
+      "get": {
+        "operationId": "stats_environments",
+        "summary": "Stats Environments",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/envs/{env_id}/test_jwks": {
+      "post": {
+        "operationId": "test_jwks_by_url",
+        "summary": "Test Jwks By Url",
+        "tags": [
+          "Environments"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/repos": {
+      "get": {
+        "operationId": "list_policy_repos",
+        "summary": "List Policy Repos",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      },
+      "post": {
+        "operationId": "create_policy_repo",
+        "summary": "Create Policy Repo",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/repos/active": {
+      "get": {
+        "operationId": "get_active_policy_repo",
+        "summary": "Get Active Policy Repo",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/repos/disable": {
+      "put": {
+        "operationId": "disable_active_policy_repo",
+        "summary": "Disable Active Policy Repo",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/repos/{repo_id}": {
+      "delete": {
+        "operationId": "delete_policy_repo",
+        "summary": "Delete Policy Repo",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      },
+      "get": {
+        "operationId": "get_policy_repo",
+        "summary": "Get Policy Repo",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/repos/{repo_id}/activate": {
+      "put": {
+        "operationId": "activate_policy_repo",
+        "summary": "Activate Policy Repo",
+        "tags": [
+          "Policy Git Repositories"
+        ]
+      }
+    },
+    "/v2/projects/{proj_id}/{env_id}/opal_scope": {
+      "delete": {
+        "operationId": "reset_scope_config",
+        "summary": "Reset Scope Config",
+        "tags": [
+          "Scope Configurations"
+        ]
+      },
+      "get": {
+        "operationId": "get_scope_config",
+        "summary": "Get Scope Config",
+        "tags": [
+          "Scope Configurations"
+        ]
+      },
+      "put": {
+        "operationId": "set_scope_config",
+        "summary": "Set Scope Config",
+        "tags": [
+          "Scope Configurations"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/bulk/roles": {
+      "put": {
+        "operationId": "bulk_create_or_replace_roles",
+        "summary": "Bulk Create Or Replace Roles",
+        "tags": [
+          "Bulk Operations"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/condition_sets": {
+      "get": {
+        "operationId": "list_condition_sets",
+        "summary": "List Condition Sets",
+        "tags": [
+          "Condition Sets"
+        ]
+      },
+      "post": {
+        "operationId": "create_condition_set",
+        "summary": "Create Condition Set",
+        "tags": [
+          "Condition Sets"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}": {
+      "delete": {
+        "operationId": "delete_condition_set",
+        "summary": "Delete Condition Set",
+        "tags": [
+          "Condition Sets"
+        ]
+      },
+      "get": {
+        "operationId": "get_condition_set",
+        "summary": "Get Condition Set",
+        "tags": [
+          "Condition Sets"
+        ]
+      },
+      "patch": {
+        "operationId": "update_condition_set",
+        "summary": "Update Condition Set",
+        "tags": [
+          "Condition Sets"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}/ancestors": {
+      "get": {
+        "operationId": "get_condition_set_ancestors",
+        "summary": "Get Condition Set Ancestors",
+        "tags": [
+          "Condition Sets"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}/descendants": {
+      "get": {
+        "operationId": "get_condition_set_descendants",
+        "summary": "Get Condition Set Descendants",
+        "tags": [
+          "Condition Sets"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups": {
+      "get": {
+        "deprecated": true,
+        "operationId": "list_group",
+        "summary": "List Group",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "post": {
+        "operationId": "create_group",
+        "summary": "Create Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/direct": {
+      "get": {
+        "operationId": "list_direct_group",
+        "summary": "List Direct Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/direct/{group_instance_key}": {
+      "get": {
+        "operationId": "get_direct_group",
+        "summary": "Get Direct Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}": {
+      "delete": {
+        "operationId": "delete_group",
+        "summary": "Delete Group",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "get": {
+        "deprecated": true,
+        "operationId": "get_group",
+        "summary": "Get Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/assign_group": {
+      "delete": {
+        "operationId": "remove_group_from_group",
+        "summary": "Remove Group From Group",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "put": {
+        "operationId": "assign_group_to_group",
+        "summary": "Assign Group To Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/children": {
+      "get": {
+        "operationId": "list_group_children",
+        "summary": "List group children (EAP)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/parents": {
+      "get": {
+        "operationId": "list_group_parents",
+        "summary": "List group parents (EAP)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/roles": {
+      "delete": {
+        "operationId": "remove_role_from_group",
+        "summary": "Remove Role From Group",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "get": {
+        "operationId": "list_group_roles",
+        "summary": "List group roles (EAP)",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "post": {
+        "operationId": "assign_role_to_group",
+        "summary": "Assign Role To Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/users": {
+      "get": {
+        "operationId": "list_group_users",
+        "summary": "List group users (EAP)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/groups/{group_instance_key}/users/{user_id}": {
+      "delete": {
+        "operationId": "remove_user_from_group",
+        "summary": "Remove User From Group",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "put": {
+        "operationId": "assign_user_to_group",
+        "summary": "Assign User To Group",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources": {
+      "get": {
+        "operationId": "list_resources",
+        "summary": "List Resources",
+        "tags": [
+          "Resources"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource",
+        "summary": "Create Resource",
+        "tags": [
+          "Resources"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}": {
+      "delete": {
+        "operationId": "delete_resource",
+        "summary": "Delete Resource",
+        "tags": [
+          "Resources"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource",
+        "summary": "Get Resource",
+        "tags": [
+          "Resources"
+        ]
+      },
+      "patch": {
+        "operationId": "update_resource",
+        "summary": "Update Resource",
+        "tags": [
+          "Resources"
+        ]
+      },
+      "put": {
+        "operationId": "replace_resource",
+        "summary": "Replace Resource",
+        "tags": [
+          "Resources"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/action_groups": {
+      "get": {
+        "operationId": "list_resource_action_groups",
+        "summary": "List Resource Action Groups",
+        "tags": [
+          "Resource Action Groups"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_action_group",
+        "summary": "Create Resource Action Group",
+        "tags": [
+          "Resource Action Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/action_groups/{action_group_id}": {
+      "delete": {
+        "operationId": "delete_resource_action_group",
+        "summary": "Delete Resource Action Group",
+        "tags": [
+          "Resource Action Groups"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource_action_group",
+        "summary": "Get Resource Action Group",
+        "tags": [
+          "Resource Action Groups"
+        ]
+      },
+      "patch": {
+        "operationId": "update_resource_action_group",
+        "summary": "Update Resource Action Group",
+        "tags": [
+          "Resource Action Groups"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/actions": {
+      "get": {
+        "operationId": "list_resource_actions",
+        "summary": "List Resource Actions",
+        "tags": [
+          "Resource Actions"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_action",
+        "summary": "Create Resource Action",
+        "tags": [
+          "Resource Actions"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/actions/{action_id}": {
+      "delete": {
+        "operationId": "delete_resource_action",
+        "summary": "Delete Resource Action",
+        "tags": [
+          "Resource Actions"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource_action",
+        "summary": "Get Resource Action",
+        "tags": [
+          "Resource Actions"
+        ]
+      },
+      "patch": {
+        "operationId": "update_resource_action",
+        "summary": "Update Resource Action",
+        "tags": [
+          "Resource Actions"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes": {
+      "get": {
+        "operationId": "list_resource_attributes",
+        "summary": "List Resource Attributes",
+        "tags": [
+          "Resource Attributes"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_attribute",
+        "summary": "Create Resource Attribute",
+        "tags": [
+          "Resource Attributes"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}": {
+      "delete": {
+        "operationId": "delete_resource_attribute",
+        "summary": "Delete Resource Attribute",
+        "tags": [
+          "Resource Attributes"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource_attribute",
+        "summary": "Get Resource Attribute",
+        "tags": [
+          "Resource Attributes"
+        ]
+      },
+      "patch": {
+        "operationId": "update_resource_attribute",
+        "summary": "Update Resource Attribute",
+        "tags": [
+          "Resource Attributes"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations": {
+      "get": {
+        "operationId": "list_resource_relations",
+        "summary": "List Resource Relations",
+        "tags": [
+          "Resource Relations"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_relation",
+        "summary": "Create Resource Relation",
+        "tags": [
+          "Resource Relations"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations/{relation_id}": {
+      "delete": {
+        "operationId": "delete_resource_relation",
+        "summary": "Delete Resource Relation",
+        "tags": [
+          "Resource Relations"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource_relation",
+        "summary": "Get Resource Relation",
+        "tags": [
+          "Resource Relations"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles": {
+      "get": {
+        "operationId": "list_resource_roles",
+        "summary": "List Resource Roles",
+        "tags": [
+          "Resource Roles"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_role",
+        "summary": "Create Resource Role",
+        "tags": [
+          "Resource Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}": {
+      "delete": {
+        "operationId": "delete_resource_role",
+        "summary": "Delete Resource Role",
+        "tags": [
+          "Resource Roles"
+        ]
+      },
+      "get": {
+        "operationId": "get_resource_role",
+        "summary": "Get Resource Role",
+        "tags": [
+          "Resource Roles"
+        ]
+      },
+      "patch": {
+        "operationId": "update_resource_role",
+        "summary": "Update Resource Role",
+        "tags": [
+          "Resource Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/ancestors": {
+      "get": {
+        "operationId": "get_resource_role_ancestors",
+        "summary": "Get Resource Role Ancestors",
+        "tags": [
+          "Resource Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/descendants": {
+      "get": {
+        "operationId": "get_resource_role_descendants",
+        "summary": "Get Resource Role Descendants",
+        "tags": [
+          "Resource Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants": {
+      "delete": {
+        "operationId": "delete_implicit_grant",
+        "summary": "Delete Implicit Grant",
+        "tags": [
+          "Implicit Grants"
+        ]
+      },
+      "post": {
+        "operationId": "create_implicit_grant",
+        "summary": "Create Implicit Grant",
+        "tags": [
+          "Implicit Grants"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants/conditions": {
+      "put": {
+        "operationId": "update_implicit_grants_conditions",
+        "summary": "Update Implicit Grants Conditions",
+        "tags": [
+          "Implicit Grants"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/permissions": {
+      "delete": {
+        "operationId": "remove_permissions_from_resource_role",
+        "summary": "Remove Permissions from Role",
+        "tags": [
+          "Resource Roles"
+        ]
+      },
+      "post": {
+        "operationId": "assign_permissions_to_resource_role",
+        "summary": "Assign Permissions to Role",
+        "tags": [
+          "Resource Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/roles": {
+      "get": {
+        "operationId": "list_roles",
+        "summary": "List Roles",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "post": {
+        "operationId": "create_role",
+        "summary": "Create Role",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/roles/{role_id}": {
+      "delete": {
+        "operationId": "delete_role",
+        "summary": "Delete Role",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "get": {
+        "operationId": "get_role",
+        "summary": "Get Role",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "patch": {
+        "operationId": "update_role",
+        "summary": "Update Role",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/roles/{role_id}/ancestors": {
+      "get": {
+        "operationId": "get_role_ancestors",
+        "summary": "Get Role Ancestors",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/roles/{role_id}/descendants": {
+      "get": {
+        "operationId": "get_role_descendants",
+        "summary": "Get Role Descendants",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/roles/{role_id}/permissions": {
+      "delete": {
+        "operationId": "remove_permissions_from_role",
+        "summary": "Remove Permissions From Role",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "post": {
+        "operationId": "assign_permissions_to_role",
+        "summary": "Assign Permissions To Role",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/users/attributes": {
+      "get": {
+        "operationId": "list_user_attributes",
+        "summary": "List User Attributes",
+        "tags": [
+          "User Attributes"
+        ]
+      },
+      "post": {
+        "operationId": "create_user_attribute",
+        "summary": "Create User Attribute",
+        "tags": [
+          "User Attributes"
+        ]
+      }
+    },
+    "/v2/schema/{proj_id}/{env_id}/users/attributes/{attribute_id}": {
+      "delete": {
+        "operationId": "delete_user_attribute",
+        "summary": "Delete User Attribute",
+        "tags": [
+          "User Attributes"
+        ]
+      },
+      "get": {
+        "operationId": "get_user_attribute",
+        "summary": "Get User Attribute",
+        "tags": [
+          "User Attributes"
+        ]
+      },
+      "patch": {
+        "operationId": "update_user_attribute",
+        "summary": "Update User Attribute",
+        "tags": [
+          "User Attributes"
+        ]
+      }
+    }
+  }
+}

@@ -190,6 +190,7 @@ class Permit(AsyncPermit):
         tenants: list[str] | None = None,
         resources: list[str] | None = None,
         resource_types: list[str] | None = None,
+        context: Context | None = None,
     ) -> dict[str, Any]:
         """Get all permissions for a user.
 
@@ -198,6 +199,10 @@ class Permit(AsyncPermit):
             tenants: Optional list of tenants to filter permissions
             resources: Optional list of resources to filter
             resource_types: Optional list of resource types to filter
+            context: The query's context, which ABAC policies can read, merged over the
+                context store's base context as ``check()`` merges it. When it is None (the
+                default), the request carries no context, and the base context is not sent
+                either; pass ``{}`` to send the base context alone.
 
         Returns:
             dict: User permissions per tenant
@@ -206,7 +211,7 @@ class Permit(AsyncPermit):
             PermitConnectionError: If an error occurs while sending the request to the PDP
         """
         return self._enforcer.get_user_permissions(  # type: ignore[return-value]
-            user, tenants, resources, resource_types
+            user, tenants, resources, resource_types, context
         )
 
     def get_user_tenants(  # type: ignore[override]
