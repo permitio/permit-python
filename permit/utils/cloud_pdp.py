@@ -87,3 +87,20 @@ def container_pdp_only_message(
         f"{advice}\n"
         f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
     )
+
+
+def facts_proxied_to_the_cloud_pdp(pdp_url: str) -> str:
+    """The warning for a client with ``proxy_facts_via_pdp`` on whose PDP is the cloud PDP.
+
+    Args:
+        pdp_url: The cloud PDP's address, as the SDK's ``pdp`` setting gives it.
+
+    Returns:
+        The warning's text.
+    """
+    return (
+        f"proxy_facts_via_pdp is on, so the facts methods of permit.api send their requests to "
+        f"the PDP's /facts routes, but pdp is the cloud PDP ({pdp_url}), which does not serve "
+        f"them: each of those requests will fail with status code 404. Point pdp at a "
+        f"container PDP, or turn proxy_facts_via_pdp off to send facts to the Permit REST API."
+    )

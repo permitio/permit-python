@@ -7,7 +7,8 @@ empty body, for the routes it does not serve: ``/user-tenants``, which
 ``proxy_facts_via_pdp`` on. The SDK raises that 404 as an error that names the route and
 says it needs the container PDP, and keeps its usual error for a 404 that is a real "not
 found": a container PDP's, which has a JSON body, or the API's, which a container PDP's
-``/facts`` routes pass on.
+``/facts`` routes pass on. A client created with ``proxy_facts_via_pdp`` on and the cloud
+PDP as its ``pdp`` warns, at the line that created it.
 
 Each call goes through the async and the blocking client, each closed once the call
 returns. Every request is served by a local ``pytest_httpserver`` and the API context is
@@ -17,9 +18,11 @@ pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 import asyncio
 import inspect
 import socket
+import sys
+import warnings
 from collections.abc import Iterator
 from operator import attrgetter
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -556,3 +559,146 @@ def test_a_facts_api_method_that_always_goes_to_the_api_does_not_say_container_p
     client: Permit, path: str
 ) -> None:
     assert "Container PDP only" not in docstring(client, path)
+
+
+# --- the warning at creation ----------------------------------------------------------
+
+
+CLOUD_PDP_URL = f"https://{CLOUD_PDP_HOST}"
+
+
+def facts_proxied_to_the_cloud_pdp(pdp_url: str) -> str:
+    return (
+        "proxy_facts_via_pdp is on, so the facts methods of permit.api send their requests to "
+        f"the PDP's /facts routes, but pdp is the cloud PDP ({pdp_url}), which does not serve "
+        "them: each of those requests will fail with status code 404. Point pdp at a container "
+        "PDP, or turn proxy_facts_via_pdp off to send facts to the Permit REST API."
+    )
+
+
+def create(config: PermitConfig, flavour: str) -> Permit:
+    return Permit(config) if flavour == "async" else SyncPermit(config)
+
+
+def close(client: Permit) -> None:
+    if isinstance(client, SyncPermit):
+        client.close()
+    else:
+        asyncio.run(client.close())
+
+
+def caught_as_issued(caught: list[warnings.WarningMessage]) -> list[tuple[Any, ...]]:
+    return [(w.category, str(w.message), w.filename, w.lineno) for w in caught]
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_a_client_that_proxies_facts_to_the_cloud_pdp_warns_at_the_line_that_created_it(
+    config: PermitConfig, flavour: str
+) -> None:
+    config.pdp = CLOUD_PDP_URL
+    config.proxy_facts_via_pdp = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        line = sys._getframe().f_lineno + 1
+        client = Permit(config) if flavour == "async" else SyncPermit(config)
+    close(client)
+
+    assert caught_as_issued(caught) == [
+        (UserWarning, facts_proxied_to_the_cloud_pdp(CLOUD_PDP_URL), __file__, line)
+    ]
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    ("pdp", "proxy_facts_via_pdp"),
+    [("http://localhost:7766", True), (CLOUD_PDP_URL, False), ("http://localhost:7766", False)],
+    ids=["container-pdp", "proxy-off", "container-pdp-proxy-off"],
+)
+def test_no_warning_without_both_the_facts_proxy_and_the_cloud_pdp(
+    *, config: PermitConfig, pdp: str, proxy_facts_via_pdp: bool, flavour: str
+) -> None:
+    config.pdp = pdp
+    config.proxy_facts_via_pdp = proxy_facts_via_pdp
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        client = create(config, flavour)
+    close(client)
+
+    assert caught == []
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(("action", "shown"), [("always", 2), ("default", 1)])
+def test_each_creation_warns_and_the_default_filter_shows_it_once_per_line(
+    config: PermitConfig, action: Literal["always", "default"], shown: int, flavour: str
+) -> None:
+    config.pdp = CLOUD_PDP_URL
+    config.proxy_facts_via_pdp = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter(action)
+        for _ in range(2):
+            close(create(config, flavour))
+
+    assert len(caught) == shown
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_a_wait_for_sync_client_does_not_warn_again(config: PermitConfig, flavour: str) -> None:
+    config.pdp = CLOUD_PDP_URL
+    config.proxy_facts_via_pdp = True
+    with pytest.warns(UserWarning, match="^proxy_facts_via_pdp is on"):
+        client = create(config, flavour)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with client.wait_for_sync(timeout=1.0) as waiting:
+            assert waiting is not client
+    close(client)
+
+    assert caught == []
+
+
+def test_a_subclass_warns_at_the_line_that_created_it(config: PermitConfig) -> None:
+    class Subclass(Permit):
+        def __init__(self, config: PermitConfig) -> None:
+            super().__init__(config)
+
+    config.pdp = CLOUD_PDP_URL
+    config.proxy_facts_via_pdp = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        line = sys._getframe().f_lineno + 1
+        client = Subclass(config)
+    close(client)
+
+    assert [(w.filename, w.lineno) for w in caught] == [(__file__, line)]
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_facts_through_the_cloud_pdps_host_warn_then_ask_for_a_container_pdp(
+    pdp_server: HTTPServer, split_config: PermitConfig, cloud_pdp_url: str, flavour: str
+) -> None:
+    """At the cloud PDP's address, a 404 with a body counts as the cloud PDP's too."""
+    split_config.pdp = cloud_pdp_url
+    split_config.proxy_facts_via_pdp = True
+    pdp_server.expect_request("/facts/users", method="POST").respond_with_data(
+        '{"detail": "Not Found"}', status=404, content_type="application/json"
+    )
+
+    with (
+        pytest.warns(UserWarning, match="^proxy_facts_via_pdp is on") as caught,
+        pytest.raises(PermitApiError) as raised,
+    ):
+        invoke(split_config, flavour, call("api.users.create", USER))
+
+    assert [str(w.message) for w in caught] == [facts_proxied_to_the_cloud_pdp(cloud_pdp_url)]
+    message = container_pdp_only("POST /facts/users", cloud_pdp_url, USE_A_CONTAINER_PDP_FOR_FACTS)
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == message
+    assert [sent(request) for request, _ in pdp_server.log] == [
+        {"method": "POST", "path": "/facts/users", "query": [], "body": USER}
+    ]

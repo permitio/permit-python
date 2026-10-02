@@ -19,9 +19,11 @@ from permit.enforcement.enforcer import (
 from permit.enforcement.interfaces import AuthorizedUsersResult, TenantDetails
 from permit.logger import configure_logger
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
+from permit.utils.cloud_pdp import facts_proxied_to_the_cloud_pdp, is_cloud_pdp
 from permit.utils.context import Context
 from permit.utils.http_sessions import LoopSessions
 from permit.utils.sdk_logger import sdk_logger
+from permit.utils.sync import creation_site
 
 
 class Permit:
@@ -43,10 +45,22 @@ class Permit:
         config: The SDK configuration.
         **options: `PermitConfig` fields, used to build the configuration when `config`
             is not given.
+
+    Warns:
+        UserWarning: When ``proxy_facts_via_pdp`` is on and ``pdp`` is the cloud PDP's
+            address. The facts methods of ``permit.api`` then send their requests to the
+            PDP's ``/facts`` routes, which the cloud PDP does not serve. It is issued each
+            time such a client is created, at the line that creates it, so Python's default
+            warning filter shows it once for each such line. A client that
+            ``wait_for_sync()`` yields does not issue it again.
     """
 
     def __init__(self, config: PermitConfig | None = None, **options: Any) -> None:
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
+        if self._config.proxy_facts_via_pdp and is_cloud_pdp(self._config.pdp):
+            # At the line that created the client, past the blocking client's __init__,
+            # which calls this one: no warnings.warn() stacklevel fits both clients.
+            creation_site(self).warn(facts_proxied_to_the_cloud_pdp(self._config.pdp), UserWarning)
 
         configure_logger(self._config)
         self._api_sessions = LoopSessions()

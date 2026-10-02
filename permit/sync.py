@@ -43,6 +43,10 @@ class Permit(AsyncPermit):
         **options: `PermitConfig` fields, used to build the configuration when `config`
             is not given.
 
+    Warns:
+        UserWarning: When ``proxy_facts_via_pdp`` is on and ``pdp`` is the cloud PDP's
+            address, as for the async client, ``permit.Permit``.
+
     Examples:
         with Permit(token="<YOUR_API_KEY>") as permit:
             permit.check("user", "read", "document")

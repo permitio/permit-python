@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from functools import wraps
-from types import FrameType
+from types import FrameType, FunctionType
 from typing import (
     Any,
     NamedTuple,
@@ -81,6 +81,30 @@ class _CallSite(NamedTuple):
             module=self.module_globals.get("__name__", "<string>"),
             registry=self.module_globals.setdefault("__warningregistry__", {}),
         )
+
+
+def creation_site(instance: object) -> _CallSite:
+    """The line that created ``instance``, for a warning that its ``__init__`` issues.
+
+    Call it from an ``__init__`` of one of ``instance``'s classes. It returns the line of the
+    first frame outside the ``__init__`` methods of those classes: the line that called the
+    class, past the ``super().__init__()`` calls between, such as the blocking client's.
+
+    Args:
+        instance: The object being created.
+
+    Returns:
+        The line that created it, which a warning can be attributed to with ``warn()``.
+    """
+    inits = {
+        init.__code__
+        for cls in type(instance).__mro__
+        if isinstance(init := vars(cls).get("__init__"), FunctionType)
+    }
+    frame: FrameType | None = sys._getframe(1)  # noqa: SLF001 - see run_coroutine_sync
+    while frame is not None and frame.f_code in inits:
+        frame = frame.f_back
+    return _CallSite.from_frame(frame)
 
 
 _blocking_call_site: ContextVar[_CallSite | None] = ContextVar(
