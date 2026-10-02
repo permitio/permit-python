@@ -365,7 +365,11 @@ So when an offline test starts sending an allowlisted operation's request (the w
 of a new method for a `deferred` operation, or a new test for an `untested` one), its
 entry has to go in the same change. A method's wire test with `proxy_facts_via_pdp` on may
 also send a `/facts/...` request that the PDP forwards to the control plane but does not
-list in its spec; that request needs an `undocumented` `sdk_only` entry.
+list in its spec; that request needs an `undocumented` `sdk_only` entry. Every public
+method of the facts APIs has such a test: `tests/facts_methods.py` pins the request each one
+sends with the proxy on, the tests of the PDP's waits and of the cloud PDP's 404 run on each,
+and a new facts method fails `test_every_public_facts_method_has_a_case` until it has a case
+there.
 
 CI runs it in two places:
 
