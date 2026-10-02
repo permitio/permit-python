@@ -1,8 +1,13 @@
 """Offline tests for the routes only the container PDP serves (PER-16340).
 
-The hosted cloud PDP serves the decision routes and ``/health``. It answers 404 for
-``/user-tenants``, which ``get_user_tenants()`` calls, and the SDK raises that 404 as an
-error that names the route and says it needs the container PDP.
+The hosted cloud PDP serves the decision routes and ``/health``. It answers 404, with an
+empty body, for the routes it does not serve: ``/user-tenants``, which
+``get_user_tenants()`` calls; the ``/local`` routes of ``permit.pdp_api``; and the
+``/facts`` routes that the facts methods of ``permit.api`` call with
+``proxy_facts_via_pdp`` on. The SDK raises that 404 as an error that names the route and
+says it needs the container PDP, and keeps its usual error for a 404 that is a real "not
+found": a container PDP's, which has a JSON body, or the API's, which a container PDP's
+``/facts`` routes pass on.
 
 Each call goes through the async and the blocking client, each closed once the call
 returns. Every request is served by a local ``pytest_httpserver`` and the API context is
@@ -11,18 +16,37 @@ pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 
 import asyncio
 import inspect
+import socket
 from operator import attrgetter
+from typing import Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
+from werkzeug import Request
 
-from permit import Permit, PermitConnectionError
+from permit import ErrorCode, Permit, PermitConnectionError
 from permit.config import PermitConfig
+from permit.exceptions import PermitApiError, PermitNotFoundError
 from permit.sync import Permit as SyncPermit
-from tests.utils import Call, call
+from tests.utils import Call, call, sent
 
 FLAVOURS = ["async", "sync"]
+CLOUD_PDP_HOST = "cloudpdp.api.permit.io"
 DOCS_LINK = "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
+USE_A_CONTAINER_PDP = "Point the SDK's `pdp` setting at a container PDP to use it."
+USE_A_CONTAINER_PDP_FOR_FACTS = (
+    "Point the SDK's `pdp` setting at a container PDP to use it, or turn proxy_facts_via_pdp "
+    "off to send facts to the Permit REST API."
+)
+
+# The headers the SDK sets. The wait-for-sync ones are listed so that sending one shows.
+HEADERS = ("Authorization", "Content-Type", "X-Wait-Timeout", "X-Timeout-Policy")
+JSON_HEADERS: dict[str, str | None] = {
+    "Authorization": "Bearer test-token",
+    "Content-Type": "application/json",
+    "X-Wait-Timeout": None,
+    "X-Timeout-Policy": None,
+}
 
 
 def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
@@ -40,6 +64,50 @@ def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
     return result
 
 
+def sent_headers(request: Request) -> dict[str, str | None]:
+    return {name: request.headers.get(name) for name in HEADERS}
+
+
+def container_pdp_only(route: str, pdp_url: str, advice: str) -> str:
+    """The message of the error for the cloud PDP's 404 for ``route``."""
+    return (
+        f"The SDK got status code 404 from the PDP at {pdp_url}: only the container PDP "
+        f"serves {route}, and the cloud PDP does not.\n"
+        f"{advice}\n"
+        f"Read more about setting up the PDP at {DOCS_LINK}"
+    )
+
+
+@pytest.fixture
+def pdp_server(httpserver_ipv4: HTTPServer) -> HTTPServer:
+    """A server of its own for the PDP, so a request reaching it is told from one to the API."""
+    return httpserver_ipv4
+
+
+@pytest.fixture
+def split_config(config: PermitConfig, pdp_server: HTTPServer) -> PermitConfig:
+    """The offline config with the API on ``httpserver`` and the PDP on ``pdp_server``."""
+    config.pdp = pdp_server.url_for("").rstrip("/")
+    return config
+
+
+@pytest.fixture
+def cloud_pdp_url(pdp_server: HTTPServer, monkeypatch: pytest.MonkeyPatch) -> str:
+    """A cloud PDP address whose host resolves to ``pdp_server``, on its port."""
+    resolve = socket.getaddrinfo
+
+    def resolve_the_cloud_pdp_locally(
+        host: bytes | str | None, *args: Any, **kwargs: Any
+    ) -> list[Any]:
+        return resolve("127.0.0.1" if host == CLOUD_PDP_HOST else host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolve_the_cloud_pdp_locally)
+    return f"http://{CLOUD_PDP_HOST}:{pdp_server.port}"
+
+
+# --- get_user_tenants() ---------------------------------------------------------------
+
+
 @pytest.mark.parametrize("flavour", FLAVOURS)
 def test_get_user_tenants_names_the_route_and_asks_for_a_container_pdp(
     httpserver: HTTPServer, config: PermitConfig, flavour: str
@@ -55,3 +123,307 @@ def test_get_user_tenants_names_the_route_and_asks_for_a_container_pdp(
         "Point the SDK's `pdp` setting at a container PDP to use it.\n"
         f"Read more about setting up the PDP at {DOCS_LINK}"
     )
+
+
+# --- facts through the PDP ------------------------------------------------------------
+
+
+class FactsCase(NamedTuple):
+    """A facts method's call, and the one request it sends to the PDP's /facts routes."""
+
+    call: Call
+    method: str
+    path: str
+    query: list[tuple[str, str]]
+    body: Any
+
+
+USER = {"key": "alice"}
+TENANT = {"key": "t1", "name": "T1"}
+ASSIGNMENT = {"user": "alice", "role": "viewer", "tenant": "t1"}
+INSTANCE = {"key": "doc-1", "resource": "document", "tenant": "t1"}
+TUPLE = {"subject": "folder:f1", "relation": "parent", "object": "document:doc-1"}
+PAGE = [("page", "1"), ("per_page", "100")]
+
+# Facts methods of each API class, over each HTTP verb. The API coverage report fails on a
+# request that neither the PDP's spec nor an `sdk_only` entry of
+# .github/scripts/api_coverage_allowlist.json accounts for, so these send only such requests.
+FACTS_CASES = {
+    "users.create": FactsCase(call("api.users.create", USER), "POST", "/facts/users", [], USER),
+    "users.update": FactsCase(
+        call("api.users.update", "alice", {"first_name": "Alice"}),
+        "PATCH",
+        "/facts/users/alice",
+        [],
+        {"first_name": "Alice"},
+    ),
+    "users.assign_role": FactsCase(
+        call("api.users.assign_role", ASSIGNMENT),
+        "POST",
+        "/facts/users/alice/roles",
+        [],
+        {"role": "viewer", "tenant": "t1"},
+    ),
+    "users.bulk_create": FactsCase(
+        call("api.users.bulk_create", [USER]),
+        "POST",
+        "/facts/bulk/users",
+        [],
+        {"operations": [USER]},
+    ),
+    "tenants.create": FactsCase(
+        call("api.tenants.create", TENANT), "POST", "/facts/tenants", [], TENANT
+    ),
+    "tenants.delete": FactsCase(
+        call("api.tenants.delete", "t1"), "DELETE", "/facts/tenants/t1", [], None
+    ),
+    "tenants.delete_tenant_user": FactsCase(
+        call("api.tenants.delete_tenant_user", "t1", "alice"),
+        "DELETE",
+        "/facts/tenants/t1/users/alice",
+        [],
+        None,
+    ),
+    "tenants.bulk_create": FactsCase(
+        call("api.tenants.bulk_create", [TENANT]),
+        "POST",
+        "/facts/bulk/tenants",
+        [],
+        {"operations": [TENANT]},
+    ),
+    "role_assignments.assign": FactsCase(
+        call("api.role_assignments.assign", ASSIGNMENT),
+        "POST",
+        "/facts/role_assignments",
+        [],
+        ASSIGNMENT,
+    ),
+    "role_assignments.list_detailed": FactsCase(
+        call("api.role_assignments.list_detailed", user_key="alice"),
+        "GET",
+        "/facts/role_assignments/detailed",
+        [*PAGE, ("user", "alice")],
+        None,
+    ),
+    "resource_instances.create": FactsCase(
+        call("api.resource_instances.create", INSTANCE),
+        "POST",
+        "/facts/resource_instances",
+        [],
+        INSTANCE,
+    ),
+    "resource_instances.bulk_replace": FactsCase(
+        call("api.resource_instances.bulk_replace", [INSTANCE]),
+        "PUT",
+        "/facts/bulk/resource_instances",
+        [],
+        {"operations": [INSTANCE]},
+    ),
+    "relationship_tuples.create": FactsCase(
+        call("api.relationship_tuples.create", TUPLE),
+        "POST",
+        "/facts/relationship_tuples",
+        [],
+        TUPLE,
+    ),
+    "relationship_tuples.list_detailed": FactsCase(
+        call("api.relationship_tuples.list_detailed"),
+        "GET",
+        "/facts/relationship_tuples/detailed",
+        PAGE,
+        None,
+    ),
+}
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize("case", FACTS_CASES.values(), ids=FACTS_CASES.keys())
+def test_a_facts_method_raises_the_cloud_pdp_404_as_an_api_error_that_asks_for_a_container_pdp(
+    *,
+    httpserver: HTTPServer,
+    pdp_server: HTTPServer,
+    split_config: PermitConfig,
+    case: FactsCase,
+    flavour: str,
+) -> None:
+    split_config.proxy_facts_via_pdp = True
+    pdp_server.expect_request(case.path, method=case.method).respond_with_data("", status=404)
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, case.call)
+
+    message = container_pdp_only(
+        f"{case.method} {case.path}", split_config.pdp, USE_A_CONTAINER_PDP_FOR_FACTS
+    )
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == message
+    assert raised.value.message == message
+    assert raised.value.details == {"details": "", "message": message}
+    assert raised.value.status_code == 404
+    assert [sent(request) for request, _ in pdp_server.log] == [
+        {"method": case.method, "path": case.path, "query": case.query, "body": case.body}
+    ]
+    assert [sent_headers(request) for request, _ in pdp_server.log] == [JSON_HEADERS]
+    assert httpserver.log == []
+
+
+NOT_FOUND_DETAILS = {
+    "id": "request-1",
+    "title": "The requested data was not found",
+    "error_code": "NOT_FOUND",
+    "message": "Tenant with key 't1' was not found.",
+}
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    "case",
+    [FACTS_CASES["tenants.delete"], FACTS_CASES["users.update"]],
+    ids=["tenants.delete", "users.update"],
+)
+def test_the_apis_404_through_a_container_pdp_keeps_its_not_found_error(
+    *,
+    httpserver: HTTPServer,
+    pdp_server: HTTPServer,
+    split_config: PermitConfig,
+    case: FactsCase,
+    flavour: str,
+) -> None:
+    """A container PDP's /facts routes pass on the API's 404 for an object that is missing."""
+    split_config.proxy_facts_via_pdp = True
+    pdp_server.expect_request(case.path, method=case.method).respond_with_json(
+        NOT_FOUND_DETAILS, status=404
+    )
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, case.call)
+
+    assert type(raised.value) is PermitNotFoundError
+    assert str(raised.value) == (
+        f"The requested data was not found ({ErrorCode.NOT_FOUND})\n"
+        "Tenant with key 't1' was not found.\n"
+        "For more information: https://permit-io.slack.com/ssb/redirect (Request ID: request-1)"
+    )
+    assert raised.value.details == NOT_FOUND_DETAILS
+    assert len(pdp_server.log) == 1
+    assert httpserver.log == []
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    ("proxy_facts_via_pdp", "path", "target"),
+    [
+        (True, "/facts/users", call("api.users.create", USER)),
+        (False, "/local/role_assignments", call("pdp_api.role_assignments.list")),
+    ],
+    ids=["facts", "pdp_api"],
+)
+def test_a_container_pdps_own_404_keeps_the_api_error_it_raised(
+    *,
+    pdp_server: HTTPServer,
+    split_config: PermitConfig,
+    proxy_facts_via_pdp: bool,
+    path: str,
+    target: Call,
+    flavour: str,
+) -> None:
+    """A container PDP answers a route it does not serve with a JSON 404."""
+    split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
+    pdp_server.expect_request(path).respond_with_json({"detail": "Not Found"}, status=404)
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, target)
+
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == "404 API Error: {'detail': 'Not Found'}"
+    assert raised.value.details == {"detail": "Not Found"}
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_the_apis_empty_404_keeps_its_api_error_with_proxy_facts_via_pdp_off(
+    httpserver: HTTPServer, pdp_server: HTTPServer, split_config: PermitConfig, flavour: str
+) -> None:
+    """Only the PDP's container-only routes read an empty 404 as the cloud PDP's."""
+    path = "/v2/facts/test-project/test-env/users"
+    httpserver.expect_request(path, method="POST").respond_with_data("", status=404)
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, call("api.users.create", USER))
+
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == "404 API Error: {'details': ''}"
+    assert [sent(request) for request, _ in httpserver.log] == [
+        {"method": "POST", "path": path, "query": [], "body": USER}
+    ]
+    assert pdp_server.log == []
+
+
+# --- permit.pdp_api -------------------------------------------------------------------
+
+
+LOCAL_ROLE_ASSIGNMENTS = "/local/role_assignments"
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_pdp_api_raises_the_cloud_pdp_404_as_an_api_error_that_asks_for_a_container_pdp(
+    httpserver: HTTPServer, pdp_server: HTTPServer, split_config: PermitConfig, flavour: str
+) -> None:
+    pdp_server.expect_request(LOCAL_ROLE_ASSIGNMENTS, method="GET").respond_with_data(
+        "", status=404
+    )
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, call("pdp_api.role_assignments.list", user_key="alice"))
+
+    message = container_pdp_only(
+        f"GET {LOCAL_ROLE_ASSIGNMENTS}", split_config.pdp, USE_A_CONTAINER_PDP
+    )
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == message
+    assert raised.value.details == {"details": "", "message": message}
+    assert [sent(request) for request, _ in pdp_server.log] == [
+        {
+            "method": "GET",
+            "path": LOCAL_ROLE_ASSIGNMENTS,
+            "query": [*PAGE, ("user", "alice")],
+            "body": None,
+        }
+    ]
+    assert [sent_headers(request) for request, _ in pdp_server.log] == [JSON_HEADERS]
+    assert httpserver.log == []
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize("status", [401, 500])
+def test_another_empty_error_status_keeps_the_api_error_it_raised(
+    pdp_server: HTTPServer, split_config: PermitConfig, status: int, flavour: str
+) -> None:
+    pdp_server.expect_request(LOCAL_ROLE_ASSIGNMENTS).respond_with_data("", status=status)
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, call("pdp_api.role_assignments.list"))
+
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == f"{status} API Error: {{'details': ''}}"
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+def test_any_404_from_the_cloud_pdps_host_asks_for_a_container_pdp(
+    pdp_server: HTTPServer, split_config: PermitConfig, cloud_pdp_url: str, flavour: str
+) -> None:
+    """At the cloud PDP's address, a 404 with a body counts as the cloud PDP's too."""
+    split_config.pdp = cloud_pdp_url
+    pdp_server.expect_request(LOCAL_ROLE_ASSIGNMENTS).respond_with_data(
+        '{"detail": "Not Found"}', status=404, content_type="application/json"
+    )
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, call("pdp_api.role_assignments.list"))
+
+    message = container_pdp_only(
+        f"GET {LOCAL_ROLE_ASSIGNMENTS}", cloud_pdp_url, USE_A_CONTAINER_PDP
+    )
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == message
+    assert raised.value.details == {"details": '{"detail": "Not Found"}', "message": message}
+    assert len(pdp_server.log) == 1
