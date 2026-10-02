@@ -311,7 +311,7 @@ def _close_at_exit_on(loop: asyncio.AbstractEventLoop, entry: _LoopSession) -> b
         return False
     if loop.is_running():
         return _hand_close_to(loop, entry) is not None
-    loop.run_until_complete(entry.closer.aclose())
+    loop.run_until_complete(_close_on_its_loop(entry))
     return True
 
 
