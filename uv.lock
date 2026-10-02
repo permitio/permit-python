@@ -1012,9 +1012,11 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "loguru" },
+    { name = "multidict" },
     { name = "pydantic", version = "1.10.26", source = { registry = "https://pypi.org/simple" }, extra = ["email"], marker = "extra == 'group-6-permit-pydantic-v1'" },
     { name = "pydantic", version = "2.13.5", source = { registry = "https://pypi.org/simple" }, extra = ["email"], marker = "extra == 'group-6-permit-pydantic-v2' or extra != 'group-6-permit-pydantic-v1'" },
     { name = "typing-extensions" },
+    { name = "yarl" },
 ]
 
 [package.dev-dependencies]
@@ -1042,10 +1044,12 @@ pydantic-v2 = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.3,<4" },
     { name = "loguru", specifier = ">=0.7.3,<1" },
+    { name = "multidict", specifier = ">=6.7.0,<7" },
     { name = "pydantic", extras = ["email"], marker = "python_full_version < '3.13'", specifier = ">=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.0,!=2.4.1" },
     { name = "pydantic", extras = ["email"], marker = "python_full_version == '3.13.*'", specifier = ">=1.10.18,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*" },
     { name = "pydantic", extras = ["email"], marker = "python_full_version >= '3.14'", specifier = ">=1.10.25,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*" },
     { name = "typing-extensions", specifier = ">=4.14.0,<5" },
+    { name = "yarl", specifier = ">=1.21.0,<2" },
 ]
 
 [package.metadata.requires-dev]

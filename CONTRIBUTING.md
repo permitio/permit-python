@@ -104,6 +104,19 @@ project sees an installed permit, and fails while `permit/_sync_types.pyi` is ou
 (see [Regenerating the sync stubs](#regenerating-the-sync-stubs)). The `mypy` pre-commit
 hook type-checks the SDK itself, strictly and with the pydantic plugin (see [Setup](#setup)).
 
+### Connection reuse
+
+pytest-httpserver closes each connection after its response, so the tests of how the
+clients keep and close their connections (`tests/test_async_session_lifecycle.py` and
+`tests/test_sync_lifecycle.py`) use `tests/keepalive_server.py`, a local HTTP/1.1 server
+that keeps every connection open and counts the connections it accepted and those that were
+closed. The benchmark runs on it too: it times sequential `check()` calls of the async and
+the blocking client, and prints how many connections each opened.
+
+```sh
+uv run --locked python -m tests.benchmark_connection_reuse --calls 500
+```
+
 ### The migration skill's tests
 
 `skills/tests` checks `MIGRATION.md` and the permit-python-3-migration skill against each

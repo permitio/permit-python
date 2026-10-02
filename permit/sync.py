@@ -1,4 +1,8 @@
+import weakref
+from types import TracebackType
 from typing import Any
+
+from typing_extensions import Self
 
 from permit.api.elements import SyncElementsApi
 from permit.api.sync_api_client import SyncPermitApiClient
@@ -14,6 +18,7 @@ from permit.enforcement.interfaces import AuthorizedUsersResult, TenantDetails
 from permit.pdp_api.pdp_api_client import SyncPDPApi
 from permit.permit import Permit as AsyncPermit
 from permit.utils.context import Context
+from permit.utils.sync import _BackgroundLoop
 
 
 # The blocking client keeps the blocking twins of the async client's helpers in the
@@ -23,20 +28,103 @@ from permit.utils.context import Context
 class Permit(AsyncPermit):
     """The Permit SDK client with a blocking interface.
 
+    The client runs every blocking call on an event loop in a background daemon thread of
+    its own, which it starts on the first call. Calls from any number of threads are handed
+    to that thread and waited for, so they share the client's HTTP connections instead of
+    each opening its own. Calling it from a thread that runs an event loop works too, and
+    blocks that loop until the call returns, as any blocking call does.
+
+    Close the client when done with it, with `close()` or a `with` block, to close its
+    connections and stop the thread. A client that is never closed is cleaned up when it is
+    garbage collected, or at interpreter exit; the thread never holds up the exit.
+
     Args:
         config: The SDK configuration.
         **options: `PermitConfig` fields, used to build the configuration when `config`
             is not given.
+
+    Examples:
+        with Permit(token="<YOUR_API_KEY>") as permit:
+            permit.check("user", "read", "document")
     """
 
     def __init__(self, config: PermitConfig | None = None, **options: Any) -> None:
+        # Before super().__init__, which calls _connect.
+        self._background_loop = _BackgroundLoop()
         super().__init__(config, **options)
+        # close() and the exit hook close the sessions on the loop while the client is
+        # alive; once it is collected, the sessions close themselves there. Copies made by
+        # wait_for_sync() use the sessions and the loop of the client that made them, and
+        # leave closing both to it.
+        self._background_loop.set_closer(weakref.WeakMethod(self._close_sessions))
 
     def _connect(self) -> None:
         self._enforcer = SyncEnforcer(self._config)  # type: ignore[assignment]
         self._api = SyncPermitApiClient(self._config)  # type: ignore[assignment]
         self._elements = SyncElementsApi(self._config)  # type: ignore[assignment]
         self._pdp_api = SyncPDPApi(self._config)
+        self._background_loop.bind(self._enforcer, self._api, self._elements, self._pdp_api)
+
+    async def _close_sessions(self) -> None:
+        """Close the HTTP sessions this client opened. Runs on its background loop."""
+        await AsyncPermit.close(self)
+
+    def close(self) -> None:  # type: ignore[override]
+        """Close the client's HTTP connections and stop its background thread.
+
+        It waits for the calls that other threads have in flight to return first. A call or a
+        `close()` that another thread makes meanwhile waits until this one has finished.
+        Calling it again does nothing. The client stays usable: the next call starts a new
+        thread and opens new connections.
+
+        With `proxy_facts_via_pdp` on, a client yielded by `wait_for_sync()` runs its calls on
+        the thread and over the connections of the client it was made from: its `close()`
+        does nothing, and the other client's `close()` closes them. With it off, the default,
+        `wait_for_sync()` yields the client itself, whose `close()` closes them.
+
+        Raises:
+            RuntimeError: If called on the client's own background thread, which it has to
+                stop and join.
+
+        Examples:
+            permit = Permit(token="<YOUR_API_KEY>")
+            try:
+                permit.check("user", "read", "document")
+            finally:
+                permit.close()
+        """
+        if not self._owns_sessions:
+            return
+        self._background_loop.close()
+
+    def __enter__(self) -> Self:
+        """Return the client itself, which the end of the `with` block closes."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Close the client, as `close()` does."""
+        self.close()
+
+    def __aenter__(self) -> None:  # type: ignore[override]
+        """Refuse `async with`, which the blocking client does not support.
+
+        It is annotated to return None rather than an awaitable, so that type checkers reject
+        `async with` on this client too, as they reject `with` on the async client.
+
+        Raises:
+            TypeError: Always. A `with` block closes this client; `async with` is for the
+                async client, `permit.Permit`.
+        """
+        msg = (
+            "permit.sync.Permit is a blocking client: use `with Permit(...) as permit:`, not "
+            "`async with`. In async code, use the async client, permit.Permit."
+        )
+        raise TypeError(msg)
 
     @property
     def api(self) -> SyncPermitApiClient:  # type: ignore[override]

@@ -33,6 +33,10 @@ dependencies = [
     # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
     # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
     "loguru>=0.7.3,<1",
+    # permit/api/base.py imports multidict and yarl itself; aiohttp also depends on
+    # them. The floors are the first releases with wheels for every supported Python,
+    # 3.14 and 3.14t included, so a floor install never builds them from source.
+    "multidict>=6.7.0,<7",
     # pydantic has one line per Python range, updated by hand: Dependabot ignores
     # pydantic (see .github/dependabot.yml). Why each version is excluded:
     # - CVE-2024-3772 (ReDoS in email validation) affects pydantic 1.x before
@@ -66,6 +70,7 @@ dependencies = [
     # before 4.6 break `import permit` on 3.12+, before 4.12 on 3.13+, and 4.12-4.13
     # lose TypedDict keys on 3.14.
     "typing-extensions>=4.14.0,<5",
+    "yarl>=1.21.0,<2",
 ]
 
 [project.urls]
