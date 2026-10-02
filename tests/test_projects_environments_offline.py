@@ -129,6 +129,12 @@ ENVIRONMENT_READ = {
     "created_at": TIMESTAMP,
     "updated_at": TIMESTAMP,
 }
+# What the API answers a get or a list of environments with: an environment and its email
+# configuration.
+ENVIRONMENT_WITH_EMAIL_CONFIG = {
+    **ENVIRONMENT_READ,
+    "email_configuration": "6a1b2c3d-0000-4000-8000-000000000080",
+}
 ENVIRONMENT_STATS = {
     **ENVIRONMENT_READ,
     "pdp_configs": [
@@ -272,7 +278,7 @@ CASES = {
         path=ENVS,
         query=DEFAULT_PAGE,
         body=None,
-        response=[ENVIRONMENT_READ],
+        response=[ENVIRONMENT_WITH_EMAIL_CONFIG],
         model=EnvironmentRead,
         error=NOT_FOUND,
     ),
@@ -294,7 +300,7 @@ CASES = {
         path=f"{ENVS}/dev",
         query=[],
         body=None,
-        response=ENVIRONMENT_READ,
+        response=ENVIRONMENT_WITH_EMAIL_CONFIG,
         model=EnvironmentRead,
         error=NOT_FOUND,
     ),
@@ -305,7 +311,7 @@ CASES = {
         path=f"{ENVS}/dev",
         query=[],
         body=None,
-        response=ENVIRONMENT_READ,
+        response=ENVIRONMENT_WITH_EMAIL_CONFIG,
         model=EnvironmentRead,
         error=NOT_FOUND,
     ),
@@ -316,7 +322,7 @@ CASES = {
         path=f"{PROJECTS}/{PROJECT_ID}/envs/{ENVIRONMENT_ID}",
         query=[],
         body=None,
-        response=ENVIRONMENT_READ,
+        response=ENVIRONMENT_WITH_EMAIL_CONFIG,
         model=EnvironmentRead,
         error=NOT_FOUND,
     ),
