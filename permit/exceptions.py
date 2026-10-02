@@ -5,10 +5,10 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import aiohttp
-from loguru import logger
 from typing_extensions import ParamSpec, deprecated
 
 from permit.utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.sdk_logger import sdk_logger
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -288,7 +288,7 @@ def handle_client_error(
         try:
             return await func(*args, **kwargs)
         except aiohttp.ClientError as err:
-            logger.error(f"got client error while sending an http request:\n{err}")
+            sdk_logger.error(f"got client error while sending an http request:\n{err}")
             msg = f"{err}"
             raise PermitConnectionError(msg, error=err) from err
 

@@ -1,8 +1,7 @@
 from enum import Enum
 
-from loguru import logger
-
 from permit.exceptions import PermitContextChangeError
+from permit.utils.sdk_logger import sdk_logger
 
 
 class ApiKeyAccessLevel(str, Enum):
@@ -198,7 +197,7 @@ class ApiContext:
             org: The organization key.
         """
         self.__verify_can_access_org(org)
-        logger.debug(f"Setting organization level context: {org}")
+        sdk_logger.debug(f"Setting organization level context: {org}")
         self._context_level = ApiContextLevel.ORGANIZATION
         self._organization = org
         self._project = None
@@ -212,7 +211,7 @@ class ApiContext:
             project: The project key.
         """
         self.__verify_can_access_project(org, project)
-        logger.debug(f"Setting project level context: {org}/{project}")
+        sdk_logger.debug(f"Setting project level context: {org}/{project}")
         self._context_level = ApiContextLevel.PROJECT
         self._organization = org
         self._project = project
@@ -227,7 +226,7 @@ class ApiContext:
             environment: The environment key.
         """
         self.__verify_can_access_environment(org, project, environment)
-        logger.debug(f"Setting environment level context: {org}/{project}/{environment}")
+        sdk_logger.debug(f"Setting environment level context: {org}/{project}/{environment}")
         self._context_level = ApiContextLevel.ENVIRONMENT
         self._organization = org
         self._project = project
