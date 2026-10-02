@@ -418,54 +418,6 @@
     },
     {
       "api": "control-plane",
-      "operation": "PUT /v2/facts/{proj_id}/{env_id}/bulk/resource_instances",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.bulk_replace(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/bulk/resource_instances",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.bulk_delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/bulk/tenants",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.tenants.bulk_delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PUT /v2/facts/{proj_id}/{env_id}/bulk/users",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.users.bulk_replace(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/bulk/users",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.users.bulk_create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/bulk/users",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.users.bulk_delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
       "operation": "GET /v2/facts/{proj_id}/{env_id}/email_configurations",
       "stage": "GA",
       "status": "excluded",
@@ -562,163 +514,11 @@
     },
     {
       "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/relationship_tuples",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.relationship_tuples.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.relationship_tuples.bulk_create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.relationship_tuples.bulk_delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/resource_instances",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.get(), permit.api.resource_instances.get_by_id(), permit.api.resource_instances.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PATCH /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.update(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/role_assignments",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.role_assignments.assign(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/role_assignments",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.role_assignments.unassign(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/role_assignments/bulk",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.role_assignments.bulk_assign(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/role_assignments/bulk",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.role_assignments.bulk_unassign(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/facts/{proj_id}/{env_id}/set_rules",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_set_rules.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/set_rules",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_set_rules.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/set_rules",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_set_rules.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.tenants.list_tenant_users(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/facts/{proj_id}/{env_id}/user_invites",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.user_invites.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/user_invites",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.user_invites.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.user_invites.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
       "operation": "PATCH /v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}",
       "stage": "GA",
       "status": "deferred",
       "ticket": "PER-16737",
       "reason": "P2: user_invites.update()."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/facts/{proj_id}/{env_id}/user_invites/{user_invite_id}/approve",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.user_invites.approve(); no offline test sends this request yet."
     },
     {
       "api": "control-plane",
@@ -1090,86 +890,6 @@
     },
     {
       "api": "control-plane",
-      "operation": "GET /v2/projects",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.projects.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/projects",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.projects.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/projects/{proj_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.projects.get(), permit.api.projects.get_by_id(), permit.api.projects.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/projects/{proj_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.projects.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PATCH /v2/projects/{proj_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.projects.update(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/projects/{proj_id}/envs",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.environments.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/projects/{proj_id}/envs",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.environments.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/projects/{proj_id}/envs/{env_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.environments.get(), permit.api.environments.get_by_id(), permit.api.environments.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/projects/{proj_id}/envs/{env_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.environments.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PATCH /v2/projects/{proj_id}/envs/{env_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.environments.update(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
       "operation": "POST /v2/projects/{proj_id}/envs/{env_id}/copy/async",
       "stage": "GA",
       "status": "deferred",
@@ -1183,14 +903,6 @@
       "status": "deferred",
       "ticket": "PER-16737",
       "reason": "P2: environments.copy_async() and get_copy_result()."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/projects/{proj_id}/envs/{env_id}/stats",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.environments.get_stats(); no offline test sends this request yet."
     },
     {
       "api": "control-plane",
@@ -1290,46 +1002,6 @@
     },
     {
       "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_sets.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/schema/{proj_id}/{env_id}/condition_sets",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_sets.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_sets.get(), permit.api.condition_sets.get_by_id(), permit.api.condition_sets.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_sets.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.condition_sets.update(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
       "operation": "GET /v2/schema/{proj_id}/{env_id}/condition_sets/{condition_set_id}/ancestors",
       "stage": "GA",
       "status": "excluded",
@@ -1394,118 +1066,6 @@
     },
     {
       "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resources.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PUT /v2/schema/{proj_id}/{env_id}/resources/{resource_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resources.replace(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_attributes.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_attributes.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_attributes.get(), permit.api.resource_attributes.get_by_id(), permit.api.resource_attributes.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_attributes.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/attributes/{attribute_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_attributes.update(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_relations.create(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations/{relation_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_relations.get(), permit.api.resource_relations.get_by_id(), permit.api.resource_relations.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/relations/{relation_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_relations.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.list(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.get(), permit.api.resource_roles.get_by_id(), permit.api.resource_roles.get_by_key(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.delete(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PATCH /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.update(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
       "operation": "GET /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/ancestors",
       "stage": "GA",
       "status": "excluded",
@@ -1522,30 +1082,6 @@
     },
     {
       "api": "control-plane",
-      "operation": "POST /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.create_role_derivation(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.delete_role_derivation(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "PUT /v2/schema/{proj_id}/{env_id}/resources/{resource_id}/roles/{role_id}/implicit_grants/conditions",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_roles.update_role_derivation_conditions(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
       "operation": "GET /v2/schema/{proj_id}/{env_id}/roles/{role_id}/ancestors",
       "stage": "GA",
       "status": "excluded",
@@ -1559,22 +1095,6 @@
       "status": "excluded",
       "ticket": "PER-16337",
       "reason": "Hierarchy helper for the dashboard, derivable from extends and parent_id; no SDK has it and nobody has asked."
-    },
-    {
-      "api": "control-plane",
-      "operation": "POST /v2/schema/{proj_id}/{env_id}/roles/{role_id}/permissions",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.roles.assign_permissions(); no offline test sends this request yet."
-    },
-    {
-      "api": "control-plane",
-      "operation": "DELETE /v2/schema/{proj_id}/{env_id}/roles/{role_id}/permissions",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.roles.remove_permissions(); no offline test sends this request yet."
     },
     {
       "api": "control-plane",

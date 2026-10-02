@@ -371,7 +371,21 @@ sends with the proxy on, the tests of the PDP's waits and of the cloud PDP's 404
 and a new facts method fails `test_every_public_facts_method_has_a_case` until it has a case
 there.
 
-CI runs it in two places:
+A method's wire test is in the offline module of its API, for example
+`tests/test_schema_offline.py` (resources, their attributes, relations and roles, roles,
+condition sets and condition set rules), `tests/test_facts_operations_offline.py` (the bulk
+and single-object facts methods with the proxy off and on, and user invites) or
+`tests/test_projects_environments_offline.py`. Such a module calls the method on the async
+and the blocking client with the helpers of `tests/utils.py` (`invoke`, `sent_headers`,
+`ApiError`), and checks the request, its headers, what the response parses into and the
+error an API error response raises. The schema and the projects and environments modules,
+and `tests/test_fix_resource_actions.py`, fail `test_every_public_method_has_a_case` until
+every public method of their APIs has a case; the facts operations module holds only the
+user invite methods to that, with `test_every_public_user_invites_method_has_a_case`. Add a
+new method's wire test there in the same change, so that its operation never needs an
+`untested` entry.
+
+CI runs the report in two places:
 
 - The `API Coverage` job in `.github/workflows/test.yml`, on every pull request, against
   the committed snapshots. The `pytest` jobs record their requests too, and the report's
