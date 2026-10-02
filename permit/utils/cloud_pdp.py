@@ -105,6 +105,7 @@ def facts_proxied_to_the_cloud_pdp(pdp_url: str) -> str:
     return (
         f"proxy_facts_via_pdp is on, so the facts methods of permit.api send their requests to "
         f"the PDP's /facts routes, but pdp is the cloud PDP ({pdp_url}), which does not serve "
-        f"them: each of those requests will fail with status code 404. Point pdp at a "
-        f"container PDP, or turn proxy_facts_via_pdp off to send facts to the Permit REST API."
+        f"them: each of those requests will fail with status code 404.\n"
+        f"{USE_A_CONTAINER_PDP_FOR_FACTS}\n"
+        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
     )
