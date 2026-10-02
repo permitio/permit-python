@@ -82,7 +82,9 @@ class PermitApiError(PermitError):
     Args:
         response: The error response.
         body: The response's JSON body, or for a body that is not JSON,
-            ``{"details": <the body's text>}``.
+            ``{"details": <the body's text>}``. For the cloud PDP's 404 on a route only the
+            container PDP serves, ``{"details": <the body's text>, "message": <message>}``,
+            whatever the body.
         message: The error's message, in place of the one it builds from the status code
             and the body.
     """
