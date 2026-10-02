@@ -483,7 +483,12 @@ def test_a_client_whose_call_raised_is_freed_by_reference_counting(server: KeepA
         # On a free-threaded build, an object that another thread releases is freed by the
         # thread that created it, once that thread runs again: let both threads run.
         ran = threading.Event()
-        running.loop.call_soon_threadsafe(ran.set)
+        try:
+            running.loop.call_soon_threadsafe(ran.set)
+        except RuntimeError:
+            # Freeing the client at `del` already stopped and closed its loop.
+            assert running.loop.is_closed()
+            ran.set()
         assert ran.wait(timeout=5)
         deadline = time.monotonic() + 5
         while freed() is not None and time.monotonic() < deadline:
