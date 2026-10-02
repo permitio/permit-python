@@ -371,6 +371,17 @@ sends with the proxy on, the tests of the PDP's waits and of the cloud PDP's 404
 and a new facts method fails `test_every_public_facts_method_has_a_case` until it has a case
 there.
 
+A method's wire test is in the offline module of its API, for example
+`tests/test_schema_offline.py` (resources, their attributes, relations and roles, roles,
+condition sets and condition set rules), `tests/test_facts_operations_offline.py` (the bulk
+and single-object facts methods with the proxy off and on, and user invites) or
+`tests/test_projects_environments_offline.py`. Such a module calls the method on the async
+and the blocking client and checks the request, its headers, what the response parses into
+and the error an API error response raises, and most of them fail a
+`test_every_public_method_has_a_case` test until every public method of their APIs has a
+case. Add a new method's wire test there in the same change, so that its operation never
+needs an `untested` entry.
+
 CI runs it in two places:
 
 - The `API Coverage` job in `.github/workflows/test.yml`, on every pull request, against
