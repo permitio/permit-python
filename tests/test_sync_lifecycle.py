@@ -289,7 +289,8 @@ def test_async_with_is_refused(server: KeepAliveServer) -> None:
     client = SyncPermit(offline_config(server.url))
 
     async def enter() -> None:
-        async with client:
+        # The mistake a type checker reports too: this checks what it does at runtime.
+        async with client:  # type: ignore[misc]
             check(client)
 
     with pytest.raises(TypeError, match=r"use `with Permit\(\.\.\.\) as permit:`"):

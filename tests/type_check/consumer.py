@@ -285,3 +285,5 @@ async def mistakes_stay_errors() -> None:
     # Each client has the context manager of its kind only.
     with permit:  # type: ignore[attr-defined]
         pass
+    async with sync_permit:  # type: ignore[misc]
+        pass

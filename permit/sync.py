@@ -1,6 +1,6 @@
 import weakref
 from types import TracebackType
-from typing import Any, NoReturn
+from typing import Any
 
 from typing_extensions import Self
 
@@ -110,8 +110,11 @@ class Permit(AsyncPermit):
         """Close the client, as `close()` does."""
         self.close()
 
-    def __aenter__(self) -> NoReturn:
+    def __aenter__(self) -> None:  # type: ignore[override]
         """Refuse `async with`, which the blocking client does not support.
+
+        It is annotated to return None rather than an awaitable, so that type checkers reject
+        `async with` on this client too, as they reject `with` on the async client.
 
         Raises:
             TypeError: Always. A `with` block closes this client; `async with` is for the
