@@ -24,6 +24,7 @@ from collections.abc import Iterator
 from operator import attrgetter
 from typing import Any, Literal, NamedTuple
 
+import aiohttp
 import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Request
@@ -98,6 +99,10 @@ def split_config(config: PermitConfig, pdp_server: HTTPServer) -> PermitConfig:
 @pytest.fixture
 def cloud_pdp_url(pdp_server: HTTPServer, monkeypatch: pytest.MonkeyPatch) -> str:
     """A cloud PDP address whose host resolves to ``pdp_server``, on its port."""
+    # aiohttp resolves names with socket.getaddrinfo unless aiodns is installed.
+    assert aiohttp.resolver.DefaultResolver is aiohttp.ThreadedResolver, (
+        "aiohttp resolves names without socket.getaddrinfo here; uninstall aiodns"
+    )
     resolve = socket.getaddrinfo
 
     def resolve_the_cloud_pdp_locally(
