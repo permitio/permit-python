@@ -50,7 +50,20 @@ def server() -> Iterator[KeepAliveServer]:
 def permit(server: KeepAliveServer) -> Iterator[SyncPermit]:
     client = SyncPermit(offline_config(server.url))
     yield client
-    client.close()
+    close_within(client)
+
+
+def close_within(client: SyncPermit, timeout: float = 5.0) -> None:
+    """Close `client`, failing instead of waiting forever if its loop thread is stuck.
+
+    A regression that deadlocks the thread, such as a blocking call the client lets wait for
+    its own thread, would otherwise hang the test session here. The stuck thread is a
+    daemon, and close() has already left the exit hook nothing to wait for.
+    """
+    closing = threading.Thread(target=client.close, daemon=True)
+    closing.start()
+    closing.join(timeout)
+    assert not closing.is_alive(), "close() did not return: the client's loop thread is stuck"
 
 
 def loop_thread(client: SyncPermit) -> threading.Thread | None:
