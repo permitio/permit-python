@@ -113,7 +113,7 @@ dev = [
     # and checksum. Dependabot bumps it like any other pin. The uv-lock pre-commit
     # hook runs the uv on PATH, which under `uv run` (as in CI) is this one. Run
     # this version locally so uv.lock comes out the same.
-    "uv==0.12.17",
+    "uv==0.12.19",
     # Imported directly by the offline tests (Request/Response are used to assert
     # on what the SDK actually put on the wire), as well as backing
     # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
