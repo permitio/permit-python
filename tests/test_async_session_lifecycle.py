@@ -701,6 +701,31 @@ def test_close_still_closes_the_other_sessions_when_one_fails_to_close(
         closed_later.close()
 
 
+def test_a_loop_closed_without_shutting_down_leaves_its_connection_to_the_garbage_collector(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    """The documented limit of a loop closed with ``loop.close()`` alone.
+
+    Nothing can close a connection on a closed loop, so it stays open until the next request
+    marks the session closed and the garbage collector frees the connection, which Python
+    reports with a ResourceWarning. Running close() on the loop before closing it closes the
+    connection instead (test_close_leaves_the_connection_of_an_idle_loop_to_that_loop).
+    """
+    assert run_on_a_loop_closed_without_shutting_down(check(client))
+    assert server.wait_until_closed(1, timeout=0.2) == 0
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert asyncio.run(check(client))
+        gc.collect()
+
+    assert caught
+    assert {warning.category for warning in caught} == {ResourceWarning}
+    assert all("unclosed" in str(warning.message) for warning in caught)
+    # The connection of the closed loop, and the one asyncio.run() closed as it ended.
+    assert server.wait_until_closed(2) == 2
+
+
 def test_close_closes_the_session_of_a_loop_closed_without_shutting_down(
     httpserver: HTTPServer, config: PermitConfig
 ) -> None:

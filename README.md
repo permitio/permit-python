@@ -47,7 +47,11 @@ async with Permit(token="<YOUR_API_KEY>") as permit:
   loop. As the interpreter exits, the client closes what is still open, so aiohttp reports
   no unclosed session.
 - If you drive an event loop yourself, run `await permit.close()` on it before you close it.
-  A loop closed with `loop.close()` alone cannot close its connections any more.
+  A loop closed with `loop.close()` alone cannot close its connections any more: they stay
+  open until the client's next request, from any loop, lets the garbage collector free
+  them, and Python reports each one with a `ResourceWarning`. Python's default warning
+  filters hide it, but a test suite that turns warnings into errors, such as pytest with
+  `filterwarnings = error`, fails on it.
 - Close the client once no request is in flight: a request in flight when `close()` runs
   fails.
 
