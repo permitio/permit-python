@@ -1698,14 +1698,6 @@
     },
     {
       "api": "pdp",
-      "operation": "PATCH /facts/users/{user_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.users.update() with proxy_facts_via_pdp; no offline test sends this request yet."
-    },
-    {
-      "api": "pdp",
       "operation": "DELETE /facts/users/{user_id}/roles",
       "stage": "GA",
       "status": "untested",

@@ -20,7 +20,7 @@ else:
 
 
 class PermitPdpApiClient:
-    """Entry point to the APIs served by the PDP itself."""
+    """Entry point to the APIs served by the PDP itself, which only the container PDP serves."""
 
     def __init__(self, config: PermitConfig) -> None:
         """Constructs a new instance of the PdpApiClient class with the specified SDK configuration.

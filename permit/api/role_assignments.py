@@ -91,6 +91,10 @@ class RoleAssignmentsApi(BasePermitApi):
         the last value of a filter given as a list: ``user_key=["alice", "bob"]`` lists only
         bob's assignments. Pass lists only with ``proxy_facts_via_pdp`` off.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: if specified, only role granted to this user will be fetched.
             role_key: if specified, only assignments of this role will be fetched.
@@ -157,6 +161,10 @@ class RoleAssignmentsApi(BasePermitApi):
         the last value of a filter given as a list: ``user_key=["alice", "bob"]`` lists only
         bob's assignments. Pass lists only with ``proxy_facts_via_pdp`` off.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: if specified, only roles granted to this user, or to any of these
                 users, will be fetched.
@@ -202,6 +210,10 @@ class RoleAssignmentsApi(BasePermitApi):
     async def assign(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """Assigns a role to a user in the scope of a given tenant.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             assignment: The role assignment details.
 
@@ -220,6 +232,10 @@ class RoleAssignmentsApi(BasePermitApi):
     @validate_arguments
     async def unassign(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """Unassigns a role from a user in the scope of a given tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             unassignment: The role unassignment details.
@@ -240,6 +256,10 @@ class RoleAssignmentsApi(BasePermitApi):
         """Assigns multiple roles in bulk using the provided role assignments data.
 
         Each role assignment is a tuple of (user, role, tenant).
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             assignments: The role assignments to be performed in bulk.
@@ -267,6 +287,10 @@ class RoleAssignmentsApi(BasePermitApi):
         """Removes multiple role assignments in bulk using the provided unassignment data.
 
         Each role to unassign is a tuple of (user, role, tenant).
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             unassignments: The role unassignments to be performed in bulk.

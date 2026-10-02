@@ -1,12 +1,13 @@
 from permit import PermitConfig
 from permit.api.base import ClientConfig, SimpleHttpClient, pagination_params
+from permit.utils.cloud_pdp import USE_A_CONTAINER_PDP
 from permit.utils.http_sessions import LoopSessions
 
 __all__ = ["BasePdpPermitApi", "ClientConfig", "pagination_params"]
 
 
 class BasePdpPermitApi:
-    """The base class for Permit APIs."""
+    """The base class of the APIs the PDP serves. Only the container PDP serves them."""
 
     def __init__(self, config: PermitConfig) -> None:
         """Initialize a BasePermitApi.
@@ -37,4 +38,5 @@ class BasePdpPermitApi:
             # call used aiohttp's default timeout instead of the configured one.
             timeout=self.config.pdp_timeout,
             sessions=self._sessions,
+            container_pdp_advice=USE_A_CONTAINER_PDP,
         )

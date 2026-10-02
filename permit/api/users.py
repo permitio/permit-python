@@ -73,6 +73,10 @@ class UsersApi(BasePermitApi):
     async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """Retrieves a list of users.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -100,6 +104,10 @@ class UsersApi(BasePermitApi):
     async def get(self, user_key: str) -> UserRead:
         """Retrieves a user by its key.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: The key of the user.
 
@@ -120,6 +128,10 @@ class UsersApi(BasePermitApi):
         """Retrieves a user by its key.
 
         Alias for the get method.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user_key: The key of the user.
@@ -142,6 +154,10 @@ class UsersApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_id: The ID of the user.
 
@@ -160,6 +176,10 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def create(self, user_data: ModelInput[UserCreate]) -> UserRead:
         """Creates a new user.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user_data: The data for the new user.
@@ -180,6 +200,10 @@ class UsersApi(BasePermitApi):
     async def update(self, user_key: str, user_data: ModelInput[UserUpdate]) -> UserRead:
         """Updates a user.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: The key of the user.
             user_data: The updated data for the user.
@@ -199,6 +223,10 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def sync(self, user: _UserSyncInput) -> UserRead:
         """Synchronizes user data by creating or updating a user.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user: The data of the user to be synchronized.
@@ -226,6 +254,10 @@ class UsersApi(BasePermitApi):
     async def delete(self, user_key: str) -> None:
         """Deletes a user.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: The key of the user to delete.
 
@@ -241,6 +273,10 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def bulk_create(self, users: ModelListInput[UserCreate]) -> UserCreateBulkOperationResult:
         """Creates users in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             users: The users to create
@@ -270,6 +306,10 @@ class UsersApi(BasePermitApi):
         If the user exists - replaces it.
         Otherwise, creates previously non-existing users.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             users: The users to replace.
 
@@ -292,6 +332,10 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def bulk_delete(self, users: builtins.list[str]) -> UserDeleteBulkOperationResult:
         """Deletes users in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             users: The users identities to delete. Each identity can be either the user key or the
@@ -317,6 +361,10 @@ class UsersApi(BasePermitApi):
     async def assign_role(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """Assigns a role to a user in the scope of a given tenant.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             assignment: The role assignment details.
 
@@ -341,6 +389,10 @@ class UsersApi(BasePermitApi):
     @validate_arguments
     async def unassign_role(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """Unassigns a role from a user in the scope of a given tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             unassignment: The role unassignment details.
@@ -371,6 +423,10 @@ class UsersApi(BasePermitApi):
 
         The roles come from the given tenant if the tenant filter is provided, or from
         all tenants if it is not.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user: The key of the user.

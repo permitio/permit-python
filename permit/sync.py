@@ -43,6 +43,10 @@ class Permit(AsyncPermit):
         **options: `PermitConfig` fields, used to build the configuration when `config`
             is not given.
 
+    Warns:
+        UserWarning: When ``proxy_facts_via_pdp`` is on and ``pdp`` is the cloud PDP's
+            address, as for the async client, ``permit.Permit``.
+
     Examples:
         with Permit(token="<YOUR_API_KEY>") as permit:
             permit.check("user", "read", "document")
@@ -151,6 +155,8 @@ class Permit(AsyncPermit):
     @property
     def pdp_api(self) -> SyncPDPApi:
         """Access the Permit PDP API using this property.
+
+        Container PDP only: the cloud PDP serves none of its routes.
 
         Usage example:
         permit = Permit(token="<YOUR_API_KEY>")
@@ -313,8 +319,8 @@ class Permit(AsyncPermit):
         The PDP answers from the data it has synced, so a change made through the API shows
         up once the PDP has it.
 
-        Only the container PDP serves this query. The cloud PDP does not, and answers 404,
-        which this method raises as a ``PermitConnectionError`` that says so.
+        Container PDP only: the cloud PDP does not serve this query. It answers 404, which
+        this method raises as a ``PermitConnectionError`` that says so.
 
         Args:
             user: The user key, or a user dict with a ``key`` and optionally ``attributes``,

@@ -76,6 +76,24 @@ def permit(permit_config: PermitConfig) -> Permit:
 
 
 @pytest.fixture
+def container_pdp(permit_config: PermitConfig) -> None:
+    """Skip the test when the PDP the ``permit`` fixtures call is the hosted cloud PDP.
+
+    For the tests of what only a container PDP serves: ``get_user_tenants``, the routes of
+    ``permit.pdp_api``, and the ``/facts`` routes that ``proxy_facts_via_pdp`` sends facts
+    to. The cloud PDP answers 404 for each. That PDP is the one PDP_URL names, or with
+    PDP_URL unset and CLOUD_PDP=true, the cloud PDP. The CI jobs that run these tests start
+    a container PDP and point PDP_URL at it.
+    """
+    if permit_config.pdp.startswith(CLOUD_PDP_URL):
+        pytest.skip(
+            f"container-PDP-only test: the PDP in use is the cloud PDP ({permit_config.pdp}), "
+            "which does not serve get_user_tenants, permit.pdp_api or the /facts routes of "
+            "proxy_facts_via_pdp. Point PDP_URL at a container PDP."
+        )
+
+
+@pytest.fixture
 def sync_permit(permit_config: PermitConfig) -> SyncPermit:
     return SyncPermit(permit_config)
 

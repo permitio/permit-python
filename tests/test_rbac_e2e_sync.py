@@ -94,6 +94,7 @@ def assert_gone(get: Callable[[str], Any], key: str, description: str) -> None:
     assert exc_info.value.status_code == 404, f"{description} '{key}' still exists after cleanup"
 
 
+@pytest.mark.usefixtures("container_pdp")  # it lists role assignments with permit.pdp_api
 def test_permission_check_e2e(sync_permit: SyncPermit) -> None:
     permit = sync_permit
     logger.info("initial setup of objects")
