@@ -111,12 +111,33 @@ class PermitConfig(BaseModel):
     )
     proxy_facts_via_pdp: bool = Field(
         default=False,
-        description="Create facts via the PDP API instead of using the default Permit REST API.",
+        description="Send the facts requests of permit.api, those of its users, tenants, "
+        "role_assignments, resource_instances and relationship_tuples APIs, to the PDP, which "
+        "forwards them to the Permit REST API. Only the container PDP serves them: the cloud "
+        "PDP answers 404, which the SDK raises as a PermitApiError that says so, and a client "
+        "created with pdp set to the cloud PDP's address issues a UserWarning. The PDP waits "
+        "until it has the change before it answers on the writes of users.create(), "
+        "users.update(), users.sync(), users.assign_role(), users.unassign_role(), "
+        "tenants.create(), role_assignments.assign(), role_assignments.unassign(), "
+        "resource_instances.create(), resource_instances.update() and "
+        "relationship_tuples.create() only, for up to facts_sync_timeout seconds, or its own "
+        "default when that is None. It forwards every other facts request without waiting, "
+        "such as users.delete(), tenants.update() and the bulk methods. tenants.create_user() "
+        "always goes to the API.",
     )
     facts_sync_timeout: float | None = Field(
         default=None,
-        description="The amount of time in seconds to wait for facts to be available "
-        "in the PDP cache before returning the response.",
+        description="With proxy_facts_via_pdp on, how many seconds the PDP waits for a facts "
+        "write to reach its own data before it answers, sent as the X-Wait-Timeout header. With "
+        "0 the time is up at once, so the PDP does not wait and facts_sync_timeout_policy decides "
+        "the answer. None sends no header, so the PDP waits its own "
+        "default: 10 seconds, unless the PDP's PDP_LOCAL_FACTS_WAIT_TIMEOUT sets another. The "
+        "PDP waits on the writes of users.create(), users.update(), users.sync(), "
+        "users.assign_role(), users.unassign_role(), tenants.create(), "
+        "role_assignments.assign(), role_assignments.unassign(), resource_instances.create(), "
+        "resource_instances.update() and relationship_tuples.create() only. It forwards every "
+        "other facts request without waiting, such as users.delete(), tenants.update() and "
+        "the bulk methods.",
     )
     facts_sync_timeout_policy: Literal["ignore", "fail"] | None = Field(
         default=None,

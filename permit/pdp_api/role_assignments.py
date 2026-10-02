@@ -34,6 +34,9 @@ class RoleAssignmentsApi(BasePdpPermitApi):
     ) -> list[RoleAssignment]:
         """Retrieves a list of role assignments based on the specified filters.
 
+        Container PDP only: the cloud PDP does not serve ``/local/role_assignments``. It
+        answers 404, which this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: optional user filter, will only return role assignments granted to this user.
             role_key: optional role filter, will only return role assignments granting this role.

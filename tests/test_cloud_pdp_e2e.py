@@ -9,8 +9,10 @@ the policy, then asserts the exact answers of ``check``, ``bulk_check``,
 RBAC decides on the resource type and tenant alone, so the resources these tests ask
 about need not exist as resource instances.
 
-``get_user_tenants`` needs no policy: only the container PDP serves it, and its test
-checks that the cloud PDP's 404 for it reaches the caller as the error that says so.
+``get_user_tenants``, ``permit.pdp_api`` and the facts methods with ``proxy_facts_via_pdp``
+on need no policy: only the container PDP serves their routes, and their tests check that
+the cloud PDP's 404 for each reaches the caller as the error that says so. They only read,
+so they write nothing even if the cloud PDP ever serves those routes.
 """
 
 import functools
@@ -22,7 +24,7 @@ from typing import Any, Final
 
 import pytest
 
-from permit import Permit, PermitConnectionError
+from permit import Permit, PermitApiError, PermitConfig, PermitConnectionError
 from tests.utils import CLOUD_PDP_URL, delete_quietly, poll_for, unique_key
 
 # conftest's `permit_cloud` fixture resolves its address as
@@ -283,3 +285,30 @@ async def test_get_user_tenants_is_not_served(permit_cloud: Permit) -> None:
     assert "got status code 404 from the PDP" in message
     assert "only the container PDP serves /user-tenants" in message
     assert raised.value.original_error is None
+
+
+async def test_pdp_api_is_not_served(permit_cloud: Permit) -> None:
+    with pytest.raises(PermitApiError) as raised:
+        await permit_cloud.pdp_api.role_assignments.list(user_key=unique_key("cloud-user"))
+
+    assert type(raised.value) is PermitApiError
+    assert raised.value.status_code == 404
+    message = str(raised.value)
+    assert "got status code 404 from the PDP" in message
+    assert "only the container PDP serves GET /local/role_assignments" in message
+
+
+async def test_facts_through_the_pdp_are_not_served(permit_config_cloud: PermitConfig) -> None:
+    permit_config_cloud.proxy_facts_via_pdp = True
+    with pytest.warns(UserWarning, match="^proxy_facts_via_pdp is on"):
+        client = Permit(permit_config_cloud)
+
+    async with client:
+        with pytest.raises(PermitApiError) as raised:
+            await client.api.users.get(unique_key("cloud-user"))
+
+    assert type(raised.value) is PermitApiError
+    assert raised.value.status_code == 404
+    message = str(raised.value)
+    assert "got status code 404 from the PDP" in message
+    assert "only the container PDP serves GET /facts/users/" in message

@@ -77,18 +77,33 @@ class PermitContextChangeError(PermitError):
 
 
 class PermitApiError(PermitError):
-    """Wraps an error HTTP Response that occurred during a Permit REST API request."""
+    """Wraps an error HTTP Response that occurred during a Permit REST API request.
+
+    Args:
+        response: The error response.
+        body: The response's JSON body, or for a body that is not JSON,
+            ``{"details": <the body's text>}``. For the cloud PDP's 404 on a route only the
+            container PDP serves, ``{"details": <the body's text>, "message": <message>}``,
+            whatever the body.
+        message: The error's message, in place of the one it builds from the status code
+            and the body.
+    """
 
     def __init__(
         self,
         response: aiohttp.ClientResponse,
         body: dict[str, Any] | None = None,
+        *,
+        message: str | None = None,
     ) -> None:
         super().__init__()
         self._response = response
         self._body = body
+        self._message = message
 
     def _get_message(self) -> str:
+        if self._message is not None:
+            return self._message
         return f"{self.status_code} API Error: {self.details}"
 
     def __str__(self) -> str:

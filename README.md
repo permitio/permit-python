@@ -187,6 +187,61 @@ print(refreshed.update_id, refreshed.pdp_ids)
   the SDK's API context set to the environment. The API rejects a read-only key with 403,
   and answers 404 for an environment with no PDP configuration.
 
+## Read-your-writes through the PDP
+
+With `proxy_facts_via_pdp=True`, the facts methods of `permit.api`, those of its `users`,
+`tenants`, `role_assignments`, `resource_instances` and `relationship_tuples` APIs, send their
+requests to the PDP, which forwards them to the Permit REST API. Only the container PDP serves
+them: the cloud PDP answers 404, which the SDK raises as a `PermitApiError` that names the route
+and says it needs the container PDP. A client created with `proxy_facts_via_pdp=True` and the
+cloud PDP's address as `pdp` issues a `UserWarning` that says so. On some of these writes, the
+PDP also waits until the change is in its own data before it answers, so that a check sent next
+sees the change:
+
+```py
+permit = Permit(token="<YOUR_API_KEY>", pdp="http://localhost:7766", proxy_facts_via_pdp=True)
+with permit.wait_for_sync(timeout=5) as synced:
+    await synced.api.users.assign_role({"user": "alice", "role": "editor", "tenant": "default"})
+# Allowed, if the editor role grants "edit" on documents:
+await permit.check("alice", "edit", {"type": "document", "tenant": "default"})
+```
+
+The PDP waits on the writes of these methods only:
+
+- `users.create()`, `users.update()`, `users.sync()`, `users.assign_role()` and
+  `users.unassign_role()`;
+- `tenants.create()`;
+- `role_assignments.assign()` and `role_assignments.unassign()`;
+- `resource_instances.create()` and `resource_instances.update()`;
+- `relationship_tuples.create()`.
+
+It forwards every other facts request without waiting, reads included. These writes return
+before the PDP has the change, so a check sent right after one may still see the old data:
+
+- `users.delete()`, `users.bulk_create()`, `users.bulk_replace()` and `users.bulk_delete()`;
+- `tenants.update()`, `tenants.delete()`, `tenants.delete_tenant_user()`,
+  `tenants.bulk_create()` and `tenants.bulk_delete()`;
+- `role_assignments.bulk_assign()` and `role_assignments.bulk_unassign()`;
+- `resource_instances.delete()`, `resource_instances.bulk_replace()` and
+  `resource_instances.bulk_delete()`;
+- `relationship_tuples.delete()`, `relationship_tuples.bulk_create()` and
+  `relationship_tuples.bulk_delete()`.
+
+`tenants.create_user()` always goes to the API, so it does not wait either. A deprecated flat
+method on `permit.api`, such as `permit.api.sync_user()`, waits when the method its warning
+names does.
+
+- How long the PDP waits is `facts_sync_timeout`, or the `timeout` of `wait_for_sync()` for
+  the client it yields, sent as the `X-Wait-Timeout` header. With `0` the time is up at once,
+  so the PDP does not wait, and the policy below decides the answer: with `"fail"`, every
+  write that waits answers 424. With `None`, the default of `facts_sync_timeout`, the SDK
+  sends no header, and the PDP waits its own default: 10 seconds, unless its
+  `PDP_LOCAL_FACTS_WAIT_TIMEOUT` sets another.
+- `facts_sync_timeout_policy`, or the `policy` of `wait_for_sync()`, says what the PDP does
+  when the time is up first: `"ignore"` answers with the write's own response, and `"fail"`
+  answers 424, which the SDK raises as a `PermitApiError`. The write is done either way.
+- The blocking client, `permit.sync.Permit`, waits on the same methods.
+
 ## Type checking
 
 The package ships a `py.typed` marker (PEP 561), so mypy, pyright and IDEs check your

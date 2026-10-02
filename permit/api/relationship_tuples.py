@@ -75,6 +75,10 @@ class RelationshipTuplesApi(BasePermitApi):
     ) -> list[RelationshipTupleRead]:
         """Retrieves a list of relationship tuples based on the specified filters.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -131,6 +135,10 @@ class RelationshipTuplesApi(BasePermitApi):
         Needs an environment-level API key, or a project- or organization-level key with the
         SDK's API context set to the environment.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch, starting at 1 (default: 1).
             per_page: How many items to fetch per page, at most 100 (default: 100).
@@ -175,6 +183,10 @@ class RelationshipTuplesApi(BasePermitApi):
         The tuple states that a relationship (of type: relation) exists between two
         resource instances: the subject and the object.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tuple_data: The relationship tuple to create.
 
@@ -196,6 +208,10 @@ class RelationshipTuplesApi(BasePermitApi):
     async def delete(self, tuple_data: ModelInput[RelationshipTupleDelete]) -> None:
         """Removes a relationship tuple.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tuple_data: The relationship tuple to delete.
 
@@ -213,6 +229,10 @@ class RelationshipTuplesApi(BasePermitApi):
         self, tuples: ModelListInput[RelationshipTupleCreate]
     ) -> RelationshipTupleCreateBulkOperationResult:
         """Creates multiple relationship tuples at once using the provided tuple data.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tuples: The relationship tuples to create.
@@ -248,6 +268,10 @@ class RelationshipTuplesApi(BasePermitApi):
         self, tuples: ModelListInput[RelationshipTupleDelete]
     ) -> RelationshipTupleDeleteBulkOperationResult:
         """Deletes multiple relationship tuples at once using the provided tuple data.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tuples: The relationship tuples to delete.

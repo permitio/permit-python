@@ -305,6 +305,7 @@ async def setup_env(
 
 
 @pytest.mark.e2e
+@pytest.mark.usefixtures("container_pdp")  # it lists role assignments with permit.pdp_api
 async def test_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],
@@ -540,6 +541,7 @@ async def test_permission_check_e2e(
 
 
 @pytest.mark.e2e
+@pytest.mark.usefixtures("container_pdp")  # it writes facts with proxy_facts_via_pdp
 async def test_local_facts_uploader_permission_check_e2e(
     permit: Permit,
     setup_env: tuple[ResourceRead, RoleRead, RoleRead],

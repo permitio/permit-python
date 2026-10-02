@@ -1,10 +1,15 @@
 from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
-from aiohttp import ClientTimeout
+from aiohttp import ClientResponse, ClientTimeout
 from multidict import CIMultiDict
 from yarl import URL
 
 from permit.api.encoders import jsonable_encoder
+from permit.utils.cloud_pdp import (
+    USE_A_CONTAINER_PDP_FOR_FACTS,
+    container_pdp_only_message,
+    is_cloud_pdp_route_not_found,
+)
 from permit.utils.http_sessions import LoopSessions
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 from permit.utils.sdk_logger import sdk_logger
@@ -20,7 +25,12 @@ else:
 from permit.api.context import API_ACCESS_LEVELS, ApiContextLevel, ApiKeyAccessLevel
 from permit.api.models import APIKeyScopeRead
 from permit.config import PermitConfig
-from permit.exceptions import PermitContextError, handle_api_error, handle_client_error
+from permit.exceptions import (
+    PermitApiError,
+    PermitContextError,
+    handle_api_error,
+    handle_client_error,
+)
 
 # Whatever `parse_obj_as` can build: a model, or e.g. `list[Model]` for list endpoints.
 TModel = TypeVar("TModel")
@@ -97,6 +107,11 @@ class SimpleHttpClient:
             ``client_config["timeout"]``.
         sessions: The sessions to send the requests through. Without them, the client has
             sessions of its own.
+        container_pdp_advice: For a client of a PDP route that only the container PDP
+            serves: what to do instead, said by the error it raises when the cloud PDP
+            answers 404 for the route (see ``is_cloud_pdp_route_not_found``). The error is a
+            ``PermitApiError`` that names the route and says it needs the container PDP.
+            None, the default, for a route that every PDP, or the API, serves.
 
     Raises:
         TypeError: If ``client_config`` has a key other than those above.
@@ -109,6 +124,7 @@ class SimpleHttpClient:
         timeout: int | None = None,
         *,
         sessions: LoopSessions | None = None,
+        container_pdp_advice: str | None = None,
     ) -> None:
         unsupported = sorted(set(client_config) - _CLIENT_CONFIG_KEYS)
         if unsupported:
@@ -124,10 +140,32 @@ class SimpleHttpClient:
         )
         self._base_url = base_url
         self._sessions = sessions if sessions is not None else LoopSessions()
+        self._container_pdp_advice = container_pdp_advice
 
     def _use_sessions(self, sessions: LoopSessions) -> None:
         """Send the requests through ``sessions`` from now on."""
         self._sessions = sessions
+
+    async def _raise_for_status(self, response: ClientResponse) -> None:
+        """Raise the SDK's error for an error ``response``, as ``handle_api_error`` does.
+
+        For a client of a route only the container PDP serves, the cloud PDP's 404 for the
+        route is raised as a ``PermitApiError`` whose message names the route and says it
+        needs the container PDP. The error's ``details`` hold the response's text, as for any
+        body that is not JSON, and that message.
+        """
+        if self._container_pdp_advice is not None and await is_cloud_pdp_route_not_found(
+            response, str(self._server_url)
+        ):
+            message = container_pdp_only_message(
+                "The SDK",
+                f"{response.method} {response.url.path}",
+                str(self._server_url),
+                self._container_pdp_advice,
+            )
+            text = await response.text(errors="replace")
+            raise PermitApiError(response, {"details": text, "message": message}, message=message)
+        await handle_api_error(response)
 
     def _request_url(self, url: str) -> URL:
         """``url`` resolved against the client's ``base_url``, as an aiohttp session does it.
@@ -190,7 +228,7 @@ class SimpleHttpClient:
         client = await self._sessions.current()
         self._log_request(url, "GET")
         async with client.get(target, **self._request_options(kwargs)) as response:
-            await handle_api_error(response)
+            await self._raise_for_status(response)
             self._log_response(url, "GET", response.status)
             data = await response.json()
             return parse_obj_as(model, data)
@@ -211,7 +249,7 @@ class SimpleHttpClient:
         async with client.post(
             target, json=self._prepare_json(json), **self._request_options(kwargs)
         ) as response:
-            await handle_api_error(response)
+            await self._raise_for_status(response)
             self._log_response(url, "POST", response.status)
             data = await response.json()
             return parse_obj_as(model, data)
@@ -232,7 +270,7 @@ class SimpleHttpClient:
         async with client.put(
             target, json=self._prepare_json(json), **self._request_options(kwargs)
         ) as response:
-            await handle_api_error(response)
+            await self._raise_for_status(response)
             self._log_response(url, "PUT", response.status)
             data = await response.json()
             return parse_obj_as(model, data)
@@ -253,7 +291,7 @@ class SimpleHttpClient:
         async with client.patch(
             target, json=self._prepare_json(json), **self._request_options(kwargs)
         ) as response:
-            await handle_api_error(response)
+            await self._raise_for_status(response)
             self._log_response(url, "PATCH", response.status)
             data = await response.json()
             return parse_obj_as(model, data)
@@ -292,7 +330,7 @@ class SimpleHttpClient:
         async with client.delete(
             target, json=self._prepare_json(json), **self._request_options(kwargs)
         ) as response:
-            await handle_api_error(response)
+            await self._raise_for_status(response)
             self._log_response(url, "DELETE", response.status)
             if model is None:
                 return None
@@ -328,7 +366,7 @@ class BasePermitApi:
     ) -> SimpleHttpClient:
         optional_headers = {}
         if self.config.proxy_facts_via_pdp:
-            if self.config.facts_sync_timeout:
+            if self.config.facts_sync_timeout is not None:
                 optional_headers["X-Wait-Timeout"] = str(self.config.facts_sync_timeout)
             if self.config.facts_sync_timeout_policy:
                 optional_headers["X-Timeout-Policy"] = str(self.config.facts_sync_timeout_policy)
@@ -346,6 +384,7 @@ class BasePermitApi:
             base_url=endpoint_url,
             timeout=self.config.api_timeout,
             sessions=self._sessions,
+            container_pdp_advice=USE_A_CONTAINER_PDP_FOR_FACTS if use_pdp else None,
         )
 
     async def _set_context_from_api_key(self) -> None:

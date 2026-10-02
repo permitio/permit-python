@@ -10,7 +10,8 @@ role in any tenant.
 ``get_user_tenants`` asks the PDP for the user's tenants. The PDP lists the tenants in
 which the user holds a role assigned in the tenant, with each tenant's attributes; a
 member with no role in a tenant is not listed. Only a container PDP serves the route, so
-the tests that call it skip when the PDP in use is the hosted cloud PDP.
+the tests that call it skip when the PDP in use is the hosted cloud PDP (conftest.py's
+``container_pdp`` fixture).
 
 Each test makes its own tenants, role and user in the environment the API key belongs to.
 Every key is unique to the run, and every delete is registered before the create it
@@ -26,11 +27,10 @@ from typing import Any, Final, TypeVar
 
 import pytest
 
-from permit import Permit, PermitConfig, User, UserCreate, UserRead
+from permit import Permit, User, UserCreate, UserRead
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
 from tests.utils import (
-    CLOUD_PDP_URL,
     delete_quietly,
     delete_quietly_blocking,
     poll_for,
@@ -51,20 +51,6 @@ POLL_INTERVAL: Final[float] = 0.5
 settled = functools.partial(poll_for, timeout=PROPAGATION_TIMEOUT, interval=POLL_INTERVAL)
 
 T = TypeVar("T")
-
-
-@pytest.fixture
-def container_pdp(permit_config: PermitConfig) -> None:
-    """Skip the test when the PDP the ``permit`` fixtures call is the hosted cloud PDP.
-
-    The cloud PDP answers 404 for ``get_user_tenants``. The CI jobs that run this module
-    start a container PDP and point PDP_URL at it.
-    """
-    if permit_config.pdp.startswith(CLOUD_PDP_URL):
-        pytest.skip(
-            f"container-PDP-only test: the PDP in use is the cloud PDP ({permit_config.pdp}), "
-            "which does not serve get_user_tenants. Point PDP_URL at a container PDP."
-        )
 
 
 @pytest.fixture
