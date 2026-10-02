@@ -296,6 +296,8 @@ async def mistakes_stay_errors() -> None:
         await permit.check("user", "read", "document")
     except PermitException as error:
         assert_type(error, PermitException)
+    # The package re-exports it for type checkers, so reading it there is deprecated too.
+    _ = permit_package.PermitException  # type: ignore[deprecated]
     # A name the modules lack stays an error: type checkers do not see their __getattr__.
     _ = permit_package.PermitExceptions  # type: ignore[attr-defined]
     _ = permit_package.exceptions.PermitExceptions  # type: ignore[attr-defined]
