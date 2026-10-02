@@ -366,7 +366,7 @@ class BasePermitApi:
     ) -> SimpleHttpClient:
         optional_headers = {}
         if self.config.proxy_facts_via_pdp:
-            if self.config.facts_sync_timeout:
+            if self.config.facts_sync_timeout is not None:
                 optional_headers["X-Wait-Timeout"] = str(self.config.facts_sync_timeout)
             if self.config.facts_sync_timeout_policy:
                 optional_headers["X-Timeout-Policy"] = str(self.config.facts_sync_timeout_policy)

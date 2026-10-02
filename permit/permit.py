@@ -142,18 +142,34 @@ class Permit:
     def wait_for_sync(
         self, timeout: float = 10.0, policy: Literal["ignore", "fail"] | None = None
     ) -> Generator[Self, None, None]:
-        """Context manager returning a client that waits for facts to be synced.
+        """Context manager yielding a client whose facts writes wait for the PDP to have them.
 
-        Requests made through the returned client wait for the facts they write to be
-        available in the PDP before proceeding.
+        With ``proxy_facts_via_pdp`` on, the yielded client sends ``timeout`` with each facts
+        request, as the ``X-Wait-Timeout`` header. The container PDP waits on the writes of
+        these methods of ``permit.api`` only, until the change is in its own data or the
+        timeout passes, so that a check sent next sees the change:
+
+        - ``users.create()``, ``users.update()``, ``users.sync()``, ``users.assign_role()``
+          and ``users.unassign_role()``;
+        - ``tenants.create()``;
+        - ``role_assignments.assign()`` and ``role_assignments.unassign()``;
+        - ``resource_instances.create()`` and ``resource_instances.update()``;
+        - ``relationship_tuples.create()``.
+
+        The PDP forwards every other facts request without waiting, reads included, so these
+        writes return before the PDP has the change: ``users.delete()``, ``tenants.update()``,
+        ``tenants.delete()``, ``tenants.delete_tenant_user()``, ``resource_instances.delete()``,
+        ``relationship_tuples.delete()`` and the bulk methods.
+        ``tenants.create_user()`` goes to the Permit REST API, so it does not wait either.
 
         Args:
-            timeout: The amount of time in seconds to wait for facts to be available in the PDP
-            cache before returning the response.
-            policy: Weather to fail the request when the timeout is reached or ignore.
-
-            Set None to keep the default policy set in the instance config or the default value of
-            PDP.
+            timeout: How many seconds the PDP waits for the change before it answers. 0 makes
+                it answer without waiting.
+            policy: What the PDP does when the timeout passes first: "ignore" answers with the
+                write's own response, and "fail" answers 424, which the SDK raises as a
+                ``PermitApiError``; the write is done either way. None keeps the
+                ``facts_sync_timeout_policy`` of this client's config, or the PDP's own
+                default when that is None too.
 
         Yields:
             Permit: A Permit instance that is configured to wait for facts to be synced. It

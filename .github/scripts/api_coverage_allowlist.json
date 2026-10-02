@@ -1674,38 +1674,6 @@
     },
     {
       "api": "pdp",
-      "operation": "PATCH /facts/resource_instances/{instance_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.resource_instances.update() with proxy_facts_via_pdp; no offline test sends this request yet."
-    },
-    {
-      "api": "pdp",
-      "operation": "DELETE /facts/role_assignments",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.role_assignments.unassign() with proxy_facts_via_pdp; no offline test sends this request yet."
-    },
-    {
-      "api": "pdp",
-      "operation": "PUT /facts/users/{user_id}",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.users.sync() with proxy_facts_via_pdp; no offline test sends this request yet."
-    },
-    {
-      "api": "pdp",
-      "operation": "DELETE /facts/users/{user_id}/roles",
-      "stage": "GA",
-      "status": "untested",
-      "ticket": "PER-16177",
-      "reason": "Called by permit.api.users.unassign_role() with proxy_facts_via_pdp; no offline test sends this request yet."
-    },
-    {
-      "api": "pdp",
       "operation": "GET /healthchecks/opa/healthy",
       "stage": "GA",
       "status": "excluded",
@@ -1817,10 +1785,52 @@
       "reason": "proxy_facts_via_pdp sends permit.api.users.bulk_create() here. The PDP passes it through to the control plane's POST /v2/facts/{proj_id}/{env_id}/bulk/users without listing it in its spec, and ignores X-Wait-Timeout on it."
     },
     {
+      "request": "PUT /facts/bulk/users",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.users.bulk_replace() here. The PDP passes it through to the control plane's PUT /v2/facts/{proj_id}/{env_id}/bulk/users without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "DELETE /facts/bulk/users",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.users.bulk_delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/bulk/users without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "GET /facts/relationship_tuples",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.relationship_tuples.list() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/relationship_tuples without listing it in its spec."
+    },
+    {
+      "request": "DELETE /facts/relationship_tuples",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.relationship_tuples.delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/relationship_tuples without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "POST /facts/relationship_tuples/bulk",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.relationship_tuples.bulk_create() here. The PDP passes it through to the control plane's POST /v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "DELETE /facts/relationship_tuples/bulk",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.relationship_tuples.bulk_delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/relationship_tuples/bulk without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
       "request": "GET /facts/relationship_tuples/detailed",
       "status": "undocumented",
       "ticket": "PER-16338",
       "reason": "proxy_facts_via_pdp sends permit.api.relationship_tuples.list_detailed() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/relationship_tuples/detailed without listing it in its spec."
+    },
+    {
+      "request": "GET /facts/resource_instances",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.resource_instances.list() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/resource_instances without listing it in its spec."
     },
     {
       "request": "GET /facts/resource_instances/detailed",
@@ -1829,10 +1839,46 @@
       "reason": "proxy_facts_via_pdp sends permit.api.resource_instances.list_detailed() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/resource_instances/detailed without listing it in its spec."
     },
     {
+      "request": "GET /facts/resource_instances/{instance_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.resource_instances.get(), get_by_key() and get_by_id() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id} without listing it in its spec."
+    },
+    {
+      "request": "DELETE /facts/resource_instances/{instance_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.resource_instances.delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/resource_instances/{instance_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "GET /facts/role_assignments",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.role_assignments.list() and permit.api.users.get_assigned_roles() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/role_assignments without listing it in its spec."
+    },
+    {
+      "request": "POST /facts/role_assignments/bulk",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.role_assignments.bulk_assign() here. The PDP passes it through to the control plane's POST /v2/facts/{proj_id}/{env_id}/role_assignments/bulk without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "DELETE /facts/role_assignments/bulk",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.role_assignments.bulk_unassign() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/role_assignments/bulk without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
       "request": "GET /facts/role_assignments/detailed",
       "status": "undocumented",
       "ticket": "PER-16338",
       "reason": "proxy_facts_via_pdp sends permit.api.role_assignments.list_detailed() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/role_assignments/detailed without listing it in its spec."
+    },
+    {
+      "request": "GET /facts/tenants",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.list() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/tenants without listing it in its spec."
     },
     {
       "request": "DELETE /facts/tenants/{tenant_id}",
@@ -1841,10 +1887,46 @@
       "reason": "proxy_facts_via_pdp sends permit.api.tenants.delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
     },
     {
+      "request": "GET /facts/tenants/{tenant_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.get(), get_by_key() and get_by_id() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id} without listing it in its spec."
+    },
+    {
+      "request": "PATCH /facts/tenants/{tenant_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.update() here. The PDP passes it through to the control plane's PATCH /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "GET /facts/tenants/{tenant_id}/users",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.tenants.list_tenant_users() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users without listing it in its spec."
+    },
+    {
       "request": "DELETE /facts/tenants/{tenant_id}/users/{user_id}",
       "status": "undocumented",
       "ticket": "PER-16338",
       "reason": "proxy_facts_via_pdp sends permit.api.tenants.delete_tenant_user() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/tenants/{tenant_id}/users/{user_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
+    },
+    {
+      "request": "GET /facts/users",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.users.list() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/users without listing it in its spec."
+    },
+    {
+      "request": "GET /facts/users/{user_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.users.get(), get_by_key() and get_by_id() here. The PDP passes it through to the control plane's GET /v2/facts/{proj_id}/{env_id}/users/{user_id} without listing it in its spec."
+    },
+    {
+      "request": "DELETE /facts/users/{user_id}",
+      "status": "undocumented",
+      "ticket": "PER-16338",
+      "reason": "proxy_facts_via_pdp sends permit.api.users.delete() here. The PDP passes it through to the control plane's DELETE /v2/facts/{proj_id}/{env_id}/users/{user_id} without listing it in its spec, and ignores X-Wait-Timeout on it."
     },
     {
       "request": "POST /v2/auth/elements_login_as",
