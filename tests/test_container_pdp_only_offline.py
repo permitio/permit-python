@@ -490,6 +490,53 @@ def test_no_warning_without_both_the_facts_proxy_and_the_cloud_pdp(
 
 
 @pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    "pdp", ["HTTPS://CloudPDP.API.permit.io:443/v1/", "http://cloudpdp.api.permit.io:7766"]
+)
+def test_any_address_on_the_cloud_pdps_host_warns(
+    config: PermitConfig, pdp: str, flavour: str
+) -> None:
+    """The address's scheme, port, path and letter case do not matter, only its host."""
+    config.pdp = pdp
+    config.proxy_facts_via_pdp = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        client = create(config, flavour)
+    close(client)
+
+    assert [(w.category, str(w.message)) for w in caught] == [
+        (UserWarning, facts_proxied_to_the_cloud_pdp(pdp))
+    ]
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@pytest.mark.parametrize(
+    "pdp",
+    [
+        "http://localhost:7766/cloudpdp.api.permit.io",
+        "https://cloudpdp.api.permit.io.example.com",
+        "https://example.com/?pdp=cloudpdp.api.permit.io",
+        "cloudpdp.api.permit.io",
+        "http://[::1",
+    ],
+)
+def test_an_address_on_another_host_does_not_warn(
+    config: PermitConfig, pdp: str, flavour: str
+) -> None:
+    """Nor does one with no host, or one that cannot be parsed."""
+    config.pdp = pdp
+    config.proxy_facts_via_pdp = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        client = create(config, flavour)
+    close(client)
+
+    assert caught == []
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
 @pytest.mark.parametrize(("action", "shown"), [("always", 2), ("default", 1)])
 def test_each_creation_warns_and_the_default_filter_shows_it_once_per_line(
     config: PermitConfig, action: Literal["always", "default"], shown: int, flavour: str
