@@ -128,8 +128,9 @@ class PermitConfig(BaseModel):
     facts_sync_timeout: float | None = Field(
         default=None,
         description="With proxy_facts_via_pdp on, how many seconds the PDP waits for a facts "
-        "write to reach its own data before it answers, sent as the X-Wait-Timeout header. 0 "
-        "makes it answer without waiting. None sends no header, so the PDP waits its own "
+        "write to reach its own data before it answers, sent as the X-Wait-Timeout header. With "
+        "0 the time is up at once, so the PDP does not wait and facts_sync_timeout_policy decides "
+        "the answer. None sends no header, so the PDP waits its own "
         "default: 10 seconds, unless the PDP's PDP_LOCAL_FACTS_WAIT_TIMEOUT sets another. The "
         "PDP waits on the writes of users.create(), users.update(), users.sync(), "
         "users.assign_role(), users.unassign_role(), tenants.create(), "

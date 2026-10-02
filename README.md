@@ -232,10 +232,11 @@ method on `permit.api`, such as `permit.api.sync_user()`, waits when the method 
 names does.
 
 - How long the PDP waits is `facts_sync_timeout`, or the `timeout` of `wait_for_sync()` for
-  the client it yields, sent as the `X-Wait-Timeout` header. `0` makes the PDP answer without
-  waiting. With `None`, the default of `facts_sync_timeout`, the SDK sends no header, and the
-  PDP waits its own default: 10 seconds, unless its `PDP_LOCAL_FACTS_WAIT_TIMEOUT` sets
-  another.
+  the client it yields, sent as the `X-Wait-Timeout` header. With `0` the time is up at once,
+  so the PDP does not wait, and the policy below decides the answer: with `"fail"`, every
+  write that waits answers 424. With `None`, the default of `facts_sync_timeout`, the SDK
+  sends no header, and the PDP waits its own default: 10 seconds, unless its
+  `PDP_LOCAL_FACTS_WAIT_TIMEOUT` sets another.
 - `facts_sync_timeout_policy`, or the `policy` of `wait_for_sync()`, says what the PDP does
   when the time is up first: `"ignore"` answers with the write's own response, and `"fail"`
   answers 424, which the SDK raises as a `PermitApiError`. The write is done either way.
