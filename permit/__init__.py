@@ -1,43 +1,44 @@
 """Permit.io SDK: authorization checks and the Permit REST API from Python.
 
-The `X as X` imports mark the package's public names as explicit re-exports
-for type checkers.
+`__all__` lists the package's public names: the ones `from permit import *` binds, and the
+ones type checkers treat as re-exported.
 """
 
 import typing as _typing
 import warnings as _warnings
 
 from permit.api.models import *  # noqa: F403 - every API model is part of the public surface
-from permit.config import PermitConfig as PermitConfig
-from permit.enforcement.enforcer import Action as Action
-from permit.enforcement.enforcer import Resource as Resource
-from permit.enforcement.enforcer import User as User
-from permit.enforcement.interfaces import AssignedRole as AssignedRole
-from permit.enforcement.interfaces import AuthorizedUsersResult as AuthorizedUsersResult
-from permit.enforcement.interfaces import ResourceInput as ResourceInput
-from permit.enforcement.interfaces import TenantDetails as TenantDetails
-from permit.enforcement.interfaces import UserInput as UserInput
-from permit.exceptions import _PERMIT_EXCEPTION_DEPRECATION, _PermitException
-from permit.exceptions import PermitAlreadyExistsError as PermitAlreadyExistsError
-from permit.exceptions import PermitApiDetailedError as PermitApiDetailedError
-from permit.exceptions import PermitApiError as PermitApiError
-from permit.exceptions import PermitConnectionError as PermitConnectionError
-from permit.exceptions import PermitContextChangeError as PermitContextChangeError
-from permit.exceptions import PermitContextError as PermitContextError
-from permit.exceptions import PermitError as PermitError
-from permit.exceptions import PermitNotFoundError as PermitNotFoundError
-from permit.exceptions import PermitValidationError as PermitValidationError
-from permit.permit import Permit as Permit
-from permit.utils.context import Context as Context
+from permit.config import PermitConfig
+from permit.enforcement.enforcer import Action, Resource, User
+from permit.enforcement.interfaces import (
+    AssignedRole,
+    AuthorizedUsersResult,
+    ResourceInput,
+    TenantDetails,
+    UserInput,
+)
+from permit.exceptions import (
+    _PERMIT_EXCEPTION_DEPRECATION,
+    PermitAlreadyExistsError,
+    PermitApiDetailedError,
+    PermitApiError,
+    PermitConnectionError,
+    PermitContextChangeError,
+    PermitContextError,
+    PermitError,
+    PermitNotFoundError,
+    PermitValidationError,
+    _PermitException,
+)
+from permit.permit import Permit
+from permit.utils.context import Context
 from permit.utils.deprecation import _warn_deprecated_name
 from permit.utils.pydantic_version import PYDANTIC_VERSION as _PYDANTIC_VERSION
 
 if _typing.TYPE_CHECKING:
     # Deprecated, but still exported for existing callers: __getattr__ below serves it.
-    from permit.exceptions import PermitException as PermitException  # type: ignore[deprecated]
+    from permit.exceptions import PermitException  # type: ignore[deprecated]
 
-# What `from permit import *` binds, and the names type checkers treat as the package's API:
-# the client, its configuration and enforcement types, the exceptions and the API models.
 # PermitException is served by __getattr__ below, so a star import binds it with its warning.
 # tests/test_fix_permit_exception_deprecation.py fails when a public name is missing.
 __all__ = [
