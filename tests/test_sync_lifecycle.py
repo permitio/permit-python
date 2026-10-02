@@ -28,7 +28,6 @@ from uuid import uuid4
 import pytest
 from pytest_httpserver import HTTPServer
 
-import permit as permit_package
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
 from permit.utils.deprecation import deprecated
@@ -37,7 +36,7 @@ from permit.utils.sync import SyncClass, _background_loop_of, _BackgroundLoop, _
 from tests.keepalive_server import KeepAliveServer
 from tests.utils import FACTS, offline_config
 
-REPO_ROOT = Path(permit_package.__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 LOOP_THREAD_NAME = "permit-sync-loop"
 
 
