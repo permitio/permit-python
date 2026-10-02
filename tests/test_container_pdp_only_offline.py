@@ -214,27 +214,34 @@ def test_the_apis_404_through_a_container_pdp_keeps_its_not_found_error(
     assert httpserver.log == []
 
 
-@pytest.mark.parametrize("flavour", FLAVOURS)
-@pytest.mark.parametrize(
-    ("proxy_facts_via_pdp", "path", "target"),
+# A route of each kind that only the container PDP serves, and a call that requests it.
+container_pdp_only_routes = pytest.mark.parametrize(
+    ("proxy_facts_via_pdp", "method", "path", "target"),
     [
-        (True, "/facts/users", CASES["users.create"].call),
-        (False, "/local/role_assignments", call("pdp_api.role_assignments.list")),
+        (True, "POST", "/facts/users", CASES["users.create"].call),
+        (False, "GET", "/local/role_assignments", call("pdp_api.role_assignments.list")),
     ],
     ids=["facts", "pdp_api"],
 )
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@container_pdp_only_routes
 def test_a_container_pdps_own_404_keeps_the_api_error_it_raised(
     *,
     pdp_server: HTTPServer,
     split_config: PermitConfig,
     proxy_facts_via_pdp: bool,
+    method: str,
     path: str,
     target: Call,
     flavour: str,
 ) -> None:
     """A container PDP answers a route it does not serve with a JSON 404."""
     split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
-    pdp_server.expect_request(path).respond_with_json({"detail": "Not Found"}, status=404)
+    pdp_server.expect_request(path, method=method).respond_with_json(
+        {"detail": "Not Found"}, status=404
+    )
 
     with pytest.raises(PermitApiError) as raised:
         invoke(split_config, flavour, target)
@@ -242,6 +249,33 @@ def test_a_container_pdps_own_404_keeps_the_api_error_it_raised(
     assert type(raised.value) is PermitApiError
     assert str(raised.value) == "404 API Error: {'detail': 'Not Found'}"
     assert raised.value.details == {"detail": "Not Found"}
+
+
+@pytest.mark.parametrize("flavour", FLAVOURS)
+@container_pdp_only_routes
+def test_a_404_whose_body_is_only_whitespace_keeps_the_api_error_it_raised(
+    *,
+    pdp_server: HTTPServer,
+    split_config: PermitConfig,
+    proxy_facts_via_pdp: bool,
+    method: str,
+    path: str,
+    target: Call,
+    flavour: str,
+) -> None:
+    """Only a 404 with no body at all is the cloud PDP's, away from its address."""
+    split_config.proxy_facts_via_pdp = proxy_facts_via_pdp
+    pdp_server.expect_request(path, method=method).respond_with_data(
+        " \n", status=404, content_type="text/plain"
+    )
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(split_config, flavour, target)
+
+    assert type(raised.value) is PermitApiError
+    assert str(raised.value) == "404 API Error: {'details': ' \\n'}"
+    assert raised.value.details == {"details": " \n"}
+    assert len(pdp_server.log) == 1
 
 
 @pytest.mark.parametrize("flavour", FLAVOURS)

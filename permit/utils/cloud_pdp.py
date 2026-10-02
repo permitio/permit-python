@@ -48,9 +48,9 @@ async def is_cloud_pdp_route_not_found(response: aiohttp.ClientResponse, pdp_url
     """Whether a PDP's ``response`` is the cloud PDP's 404 for a route it does not serve.
 
     It is when the status is 404 and either ``pdp_url`` is the cloud PDP's address or the
-    body is empty, which is how the cloud PDP answers such a route. A 404 with a body comes
-    from a container PDP, or from the API through a container PDP's ``/facts`` routes, and
-    is a real "not found".
+    body is empty, with no bytes at all, which is how the cloud PDP answers such a route. A
+    404 with a body, even one of only whitespace, comes from a container PDP, or from the
+    API through a container PDP's ``/facts`` routes, and is a real "not found".
 
     Args:
         response: The PDP's response to a request for a route only the container PDP serves.
@@ -64,7 +64,7 @@ async def is_cloud_pdp_route_not_found(response: aiohttp.ClientResponse, pdp_url
         return False
     if is_cloud_pdp(pdp_url):
         return True
-    return not (await response.read()).strip()
+    return not await response.read()
 
 
 def container_pdp_only_message(
