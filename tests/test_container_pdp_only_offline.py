@@ -17,6 +17,7 @@ pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 import asyncio
 import inspect
 import socket
+from collections.abc import Iterator
 from operator import attrgetter
 from typing import Any, NamedTuple
 
@@ -427,3 +428,131 @@ def test_any_404_from_the_cloud_pdps_host_asks_for_a_container_pdp(
     assert str(raised.value) == message
     assert raised.value.details == {"details": '{"detail": "Not Found"}', "message": message}
     assert len(pdp_server.log) == 1
+
+
+# --- docstrings -----------------------------------------------------------------------
+
+
+# With proxy_facts_via_pdp on, every public method of these APIs sends its request to the
+# PDP's /facts routes, except tenants.create_user() and its deprecated alias add_user(),
+# which always go to the Permit REST API.
+FACTS_APIS = ("users", "tenants", "role_assignments", "resource_instances", "relationship_tuples")
+API_ONLY = ("api.tenants.create_user", "api.tenants.add_user")
+FACTS_METHODS = (
+    *(
+        f"api.users.{name}"
+        for name in (
+            "assign_role",
+            "bulk_create",
+            "bulk_delete",
+            "bulk_replace",
+            "create",
+            "delete",
+            "get",
+            "get_assigned_roles",
+            "get_by_id",
+            "get_by_key",
+            "list",
+            "sync",
+            "unassign_role",
+            "update",
+        )
+    ),
+    *(
+        f"api.tenants.{name}"
+        for name in (
+            "bulk_create",
+            "bulk_delete",
+            "create",
+            "delete",
+            "delete_tenant_user",
+            "get",
+            "get_by_id",
+            "get_by_key",
+            "list",
+            "list_tenant_users",
+            "update",
+        )
+    ),
+    *(
+        f"api.role_assignments.{name}"
+        for name in ("assign", "bulk_assign", "bulk_unassign", "list", "list_detailed", "unassign")
+    ),
+    *(
+        f"api.resource_instances.{name}"
+        for name in (
+            "bulk_delete",
+            "bulk_replace",
+            "create",
+            "delete",
+            "get",
+            "get_by_id",
+            "get_by_key",
+            "list",
+            "list_detailed",
+            "update",
+        )
+    ),
+    *(
+        f"api.relationship_tuples.{name}"
+        for name in ("bulk_create", "bulk_delete", "create", "delete", "list", "list_detailed")
+    ),
+)
+FACTS_NOTE = (
+    "Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the PDP's "
+    "``/facts`` routes, which the cloud PDP does not serve. It answers 404, which this method "
+    "raises as a ``PermitApiError`` that says so."
+)
+NOTES = {
+    **dict.fromkeys(FACTS_METHODS, FACTS_NOTE),
+    "pdp_api.role_assignments.list": (
+        "Container PDP only: the cloud PDP does not serve ``/local/role_assignments``. It "
+        "answers 404, which this method raises as a ``PermitApiError`` that says so."
+    ),
+    "get_user_tenants": (
+        "Container PDP only: the cloud PDP does not serve this query. It answers 404, which "
+        "this method raises as a ``PermitConnectionError`` that says so."
+    ),
+}
+
+
+@pytest.fixture(params=FLAVOURS)
+def client(request: pytest.FixtureRequest, config: PermitConfig) -> Iterator[Permit]:
+    """An async or a blocking client, whose methods are only read, closed after the test."""
+    if request.param == "async":
+        permit = Permit(config)
+        yield permit
+        asyncio.run(permit.close())
+    else:
+        with SyncPermit(config) as blocking:
+            yield blocking
+
+
+def docstring(client: Permit, path: str) -> str:
+    """The docstring of ``client.<path>``, with each run of whitespace made one space."""
+    return " ".join((inspect.getdoc(attrgetter(path)(client)) or "").split())
+
+
+def test_the_facts_methods_are_every_public_method_of_the_facts_apis_but_create_user(
+    client: Permit,
+) -> None:
+    public = {
+        f"api.{api}.{name}"
+        for api in FACTS_APIS
+        for name in dir(getattr(client.api, api))
+        if not name.startswith("_") and callable(getattr(getattr(client.api, api), name))
+    }
+
+    assert sorted(public - set(API_ONLY)) == sorted(FACTS_METHODS)
+
+
+@pytest.mark.parametrize("path", NOTES.keys())
+def test_a_container_pdp_only_method_says_so_in_its_docstring(client: Permit, path: str) -> None:
+    assert NOTES[path] in docstring(client, path)
+
+
+@pytest.mark.parametrize("path", API_ONLY)
+def test_a_facts_api_method_that_always_goes_to_the_api_does_not_say_container_pdp_only(
+    client: Permit, path: str
+) -> None:
+    assert "Container PDP only" not in docstring(client, path)

@@ -58,6 +58,10 @@ class TenantsApi(BasePermitApi):
     async def list(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
         """Retrieves a list of tenants.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -81,6 +85,10 @@ class TenantsApi(BasePermitApi):
         self, tenant_key: str, page: int = 1, per_page: int = 100
     ) -> PaginatedResultUserRead:
         """Retrieves a list of users for a given tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_key: The key of the tenant.
@@ -168,6 +176,10 @@ class TenantsApi(BasePermitApi):
     async def get(self, tenant_key: str) -> TenantRead:
         """Retrieves a tenant by its key.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_key: The key of the tenant.
 
@@ -188,6 +200,10 @@ class TenantsApi(BasePermitApi):
         """Retrieves a tenant by its key.
 
         Alias for the get method.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_key: The key of the tenant.
@@ -210,6 +226,10 @@ class TenantsApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_id: The ID of the tenant.
 
@@ -228,6 +248,10 @@ class TenantsApi(BasePermitApi):
     @validate_arguments
     async def create(self, tenant_data: ModelInput[TenantCreate]) -> TenantRead:
         """Creates a new tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_data: The data for the new tenant.
@@ -248,6 +272,10 @@ class TenantsApi(BasePermitApi):
     async def update(self, tenant_key: str, tenant_data: ModelInput[TenantUpdate]) -> TenantRead:
         """Updates a tenant.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_key: The key of the tenant.
             tenant_data: The updated data for the tenant.
@@ -267,6 +295,10 @@ class TenantsApi(BasePermitApi):
     @validate_arguments
     async def delete(self, tenant_key: str) -> None:
         """Deletes a tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_key: The key of the tenant to delete.
@@ -296,6 +328,10 @@ class TenantsApi(BasePermitApi):
         on resource instances, so ``create_user()`` can create a user with that key again.
         Otherwise the user stays a member of the tenant, with no tenant-level role there.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_key: The key of the tenant.
             user_key: The key of the user whose roles in the tenant to remove.
@@ -315,6 +351,10 @@ class TenantsApi(BasePermitApi):
         self, tenants: ModelListInput[TenantCreate]
     ) -> TenantCreateBulkOperationResult:
         """Creates tenants in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenants: The tenants to create
@@ -338,6 +378,10 @@ class TenantsApi(BasePermitApi):
     @validate_arguments
     async def bulk_delete(self, tenants: builtins.list[str]) -> TenantDeleteBulkOperationResult:
         """Deletes tenants in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenants: The tenants identities to delete. Each identity can be either the tenant key or

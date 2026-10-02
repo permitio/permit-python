@@ -946,6 +946,10 @@ class SyncRelationshipTuplesApi(BasePermitApi):
     ) -> list[RelationshipTupleRead]:
         """Retrieves a list of relationship tuples based on the specified filters.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -984,6 +988,10 @@ class SyncRelationshipTuplesApi(BasePermitApi):
         Needs an environment-level API key, or a project- or organization-level key with the
         SDK's API context set to the environment.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch, starting at 1 (default: 1).
             per_page: How many items to fetch per page, at most 100 (default: 100).
@@ -1009,6 +1017,10 @@ class SyncRelationshipTuplesApi(BasePermitApi):
         The tuple states that a relationship (of type: relation) exists between two
         resource instances: the subject and the object.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tuple_data: The relationship tuple to create.
 
@@ -1023,6 +1035,10 @@ class SyncRelationshipTuplesApi(BasePermitApi):
     def delete(self, tuple_data: ModelInput[RelationshipTupleDelete]) -> None:
         """Removes a relationship tuple.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tuple_data: The relationship tuple to delete.
 
@@ -1035,6 +1051,10 @@ class SyncRelationshipTuplesApi(BasePermitApi):
         self, tuples: ModelListInput[RelationshipTupleCreate]
     ) -> RelationshipTupleCreateBulkOperationResult:
         """Creates multiple relationship tuples at once using the provided tuple data.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tuples: The relationship tuples to create.
@@ -1061,6 +1081,10 @@ class SyncRelationshipTuplesApi(BasePermitApi):
         self, tuples: ModelListInput[RelationshipTupleDelete]
     ) -> RelationshipTupleDeleteBulkOperationResult:
         """Deletes multiple relationship tuples at once using the provided tuple data.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tuples: The relationship tuples to delete.
@@ -1447,6 +1471,10 @@ class SyncResourceInstancesApi(BasePermitApi):
     ) -> list[ResourceInstanceRead]:
         """Retrieves a list of resource instances.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -1485,6 +1513,10 @@ class SyncResourceInstancesApi(BasePermitApi):
         Needs an environment-level API key, or a project- or organization-level key with the
         SDK's API context set to the environment.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch, starting at 1 (default: 1).
             per_page: How many items to fetch per page, at most 100 (default: 100).
@@ -1502,6 +1534,10 @@ class SyncResourceInstancesApi(BasePermitApi):
         """
     def get(self, instance_key: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its identity.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_key: The resource instance identity. Either `resource_type:instance_key`
@@ -1521,6 +1557,10 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             instance_key: The resource instance identity. Either `resource_type:instance_key`
                 (like Repository:react) or the resource instance uuid. A bare instance key
@@ -1539,6 +1579,10 @@ class SyncResourceInstancesApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             instance_id: The ID of the resource instance.
 
@@ -1552,6 +1596,10 @@ class SyncResourceInstancesApi(BasePermitApi):
         """
     def create(self, instance_data: ModelInput[ResourceInstanceCreate]) -> ResourceInstanceRead:
         """Creates a new resource instance.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_data: The data for the new resource instance.
@@ -1569,6 +1617,10 @@ class SyncResourceInstancesApi(BasePermitApi):
     ) -> ResourceInstanceRead:
         """Updates a resource instance.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             instance_key: The resource instance identity. Either `resource_type:instance_key`
                 (like Repository:react) or the resource instance uuid. A bare instance key
@@ -1585,6 +1637,10 @@ class SyncResourceInstancesApi(BasePermitApi):
         """
     def delete(self, instance_key: str) -> None:
         """Deletes a resource instance.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_key: The identity of the resource instance to delete. Either
@@ -1608,6 +1664,10 @@ class SyncResourceInstancesApi(BasePermitApi):
         If the resource instance exists - replaces it.
         Otherwise creates previously non-existing resource instances.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             resource_instances: The resource instances to create/replace.
 
@@ -1623,6 +1683,10 @@ class SyncResourceInstancesApi(BasePermitApi):
         self, resource_instances: builtins.list[str]
     ) -> ResourceInstanceDeleteBulkOperationResult:
         """Deletes resource instances in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             resource_instances: The resource instance identities to delete.
@@ -2086,6 +2150,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
         the last value of a filter given as a list: ``user_key=["alice", "bob"]`` lists only
         bob's assignments. Pass lists only with ``proxy_facts_via_pdp`` off.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: if specified, only role granted to this user will be fetched.
             role_key: if specified, only assignments of this role will be fetched.
@@ -2134,6 +2202,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
         the last value of a filter given as a list: ``user_key=["alice", "bob"]`` lists only
         bob's assignments. Pass lists only with ``proxy_facts_via_pdp`` off.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: if specified, only roles granted to this user, or to any of these
                 users, will be fetched.
@@ -2161,6 +2233,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
     def assign(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """Assigns a role to a user in the scope of a given tenant.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             assignment: The role assignment details.
 
@@ -2174,6 +2250,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
         """
     def unassign(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """Unassigns a role from a user in the scope of a given tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             unassignment: The role unassignment details.
@@ -2189,6 +2269,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
         """Assigns multiple roles in bulk using the provided role assignments data.
 
         Each role assignment is a tuple of (user, role, tenant).
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             assignments: The role assignments to be performed in bulk.
@@ -2207,6 +2291,10 @@ class SyncRoleAssignmentsApi(BasePermitApi):
         """Removes multiple role assignments in bulk using the provided unassignment data.
 
         Each role to unassign is a tuple of (user, role, tenant).
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             unassignments: The role unassignments to be performed in bulk.
@@ -2361,6 +2449,10 @@ class SyncTenantsApi(BasePermitApi):
     def list(self, page: int = 1, per_page: int = 100) -> list[TenantRead]:
         """Retrieves a list of tenants.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -2377,6 +2469,10 @@ class SyncTenantsApi(BasePermitApi):
         self, tenant_key: str, page: int = 1, per_page: int = 100
     ) -> PaginatedResultUserRead:
         """Retrieves a list of users for a given tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_key: The key of the tenant.
@@ -2441,6 +2537,10 @@ class SyncTenantsApi(BasePermitApi):
     def get(self, tenant_key: str) -> TenantRead:
         """Retrieves a tenant by its key.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_key: The key of the tenant.
 
@@ -2456,6 +2556,10 @@ class SyncTenantsApi(BasePermitApi):
         """Retrieves a tenant by its key.
 
         Alias for the get method.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_key: The key of the tenant.
@@ -2473,6 +2577,10 @@ class SyncTenantsApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_id: The ID of the tenant.
 
@@ -2486,6 +2594,10 @@ class SyncTenantsApi(BasePermitApi):
         """
     def create(self, tenant_data: ModelInput[TenantCreate]) -> TenantRead:
         """Creates a new tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_data: The data for the new tenant.
@@ -2501,6 +2613,10 @@ class SyncTenantsApi(BasePermitApi):
     def update(self, tenant_key: str, tenant_data: ModelInput[TenantUpdate]) -> TenantRead:
         """Updates a tenant.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_key: The key of the tenant.
             tenant_data: The updated data for the tenant.
@@ -2515,6 +2631,10 @@ class SyncTenantsApi(BasePermitApi):
         """
     def delete(self, tenant_key: str) -> None:
         """Deletes a tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenant_key: The key of the tenant to delete.
@@ -2539,6 +2659,10 @@ class SyncTenantsApi(BasePermitApi):
         on resource instances, so ``create_user()`` can create a user with that key again.
         Otherwise the user stays a member of the tenant, with no tenant-level role there.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             tenant_key: The key of the tenant.
             user_key: The key of the user whose roles in the tenant to remove.
@@ -2551,6 +2675,10 @@ class SyncTenantsApi(BasePermitApi):
         """
     def bulk_create(self, tenants: ModelListInput[TenantCreate]) -> TenantCreateBulkOperationResult:
         """Creates tenants in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenants: The tenants to create
@@ -2565,6 +2693,10 @@ class SyncTenantsApi(BasePermitApi):
         """
     def bulk_delete(self, tenants: builtins.list[str]) -> TenantDeleteBulkOperationResult:
         """Deletes tenants in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             tenants: The tenants identities to delete. Each identity can be either the tenant key or
@@ -2663,6 +2795,10 @@ class SyncUsersApi(BasePermitApi):
     def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultUserRead:
         """Retrieves a list of users.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -2677,6 +2813,10 @@ class SyncUsersApi(BasePermitApi):
         """
     def get(self, user_key: str) -> UserRead:
         """Retrieves a user by its key.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user_key: The key of the user.
@@ -2694,6 +2834,10 @@ class SyncUsersApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: The key of the user.
 
@@ -2710,6 +2854,10 @@ class SyncUsersApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_id: The ID of the user.
 
@@ -2724,6 +2872,10 @@ class SyncUsersApi(BasePermitApi):
     def create(self, user_data: ModelInput[UserCreate]) -> UserRead:
         """Creates a new user.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_data: The data for the new user.
 
@@ -2737,6 +2889,10 @@ class SyncUsersApi(BasePermitApi):
         """
     def update(self, user_key: str, user_data: ModelInput[UserUpdate]) -> UserRead:
         """Updates a user.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user_key: The key of the user.
@@ -2753,6 +2909,10 @@ class SyncUsersApi(BasePermitApi):
     def sync(self, user: _UserSyncInput) -> UserRead:
         """Synchronizes user data by creating or updating a user.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user: The data of the user to be synchronized.
 
@@ -2767,6 +2927,10 @@ class SyncUsersApi(BasePermitApi):
     def delete(self, user_key: str) -> None:
         """Deletes a user.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             user_key: The key of the user to delete.
 
@@ -2777,6 +2941,10 @@ class SyncUsersApi(BasePermitApi):
         """
     def bulk_create(self, users: ModelListInput[UserCreate]) -> UserCreateBulkOperationResult:
         """Creates users in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             users: The users to create
@@ -2795,6 +2963,10 @@ class SyncUsersApi(BasePermitApi):
         If the user exists - replaces it.
         Otherwise, creates previously non-existing users.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             users: The users to replace.
 
@@ -2808,6 +2980,10 @@ class SyncUsersApi(BasePermitApi):
         """
     def bulk_delete(self, users: builtins.list[str]) -> UserDeleteBulkOperationResult:
         """Deletes users in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             users: The users identities to delete. Each identity can be either the user key or the
@@ -2824,6 +3000,10 @@ class SyncUsersApi(BasePermitApi):
     def assign_role(self, assignment: ModelInput[RoleAssignmentCreate]) -> RoleAssignmentRead:
         """Assigns a role to a user in the scope of a given tenant.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             assignment: The role assignment details.
 
@@ -2837,6 +3017,10 @@ class SyncUsersApi(BasePermitApi):
         """
     def unassign_role(self, unassignment: ModelInput[RoleAssignmentRemove]) -> None:
         """Unassigns a role from a user in the scope of a given tenant.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             unassignment: The role unassignment details.
@@ -2853,6 +3037,10 @@ class SyncUsersApi(BasePermitApi):
 
         The roles come from the given tenant if the tenant filter is provided, or from
         all tenants if it is not.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user: The key of the user.
@@ -3013,8 +3201,8 @@ class SyncEnforcer:
         The PDP answers from the data it has synced, so a change made through the API shows
         up once the PDP has it.
 
-        Only the container PDP serves this query. The cloud PDP does not, and answers 404,
-        which this method raises as a ``PermitConnectionError`` that says so.
+        Container PDP only: the cloud PDP does not serve this query. It answers 404, which
+        this method raises as a ``PermitConnectionError`` that says so.
 
         Args:
             user: The user key, or a user dict with a ``key`` and optionally ``attributes``,
@@ -3059,6 +3247,9 @@ class SyncPdpRoleAssignmentsApi(BasePdpPermitApi):
         per_page: int = 100,
     ) -> list[RoleAssignment]:
         """Retrieves a list of role assignments based on the specified filters.
+
+        Container PDP only: the cloud PDP does not serve ``/local/role_assignments``. It
+        answers 404, which this method raises as a ``PermitApiError`` that says so.
 
         Args:
             user_key: optional user filter, will only return role assignments granted to this user.

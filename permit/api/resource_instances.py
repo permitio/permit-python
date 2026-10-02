@@ -87,6 +87,10 @@ class ResourceInstancesApi(BasePermitApi):
     ) -> list[ResourceInstanceRead]:
         """Retrieves a list of resource instances.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch (default: 1).
             per_page: How many items to fetch per page (default: 100).
@@ -145,6 +149,10 @@ class ResourceInstancesApi(BasePermitApi):
         Needs an environment-level API key, or a project- or organization-level key with the
         SDK's API context set to the environment.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             page: The page number to fetch, starting at 1 (default: 1).
             per_page: How many items to fetch per page, at most 100 (default: 100).
@@ -183,6 +191,10 @@ class ResourceInstancesApi(BasePermitApi):
     async def get(self, instance_key: str) -> ResourceInstanceRead:
         """Retrieves a resource instance by its identity.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             instance_key: The resource instance identity. Either `resource_type:instance_key`
                 (like Repository:react) or the resource instance uuid. A bare instance key
@@ -205,6 +217,10 @@ class ResourceInstancesApi(BasePermitApi):
         """Retrieves a resource instance by its identity.
 
         Alias for the get method.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_key: The resource instance identity. Either `resource_type:instance_key`
@@ -229,6 +245,10 @@ class ResourceInstancesApi(BasePermitApi):
 
         Alias for the get method.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             instance_id: The ID of the resource instance.
 
@@ -249,6 +269,10 @@ class ResourceInstancesApi(BasePermitApi):
         self, instance_data: ModelInput[ResourceInstanceCreate]
     ) -> ResourceInstanceRead:
         """Creates a new resource instance.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_data: The data for the new resource instance.
@@ -272,6 +296,10 @@ class ResourceInstancesApi(BasePermitApi):
         self, instance_key: str, instance_data: ModelInput[ResourceInstanceUpdate]
     ) -> ResourceInstanceRead:
         """Updates a resource instance.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_key: The resource instance identity. Either `resource_type:instance_key`
@@ -298,6 +326,10 @@ class ResourceInstancesApi(BasePermitApi):
     @validate_arguments
     async def delete(self, instance_key: str) -> None:
         """Deletes a resource instance.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             instance_key: The identity of the resource instance to delete. Either
@@ -326,6 +358,10 @@ class ResourceInstancesApi(BasePermitApi):
         If the resource instance exists - replaces it.
         Otherwise creates previously non-existing resource instances.
 
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
+
         Args:
             resource_instances: The resource instances to create/replace.
 
@@ -350,6 +386,10 @@ class ResourceInstancesApi(BasePermitApi):
         self, resource_instances: builtins.list[str]
     ) -> ResourceInstanceDeleteBulkOperationResult:
         """Deletes resource instances in bulk.
+
+        Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the
+        PDP's ``/facts`` routes, which the cloud PDP does not serve. It answers 404, which
+        this method raises as a ``PermitApiError`` that says so.
 
         Args:
             resource_instances: The resource instance identities to delete.
