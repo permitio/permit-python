@@ -1,5 +1,4 @@
 import functools
-import warnings
 from collections.abc import Awaitable, Callable, Coroutine
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -7,6 +6,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import aiohttp
 from typing_extensions import ParamSpec, deprecated
 
+from permit.utils.deprecation import _warn_deprecated_name
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 from permit.utils.sdk_logger import sdk_logger
 
@@ -30,31 +30,40 @@ class PermitError(Exception):
     """Permit base exception."""
 
 
-@deprecated("Use PermitError instead")
+@deprecated(
+    "PermitException is deprecated and will be removed in permit 4.0; "
+    "catch PermitConnectionError instead (in 4.0 it becomes a PermitError).",
+    # Type checkers flag every use. At runtime the marker only records the message:
+    # __getattr__ below warns instead, whenever code reads the name.
+    category=None,
+)
 class PermitException(PermitError):  # noqa: N818 - public name, kept for existing callers
-    """Permit base exception (deprecated, use PermitError instead)."""
+    """Permit base exception (deprecated: catch PermitConnectionError instead)."""
 
 
-# Subclassing a `@deprecated` class warns (typing_extensions hooks `__init_subclass__`).
-# This subclass is the SDK's own, so the warning is silenced here: importing the SDK
-# stays warning-free, while code that subclasses or raises `PermitException` still warns.
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
+# The SDK refers to PermitException by this name only, so importing it does not warn. The class
+# keeps its public name, so its repr, tracebacks and pickles are what they were.
+_PermitException = PermitException  # type: ignore[deprecated] # the SDK's own reference
+# The message the marker above recorded, which type checkers show too.
+_PERMIT_EXCEPTION_DEPRECATION: str = vars(_PermitException)["__deprecated__"]
+if not TYPE_CHECKING:
+    # Code that reads `PermitException` gets it from __getattr__, with the warning.
+    del PermitException
 
-    class PermitConnectionError(PermitException):  # type: ignore[deprecated] # kept, see docstring
-        """Permit connection exception.
 
-        Note: this deliberately still inherits from the deprecated `PermitException`
-        rather than from `PermitError`. Re-parenting it looks like tidying, but it
-        silently breaks every consumer whose handler is `except PermitException` --
-        a connection blip would stop being caught and become an unhandled crash.
-        That is a breaking change worth making, but it belongs in a major version
-        with a changelog entry, not in a dependency-security patch.
-        """
+class PermitConnectionError(_PermitException):
+    """Permit connection exception.
 
-        def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
-            super().__init__(message)
-            self.original_error = error
+    Note: this deliberately still inherits from the deprecated `PermitException`
+    rather than from `PermitError`. Re-parenting it looks like tidying, but it
+    silently breaks every consumer whose handler is `except PermitException` --
+    a connection blip would stop being caught and become an unhandled crash.
+    That breaking change waits for permit 4.0, which removes `PermitException`.
+    """
+
+    def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
+        super().__init__(message)
+        self.original_error = error
 
 
 class PermitContextError(PermitError):
@@ -308,3 +317,22 @@ def handle_client_error(
             raise PermitConnectionError(msg, error=err) from err
 
     return wrapped
+
+
+def _getattr(name: str) -> object:
+    """Serve the deprecated `PermitException`, with its warning, to code that reads it."""
+    if name == "PermitException":
+        _warn_deprecated_name(_PERMIT_EXCEPTION_DEPRECATION)
+        return _PermitException
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
+
+
+def __dir__() -> list[str]:
+    return sorted([*globals(), "PermitException"])
+
+
+if not TYPE_CHECKING:
+    # The module __getattr__ (PEP 562). Type checkers do not see it: to them, a module
+    # __getattr__ means that every name exists. They see PermitException's declaration.
+    __getattr__ = _getattr
