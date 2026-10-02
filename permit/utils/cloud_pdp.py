@@ -52,6 +52,10 @@ async def is_cloud_pdp_route_not_found(response: aiohttp.ClientResponse, pdp_url
     404 with a body, even one of only whitespace, comes from a container PDP, or from the
     API through a container PDP's ``/facts`` routes, and is a real "not found".
 
+    Any 404 from the cloud PDP's address counts, whatever its body, because the cloud PDP
+    serves none of these routes. If it starts to serve one, its real "not found" for that
+    route has to be told apart here.
+
     Args:
         response: The PDP's response to a request for a route only the container PDP serves.
         pdp_url: The address of the PDP the request was sent to, as the SDK's ``pdp``
