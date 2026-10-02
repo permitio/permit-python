@@ -32,7 +32,11 @@ T = TypeVar("T")
 
 
 def create_read_delete(permit: Permit, user_key: str) -> UserRead:
-    """Create a user, read it back and delete it. It is deleted at the end whatever happens."""
+    """Create a user, read it back, delete it and check it is gone.
+
+    Until the user is gone, a teardown deletes it whatever happens. Once it is, the
+    teardown is dropped, so that a passing run sends one delete per user, not two.
+    """
     with ExitStack() as teardown:
         teardown.callback(
             delete_quietly_blocking,
@@ -44,6 +48,7 @@ def create_read_delete(permit: Permit, user_key: str) -> UserRead:
         permit.api.users.delete(user_key)
         with pytest.raises(PermitNotFoundError):
             permit.api.users.get(user_key)
+        teardown.pop_all()
     return user
 
 
