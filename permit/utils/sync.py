@@ -152,6 +152,18 @@ background loop.
 """
 
 
+class _Raised(NamedTuple):
+    """The exception a blocking call's coroutine raised, carried to the caller as a result.
+
+    `asyncio.run_coroutine_threadsafe` copies an exception into the caller's future through
+    asyncio's own conversion, which on Python 3.11 and 3.12 replaces a `TimeoutError` with a
+    new one that has neither its traceback nor its cause. As a result it is not converted, so
+    the caller raises the exception the coroutine raised.
+    """
+
+    error: Exception
+
+
 class _LoopThread:
     """An event loop that runs in a daemon thread until it is shut down.
 
@@ -188,11 +200,15 @@ class _LoopThread:
                 task.cancel()
             await asyncio.wait(others)
 
-    async def _track(self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T:
+    async def _track(self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite) -> T | _Raised:
         """Await `coroutine` as a tracked task that runs for the blocking call made at `call_site`.
 
         The task runs in a copy of the context of the thread that submitted it, as
         `call_soon_threadsafe` documents, and `_blocking_call_site` is set in that copy.
+
+        Returns:
+            What the coroutine returns, or the exception it raises, as a `_Raised`. A
+            cancellation, of the task or from the coroutine, is raised.
         """
         # Never None: this coroutine only ever runs as a task.
         task = cast("asyncio.Task[Any]", asyncio.current_task())
@@ -200,6 +216,8 @@ class _LoopThread:
         try:
             _blocking_call_site.set(call_site)
             return await coroutine
+        except Exception as error:  # noqa: BLE001 - the blocking caller raises it
+            return _Raised(error)
         finally:
             self._tasks.discard(task)
             # An exception the coroutine raised keeps this frame in its traceback, and the
@@ -209,7 +227,7 @@ class _LoopThread:
 
     def submit(
         self, coroutine: Coroutine[Any, Any, T], call_site: _CallSite
-    ) -> concurrent.futures.Future[T]:
+    ) -> concurrent.futures.Future[T | _Raised]:
         """Start `coroutine` on the loop, for the blocking call made at `call_site`.
 
         Args:
@@ -217,7 +235,8 @@ class _LoopThread:
             call_site: The line that made the blocking call.
 
         Returns:
-            The future of the coroutine's result.
+            The future of the coroutine's result, or of the exception it raised, as a
+            `_Raised`.
 
         Raises:
             RuntimeError: If the loop is closed. `coroutine` is closed, never started.
@@ -369,11 +388,11 @@ class _BackgroundLoop:
         Raises:
             RuntimeError: If called from the loop's own thread, where waiting would deadlock.
         """
-        future: concurrent.futures.Future[T] | None = None
+        future: concurrent.futures.Future[T | _Raised] | None = None
         try:
             with self._lock:
                 future = self._thread_for_call().submit(coroutine, call_site)
-            return future.result()
+            outcome = future.result()
         except BaseException:
             if future is None:
                 coroutine.close()
@@ -383,6 +402,15 @@ class _BackgroundLoop:
                 # A no-op once the call is done. When waiting was interrupted, such as by
                 # KeyboardInterrupt, it cancels the call, as asyncio.run() would.
                 future.cancel()
+        if not isinstance(outcome, _Raised):
+            return outcome
+        error = outcome.error
+        # The error's traceback will hold this frame: drop what would lead back to the error.
+        del outcome, future
+        try:
+            raise error
+        finally:
+            del error
 
     def _thread_for_call(self) -> _LoopThread:
         """The loop thread to run a call on, started first if there is none.

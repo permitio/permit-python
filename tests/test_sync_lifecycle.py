@@ -16,6 +16,7 @@ import threading
 import time
 import traceback
 import warnings
+import weakref
 from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import ContextVar
@@ -447,6 +448,39 @@ def test_an_error_keeps_its_type_and_traceback(permit: SyncPermit) -> None:
     assert ("enforcer.py", "_resource_from_string") in frames
     assert (Path(__file__).name, test_an_error_keeps_its_type_and_traceback.__name__) in frames
     assert loop_thread(permit) is not None
+
+
+def test_a_timeout_keeps_its_traceback_and_cause(server: KeepAliveServer) -> None:
+    """On Python 3.11 and 3.12, asyncio would hand the caller a bare copy of the TimeoutError."""
+    server.respond("/allowed", {"allow": True}, delay=1.5)
+    config = offline_config(server.url)
+    config.pdp_timeout = 1
+
+    with SyncPermit(config) as client, pytest.raises(asyncio.TimeoutError) as caught:
+        check(client)
+
+    frames = [
+        (Path(frame.filename).name, frame.name)
+        for frame in traceback.extract_tb(caught.value.__traceback__)
+    ]
+    assert ("enforcer.py", "check") in frames
+    assert (Path(__file__).name, test_a_timeout_keeps_its_traceback_and_cause.__name__) in frames
+    assert caught.value.__cause__ is not None
+
+
+def test_a_client_whose_call_raised_is_freed_by_reference_counting(server: KeepAliveServer) -> None:
+    """The exception a call raised leaves no reference cycle that would hold the client."""
+    client = SyncPermit(offline_config(server.url))
+    with pytest.raises(ValueError, match="invalid resource string"):
+        client.check("user", "read", "too:many:parts")
+    freed = weakref.ref(client)
+
+    gc.disable()
+    try:
+        del client
+        assert freed() is None
+    finally:
+        gc.enable()
 
 
 def run_on_client_thread(client: SyncPermit, function: Callable[[], object]) -> Future[object]:
