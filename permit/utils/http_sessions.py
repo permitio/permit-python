@@ -2,6 +2,7 @@ import asyncio
 import atexit
 import concurrent.futures
 import contextlib
+import functools
 import os
 import sys
 import threading
@@ -69,7 +70,8 @@ class LoopSessions:
         loop = asyncio.get_running_loop()
         with self._lock:
             existing = self._sessions.get(loop)
-            if existing is not None:
+            # A session close() kept, because its loop stopped first, may be closing now.
+            if existing is not None and not existing.session.closed:
                 return existing.session
             abandoned = self._take_sessions_of_closed_loops() + _take_orphans_of_closed_loops()
             session = aiohttp.ClientSession(
@@ -92,9 +94,14 @@ class LoopSessions:
 
         The session of the running loop, and those of loops already closed, are closed here.
         The session of a loop running in another thread is closed on that loop, and this
-        waits for it. A loop that is neither running nor closed cannot run anything now: its
-        session stays open until that loop shuts down its async generators, or ``close()``
-        runs on it. A request in flight on a session being closed fails.
+        waits for it while that loop runs. A loop that stops before it has closed its
+        session, or that is neither running nor closed, cannot run anything now: its session
+        stays open until that loop shuts down its async generators, or ``close()`` runs on
+        it. A request in flight on a session being closed fails.
+
+        The sessions are closed side by side: when one fails to close, the others are still
+        closed, and the first error is raised then. A session that is still open afterwards,
+        including when the task running this is cancelled, is kept for the next ``close()``.
         """
         running = asyncio.get_running_loop()
         with self._lock:
@@ -105,17 +112,30 @@ class LoopSessions:
             }
             for loop in closable:
                 del self._sessions[loop]
-        for loop, entry in closable.items():
-            if loop is running:
-                await entry.closer.aclose()
-                continue
-            closing = None if loop.is_closed() else _start_closing(loop, entry.closer)
-            if closing is None:
-                # Nothing touches the closed loop: its connections cannot be closed any
-                # more, and this only marks the session closed.
-                await entry.session.close()
+        try:
+            outcomes = await asyncio.gather(
+                *(_close_from(running, loop, entry) for loop, entry in closable.items()),
+                return_exceptions=True,
+            )
+        finally:
+            for loop, entry in closable.items():
+                self._keep_if_open(loop, entry)
+        # Errors only: gather has raised the cancellation of this task already.
+        errors = [outcome for outcome in outcomes if isinstance(outcome, Exception)]
+        if errors:
+            raise errors[0]
+
+    def _keep_if_open(self, loop: asyncio.AbstractEventLoop, entry: _LoopSession) -> None:
+        """Keep ``entry``, which ``close()`` took, if its session is still open."""
+        with self._lock:
+            if entry.session.closed:
+                return
+            if loop in self._sessions:
+                # The loop opened a new session meanwhile: keep this one apart, for its loop
+                # to close when it shuts down its async generators.
+                _orphaned[id(entry.session)] = (loop, entry)
             else:
-                await asyncio.wrap_future(closing)
+                self._sessions[loop] = entry
 
     def _forget(self, loop: asyncio.AbstractEventLoop, session: aiohttp.ClientSession) -> None:
         """Drop ``session`` from the sessions, if it is still the one of ``loop``."""
@@ -150,7 +170,7 @@ class LoopSessions:
             entries = list(self._sessions.items())
             self._sessions.clear()
         of_closed_loops = [
-            entry.session for loop, entry in entries if not _close_at_exit_on(loop, entry.closer)
+            entry.session for loop, entry in entries if not _close_at_exit_on(loop, entry)
         ]
         if of_closed_loops:
             # The connections of a closed loop cannot be closed, but its sessions can be
@@ -180,29 +200,103 @@ async def _close_with_loop(
             _orphaned.pop(id(session), None)
 
 
-async def _aclose(closer: AsyncGenerator[None, None]) -> None:
-    await closer.aclose()
-
-
 async def _close_all(sessions: list[aiohttp.ClientSession]) -> None:
     for session in sessions:
         await session.close()
 
 
-def _start_closing(
-    loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]
+async def _close_from(
+    running: asyncio.AbstractEventLoop, loop: asyncio.AbstractEventLoop, entry: _LoopSession
+) -> None:
+    """Close ``entry``, the session of ``loop``, from the ``running`` loop."""
+    if loop is running:
+        await entry.closer.aclose()
+        return
+    closing = None if loop.is_closed() else _hand_close_to(loop, entry)
+    if closing is None:
+        # Nothing touches the closed loop: its connections cannot be closed any more, and
+        # this only marks the session closed.
+        await entry.session.close()
+        return
+    await _wait_while_running(loop, closing)
+    # Not done, or cancelled: the loop stopped first, and closes the session as it shuts
+    # down its async generators.
+    if closing.done() and not closing.cancelled():
+        error = closing.exception()
+        if error is not None:
+            raise error
+
+
+def _hand_close_to(
+    loop: asyncio.AbstractEventLoop, entry: _LoopSession
 ) -> concurrent.futures.Future[None] | None:
-    """Close ``closer`` on ``loop`` from another thread; None if ``loop`` is closed already."""
-    closing = _aclose(closer)
+    """Start closing ``entry`` on ``loop``, from another thread; None if ``loop`` is closed.
+
+    The coroutine is created on the loop: one the loop never runs, because it closes first,
+    would be reported as never awaited.
+
+    Returns:
+        The future of the close, which is cancelled if the loop cancels the close.
+    """
+    closing: concurrent.futures.Future[None] = concurrent.futures.Future()
     try:
-        return asyncio.run_coroutine_threadsafe(closing, loop)
-    except RuntimeError:
-        closing.close()
+        loop.call_soon_threadsafe(_start_closing_task, loop, entry, closing)
+    except RuntimeError:  # the loop is closed
         return None
+    return closing
 
 
-def _close_at_exit_on(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]) -> bool:
-    """Close ``closer`` on ``loop`` as the interpreter exits; False if ``loop`` is closed.
+def _start_closing_task(
+    loop: asyncio.AbstractEventLoop,
+    entry: _LoopSession,
+    closing: concurrent.futures.Future[None],
+) -> None:
+    task = loop.create_task(_close_on_its_loop(entry))
+    # The loop holds its tasks weakly: this keeps the task until it is done.
+    _closing_tasks.add(task)
+    task.add_done_callback(_closing_tasks.discard)
+    task.add_done_callback(functools.partial(_report_close, closing))
+
+
+async def _close_on_its_loop(entry: _LoopSession) -> None:
+    """Close the session, then its closer.
+
+    In this order, a loop that shuts down its async generators while the session closes
+    finds the session closed already, rather than its closer running.
+    """
+    await entry.session.close()
+    await entry.closer.aclose()
+
+
+def _report_close(closing: concurrent.futures.Future[None], task: asyncio.Task[None]) -> None:
+    """Give ``closing`` the outcome of ``task``, the close it stands for."""
+    if task.cancelled():
+        closing.cancel()
+    elif (error := task.exception()) is not None:
+        closing.set_exception(error)
+    else:
+        closing.set_result(None)
+
+
+async def _wait_while_running(
+    loop: asyncio.AbstractEventLoop, closing: concurrent.futures.Future[None]
+) -> None:
+    """Wait until ``closing`` is done, or until ``loop``, which runs it, stops running."""
+    here = asyncio.get_running_loop()
+    done = asyncio.Event()
+
+    def wake(_: concurrent.futures.Future[None]) -> None:
+        with contextlib.suppress(RuntimeError):  # this loop closed meanwhile
+            here.call_soon_threadsafe(done.set)
+
+    closing.add_done_callback(wake)
+    while not done.is_set() and loop.is_running():
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(done.wait(), _STOPPED_LOOP_POLL_SECONDS)
+
+
+def _close_at_exit_on(loop: asyncio.AbstractEventLoop, entry: _LoopSession) -> bool:
+    """Close ``entry`` on ``loop`` as the interpreter exits; False if ``loop`` is closed.
 
     A loop running in another thread gets the close to run, and is not waited for: its
     thread, if it is a daemon, may be stopped first, which leaves nothing to report.
@@ -210,8 +304,8 @@ def _close_at_exit_on(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[No
     if loop.is_closed():
         return False
     if loop.is_running():
-        return _start_closing(loop, closer) is not None
-    loop.run_until_complete(closer.aclose())
+        return _hand_close_to(loop, entry) is not None
+    loop.run_until_complete(entry.closer.aclose())
     return True
 
 
@@ -228,17 +322,7 @@ def _orphan(sessions: dict[asyncio.AbstractEventLoop, _LoopSession]) -> None:
     for loop, entry in entries:
         _orphaned[id(entry.session)] = (loop, entry)
         if loop.is_running():
-            # The coroutine is created on the loop: one the loop never runs, because it
-            # closes first, would be reported as never awaited.
-            with contextlib.suppress(RuntimeError):  # the loop closed meanwhile
-                loop.call_soon_threadsafe(_start_aclose, loop, entry.closer)
-
-
-def _start_aclose(loop: asyncio.AbstractEventLoop, closer: AsyncGenerator[None, None]) -> None:
-    task = loop.create_task(_aclose(closer))
-    # The loop holds its tasks weakly: this keeps the task until it is done.
-    _closing.add(task)
-    task.add_done_callback(_closing.discard)
+            _hand_close_to(loop, entry)
 
 
 def _take_orphans_of_closed_loops() -> list[_LoopSession]:
@@ -251,9 +335,12 @@ def _take_orphans_of_closed_loops() -> list[_LoopSession]:
 
 
 _open_at_exit: weakref.WeakSet[LoopSessions] = weakref.WeakSet()
-# The open sessions of collected LoopSessions, by the id of the session.
+# The open sessions no LoopSessions holds any more, by the id of the session: those of
+# collected LoopSessions, and those close() kept while their loop had a new one.
 _orphaned: dict[int, tuple[asyncio.AbstractEventLoop, _LoopSession]] = {}
-_closing: set[asyncio.Task[None]] = set()
+_closing_tasks: set[asyncio.Task[None]] = set()
+# How often close() looks whether a loop it waits for in another thread still runs.
+_STOPPED_LOOP_POLL_SECONDS = 0.05
 _sessions_lost_to_fork: list[_LoopSession] = []
 
 

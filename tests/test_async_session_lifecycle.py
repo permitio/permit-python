@@ -130,6 +130,21 @@ def sessions_reachable_from(root: object) -> set[int]:
     return found
 
 
+async def test_a_request_replaces_a_session_closed_under_the_client(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    """A request never goes through a closed session.
+
+    close() keeps the session of a loop that stopped before closing it, and the close handed
+    to that loop closes it once the loop runs again.
+    """
+    assert await check(client)
+    await (await client._pdp_sessions.current()).close()
+
+    assert await check(client)
+    assert server.opened == 2
+
+
 async def test_the_connections_are_not_capped_in_number(client: Permit) -> None:
     """As when every request had a session of its own, any number may be open at once."""
     session = await client._pdp_sessions.current()
@@ -167,13 +182,19 @@ def test_one_client_serves_two_successive_asyncio_runs(server: KeepAliveServer) 
     assert server.opened == 2
 
 
-def test_a_client_does_not_keep_a_finished_loop_alive(server: KeepAliveServer) -> None:
+@pytest.mark.parametrize("close", [False, True], ids=["left open", "closed"])
+def test_a_client_does_not_keep_a_finished_loop_alive(
+    server: KeepAliveServer, *, close: bool
+) -> None:
     client = Permit(offline_config(server.url))
     loops: list[weakref.ref[asyncio.AbstractEventLoop]] = []
 
     async def remember_the_loop_and_check() -> bool:
         loops.append(weakref.ref(asyncio.get_running_loop()))
-        return await check(client)
+        allowed = await check(client)
+        if close:
+            await client.close()
+        return allowed
 
     assert asyncio.run(remember_the_loop_and_check())
     gc.collect()
@@ -507,6 +528,177 @@ def test_close_leaves_the_connection_of_an_idle_loop_to_that_loop(
         assert server.wait_until_closed(1) == 1
     finally:
         idle.close()
+
+
+def keep_the_loop_busy(busy: threading.Event, seconds: float = 0.5) -> None:
+    """Block the running loop for ``seconds``, as a slow callback does: what it is handed waits."""
+    busy.set()
+    time.sleep(seconds)
+
+
+async def test_close_returns_when_a_loop_in_another_thread_ends_before_closing_its_session(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    """That loop's asyncio.run() cancels the close handed to it, and closes the session itself."""
+    assert await check(client)
+    busy = threading.Event()
+
+    async def check_then_end_busy() -> None:
+        assert await check(client)
+        keep_the_loop_busy(busy)
+
+    other = threading.Thread(target=asyncio.run, args=(check_then_end_busy(),))
+    other.start()
+    try:
+        assert await asyncio.to_thread(busy.wait, THREAD_TIMEOUT_SECONDS)
+        await asyncio.wait_for(client.close(), THREAD_TIMEOUT_SECONDS)
+    finally:
+        await asyncio.to_thread(other.join, THREAD_TIMEOUT_SECONDS)
+
+    assert await asyncio.to_thread(server.wait_until_closed, 2) == 2
+
+
+async def test_close_returns_when_a_loop_in_another_thread_stops_before_closing_its_session(
+    server: KeepAliveServer, client: Permit, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The stopped loop closes the session as it shuts down its async generators."""
+    assert await check(client)
+    loop = asyncio.new_event_loop()
+
+    def run_then_shut_down() -> None:
+        loop.run_forever()
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
+
+    other = threading.Thread(target=run_then_shut_down, daemon=True)
+    other.start()
+    busy = threading.Event()
+
+    def stay_busy_then_stop() -> None:
+        keep_the_loop_busy(busy)
+        loop.stop()
+
+    try:
+        assert asyncio.run_coroutine_threadsafe(check(client), loop).result(THREAD_TIMEOUT_SECONDS)
+        loop.call_soon_threadsafe(stay_busy_then_stop)
+        assert await asyncio.to_thread(busy.wait, THREAD_TIMEOUT_SECONDS)
+        await asyncio.wait_for(client.close(), THREAD_TIMEOUT_SECONDS)
+    finally:
+        await asyncio.to_thread(other.join, THREAD_TIMEOUT_SECONDS)
+
+    assert loop.is_closed()
+    assert await asyncio.to_thread(server.wait_until_closed, 2) == 2
+    assert [record.getMessage() for record in caplog.records if record.name == "asyncio"] == []
+
+
+def test_close_closes_every_other_session_when_one_loop_ends_before_closing_its_own(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    client = Permit(config)
+    busy = threading.Event()
+
+    async def check_then_end_busy() -> None:
+        assert await check(client)
+        keep_the_loop_busy(busy)
+
+    # The session of the loop that ends first is the first the client opened.
+    other = threading.Thread(target=asyncio.run, args=(check_then_end_busy(),))
+    other.start()
+    try:
+        assert busy.wait(THREAD_TIMEOUT_SECONDS)
+        assert run_on_a_loop_closed_without_shutting_down(check(client))
+        asyncio.run(asyncio.wait_for(client.close(), THREAD_TIMEOUT_SECONDS))
+    finally:
+        other.join(THREAD_TIMEOUT_SECONDS)
+
+    def drop() -> None:
+        nonlocal client
+        del client
+
+    assert_nothing_reported_unclosed(drop)
+
+
+def test_close_keeps_the_session_of_a_loop_that_stops_and_closes_before_closing_it(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    """The next request marks it closed, as it does the session of any closed loop."""
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    client = Permit(config)
+    loop = asyncio.new_event_loop()
+
+    def run_then_close() -> None:
+        loop.run_forever()
+        loop.close()
+
+    other = threading.Thread(target=run_then_close, daemon=True)
+    busy = threading.Event()
+
+    def stay_busy_then_stop() -> None:
+        keep_the_loop_busy(busy)
+        loop.stop()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        other.start()
+        assert asyncio.run_coroutine_threadsafe(check(client), loop).result(THREAD_TIMEOUT_SECONDS)
+        loop.call_soon_threadsafe(stay_busy_then_stop)
+        assert busy.wait(THREAD_TIMEOUT_SECONDS)
+
+        asyncio.run(asyncio.wait_for(client.close(), THREAD_TIMEOUT_SECONDS))
+        other.join(THREAD_TIMEOUT_SECONDS)
+        gc.collect()
+        assert asyncio.run(check(client))
+        del client
+        gc.collect()
+
+    assert loop.is_closed()
+    assert [f"{w.category.__name__}: {w.message}" for w in caught] == []
+
+
+def test_close_still_closes_the_other_sessions_when_one_fails_to_close(
+    httpserver: HTTPServer, config: PermitConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The session that failed to close is kept, and the next close() closes it."""
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    client = Permit(config)
+    # The first session the client opens is the one that fails to close. Its loop closes
+    # only once the other session is open: opening a session closes those of closed loops.
+    closed_later = asyncio.new_event_loop()
+    assert closed_later.run_until_complete(check(client))
+    [failing] = [entry.session for entry in client._pdp_sessions._sessions.values()]
+    close_session = aiohttp.ClientSession.close
+
+    async def close_or_fail(session: aiohttp.ClientSession) -> None:
+        if session is failing:
+            msg = "the session did not close"
+            raise OSError(msg)
+        await close_session(session)
+
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        assert asyncio.run_coroutine_threadsafe(check(client), loop).result(THREAD_TIMEOUT_SECONDS)
+        other = asyncio.run_coroutine_threadsafe(client._pdp_sessions.current(), loop).result(
+            THREAD_TIMEOUT_SECONDS
+        )
+        closed_later.close()
+        monkeypatch.setattr(aiohttp.ClientSession, "close", close_or_fail)
+
+        with pytest.raises(OSError, match="the session did not close"):
+            asyncio.run(client.close())
+
+        assert other.closed
+        assert not failing.closed
+        monkeypatch.undo()
+        asyncio.run(client.close())
+        assert failing.closed
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(THREAD_TIMEOUT_SECONDS)
+        loop.close()
+        closed_later.close()
 
 
 def test_close_closes_the_session_of_a_loop_closed_without_shutting_down(

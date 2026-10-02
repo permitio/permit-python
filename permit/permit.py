@@ -78,9 +78,11 @@ class Permit:
         """Close the HTTP connections this client keeps open.
 
         It closes the sessions of the event loop it runs on, of loops already closed, and of
-        loops running in other threads, on those loops, waiting for them. The session of a
-        loop that is neither running nor closed stays open until that loop shuts down its
-        async generators, as ``asyncio.run()`` does, or ``close()`` runs on it.
+        loops running in other threads, on those loops, waiting for each while its loop
+        runs. The session of a loop that is neither running nor closed, or that stops before
+        it has closed its session, stays open until that loop shuts down its async
+        generators, as ``asyncio.run()`` does, or ``close()`` runs on it. When one session
+        fails to close, the others are still closed before the error is raised.
 
         A request still in flight when ``close()`` runs fails. Calling ``close()`` again
         closes nothing more. The client stays usable: a request sent after ``close()``
