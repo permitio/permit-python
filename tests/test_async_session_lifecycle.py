@@ -485,6 +485,20 @@ async def test_a_wait_for_sync_copy_shares_the_connection_and_leaves_closing_it_
     assert server.wait_until_closed(2) == 2
 
 
+async def test_without_proxy_facts_via_pdp_wait_for_sync_yields_the_client_itself(
+    server: KeepAliveServer, client: Permit
+) -> None:
+    """So the yielded client's close() closes the connections, unlike a copy's."""
+    assert not client.config.proxy_facts_via_pdp
+    assert await check(client)
+
+    with client.wait_for_sync() as waiting:
+        assert waiting is client
+        await waiting.close()
+
+    assert server.wait_until_closed(1) == 1
+
+
 async def test_close_also_closes_the_connection_of_a_loop_running_in_another_thread(
     server: KeepAliveServer, client: Permit
 ) -> None:

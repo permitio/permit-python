@@ -88,9 +88,10 @@ class Permit:
         closes nothing more. The client stays usable: a request sent after ``close()``
         opens new connections, which a later ``close()`` closes.
 
-        A client yielded by ``wait_for_sync()`` sends its requests over the connections of
-        the client it was made from: its ``close()`` does nothing, and the other client's
-        ``close()`` closes them.
+        With ``proxy_facts_via_pdp`` on, a client yielded by ``wait_for_sync()`` sends its
+        requests over the connections of the client it was made from: its ``close()`` does
+        nothing, and the other client's ``close()`` closes them. With it off, the default,
+        ``wait_for_sync()`` yields the client itself, whose ``close()`` closes them.
         """
         if not self._owns_sessions:
             return
@@ -143,7 +144,9 @@ class Permit:
         Yields:
             Permit: A Permit instance that is configured to wait for facts to be synced. It
             sends its requests over this client's connections, so it needs no ``close()``:
-            closing this client closes them.
+            closing this client closes them, and its own ``close()`` does nothing. With
+            ``proxy_facts_via_pdp`` off, it logs a warning and yields this client itself,
+            whose ``close()`` closes them.
 
         See Also:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader

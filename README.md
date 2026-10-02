@@ -80,9 +80,10 @@ with Permit(token="<YOUR_API_KEY>") as permit:
 
 ### Both clients
 
-- `wait_for_sync()` yields a client that uses the connections of the client it is called
-  on, and on the blocking client its thread too. That client's `close()` closes them; the
-  yielded one's `close()` does nothing.
+- With `proxy_facts_via_pdp` on, `wait_for_sync()` yields a client that uses the connections
+  of the client it is called on, and on the blocking client its thread too. That client's
+  `close()` closes them; the yielded one's `close()` does nothing. With it off, the default,
+  `wait_for_sync()` logs a warning and yields the client itself, whose `close()` closes them.
 - A child process made by `fork()` leaves the connections it inherits to its parent, and
   opens its own; the blocking client starts a thread of its own in the child.
 - The number of connections open at once is not capped, as before. An idle connection is
