@@ -192,8 +192,11 @@ print(refreshed.update_id, refreshed.pdp_ids)
 With `proxy_facts_via_pdp=True`, the facts methods of `permit.api`, those of its `users`,
 `tenants`, `role_assignments`, `resource_instances` and `relationship_tuples` APIs, send their
 requests to the PDP, which forwards them to the Permit REST API. Only the container PDP serves
-them: the cloud PDP answers 404. On some of these writes, the PDP also waits until the change
-is in its own data before it answers, so that a check sent next sees the change:
+them: the cloud PDP answers 404, which the SDK raises as a `PermitApiError` that names the route
+and says it needs the container PDP. A client created with `proxy_facts_via_pdp=True` and the
+cloud PDP's address as `pdp` issues a `UserWarning` that says so. On some of these writes, the
+PDP also waits until the change is in its own data before it answers, so that a check sent next
+sees the change:
 
 ```py
 permit = Permit(token="<YOUR_API_KEY>", pdp="http://localhost:7766", proxy_facts_via_pdp=True)
