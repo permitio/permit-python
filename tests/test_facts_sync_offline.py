@@ -16,6 +16,7 @@ import asyncio
 import inspect
 import json
 import re
+from collections.abc import Callable
 from contextlib import nullcontext
 from operator import attrgetter
 from pathlib import Path
@@ -704,3 +705,70 @@ def test_a_proxied_facts_method_sends_the_sync_headers_to_its_route(
     }
     assert sent_headers(request) == facts_headers("2.5", "fail")
     assert other.log == []
+
+
+# --- the documented lists of the methods the PDP waits on ------------------------------
+
+# The facts methods whose request goes to a route the PDP waits on, and the writes whose
+# request goes to one it forwards without waiting, as the cases above pin them.
+WAITING = frozenset(
+    name for name, case in CASES.items() if on_pdp(case) and case.route in SYNCED_ROUTES
+)
+FORWARDED_WRITES = frozenset(
+    name
+    for name, case in CASES.items()
+    if on_pdp(case) and case.route not in SYNCED_ROUTES and not case.route.startswith("GET ")
+)
+
+# Each documented list of the methods the PDP waits on ends with this phrase. A facts
+# method named after it is one the PDP does not wait on.
+FORWARDED = "forwards every other facts request without waiting"
+READ_YOUR_WRITES = "Read-your-writes through the PDP"
+
+
+def readme_section(title: str) -> str:
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    _, found, rest = readme.partition(f"\n## {title}\n")
+    assert found, f"README.md has no section {title!r}"
+    return rest.split("\n## ", 1)[0]
+
+
+def config_description(field: str) -> str | None:
+    description: str | None = PermitConfig.__fields__[field].field_info.description
+    return description
+
+
+# Where the methods the PDP waits on are listed, and how to read the text that lists them.
+DOCUMENTED: dict[str, Callable[[], str | None]] = {
+    "readme": lambda: readme_section(READ_YOUR_WRITES),
+    "wait_for_sync": lambda: inspect.getdoc(Permit.wait_for_sync),
+    "proxy_facts_via_pdp": lambda: config_description("proxy_facts_via_pdp"),
+    "facts_sync_timeout": lambda: config_description("facts_sync_timeout"),
+}
+
+
+def facts_methods(text: str) -> set[str]:
+    """The facts methods ``text`` names as "<api>.<method>()", as "<api>.<method>"."""
+    return {
+        f"{api}.{method}"
+        for api, method in re.findall(r"(\w+)\.(\w+)\(\)", text)
+        if api in FACTS_APIS
+    }
+
+
+@pytest.mark.parametrize("where", DOCUMENTED)
+def test_the_docs_list_the_methods_the_pdp_waits_on(where: str) -> None:
+    """Each list names the methods whose route the PDP waits on, and those alone."""
+    text = DOCUMENTED[where]()
+    assert text is not None
+    assert text.count(FORWARDED) == 1, f"{where} does not say {FORWARDED!r} once"
+    waiting, _, forwarded = text.partition(FORWARDED)
+
+    assert facts_methods(waiting) == WAITING
+    assert not facts_methods(forwarded) & WAITING
+
+
+def test_the_readme_lists_the_writes_the_pdp_does_not_wait_on() -> None:
+    _, _, forwarded = readme_section(READ_YOUR_WRITES).partition(FORWARDED)
+
+    assert facts_methods(forwarded) >= FORWARDED_WRITES
