@@ -13,7 +13,7 @@ registration, and a 404 there counts as success.
 """
 
 import functools
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, ExitStack
 from dataclasses import dataclass
 from typing import Any, Final
@@ -25,7 +25,7 @@ from permit import Permit
 from permit.api.models import GroupAddRole, GroupAssignment, GroupRead, GroupReadSchema, UserRead
 from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
-from tests.utils import delete_quietly, handle_cleanup_error, poll_for, unique_key
+from tests.utils import delete_quietly, delete_quietly_blocking, poll_for, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -48,14 +48,6 @@ PROPAGATION_TIMEOUT: Final[float] = 60.0
 POLL_INTERVAL: Final[float] = 0.5
 
 settled = functools.partial(poll_for, timeout=PROPAGATION_TIMEOUT, interval=POLL_INTERVAL)
-
-
-def delete_quietly_blocking(delete: Callable[[], None], description: str) -> None:
-    """Delete one object at teardown through the blocking client, as ``delete_quietly``."""
-    try:
-        delete()
-    except PermitApiError as error:
-        handle_cleanup_error(error, f"could not delete {description}")
 
 
 @dataclass(frozen=True)

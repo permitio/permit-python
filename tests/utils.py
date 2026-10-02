@@ -63,6 +63,10 @@ def sent(request: Request) -> dict[str, Any]:
 
 # --- end-to-end tests ---------------------------------------------------------
 
+# The hosted cloud PDP. conftest.py's fixtures can default to it, and the e2e tests that
+# run only on it, or never on it, compare the PDP address they are given with it.
+CLOUD_PDP_URL = "https://cloudpdp.api.permit.io"
+
 
 def handle_api_error(error: PermitApiError, message: str) -> None:
     err = (
@@ -106,6 +110,14 @@ async def delete_quietly(delete: Callable[[], Awaitable[None]], description: str
     """Delete one object at teardown. A 404 means it is already gone, which is the goal."""
     try:
         await delete()
+    except PermitApiError as error:
+        handle_cleanup_error(error, f"could not delete {description}")
+
+
+def delete_quietly_blocking(delete: Callable[[], None], description: str) -> None:
+    """Delete one object at teardown through the blocking client, as ``delete_quietly``."""
+    try:
+        delete()
     except PermitApiError as error:
         handle_cleanup_error(error, f"could not delete {description}")
 

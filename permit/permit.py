@@ -15,7 +15,7 @@ from permit.enforcement.enforcer import (
     Resource,
     User,
 )
-from permit.enforcement.interfaces import AuthorizedUsersResult
+from permit.enforcement.interfaces import AuthorizedUsersResult, TenantDetails
 from permit.logger import configure_logger
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
 from permit.utils.context import Context
@@ -268,6 +268,41 @@ class Permit:
             PermitConnectionError: If an error occurs while sending the request to the PDP
         """
         return await self._enforcer.get_user_permissions(user, tenants, resources, resource_types)
+
+    async def get_user_tenants(
+        self, user: User, context: Context | None = None
+    ) -> list[TenantDetails]:
+        """Get the tenants in which a user has a role, as the PDP knows them.
+
+        The PDP lists a tenant when the user has a tenant-level role in it, the kind
+        ``api.users.assign_role()`` grants. A role on a resource instance does not count, and
+        neither does membership without a role, such as ``api.tenants.create_user()`` creates.
+        The PDP answers from the data it has synced, so a change made through the API shows
+        up once the PDP has it.
+
+        Only the container PDP serves this query. The cloud PDP does not, and answers 404,
+        which this method raises as a ``PermitConnectionError`` that says so.
+
+        Args:
+            user: The user key, or a user dict with a ``key`` and optionally ``attributes``,
+                ``email``, ``first_name`` and ``last_name``, as ``check()`` takes it.
+            context: The query's context, merged over the context store's base context.
+                Defaults to None.
+
+        Returns:
+            list[TenantDetails]: The user's tenants, each with its key and attributes. Empty
+                when the user has no tenant-level role or the PDP does not know the user.
+
+        Raises:
+            PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any
+                other error status, or cannot be reached.
+
+        Examples:
+            # the tenants in which alice has a role
+            tenants = await permit.get_user_tenants("alice")
+            keys = [tenant.key for tenant in tenants]
+        """
+        return await self._enforcer.get_user_tenants(user, context)
 
     async def filter_objects(
         self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]

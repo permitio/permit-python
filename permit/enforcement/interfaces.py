@@ -85,6 +85,15 @@ class AuthorizedUserAssignment(BaseModel):
 AuthorizedUsersDict = Dict[str, List[AuthorizedUserAssignment]]  # noqa: UP006
 
 
+class TenantDetails(BaseModel):
+    """A tenant as the PDP describes it in a `get_user_tenants()` answer."""
+
+    key: str = Field(..., description="The tenant key")
+    attributes: dict[str, Any] = Field(
+        default_factory=dict, description="The tenant's attributes, empty when it has none"
+    )
+
+
 class AuthorizedUsersResult(BaseModel):
     """The result of an `authorized_users()` query."""
 

@@ -14,6 +14,7 @@ from permit.enforcement.enforcer import User as User
 from permit.enforcement.interfaces import AssignedRole as AssignedRole
 from permit.enforcement.interfaces import AuthorizedUsersResult as AuthorizedUsersResult
 from permit.enforcement.interfaces import ResourceInput as ResourceInput
+from permit.enforcement.interfaces import TenantDetails as TenantDetails
 from permit.enforcement.interfaces import UserInput as UserInput
 from permit.exceptions import PermitAlreadyExistsError as PermitAlreadyExistsError
 from permit.exceptions import PermitApiDetailedError as PermitApiDetailedError
