@@ -369,9 +369,10 @@ jobs:
         if: matrix.pdp-image != ''
         run: |
           set -uo pipefail
-          for i in $(seq 1 300); do
-            if curl -sf http://localhost:7766/healthy > /dev/null 2>&1; then
-              echo "PDP healthy after ${i}s"
+          # Bound by elapsed time, not by tries: a probe can take up to 5s.
+          while (( SECONDS < 300 )); do
+            if curl -sf --max-time 5 http://localhost:7766/healthy > /dev/null 2>&1; then
+              echo "PDP healthy after ${SECONDS}s"
               exit 0
             fi
             sleep 1
@@ -414,7 +415,7 @@ jobs:
         if: failure() && matrix.pdp-image != ''
         run: |
           docker logs permit-pdp 2>&1 \
-            | grep -Ev 'GET /health|Health check failed: horizon' \
+            | awk '/Health check failed: horizon/ && seen++ {next} !/GET \/health/' \
             | tail -300 || true
 
       - name: Stop the PDP
