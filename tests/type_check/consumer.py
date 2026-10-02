@@ -12,6 +12,7 @@ from uuid import UUID
 
 from typing_extensions import assert_type
 
+import permit as permit_package
 from permit import (
     Permit,
     PermitApiError,
@@ -43,6 +44,9 @@ from permit.api.models import (
     UserCreateBulkOperationResult,
 )
 from permit.enforcement.enforcer import CheckQuery
+
+# Deprecated: permit 4.0 removes PermitException (see mistakes_stay_errors).
+from permit.exceptions import PermitException  # type: ignore[deprecated]
 from permit.pdp_api.models import RoleAssignment
 from permit.sync import Permit as SyncPermit
 
@@ -287,3 +291,11 @@ async def mistakes_stay_errors() -> None:
         pass
     async with sync_permit:  # type: ignore[misc]
         pass
+    # PermitException still catches connection errors, but importing it stays an error.
+    try:
+        await permit.check("user", "read", "document")
+    except PermitException as error:
+        assert_type(error, PermitException)
+    # A name the modules lack stays an error: type checkers do not see their __getattr__.
+    _ = permit_package.PermitExceptions  # type: ignore[attr-defined]
+    _ = permit_package.exceptions.PermitExceptions  # type: ignore[attr-defined]
