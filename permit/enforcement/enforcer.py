@@ -15,6 +15,10 @@ from permit.enforcement.interfaces import (
     UserInput,
 )
 from permit.exceptions import PermitConnectionError
+
+# Re-exported: this module defined the link before the module that now does.
+from permit.utils.cloud_pdp import SETUP_PDP_DOCS_LINK as SETUP_PDP_DOCS_LINK
+from permit.utils.cloud_pdp import container_pdp_only_message
 from permit.utils.context import Context, ContextStore
 from permit.utils.dicts import deep_merge
 from permit.utils.http_sessions import LoopSessions
@@ -86,9 +90,6 @@ class CheckQuery(TypedDict):
     action: Action
     resource: Resource
     context: NotRequired[Context | None]
-
-
-SETUP_PDP_DOCS_LINK = "https://docs.permit.io/sdk/python/quickstart-python/#2-setup-your-pdp-policy-decision-point-container"
 
 
 class _TimeoutConfig(TypedDict, total=False):
@@ -612,12 +613,8 @@ class Enforcer:
                 url, data=json.dumps(body), headers=self._headers, **self._timeout_config
             ) as response:
                 if response.status == HTTPStatus.NOT_FOUND:
-                    msg = (
-                        f"permit.get_user_tenants() got status code 404 from the PDP at "
-                        f"{self._base_url}: only the container PDP serves /user-tenants, "
-                        f"and the cloud PDP does not.\n"
-                        f"Point the SDK's `pdp` setting at a container PDP to use it.\n"
-                        f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
+                    msg = container_pdp_only_message(
+                        "permit.get_user_tenants()", "/user-tenants", self._base_url
                     )
                     raise PermitConnectionError(msg)
                 if response.status != HTTPStatus.OK:
