@@ -9,18 +9,13 @@ Every request is served by a local ``pytest_httpserver`` and the API context is
 pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
-import asyncio
-import inspect
 import re
-from operator import attrgetter
 from typing import Any, NamedTuple
 
 import pytest
 from pydantic.v1 import BaseModel
 from pytest_httpserver import HTTPServer
-from werkzeug import Request
 
-from permit import Permit
 from permit.api.context import API_ACCESS_LEVELS, ApiKeyAccessLevel
 from permit.api.environments import EnvironmentsApi
 from permit.api.models import (
@@ -32,54 +27,27 @@ from permit.api.models import (
 )
 from permit.api.projects import ProjectsApi
 from permit.config import PermitConfig
-from permit.exceptions import (
-    PermitAlreadyExistsError,
-    PermitApiDetailedError,
-    PermitApiError,
-    PermitContextError,
-    PermitNotFoundError,
+from permit.exceptions import PermitApiError, PermitContextError
+from tests.utils import (
+    DUPLICATE,
+    FORBIDDEN,
+    JSON_HEADERS,
+    NOT_FOUND,
+    ORG,
+    PROJECT,
+    ApiError,
+    Call,
+    call,
+    invoke,
+    offline_config,
+    sent,
+    sent_headers,
 )
-from permit.sync import Permit as SyncPermit
-from tests.utils import ORG, PROJECT, Call, call, offline_config, sent
 
 FLAVOURS = ["async", "sync"]
 ORGANIZATION_KEY = ApiKeyAccessLevel.ORGANIZATION_LEVEL_API_KEY
 PROJECT_KEY = ApiKeyAccessLevel.PROJECT_LEVEL_API_KEY
 ENVIRONMENT_KEY = ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY
-
-# The headers the SDK sets. The wait-for-sync ones are listed so that sending one shows.
-HEADERS = ("Authorization", "Content-Type", "X-Wait-Timeout", "X-Timeout-Policy")
-JSON_HEADERS: dict[str, str | None] = {
-    "Authorization": "Bearer test-token",
-    "Content-Type": "application/json",
-    "X-Wait-Timeout": None,
-    "X-Timeout-Policy": None,
-}
-
-
-class ApiError(NamedTuple):
-    """An error status, the API's JSON body with it, and the error the SDK raises for it."""
-
-    status: int
-    body: dict[str, Any]
-    raises: type[PermitApiError]
-
-
-def error_details(error_code: str, title: str) -> dict[str, Any]:
-    return {
-        "id": "6a1b2c3d0000400080000000000000ee",
-        "title": title,
-        "error_code": error_code,
-        "message": f"{title}.",
-        "support_link": "https://docs.permit.io/errors",
-    }
-
-
-NOT_FOUND = ApiError(404, error_details("NOT_FOUND", "Not found"), PermitNotFoundError)
-DUPLICATE = ApiError(
-    409, error_details("DUPLICATE_ENTITY", "Already exists"), PermitAlreadyExistsError
-)
-FORBIDDEN = ApiError(403, error_details("FORBIDDEN_ACCESS", "Forbidden"), PermitApiDetailedError)
 
 
 class Case(NamedTuple):
@@ -412,25 +380,6 @@ def scoped_config(base_url: str, key: ApiKeyAccessLevel) -> PermitConfig:
         context._save_api_key_accessible_scope(org=ORG, project=PROJECT)
         context.set_project_level_context(ORG, PROJECT)
     return config
-
-
-async def _invoke_async(config: PermitConfig, target: Call) -> object:
-    async with Permit(config) as permit:
-        return await attrgetter(f"api.{target.path}")(permit)(*target.args, **target.kwargs)
-
-
-def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
-    """Call ``permit.api.<target.path>`` on a new async or blocking client, then close it."""
-    if flavour == "async":
-        return asyncio.run(_invoke_async(config, target))
-    with SyncPermit(config) as permit:
-        result = attrgetter(f"api.{target.path}")(permit)(*target.args, **target.kwargs)
-    assert not inspect.isawaitable(result)
-    return result
-
-
-def sent_headers(request: Request) -> dict[str, str | None]:
-    return {name: request.headers.get(name) for name in HEADERS}
 
 
 def public_methods(prefix: str, api: type) -> set[str]:

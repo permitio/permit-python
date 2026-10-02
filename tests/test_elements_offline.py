@@ -18,9 +18,9 @@ from pytest_httpserver import HTTPServer
 from permit import Permit
 from permit.api.elements import UserLoginAsResponse
 from permit.config import PermitConfig
-from permit.exceptions import PermitApiError, PermitNotFoundError
+from permit.exceptions import PermitApiError
 from permit.sync import Permit as SyncPermit
-from tests.utils import sent
+from tests.utils import JSON_HEADERS, NOT_FOUND, sent, sent_headers
 
 FLAVOURS = ["async", "sync"]
 LOGIN_AS = "/v2/auth/elements_login_as"
@@ -73,10 +73,7 @@ def test_login_as_request_and_response(
     assert [sent(request) for request, _ in httpserver.log] == [
         {"method": "POST", "path": LOGIN_AS, "query": [], "body": body}
     ]
-    assert [
-        (request.headers.get("Authorization"), request.headers.get("Content-Type"))
-        for request, _ in httpserver.log
-    ] == [("Bearer test-token", "application/json")]
+    assert [sent_headers(request) for request, _ in httpserver.log] == [JSON_HEADERS]
     assert type(result) is UserLoginAsResponse
     assert result == UserLoginAsResponse(**TICKET, content={"url": TICKET["redirect_url"]})
 
@@ -85,18 +82,14 @@ def test_login_as_request_and_response(
 def test_login_as_raises_the_api_error_for_an_unknown_user(
     httpserver: HTTPServer, config: PermitConfig, flavour: str
 ) -> None:
-    detail = {
-        "id": "6a1b2c3d0000400080000000000000ee",
-        "title": "Not found",
-        "error_code": "NOT_FOUND",
-        "message": "The user alice was not found.",
-    }
-    httpserver.expect_request(LOGIN_AS, method="POST").respond_with_json(detail, status=404)
+    httpserver.expect_request(LOGIN_AS, method="POST").respond_with_json(
+        NOT_FOUND.body, status=NOT_FOUND.status
+    )
 
     with pytest.raises(PermitApiError) as raised:
         login_as(config, flavour, "alice", "acme")
 
-    assert type(raised.value) is PermitNotFoundError
-    assert raised.value.status_code == 404
-    assert raised.value.details == detail
+    assert type(raised.value) is NOT_FOUND.raises
+    assert raised.value.status_code == NOT_FOUND.status
+    assert raised.value.details == NOT_FOUND.body
     assert len(httpserver.log) == 1

@@ -8,16 +8,11 @@ served by a local ``pytest_httpserver`` and the API context is pre-populated, so
 key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
-import asyncio
-import inspect
-from operator import attrgetter
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug import Request
 
-from permit import Permit
 from permit.api.models import (
     ResourceActionCreate,
     ResourceActionGroupCreate,
@@ -29,8 +24,7 @@ from permit.api.models import (
 from permit.api.resource_action_groups import ResourceActionGroupsApi
 from permit.api.resource_actions import ResourceActionsApi
 from permit.config import PermitConfig
-from permit.exceptions import PermitApiError, PermitNotFoundError
-from permit.sync import Permit as SyncPermit
+from permit.exceptions import PermitApiError
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
@@ -40,7 +34,7 @@ elif PYDANTIC_VERSION < (2, 0):
     from pydantic import BaseModel
 else:
     from pydantic.v1 import BaseModel
-from tests.utils import SCHEMA, Call, call, sent
+from tests.utils import JSON_HEADERS, NOT_FOUND, SCHEMA, Call, call, invoke, sent, sent_headers
 
 RESOURCES = f"{SCHEMA}/resources"
 TIMESTAMP = "2024-01-01T00:00:00+00:00"
@@ -76,8 +70,9 @@ def group(key: str) -> dict[str, Any]:
 class Case(NamedTuple):
     """One SDK call and the request it must send.
 
-    ``response`` is the JSON the server answers with, or None for an empty 204;
-    ``model`` is what it parses into, or None when the method returns nothing.
+    ``call`` is the method's dotted path under ``permit.api``. ``response`` is the JSON
+    the server answers with, or None for an empty 204; ``model`` is what it parses into,
+    or None when the method returns nothing.
     """
 
     call: Call
@@ -89,8 +84,8 @@ class Case(NamedTuple):
     model: type[BaseModel] | None
 
 
-ACTIONS = "permit.api.resource_actions"
-GROUPS = "permit.api.action_groups"
+ACTIONS = "resource_actions"
+GROUPS = "action_groups"
 
 CASES = {
     "actions.list": Case(
@@ -305,27 +300,6 @@ def test_every_public_method_has_a_case() -> None:
     assert len(expected) == 14
 
 
-async def _invoke_async(config: PermitConfig, target: Call) -> object:
-    async with Permit(config) as permit:
-        method = attrgetter(target.path.removeprefix("permit."))(permit)
-        return await method(*target.args, **target.kwargs)
-
-
-def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
-    """Call ``target`` on a new async or blocking client, then close the client."""
-    if flavour == "async":
-        return asyncio.run(_invoke_async(config, target))
-    with SyncPermit(config) as permit:
-        method = attrgetter(target.path.removeprefix("permit."))(permit)
-        result = method(*target.args, **target.kwargs)
-    assert not inspect.isawaitable(result)
-    return result
-
-
-def sent_headers(request: Request) -> dict[str, str | None]:
-    return {name: request.headers.get(name) for name in ("Authorization", "Content-Type")}
-
-
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
 def test_request_and_response(
@@ -342,9 +316,7 @@ def test_request_and_response(
     assert [sent(request) for request, _ in httpserver.log] == [
         {"method": case.method, "path": case.path, "query": case.query, "body": case.body}
     ]
-    assert [sent_headers(request) for request, _ in httpserver.log] == [
-        {"Authorization": "Bearer test-token", "Content-Type": "application/json"}
-    ]
+    assert [sent_headers(request) for request, _ in httpserver.log] == [JSON_HEADERS]
     if case.model is None:
         assert result is None
     elif isinstance(case.response, list):
@@ -356,28 +328,19 @@ def test_request_and_response(
         assert result == case.model.parse_obj(case.response)
 
 
-# The API's answer for a resource, action or action group that does not exist.
-NOT_FOUND = {
-    "id": "6a1b2c3d0000400080000000000000ee",
-    "title": "Not found",
-    "error_code": "NOT_FOUND",
-    "message": "The resource document was not found.",
-}
-
-
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
 def test_an_api_error_raises_the_matching_permit_api_error(
     httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str
 ) -> None:
     httpserver.expect_request(case.path, method=case.method).respond_with_json(
-        NOT_FOUND, status=404
+        NOT_FOUND.body, status=NOT_FOUND.status
     )
 
     with pytest.raises(PermitApiError) as raised:
         invoke(config, flavour, case.call)
 
-    assert type(raised.value) is PermitNotFoundError
-    assert raised.value.status_code == 404
-    assert raised.value.details == NOT_FOUND
+    assert type(raised.value) is NOT_FOUND.raises
+    assert raised.value.status_code == NOT_FOUND.status
+    assert raised.value.details == NOT_FOUND.body
     assert len(httpserver.log) == 1

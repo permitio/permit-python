@@ -13,17 +13,12 @@ are each served by a local ``pytest_httpserver`` of their own and the API contex
 pre-populated, so no API key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
-import asyncio
-import inspect
-from operator import attrgetter
 from typing import Any, NamedTuple
 
 import pytest
 from pydantic.v1 import BaseModel
 from pytest_httpserver import HTTPServer
-from werkzeug import Request
 
-from permit import Permit
 from permit.api.models import (
     BulkRoleAssignmentReport,
     BulkRoleUnAssignmentReport,
@@ -47,14 +42,7 @@ from permit.api.models import (
 )
 from permit.api.user_invites import UserInvitesApi
 from permit.config import PermitConfig
-from permit.exceptions import (
-    PermitAlreadyExistsError,
-    PermitApiDetailedError,
-    PermitApiError,
-    PermitNotFoundError,
-    PermitValidationError,
-)
-from permit.sync import Permit as SyncPermit
+from permit.exceptions import PermitApiError, PermitValidationError
 from tests.facts_methods import (
     ASSIGNMENT,
     INSTANCE,
@@ -68,12 +56,22 @@ from tests.facts_methods import (
     USER_ID,
     read,
 )
-from tests.utils import FACTS, Call, call, offline_config, sent
+from tests.utils import (
+    DUPLICATE,
+    FACTS,
+    FORBIDDEN,
+    JSON_HEADERS,
+    NOT_FOUND,
+    ApiError,
+    Call,
+    call,
+    invoke,
+    offline_config,
+    sent,
+    sent_headers,
+)
 
 FLAVOURS = ["async", "sync"]
-
-# The headers the SDK sets. The wait-for-sync ones are listed so that sending one shows.
-HEADERS = ("Authorization", "Content-Type", "X-Wait-Timeout", "X-Timeout-Policy")
 
 
 class Routing(NamedTuple):
@@ -97,31 +95,6 @@ ROUTINGS = {
     ),
 }
 
-
-class ApiError(NamedTuple):
-    """An error status, the API's JSON body with it, and the error the SDK raises for it."""
-
-    status: int
-    body: dict[str, Any]
-    raises: type[PermitApiError]
-
-
-def error_details(error_code: str, title: str) -> dict[str, Any]:
-    """The body the API sends with an error status other than 422."""
-    return {
-        "id": "6a1b2c3d0000400080000000000000ee",
-        "title": title,
-        "error_code": error_code,
-        "message": f"{title}.",
-        "support_link": "https://docs.permit.io/errors",
-    }
-
-
-NOT_FOUND = ApiError(404, error_details("NOT_FOUND", "Not found"), PermitNotFoundError)
-DUPLICATE = ApiError(
-    409, error_details("DUPLICATE_ENTITY", "Already exists"), PermitAlreadyExistsError
-)
-FORBIDDEN = ApiError(403, error_details("FORBIDDEN_ACCESS", "Forbidden"), PermitApiDetailedError)
 INVALID = ApiError(
     422,
     {"detail": [{"loc": ["body", "operations"], "msg": "field required", "type": "missing"}]},
@@ -511,21 +484,6 @@ def make_config(api: HTTPServer, pdp: HTTPServer, routing: Routing) -> PermitCon
     )
 
 
-async def _invoke_async(config: PermitConfig, target: Call) -> object:
-    async with Permit(config) as permit:
-        return await attrgetter(f"api.{target.path}")(permit)(*target.args, **target.kwargs)
-
-
-def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
-    """Call ``permit.api.<target.path>`` on a new async or blocking client, then close it."""
-    if flavour == "async":
-        return asyncio.run(_invoke_async(config, target))
-    with SyncPermit(config) as permit:
-        result = attrgetter(f"api.{target.path}")(permit)(*target.args, **target.kwargs)
-    assert not inspect.isawaitable(result)
-    return result
-
-
 def destination(
     case: Case, routing: str, api: HTTPServer, pdp: HTTPServer
 ) -> tuple[HTTPServer, str, HTTPServer]:
@@ -535,14 +493,9 @@ def destination(
     return api, case.api_path, pdp
 
 
-def sent_headers(request: Request) -> dict[str, str | None]:
-    return {name: request.headers.get(name) for name in HEADERS}
-
-
 def expected_headers(routing: Routing) -> dict[str, str | None]:
     return {
-        "Authorization": "Bearer test-token",
-        "Content-Type": "application/json",
+        **JSON_HEADERS,
         "X-Wait-Timeout": routing.wait_timeout,
         "X-Timeout-Policy": routing.timeout_policy,
     }

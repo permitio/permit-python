@@ -13,17 +13,12 @@ request is served by a local ``pytest_httpserver`` and the API context is pre-po
 no API key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
-import asyncio
-import inspect
-from operator import attrgetter
 from typing import Any, NamedTuple
 
 import pytest
 from pydantic.v1 import BaseModel
 from pytest_httpserver import HTTPServer
-from werkzeug import Request
 
-from permit import Permit
 from permit.api.condition_set_rules import ConditionSetRulesApi
 from permit.api.condition_sets import ConditionSetsApi
 from permit.api.models import (
@@ -62,15 +57,22 @@ from permit.api.resource_roles import ResourceRolesApi
 from permit.api.resources import ResourcesApi
 from permit.api.roles import RolesApi
 from permit.config import PermitConfig
-from permit.exceptions import (
-    PermitAlreadyExistsError,
-    PermitApiDetailedError,
-    PermitApiError,
-    PermitNotFoundError,
-    PermitValidationError,
+from permit.exceptions import PermitApiDetailedError, PermitApiError, PermitValidationError
+from tests.utils import (
+    DUPLICATE,
+    FACTS,
+    JSON_HEADERS,
+    NOT_FOUND,
+    SCHEMA,
+    ApiError,
+    Call,
+    call,
+    error_details,
+    invoke,
+    offline_config,
+    sent,
+    sent_headers,
 )
-from permit.sync import Permit as SyncPermit
-from tests.utils import FACTS, SCHEMA, Call, call, offline_config, sent
 
 FLAVOURS = ["async", "sync"]
 
@@ -103,15 +105,6 @@ RULE_ID = "6a1b2c3d-0000-4000-8000-000000000108"
 
 DEFAULT_PAGE = [("page", "1"), ("per_page", "100")]
 SECOND_PAGE = [("page", "2"), ("per_page", "10")]
-
-# The headers the SDK sets. The wait-for-sync ones are listed so that sending one shows.
-HEADERS = ("Authorization", "Content-Type", "X-Wait-Timeout", "X-Timeout-Policy")
-JSON_HEADERS: dict[str, str | None] = {
-    "Authorization": "Bearer test-token",
-    "Content-Type": "application/json",
-    "X-Wait-Timeout": None,
-    "X-Timeout-Policy": None,
-}
 
 
 def read(object_id: str, **fields: Any) -> dict[str, Any]:
@@ -1021,22 +1014,6 @@ CASES = {
 BASIC_CASES = {name: case for name, case in CASES.items() if name == case.call.path}
 
 
-def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
-    """Call ``permit.api.<target.path>`` on a new async or blocking client, then close it."""
-    if flavour == "async":
-
-        async def call_awaiting() -> object:
-            async with Permit(config) as permit:
-                method = attrgetter(f"api.{target.path}")(permit)
-                return await method(*target.args, **target.kwargs)
-
-        return asyncio.run(call_awaiting())
-    with SyncPermit(config) as permit:
-        result = attrgetter(f"api.{target.path}")(permit)(*target.args, **target.kwargs)
-    assert not inspect.isawaitable(result)
-    return result
-
-
 def respond(server: HTTPServer, case: Case) -> None:
     """Make ``server`` answer the request of ``case`` with the case's response."""
     handler = server.expect_request(case.path, method=case.method)
@@ -1044,10 +1021,6 @@ def respond(server: HTTPServer, case: Case) -> None:
         handler.respond_with_data("", status=204)
     else:
         handler.respond_with_json(case.response)
-
-
-def sent_headers(request: Request) -> dict[str, str | None]:
-    return {name: request.headers.get(name) for name in HEADERS}
 
 
 def test_every_public_method_has_a_case() -> None:
@@ -1087,29 +1060,10 @@ def test_request_and_response(
 
 # --- API errors ------------------------------------------------------------------------
 
-
-class ApiError(NamedTuple):
-    """An error status, the JSON body the API sends with it, and what the SDK raises."""
-
-    status: int
-    body: dict[str, Any]
-    raises: type[PermitApiError]
-
-
-def error_details(status: int, error_code: str) -> dict[str, Any]:
-    """The API's body for an error other than a validation error."""
-    return {
-        "id": "request-1",
-        "title": f"status {status}",
-        "error_code": error_code,
-        "message": f"status {status}",
-    }
-
-
-NOT_FOUND = ApiError(404, error_details(404, "NOT_FOUND"), PermitNotFoundError)
-DUPLICATE = ApiError(409, error_details(409, "DUPLICATE_ENTITY"), PermitAlreadyExistsError)
 INVALID_PERMISSION = ApiError(
-    400, error_details(400, "INVALID_PERMISSION_FORMAT"), PermitApiDetailedError
+    400,
+    error_details("INVALID_PERMISSION_FORMAT", "Invalid permission format"),
+    PermitApiDetailedError,
 )
 
 
