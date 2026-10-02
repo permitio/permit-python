@@ -30,6 +30,7 @@ import pytest
 import permit
 from permit import exceptions
 from permit.exceptions import PermitConnectionError, PermitError, handle_client_error
+from permit.utils.deprecation import _warn_deprecated_name
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 ON_PYDANTIC_1 = PYDANTIC_VERSION < (2, 0)
@@ -136,6 +137,51 @@ def test_every_read_of_the_name_warns_once_at_its_line(tmp_path: Path) -> None:
     assert recorded_warnings(caught) == [
         (DeprecationWarning, MESSAGE, filename, lineno) for lineno in range(1, len(reads) + 1)
     ]
+
+
+# A module __getattr__ that serves a deprecated name, and a function that reads the name.
+NAME_READER = """\
+def getattr_hook():
+    _warn_deprecated_name("probe message")
+
+
+def {reader}():
+    getattr_hook()
+"""
+
+NAME_READER_LINENO = NAME_READER.splitlines().index("    getattr_hook()") + 1
+
+
+@pytest.mark.parametrize(
+    ("module_name", "reader", "warnings_issued"),
+    [
+        # importlib's check in `from package import name`, under the names its bootstrap module
+        # has before and after `import importlib` renames it.
+        ("_frozen_importlib", "_handle_fromlist", 0),
+        ("importlib._bootstrap", "_handle_fromlist", 0),
+        # A function of that name in any other module, or other importlib code, reads the name.
+        ("user_module", "_handle_fromlist", 1),
+        ("importlib._bootstrap", "_find_and_load", 1),
+    ],
+)
+def test_the_name_warning_skips_only_importlibs_fromlist_check(
+    tmp_path: Path, module_name: str, reader: str, warnings_issued: int
+) -> None:
+    # warnings skips frames whose file name mentions importlib's bootstrap, so this one doesn't.
+    filename = str(tmp_path / "reader.py")
+    namespace: dict[str, Any] = {
+        "__name__": module_name,
+        "_warn_deprecated_name": _warn_deprecated_name,
+    }
+    code = compile(NAME_READER.format(reader=reader), filename, "exec")
+    exec(code, namespace)  # noqa: S102 - defines the frames under test
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        namespace[reader]()
+
+    expected = [(DeprecationWarning, "probe message", filename, NAME_READER_LINENO)]
+    assert recorded_warnings(caught) == expected * warnings_issued
 
 
 @pytest.mark.parametrize(
