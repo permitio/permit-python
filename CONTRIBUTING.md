@@ -291,7 +291,13 @@ has to be restored by hand.
 4. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff and typos
    in `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
 
-5. Run the schema drift check, the offline tests under both pydantic majors (see above) and
+5. Add each new model to `__all__` in `permit/__init__.py`, and remove each deleted one:
+   `from permit import *` binds only the names `__all__` lists, and type checkers treat only
+   those as exported. `tests/test_fix_permit_exception_deprecation.py` fails until the list
+   matches. A name the models import for their own use, such as one from `typing`, goes in that
+   test's `NOT_EXPORTED` instead.
+
+6. Run the schema drift check, the offline tests under both pydantic majors (see above) and
    `uv run pre-commit run --all-files`.
 
 ### Schema drift check
