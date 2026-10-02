@@ -467,13 +467,14 @@ summary.
   request is sent:
 
   ```bash
-  python -m pytest -W error::DeprecationWarning -W "ignore:Use PermitError instead:DeprecationWarning"
+  python -m pytest -W error::DeprecationWarning
   ```
 
-  The second filter is needed in 2.x and 3.x alike: `import permit` warns because
-  `PermitConnectionError` subclasses the deprecated `PermitException`, and that warning comes from
-  inside the SDK. To fail on permit's flat methods only, use
-  `-W "error:permit.api.:DeprecationWarning"`.
+  It also fails on each line that names `PermitException`, which permit 4.0 removes: catch
+  `PermitConnectionError` instead. permit 3.0.0 and the later 2.x releases warn on `import permit`
+  itself ("Use PermitError instead"), from inside the SDK; on those, add
+  `-W "ignore:Use PermitError instead:DeprecationWarning"`. To fail on permit's flat methods only,
+  use `-W "error:permit.api.:DeprecationWarning"`.
 - **To silence them** while you migrate, add filters for the messages:
 
   ```ini
