@@ -22,7 +22,7 @@ import sys
 import warnings
 from collections.abc import Iterator
 from operator import attrgetter
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal
 
 import aiohttp
 import pytest
@@ -33,7 +33,8 @@ from permit import ErrorCode, Permit, PermitConnectionError
 from permit.config import PermitConfig
 from permit.exceptions import PermitApiError, PermitNotFoundError
 from permit.sync import Permit as SyncPermit
-from tests.utils import Call, call, sent
+from tests.facts_methods import ALIASES, CASES, NEW_USER, Case, on_pdp, page
+from tests.utils import CLOUD_PDP_URL, Call, call, sent
 
 FLAVOURS = ["async", "sync"]
 CLOUD_PDP_HOST = "cloudpdp.api.permit.io"
@@ -137,122 +138,19 @@ def test_get_user_tenants_names_the_route_and_asks_for_a_container_pdp(
 # --- facts through the PDP ------------------------------------------------------------
 
 
-class FactsCase(NamedTuple):
-    """A facts method's call, and the one request it sends to the PDP's /facts routes."""
-
-    call: Call
-    method: str
-    path: str
-    query: list[tuple[str, str]]
-    body: Any
-
-
-USER = {"key": "alice"}
-TENANT = {"key": "t1", "name": "T1"}
-ASSIGNMENT = {"user": "alice", "role": "viewer", "tenant": "t1"}
-INSTANCE = {"key": "doc-1", "resource": "document", "tenant": "t1"}
-TUPLE = {"subject": "folder:f1", "relation": "parent", "object": "document:doc-1"}
-PAGE = [("page", "1"), ("per_page", "100")]
-
-# Facts methods of each API class, over each HTTP verb. The API coverage report fails on a
-# request that neither the PDP's spec nor an `sdk_only` entry of
-# .github/scripts/api_coverage_allowlist.json accounts for, so these send only such requests.
-FACTS_CASES = {
-    "users.create": FactsCase(call("api.users.create", USER), "POST", "/facts/users", [], USER),
-    "users.update": FactsCase(
-        call("api.users.update", "alice", {"first_name": "Alice"}),
-        "PATCH",
-        "/facts/users/alice",
-        [],
-        {"first_name": "Alice"},
-    ),
-    "users.assign_role": FactsCase(
-        call("api.users.assign_role", ASSIGNMENT),
-        "POST",
-        "/facts/users/alice/roles",
-        [],
-        {"role": "viewer", "tenant": "t1"},
-    ),
-    "users.bulk_create": FactsCase(
-        call("api.users.bulk_create", [USER]),
-        "POST",
-        "/facts/bulk/users",
-        [],
-        {"operations": [USER]},
-    ),
-    "tenants.create": FactsCase(
-        call("api.tenants.create", TENANT), "POST", "/facts/tenants", [], TENANT
-    ),
-    "tenants.delete": FactsCase(
-        call("api.tenants.delete", "t1"), "DELETE", "/facts/tenants/t1", [], None
-    ),
-    "tenants.delete_tenant_user": FactsCase(
-        call("api.tenants.delete_tenant_user", "t1", "alice"),
-        "DELETE",
-        "/facts/tenants/t1/users/alice",
-        [],
-        None,
-    ),
-    "tenants.bulk_create": FactsCase(
-        call("api.tenants.bulk_create", [TENANT]),
-        "POST",
-        "/facts/bulk/tenants",
-        [],
-        {"operations": [TENANT]},
-    ),
-    "role_assignments.assign": FactsCase(
-        call("api.role_assignments.assign", ASSIGNMENT),
-        "POST",
-        "/facts/role_assignments",
-        [],
-        ASSIGNMENT,
-    ),
-    "role_assignments.list_detailed": FactsCase(
-        call("api.role_assignments.list_detailed", user_key="alice"),
-        "GET",
-        "/facts/role_assignments/detailed",
-        [*PAGE, ("user", "alice")],
-        None,
-    ),
-    "resource_instances.create": FactsCase(
-        call("api.resource_instances.create", INSTANCE),
-        "POST",
-        "/facts/resource_instances",
-        [],
-        INSTANCE,
-    ),
-    "resource_instances.bulk_replace": FactsCase(
-        call("api.resource_instances.bulk_replace", [INSTANCE]),
-        "PUT",
-        "/facts/bulk/resource_instances",
-        [],
-        {"operations": [INSTANCE]},
-    ),
-    "relationship_tuples.create": FactsCase(
-        call("api.relationship_tuples.create", TUPLE),
-        "POST",
-        "/facts/relationship_tuples",
-        [],
-        TUPLE,
-    ),
-    "relationship_tuples.list_detailed": FactsCase(
-        call("api.relationship_tuples.list_detailed"),
-        "GET",
-        "/facts/relationship_tuples/detailed",
-        PAGE,
-        None,
-    ),
-}
+# The facts methods that send their request to the PDP with proxy_facts_via_pdp on: all but
+# tenants.create_user(), which always goes to the API.
+PDP_CASES = {name: case for name, case in CASES.items() if on_pdp(case)}
 
 
 @pytest.mark.parametrize("flavour", FLAVOURS)
-@pytest.mark.parametrize("case", FACTS_CASES.values(), ids=FACTS_CASES.keys())
+@pytest.mark.parametrize("case", PDP_CASES.values(), ids=PDP_CASES.keys())
 def test_a_facts_method_raises_the_cloud_pdp_404_as_an_api_error_that_asks_for_a_container_pdp(
     *,
     httpserver: HTTPServer,
     pdp_server: HTTPServer,
     split_config: PermitConfig,
-    case: FactsCase,
+    case: Case,
     flavour: str,
 ) -> None:
     split_config.proxy_facts_via_pdp = True
@@ -269,9 +167,7 @@ def test_a_facts_method_raises_the_cloud_pdp_404_as_an_api_error_that_asks_for_a
     assert raised.value.message == message
     assert raised.value.details == {"details": "", "message": message}
     assert raised.value.status_code == 404
-    assert [sent(request) for request, _ in pdp_server.log] == [
-        {"method": case.method, "path": case.path, "query": case.query, "body": case.body}
-    ]
+    assert [sent(request) for request, _ in pdp_server.log] == [case.request]
     assert [sent_headers(request) for request, _ in pdp_server.log] == [JSON_HEADERS]
     assert httpserver.log == []
 
@@ -280,14 +176,14 @@ NOT_FOUND_DETAILS = {
     "id": "request-1",
     "title": "The requested data was not found",
     "error_code": "NOT_FOUND",
-    "message": "Tenant with key 't1' was not found.",
+    "message": "Tenant with key 'acme' was not found.",
 }
 
 
 @pytest.mark.parametrize("flavour", FLAVOURS)
 @pytest.mark.parametrize(
     "case",
-    [FACTS_CASES["tenants.delete"], FACTS_CASES["users.update"]],
+    [CASES["tenants.delete"], CASES["users.update"]],
     ids=["tenants.delete", "users.update"],
 )
 def test_the_apis_404_through_a_container_pdp_keeps_its_not_found_error(
@@ -295,7 +191,7 @@ def test_the_apis_404_through_a_container_pdp_keeps_its_not_found_error(
     httpserver: HTTPServer,
     pdp_server: HTTPServer,
     split_config: PermitConfig,
-    case: FactsCase,
+    case: Case,
     flavour: str,
 ) -> None:
     """A container PDP's /facts routes pass on the API's 404 for an object that is missing."""
@@ -310,7 +206,7 @@ def test_the_apis_404_through_a_container_pdp_keeps_its_not_found_error(
     assert type(raised.value) is PermitNotFoundError
     assert str(raised.value) == (
         f"The requested data was not found ({ErrorCode.NOT_FOUND})\n"
-        "Tenant with key 't1' was not found.\n"
+        "Tenant with key 'acme' was not found.\n"
         "For more information: https://permit-io.slack.com/ssb/redirect (Request ID: request-1)"
     )
     assert raised.value.details == NOT_FOUND_DETAILS
@@ -322,7 +218,7 @@ def test_the_apis_404_through_a_container_pdp_keeps_its_not_found_error(
 @pytest.mark.parametrize(
     ("proxy_facts_via_pdp", "path", "target"),
     [
-        (True, "/facts/users", call("api.users.create", USER)),
+        (True, "/facts/users", CASES["users.create"].call),
         (False, "/local/role_assignments", call("pdp_api.role_assignments.list")),
     ],
     ids=["facts", "pdp_api"],
@@ -357,12 +253,12 @@ def test_the_apis_empty_404_keeps_its_api_error_with_proxy_facts_via_pdp_off(
     httpserver.expect_request(path, method="POST").respond_with_data("", status=404)
 
     with pytest.raises(PermitApiError) as raised:
-        invoke(split_config, flavour, call("api.users.create", USER))
+        invoke(split_config, flavour, CASES["users.create"].call)
 
     assert type(raised.value) is PermitApiError
     assert str(raised.value) == "404 API Error: {'details': ''}"
     assert [sent(request) for request, _ in httpserver.log] == [
-        {"method": "POST", "path": path, "query": [], "body": USER}
+        {"method": "POST", "path": path, "query": [], "body": NEW_USER}
     ]
     assert pdp_server.log == []
 
@@ -394,7 +290,7 @@ def test_pdp_api_raises_the_cloud_pdp_404_as_an_api_error_that_asks_for_a_contai
         {
             "method": "GET",
             "path": LOCAL_ROLE_ASSIGNMENTS,
-            "query": [*PAGE, ("user", "alice")],
+            "query": list(page(user="alice")),
             "body": None,
         }
     ]
@@ -441,71 +337,12 @@ def test_any_404_from_the_cloud_pdps_host_asks_for_a_container_pdp(
 # --- docstrings -----------------------------------------------------------------------
 
 
-# With proxy_facts_via_pdp on, every public method of these APIs sends its request to the
-# PDP's /facts routes, except tenants.create_user() and its deprecated alias add_user(),
-# which always go to the Permit REST API.
-FACTS_APIS = ("users", "tenants", "role_assignments", "resource_instances", "relationship_tuples")
-API_ONLY = ("api.tenants.create_user", "api.tenants.add_user")
-FACTS_METHODS = (
-    *(
-        f"api.users.{name}"
-        for name in (
-            "assign_role",
-            "bulk_create",
-            "bulk_delete",
-            "bulk_replace",
-            "create",
-            "delete",
-            "get",
-            "get_assigned_roles",
-            "get_by_id",
-            "get_by_key",
-            "list",
-            "sync",
-            "unassign_role",
-            "update",
-        )
-    ),
-    *(
-        f"api.tenants.{name}"
-        for name in (
-            "bulk_create",
-            "bulk_delete",
-            "create",
-            "delete",
-            "delete_tenant_user",
-            "get",
-            "get_by_id",
-            "get_by_key",
-            "list",
-            "list_tenant_users",
-            "update",
-        )
-    ),
-    *(
-        f"api.role_assignments.{name}"
-        for name in ("assign", "bulk_assign", "bulk_unassign", "list", "list_detailed", "unassign")
-    ),
-    *(
-        f"api.resource_instances.{name}"
-        for name in (
-            "bulk_delete",
-            "bulk_replace",
-            "create",
-            "delete",
-            "get",
-            "get_by_id",
-            "get_by_key",
-            "list",
-            "list_detailed",
-            "update",
-        )
-    ),
-    *(
-        f"api.relationship_tuples.{name}"
-        for name in ("bulk_create", "bulk_delete", "create", "delete", "list", "list_detailed")
-    ),
-)
+# The facts methods that send their request to the PDP's /facts routes with
+# proxy_facts_via_pdp on, and those that always go to the Permit REST API.
+FACTS_METHODS = [f"api.{name}" for name in PDP_CASES]
+API_ONLY = [
+    f"api.{name}" for name in [*CASES, *ALIASES] if not on_pdp(CASES[ALIASES.get(name, name)])
+]
 FACTS_NOTE = (
     "Container PDP only with ``proxy_facts_via_pdp`` on: the request then goes to the PDP's "
     "``/facts`` routes, which the cloud PDP does not serve. It answers 404, which this method "
@@ -541,19 +378,6 @@ def docstring(client: Permit, path: str) -> str:
     return " ".join((inspect.getdoc(attrgetter(path)(client)) or "").split())
 
 
-def test_the_facts_methods_are_every_public_method_of_the_facts_apis_but_create_user(
-    client: Permit,
-) -> None:
-    public = {
-        f"api.{api}.{name}"
-        for api in FACTS_APIS
-        for name in dir(getattr(client.api, api))
-        if not name.startswith("_") and callable(getattr(getattr(client.api, api), name))
-    }
-
-    assert sorted(public - set(API_ONLY)) == sorted(FACTS_METHODS)
-
-
 @pytest.mark.parametrize("path", NOTES.keys())
 def test_a_container_pdp_only_method_says_so_in_its_docstring(client: Permit, path: str) -> None:
     assert NOTES[path] in docstring(client, path)
@@ -567,9 +391,6 @@ def test_a_facts_api_method_that_always_goes_to_the_api_does_not_say_container_p
 
 
 # --- the warning at creation ----------------------------------------------------------
-
-
-CLOUD_PDP_URL = f"https://{CLOUD_PDP_HOST}"
 
 
 def facts_proxied_to_the_cloud_pdp(pdp_url: str) -> str:
@@ -698,12 +519,10 @@ def test_facts_through_the_cloud_pdps_host_warn_then_ask_for_a_container_pdp(
         pytest.warns(UserWarning, match="^proxy_facts_via_pdp is on") as caught,
         pytest.raises(PermitApiError) as raised,
     ):
-        invoke(split_config, flavour, call("api.users.create", USER))
+        invoke(split_config, flavour, CASES["users.create"].call)
 
     assert [str(w.message) for w in caught] == [facts_proxied_to_the_cloud_pdp(cloud_pdp_url)]
     message = container_pdp_only("POST /facts/users", cloud_pdp_url, USE_A_CONTAINER_PDP_FOR_FACTS)
     assert type(raised.value) is PermitApiError
     assert str(raised.value) == message
-    assert [sent(request) for request, _ in pdp_server.log] == [
-        {"method": "POST", "path": "/facts/users", "query": [], "body": USER}
-    ]
+    assert [sent(request) for request, _ in pdp_server.log] == [CASES["users.create"].request]
