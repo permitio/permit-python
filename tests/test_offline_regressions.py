@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from operator import attrgetter
 from pathlib import Path
-from typing import Any, get_type_hints
+from typing import Any, List, get_type_hints  # noqa: UP035 - 3.0.0's annotation, asserted below
 from uuid import uuid4
 
 import aiohttp
@@ -245,7 +245,7 @@ def test_model_input_parameters_are_the_bare_model_at_runtime() -> None:
     bulk_create = UsersApi.bulk_create.raw_function  # type: ignore[attr-defined]
     sync = UsersApi.sync.raw_function  # type: ignore[attr-defined]
     assert get_type_hints(create)["user_data"] is UserCreate
-    assert get_type_hints(bulk_create)["users"] == list[UserCreate]
+    assert get_type_hints(bulk_create)["users"] == List[UserCreate]  # noqa: UP006 - as in 3.0.0
     # sync() passes an invalid dict through as it is, which a bare dict keeps doing.
     assert get_type_hints(sync)["user"] == UserCreate | dict
 
