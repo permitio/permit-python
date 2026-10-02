@@ -1,10 +1,11 @@
 """Offline tests for permit.api.resource_actions and permit.api.action_groups (PER-16177).
 
-Every public method is called through the async and the blocking client, and the
-test checks the request it puts on the wire (method, path, query string and JSON
-body) and the model the response parses into. Every request is served by a local
-``pytest_httpserver`` and the API context is pre-populated, so no API key and no
-``/v2/api-key/scope`` lookup are needed.
+Every public method is called through the async and the blocking client, each closed
+once the call returns, and the test checks the request it puts on the wire (method,
+path, query string, headers and JSON body), the model the response parses into, and
+that the API's error response raises the matching ``PermitApiError``. Every request is
+served by a local ``pytest_httpserver`` and the API context is pre-populated, so no API
+key and no ``/v2/api-key/scope`` lookup are needed.
 """
 
 import asyncio
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
+from werkzeug import Request
 
 from permit import Permit
 from permit.api.models import (
@@ -27,6 +29,7 @@ from permit.api.models import (
 from permit.api.resource_action_groups import ResourceActionGroupsApi
 from permit.api.resource_actions import ResourceActionsApi
 from permit.config import PermitConfig
+from permit.exceptions import PermitApiError, PermitNotFoundError
 from permit.sync import Permit as SyncPermit
 from permit.utils.pydantic_version import PYDANTIC_VERSION
 
@@ -302,6 +305,27 @@ def test_every_public_method_has_a_case() -> None:
     assert len(expected) == 14
 
 
+async def _invoke_async(config: PermitConfig, target: Call) -> object:
+    async with Permit(config) as permit:
+        method = attrgetter(target.path.removeprefix("permit."))(permit)
+        return await method(*target.args, **target.kwargs)
+
+
+def invoke(config: PermitConfig, flavour: str, target: Call) -> object:
+    """Call ``target`` on a new async or blocking client, then close the client."""
+    if flavour == "async":
+        return asyncio.run(_invoke_async(config, target))
+    with SyncPermit(config) as permit:
+        method = attrgetter(target.path.removeprefix("permit."))(permit)
+        result = method(*target.args, **target.kwargs)
+    assert not inspect.isawaitable(result)
+    return result
+
+
+def sent_headers(request: Request) -> dict[str, str | None]:
+    return {name: request.headers.get(name) for name in ("Authorization", "Content-Type")}
+
+
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
 def test_request_and_response(
@@ -313,22 +337,47 @@ def test_request_and_response(
     else:
         handler.respond_with_json(case.response)
 
-    permit = Permit(config) if flavour == "async" else SyncPermit(config)
-    method = attrgetter(case.call.path.removeprefix("permit."))(permit)
-    result = method(*case.call.args, **case.call.kwargs)
-    if flavour == "async":
-        result = asyncio.run(result)
-    else:
-        assert not inspect.isawaitable(result)
+    result = invoke(config, flavour, case.call)
 
     assert [sent(request) for request, _ in httpserver.log] == [
         {"method": case.method, "path": case.path, "query": case.query, "body": case.body}
     ]
+    assert [sent_headers(request) for request, _ in httpserver.log] == [
+        {"Authorization": "Bearer test-token", "Content-Type": "application/json"}
+    ]
     if case.model is None:
         assert result is None
     elif isinstance(case.response, list):
+        assert isinstance(result, list)
         assert [type(item) for item in result] == [case.model] * len(case.response)
         assert result == [case.model.parse_obj(item) for item in case.response]
     else:
         assert type(result) is case.model
         assert result == case.model.parse_obj(case.response)
+
+
+# The API's answer for a resource, action or action group that does not exist.
+NOT_FOUND = {
+    "id": "6a1b2c3d0000400080000000000000ee",
+    "title": "Not found",
+    "error_code": "NOT_FOUND",
+    "message": "The resource document was not found.",
+}
+
+
+@pytest.mark.parametrize("flavour", ["async", "sync"])
+@pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
+def test_an_api_error_raises_the_matching_permit_api_error(
+    httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str
+) -> None:
+    httpserver.expect_request(case.path, method=case.method).respond_with_json(
+        NOT_FOUND, status=404
+    )
+
+    with pytest.raises(PermitApiError) as raised:
+        invoke(config, flavour, case.call)
+
+    assert type(raised.value) is PermitNotFoundError
+    assert raised.value.status_code == 404
+    assert raised.value.details == NOT_FOUND
+    assert len(httpserver.log) == 1
