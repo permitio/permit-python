@@ -474,10 +474,20 @@ def test_a_client_whose_call_raised_is_freed_by_reference_counting(server: KeepA
     with pytest.raises(ValueError, match="invalid resource string"):
         client.check("user", "read", "too:many:parts")
     freed = weakref.ref(client)
+    running = client._background_loop._thread
+    assert running is not None
 
     gc.disable()
     try:
         del client
+        # On a free-threaded build, an object that another thread releases is freed by the
+        # thread that created it, once that thread runs again: let both threads run.
+        ran = threading.Event()
+        running.loop.call_soon_threadsafe(ran.set)
+        assert ran.wait(timeout=5)
+        deadline = time.monotonic() + 5
+        while freed() is not None and time.monotonic() < deadline:
+            time.sleep(0.01)
         assert freed() is None
     finally:
         gc.enable()
