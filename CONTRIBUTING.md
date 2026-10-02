@@ -172,9 +172,11 @@ The jobs set:
 - `PDP_API_KEY`: the scratch environment's API key. Every e2e test fails without it.
 - `PDP_URL`: `http://localhost:7766`, the PDP container, or `https://cloudpdp.api.permit.io`
   in `e2e (cloud PDP)`. When it is unset, `tests/test_cloud_pdp_e2e.py` uses the cloud PDP
-  and every other test `http://localhost:7766`. The `get_user_tenants` tests in
-  `tests/test_tenant_membership_e2e.py` need a PDP container, because the cloud PDP does not
-  serve that query, so they skip, with the reason, when `PDP_URL` is the cloud PDP.
+  and every other test `http://localhost:7766`, or the cloud PDP with `CLOUD_PDP=true`. The
+  tests of what only a container PDP serves (`get_user_tenants`, `permit.pdp_api`, and facts
+  written with `proxy_facts_via_pdp`) need a PDP container, because the cloud PDP answers 404
+  for those routes. They use the `container_pdp` fixture of `tests/conftest.py`, so they skip,
+  with the reason, when the PDP they would call is the cloud PDP.
 - `API_TIER=prod`: sends the SDK's API calls to `https://api.permit.io`.
 - `ORG_PDP_API_KEY` and `PROJECT_PDP_API_KEY`: the same key, read by
   `tests/endpoints/test_envs.py`.
