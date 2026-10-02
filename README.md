@@ -317,10 +317,12 @@ each one issues a `DeprecationWarning` that says what to do instead.
   working. Importing `PermitException`, or reading `permit.PermitException` or
   `permit.exceptions.PermitException`, warns at that line when it runs; later uses of an
   imported name do not. Type checkers flag it: mypy with `--enable-error-code deprecated`,
-  pyright in strict mode. `import permit` does not issue this warning, and
-  `from permit import *` does not bind the name. Until you change the code, the warning filter
-  `ignore:PermitException is deprecated:DeprecationWarning` silences it. Filters for the
-  message of earlier releases, "Use PermitError instead", do not match it.
+  pyright in strict mode. `import permit` does not issue this warning. A star import of
+  `permit` or `permit.exceptions` does not bind `PermitException`, so code that star-imports
+  permit and catches `PermitException` raises `NameError` when an exception reaches that
+  handler: import `PermitConnectionError` by name and catch it. Until you change the code, the
+  warning filter `ignore:PermitException is deprecated:DeprecationWarning` silences it.
+  Filters for the message of earlier releases, "Use PermitError instead", do not match it.
 
 By default, Python shows these warnings only when the code that triggers them is in
 `__main__`, such as the script you run. pytest shows them in its warnings summary. To see
