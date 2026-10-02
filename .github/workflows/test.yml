@@ -170,9 +170,10 @@ jobs:
       - name: Wait for the PDP
         run: |
           set -uo pipefail
-          for i in $(seq 1 300); do
+          # Bound by elapsed time, not by tries: a probe can take up to 5s.
+          while (( SECONDS < 300 )); do
             if curl -sf --max-time 5 http://localhost:7766/healthy > /dev/null 2>&1; then
-              echo "PDP healthy after ${i}s"
+              echo "PDP healthy after ${SECONDS}s"
               exit 0
             fi
             sleep 1
