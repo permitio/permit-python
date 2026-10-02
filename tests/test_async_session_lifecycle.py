@@ -670,6 +670,28 @@ def test_close_keeps_the_session_of_a_loop_that_stops_and_closes_before_closing_
     assert [f"{w.category.__name__}: {w.message}" for w in caught] == []
 
 
+async def test_the_next_close_closes_a_session_close_failed_to_close(
+    server: KeepAliveServer, client: Permit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert await check(client)
+    session = await client._pdp_sessions.current()
+
+    async def fail(_: aiohttp.ClientSession) -> None:
+        msg = "the session did not close"
+        raise OSError(msg)
+
+    monkeypatch.setattr(aiohttp.ClientSession, "close", fail)
+    with pytest.raises(OSError, match="the session did not close"):
+        await client.close()
+    monkeypatch.undo()
+    assert server.closed == 0
+
+    await client.close()
+
+    assert session.closed
+    assert await asyncio.to_thread(server.wait_until_closed, 1) == 1
+
+
 def test_close_still_closes_the_other_sessions_when_one_fails_to_close(
     httpserver: HTTPServer, config: PermitConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:

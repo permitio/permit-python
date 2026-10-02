@@ -215,7 +215,7 @@ async def _close_from(
 ) -> None:
     """Close ``entry``, the session of ``loop``, from the ``running`` loop."""
     if loop is running:
-        await entry.closer.aclose()
+        await _close_on_its_loop(entry)
         return
     closing = None if loop.is_closed() else _hand_close_to(loop, entry)
     if closing is None:
@@ -267,7 +267,8 @@ async def _close_on_its_loop(entry: _LoopSession) -> None:
     """Close the session, then its closer.
 
     In this order, a loop that shuts down its async generators while the session closes
-    finds the session closed already, rather than its closer running.
+    finds the session closed already, rather than its closer running; and a session kept
+    after its closer failed to close it is closed all the same.
     """
     await entry.session.close()
     await entry.closer.aclose()
