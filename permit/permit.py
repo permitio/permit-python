@@ -163,8 +163,9 @@ class Permit:
         ``tenants.create_user()`` goes to the Permit REST API, so it does not wait either.
 
         Args:
-            timeout: How many seconds the PDP waits for the change before it answers. 0 makes
-                it answer without waiting.
+            timeout: How many seconds the PDP waits for the change before it answers. With 0
+                the time is up at once, so the PDP does not wait and `policy` decides the
+                answer: "fail" makes every such write answer 424.
             policy: What the PDP does when the timeout passes first: "ignore" answers with the
                 write's own response, and "fail" answers 424, which the SDK raises as a
                 ``PermitApiError``; the write is done either way. None keeps the
