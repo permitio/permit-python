@@ -302,29 +302,6 @@ class _LoopThread:
         self.loop.stop()
 
 
-def _finalize_when_collected(
-    obj: T, func: Callable[P, object], *args: P.args, **kwargs: P.kwargs
-) -> "weakref.finalize[P, T]":
-    """`weakref.finalize(obj, func, *args, **kwargs)`, which runs when `obj` is collected only.
-
-    A finalizer runs at interpreter exit too, unless its `atexit` is False. The sync client's
-    exit-time cleanup is `_close_running_loops`, which blocks until the sessions are closed.
-
-    Args:
-        obj: The object whose collection triggers `func`.
-        func: The callback. It must not reference `obj`, or `obj` is never collected.
-        *args: Positional arguments for `func`.
-        **kwargs: Keyword arguments for `func`.
-
-    Returns:
-        The finalizer, which `detach()` cancels.
-    """
-    finalizer = weakref.finalize(obj, func, *args, **kwargs)
-    # Writable, as the weakref documentation says; typeshed declares __slots__ = () on it.
-    finalizer.atexit = False  # type: ignore[misc]
-    return finalizer
-
-
 class _BackgroundLoop:
     """The event loop on which a sync client runs its blocking calls, in a daemon thread.
 
@@ -427,8 +404,12 @@ class _BackgroundLoop:
             self._closed.wait()
         if self._thread is None:
             self._thread = _LoopThread()
-            # At exit, _close_running_loops closes the loop, with the client's sessions.
-            self._stop_when_collected = _finalize_when_collected(self, self._thread.stop_soon)
+            stop_when_collected = weakref.finalize(self, self._thread.stop_soon)
+            # Only when collected: at exit, _close_running_loops closes the loop, with the
+            # client's sessions. Writable, as the weakref documentation says; typeshed
+            # declares __slots__ = () on it.
+            stop_when_collected.atexit = False  # type: ignore[misc]
+            self._stop_when_collected = stop_when_collected
             _running_loops.add(self)
         else:
             self._refuse_on(self._thread, _CALL_ON_LOOP_THREAD)
