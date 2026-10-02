@@ -162,10 +162,11 @@ passed or not:
   `tests/test_cloud_pdp_e2e.py` against the hosted cloud PDP,
   `https://cloudpdp.api.permit.io`, with no container. Its tests create a small RBAC policy
   in the scratch environment, wait for the cloud PDP to apply it, and check the exact
-  answers of `check`, `bulk_check`, `get_user_permissions` and `filter_objects`. One more
-  checks that `get_user_tenants`, which the cloud PDP does not serve, raises the SDK's
-  error for its 404. The module runs only against the cloud PDP and skips anywhere else,
-  so this job fails if any of its tests is skipped.
+  answers of `check`, `bulk_check`, `get_user_permissions` and `filter_objects`. Three more
+  check that `get_user_tenants`, `permit.pdp_api` and the facts methods with
+  `proxy_facts_via_pdp` on, whose routes the cloud PDP does not serve, raise the SDK's error
+  for its 404. The module runs only against the cloud PDP and skips anywhere else, so this
+  job fails if any of its tests is skipped.
 
 The jobs set:
 
