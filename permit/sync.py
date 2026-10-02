@@ -72,11 +72,12 @@ class Permit(AsyncPermit):
     def close(self) -> None:  # type: ignore[override]
         """Close the client's HTTP connections and stop its background thread.
 
-        It waits for the calls that other threads have in flight to return first. Calling it
-        again does nothing. The client stays usable: the next call starts a new thread and
-        opens new connections. A client yielded by `wait_for_sync()` runs its calls on the
-        thread and over the connections of the client it was made from: its `close()` does
-        nothing, and the other client's `close()` closes them.
+        It waits for the calls that other threads have in flight to return first. A call or a
+        `close()` that another thread makes meanwhile waits until this one has finished.
+        Calling it again does nothing. The client stays usable: the next call starts a new
+        thread and opens new connections. A client yielded by `wait_for_sync()` runs its calls
+        on the thread and over the connections of the client it was made from: its `close()`
+        does nothing, and the other client's `close()` closes them.
 
         Raises:
             RuntimeError: If called on the client's own background thread, which it has to

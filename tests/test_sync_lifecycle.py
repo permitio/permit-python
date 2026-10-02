@@ -308,6 +308,97 @@ def test_close_waits_for_a_call_in_flight(permit: SyncPermit, server: KeepAliveS
         assert in_flight.result(timeout=5) is True
 
 
+def wait_until_closing(client: SyncPermit, timeout: float = 5.0) -> None:
+    """Wait until a close() of `client` has started stopping its thread."""
+    deadline = time.monotonic() + timeout
+    while client._background_loop._closing is None:
+        assert time.monotonic() < deadline, "close() did not start"
+        time.sleep(0.01)
+
+
+def in_a_daemon_thread(function: Callable[[], object]) -> Future[object]:
+    """Call `function` in a daemon thread, which cannot hold up the exit if it gets stuck."""
+    outcome: Future[object] = Future()
+
+    def call() -> None:
+        try:
+            outcome.set_result(function())
+        except Exception as error:
+            outcome.set_exception(error)
+
+    threading.Thread(target=call, daemon=True).start()
+    return outcome
+
+
+def test_a_call_made_during_close_waits_for_it_then_starts_a_new_thread(
+    permit: SyncPermit, server: KeepAliveServer
+) -> None:
+    server.respond("/allowed", {"allow": True}, delay=0.5)
+    in_flight = in_a_daemon_thread(lambda: check(permit))
+    assert server.wait_for_requests(1)
+    first = loop_thread(permit)
+    closing = in_a_daemon_thread(permit.close)
+    wait_until_closing(permit)
+
+    during_close = in_a_daemon_thread(lambda: check(permit))
+
+    assert in_flight.result(timeout=5) is True
+    assert closing.result(timeout=5) is None
+    assert during_close.result(timeout=5) is True
+    second = loop_thread(permit)
+    assert first is not None
+    assert not first.is_alive()
+    assert second not in (None, first)
+    assert (server.opened, server.wait_until_closed(1)) == (2, 1)
+
+
+def test_a_second_close_returns_once_the_first_has_stopped_the_thread(
+    permit: SyncPermit, server: KeepAliveServer
+) -> None:
+    server.respond("/allowed", {"allow": True}, delay=0.5)
+    in_flight = in_a_daemon_thread(lambda: check(permit))
+    assert server.wait_for_requests(1)
+    thread = loop_thread(permit)
+    first_close = in_a_daemon_thread(permit.close)
+    wait_until_closing(permit)
+
+    second_close = in_a_daemon_thread(permit.close)
+
+    assert second_close.result(timeout=5) is None
+    assert thread is not None
+    assert not thread.is_alive()
+    assert first_close.result(timeout=5) is None
+    assert in_flight.result(timeout=5) is True
+    assert loop_thread(permit) is None
+
+
+def test_a_blocking_call_on_the_thread_a_close_stops_raises_instead_of_deadlocking(
+    permit: SyncPermit, server: KeepAliveServer
+) -> None:
+    server.respond("/allowed", {"allow": True}, delay=0.5)
+    in_flight = in_a_daemon_thread(lambda: check(permit))
+    assert server.wait_for_requests(1)
+    stopping = permit._background_loop._thread
+    assert stopping is not None
+    closing = in_a_daemon_thread(permit.close)
+    wait_until_closing(permit)
+    outcome: Future[object] = Future()
+
+    def call() -> None:
+        try:
+            outcome.set_result(check(permit))
+        except Exception as error:
+            outcome.set_exception(error)
+
+    stopping.loop.call_soon_threadsafe(call, context=contextvars.Context())
+    error = outcome.exception(timeout=5)
+
+    assert isinstance(error, RuntimeError)
+    assert "own event loop thread" in str(error)
+    assert closing.result(timeout=5) is None
+    assert in_flight.result(timeout=5) is True
+
+
 def test_close_closes_the_connections(permit: SyncPermit, server: KeepAliveServer) -> None:
     check(permit)
 
@@ -720,6 +811,42 @@ def test_a_forked_child_starts_a_thread_of_its_own_and_closes_it() -> None:
         f"child: True\n{closed_in_the_child}"
         "child exit status: 0\n" + AT_EXIT
     )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="os.fork")
+def test_a_child_forked_while_close_runs_starts_a_thread_of_its_own() -> None:
+    """The close() the parent runs does not run in the child, so a call must not wait for it."""
+    script = SCRIPT_HEADER + (
+        "import os\n"
+        "import sys\n"
+        "import time\n"
+        "import warnings\n"
+        "server.respond('/allowed', {'allow': True}, delay=1)\n"
+        "threading.Thread(target=client.check, args=('user', 'read', 'document')).start()\n"
+        "server.wait_for_requests(1)\n"
+        "closing = threading.Thread(target=client.close)\n"
+        "closing.start()\n"
+        "while client._background_loop._closing is None:\n"
+        "    time.sleep(0.01)\n"
+        "# Python 3.12+ warns that forking a process that runs threads can deadlock the child.\n"
+        "warnings.simplefilter('ignore', DeprecationWarning)\n"
+        "pid = os.fork()\n"
+        "if pid == 0:\n"
+        "    # The server's thread runs in the parent only.\n"
+        "    atexit.unregister(report)\n"
+        "    print('child:', client.check('user', 'read', 'document'), flush=True)\n"
+        "    client.close()\n"
+        "    sys.exit(0)\n"
+        "_, status = os.waitpid(pid, 0)\n"
+        "closing.join()\n"
+        "print('child exit status:', status)\n"
+    )
+
+    result = run_script(script, timeout=30)
+
+    assert (result.returncode, result.stderr) == (0, "")
+    assert "child: True\n" in result.stdout
+    assert "child exit status: 0\n" in result.stdout
 
 
 # --- the background loop on its own ----------------------------------------------------

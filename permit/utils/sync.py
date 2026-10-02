@@ -133,6 +133,16 @@ def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
     return _run_blocking(coroutine, _CallSite.from_frame(caller))
 
 
+_CALL_ON_LOOP_THREAD = (
+    "A blocking call of permit.sync.Permit was made on the client's own event loop thread "
+    "({thread}), where it would wait for itself forever. Make the call from another thread, "
+    "or await the async client, permit.Permit."
+)
+_CLOSE_ON_LOOP_THREAD = (
+    "permit.sync.Permit.close() was called on the client's own event loop thread ({thread}), "
+    "which close() stops and joins. Call it from another thread."
+)
+
 _BACKGROUND_LOOP_ATTRIBUTE = "_permit_background_loop"
 """The attribute through which an object of a `SyncClass` class reaches its client's loop.
 
@@ -302,15 +312,21 @@ class _BackgroundLoop:
     The thread starts on the first call. Calls from any number of threads are submitted to
     it and waited for, so they share the client's HTTP sessions and connections. `close()`
     waits for the calls in flight, closes the sessions and stops the thread; the next call
-    starts a new one. A client that is never closed has its thread stopped once nothing
-    references this object any more, or at interpreter exit.
+    starts a new one. While a `close()` runs, a call or another `close()` from another
+    thread waits for it to finish. A client that is never closed has its thread stopped
+    once nothing references this object any more, or at interpreter exit.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        # Notified, with the lock held, when a close() finishes.
+        self._closed = threading.Condition(self._lock)
         self._thread: _LoopThread | None = None
+        # The thread a close() is stopping, until it has stopped.
+        self._closing: _LoopThread | None = None
         self._stop_when_collected: weakref.finalize[[], _BackgroundLoop] | None = None
         self._closer: weakref.WeakMethod[CloseSessions] | None = None
+        _background_loops.add(self)
 
     def bind(self, *roots: object) -> None:
         """Run the blocking calls of `roots`, and of every `SyncClass` object they hold, here.
@@ -371,27 +387,36 @@ class _BackgroundLoop:
     def _thread_for_call(self) -> _LoopThread:
         """The loop thread to run a call on, started first if there is none.
 
-        Called with the lock held.
+        Called with the lock held. While a close() stops the thread, this waits for it, then
+        starts a new one.
 
         Raises:
-            RuntimeError: If the caller is that thread, where waiting would deadlock.
+            RuntimeError: If the caller is the loop thread, or the one a close() is stopping,
+                where waiting would deadlock.
         """
+        while self._thread is None and self._closing is not None:
+            self._refuse_on(self._closing, _CALL_ON_LOOP_THREAD)
+            self._closed.wait()
         if self._thread is None:
             self._thread = _LoopThread()
             # At exit, _close_running_loops closes the loop, with the client's sessions.
             self._stop_when_collected = _finalize_when_collected(self, self._thread.stop_soon)
             _running_loops.add(self)
-        elif self._thread.thread is threading.current_thread():
-            msg = (
-                "A blocking call of permit.sync.Permit was made on the client's own event loop "
-                f"thread ({self._thread.thread.name}), where it would wait for itself forever. "
-                "Make the call from another thread, or await the async client, permit.Permit."
-            )
-            raise RuntimeError(msg)
+        else:
+            self._refuse_on(self._thread, _CALL_ON_LOOP_THREAD)
         return self._thread
+
+    @staticmethod
+    def _refuse_on(loop_thread: _LoopThread, message: str) -> None:
+        """Raise RuntimeError with `message` if the caller runs on `loop_thread`."""
+        if loop_thread.thread is threading.current_thread():
+            raise RuntimeError(message.format(thread=loop_thread.thread.name))
 
     def close(self, *, cancel_calls: bool = False) -> None:
         """Close the sessions opened on the loop and stop its thread, if it is running.
+
+        A close() that another thread runs is waited for first. So when this returns, the
+        thread has stopped, unless a call started a new one since.
 
         Args:
             cancel_calls: Cancel the blocking calls in flight instead of waiting for them.
@@ -402,23 +427,26 @@ class _BackgroundLoop:
         caller = sys._getframe(0).f_back  # noqa: SLF001 - see run_coroutine_sync
         call_site = _CallSite.from_frame(caller)
         with self._lock:
+            while self._closing is not None:
+                self._refuse_on(self._closing, _CLOSE_ON_LOOP_THREAD)
+                self._closed.wait()
             loop_thread = self._thread
             if loop_thread is None:
                 return
-            if loop_thread.thread is threading.current_thread():
-                msg = (
-                    "permit.sync.Permit.close() was called on the client's own event loop "
-                    f"thread ({loop_thread.thread.name}), which close() stops and joins. "
-                    "Call it from another thread."
-                )
-                raise RuntimeError(msg)
+            self._refuse_on(loop_thread, _CLOSE_ON_LOOP_THREAD)
             self._thread = None
+            self._closing = loop_thread
             if self._stop_when_collected is not None:
                 self._stop_when_collected.detach()
                 self._stop_when_collected = None
             _running_loops.discard(self)
             close_sessions = None if self._closer is None else self._closer()
-        loop_thread.close(close_sessions, cancel_calls=cancel_calls, call_site=call_site)
+        try:
+            loop_thread.close(close_sessions, cancel_calls=cancel_calls, call_site=call_site)
+        finally:
+            with self._lock:
+                self._closing = None
+                self._closed.notify_all()
 
     def forget_thread(self) -> None:
         """In a child process made by fork(): drop the thread, which the fork did not copy.
@@ -428,15 +456,21 @@ class _BackgroundLoop:
         report it, and the sessions bound to it, as unclosed.
         """
         self._lock = threading.Lock()
-        if self._thread is not None:
-            _loops_lost_to_fork.append(self._thread)
-            self._thread = None
+        self._closed = threading.Condition(self._lock)
+        _loops_lost_to_fork.extend(
+            lost for lost in (self._thread, self._closing) if lost is not None
+        )
+        self._thread = None
+        self._closing = None
         if self._stop_when_collected is not None:
             self._stop_when_collected.detach()
             self._stop_when_collected = None
 
 
 _running_loops: "weakref.WeakSet[_BackgroundLoop]" = weakref.WeakSet()
+# Every background loop, including those a close() is stopping, which _running_loops leaves
+# out so that the exit hook does not wait for them.
+_background_loops: "weakref.WeakSet[_BackgroundLoop]" = weakref.WeakSet()
 _loops_lost_to_fork: list[_LoopThread] = []
 
 
@@ -458,7 +492,7 @@ def _close_at_exit(background_loop: _BackgroundLoop) -> None:
 
 
 def _forget_threads_after_fork() -> None:
-    for background_loop in list(_running_loops):
+    for background_loop in list(_background_loops):
         background_loop.forget_thread()
     _running_loops.clear()
 

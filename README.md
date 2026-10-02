@@ -65,9 +65,9 @@ with Permit(token="<YOUR_API_KEY>") as permit:
 ```
 
 - `permit.close()` waits for the calls other threads have in flight, closes the connections
-  and stops the thread, as leaving the `with` block does. Calling it again does nothing
-  more, and the client stays usable: its next call starts a new thread and opens new
-  connections.
+  and stops the thread, as leaving the `with` block does. A call or a `close()` another
+  thread makes meanwhile waits for it to finish. Calling it again does nothing more, and the
+  client stays usable: its next call starts a new thread and opens new connections.
 - A client you never close is cleaned up when it is garbage collected, or as the
   interpreter exits. The thread never holds up the exit.
 - Do not call the blocking client from code that runs on its own background thread, such as
