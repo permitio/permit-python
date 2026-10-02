@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, List, TypeVar  # noqa: UP035 - runtime annotation below
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -36,7 +36,7 @@ else:
             return model
 
     class ModelListInput:
-        """Runtime twin of the type-checking alias: ``ModelListInput[X]`` is ``list[X]``.
+        """Runtime twin of the type-checking alias: ``ModelListInput[X]`` is ``List[X]``.
 
         ``validate_arguments`` must keep building a list of validated models, as it
         did before this annotation existed. Given ``Sequence[X]`` it would, for one,
@@ -44,4 +44,4 @@ else:
         """
 
         def __class_getitem__(cls, model: type) -> object:
-            return list[model]
+            return List[model]  # noqa: UP006 - runtime annotation kept identical to 3.0.0
