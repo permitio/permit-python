@@ -314,9 +314,13 @@ each one issues a `DeprecationWarning` that says what to do instead.
 - **`PermitException`.** Catch `PermitConnectionError` instead: it is the only exception the
   SDK raises that is a `PermitException`. permit 4.0 makes `PermitConnectionError` a direct
   subclass of `PermitError`, so handlers of `PermitError` or `PermitConnectionError` keep
-  working. Each line that reads `PermitException` warns, and type checkers flag it: mypy with
-  `--enable-error-code deprecated`, pyright in strict mode. `import permit` does not issue
-  this warning, and `from permit import *` does not bind the name.
+  working. Importing `PermitException`, or reading `permit.PermitException` or
+  `permit.exceptions.PermitException`, warns at that line when it runs; later uses of an
+  imported name do not. Type checkers flag it: mypy with `--enable-error-code deprecated`,
+  pyright in strict mode. `import permit` does not issue this warning, and
+  `from permit import *` does not bind the name. Until you change the code, the warning filter
+  `ignore:PermitException is deprecated:DeprecationWarning` silences it. Filters for the
+  message of earlier releases, "Use PermitError instead", do not match it.
 
 By default, Python shows these warnings only when the code that triggers them is in
 `__main__`, such as the script you run. pytest shows them in its warnings summary. To see

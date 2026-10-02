@@ -470,7 +470,9 @@ summary.
   python -m pytest -W error::DeprecationWarning
   ```
 
-  It also fails on each line that names `PermitException`, which permit 4.0 removes: catch
+  It also fails on each line that imports `PermitException`, or reads `permit.PermitException`
+  or `permit.exceptions.PermitException`, as that line runs (an `except` clause reads it only
+  when an exception reaches it). permit 4.0 removes `PermitException`: catch
   `PermitConnectionError` instead. permit 2.7.0 to 3.0.0 warn on `import permit` itself
   ("Use PermitError instead"), from inside the SDK; on those, add
   `-W "ignore:Use PermitError instead:DeprecationWarning"`. To fail on permit's flat methods only,
@@ -483,6 +485,7 @@ summary.
   filterwarnings =
       ignore:permit\.api\.\w+\(\) is deprecated:DeprecationWarning
       ignore:Support for pydantic 1:DeprecationWarning
+      ignore:PermitException is deprecated:DeprecationWarning
   ```
 
   In code: `warnings.filterwarnings("ignore", message=r"permit\.api\.\w+\(\) is deprecated", category=DeprecationWarning)`.

@@ -102,8 +102,9 @@ The cases that need a decision most:
    python -m pytest -W error::DeprecationWarning
    ```
 
-   For unittest, pass the same `-W` option to `python -m unittest`. A line that names
-   `PermitException` fails too: catch `PermitConnectionError` instead. If the project resolved
+   For unittest, pass the same `-W` option to `python -m unittest`. A line that imports
+   `PermitException`, or reads it from `permit` or `permit.exceptions`, fails too when it runs:
+   catch `PermitConnectionError` instead. If the project resolved
    permit 3.0.0, `import permit` itself warns ("Use PermitError instead") and every module that
    imports permit fails to load: add `-W "ignore:Use PermitError instead:DeprecationWarning"`.
    If other libraries' warnings fail the run, use
