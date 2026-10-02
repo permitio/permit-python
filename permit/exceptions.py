@@ -328,11 +328,9 @@ def _getattr(name: str) -> object:
     raise AttributeError(msg)
 
 
-def __dir__() -> list[str]:
-    return sorted([*globals(), "PermitException"])
-
-
 if not TYPE_CHECKING:
     # The module __getattr__ (PEP 562). Type checkers do not see it: to them, a module
     # __getattr__ means that every name exists. They see PermitException's declaration.
+    # dir() does not list the name, because help(), inspect.getmembers() and mock's autospec
+    # read every name dir() lists, and would warn in code that never names PermitException.
     __getattr__ = _getattr

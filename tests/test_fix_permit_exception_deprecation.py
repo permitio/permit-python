@@ -11,14 +11,18 @@ interpreter and report every warning recorded there.
 """
 
 import asyncio
+import inspect
 import json
 import os
 import pickle
+import pydoc
 import subprocess
 import sys
 import warnings
 from pathlib import Path
+from types import ModuleType
 from typing import Any
+from unittest import mock
 
 import aiohttp
 import pytest
@@ -172,11 +176,14 @@ def test_a_star_import_neither_warns_nor_binds_the_name(module: str) -> None:
     assert "PermitException" not in namespace
 
 
-def test_dir_still_lists_the_name() -> None:
+@pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
+def test_introspecting_a_module_does_not_warn(module: ModuleType) -> None:
+    """help(), inspect.getmembers() and mock's autospec read every name that dir() lists."""
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert "PermitException" in dir(permit)
-        assert "PermitException" in dir(exceptions)
+        pydoc.render_doc(module)
+        inspect.getmembers(module)
+        mock.create_autospec(module)
 
 
 def test_both_modules_serve_the_same_class() -> None:

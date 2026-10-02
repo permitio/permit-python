@@ -58,10 +58,6 @@ def _getattr(name: str) -> object:
     raise AttributeError(msg)
 
 
-def __dir__() -> list[str]:
-    return sorted([*globals(), "PermitException"])
-
-
 if not _typing.TYPE_CHECKING:
     # The module __getattr__ (PEP 562), out of type checkers' sight like permit.exceptions' one.
     __getattr__ = _getattr
