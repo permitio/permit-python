@@ -9,7 +9,7 @@ thread's result, so a call that raises in a thread fails the test.
 import functools
 import threading
 from collections.abc import Callable
-from concurrent.futures import Future
+from concurrent.futures import Future, wait
 from contextlib import ExitStack
 from typing import TypeVar
 
@@ -23,9 +23,9 @@ from tests.utils import delete_quietly_blocking, unique_key
 pytestmark = pytest.mark.e2e
 
 THREADS = 10
-# How long to wait for a thread's result, or for a client's close(), which waits for the
-# calls in flight. Long enough for the rate-limit retries of conftest.py, which can hold one
-# call for about two minutes; short enough that a call that never returns fails the test.
+# How long to wait for all the threads to finish, or for a client's close(), which waits for
+# the calls in flight. Long enough for the rate-limit retries of conftest.py, which can hold
+# one call for about two minutes; short enough that a call that never returns fails the test.
 TIMEOUT_S = 300
 
 T = TypeVar("T")
@@ -55,8 +55,10 @@ def create_read_delete(permit: Permit, user_key: str) -> UserRead:
 def run_in_threads(calls: list[Callable[[], T]]) -> list[T]:
     """Run each call on a thread of its own, all at once, and return what each returned.
 
-    Every result is read, with a time limit, so a call that raises in its thread raises
-    here, and one that never returns fails the test. The threads are daemons, unlike a
+    It waits for every thread, for TIMEOUT_S in all, so that each one has cleaned up before
+    the caller closes its clients. Then the error of the first call in ``calls`` that
+    raised is raised here, even when another call has not returned; when none raised but
+    one has not returned, a TimeoutError says how many. The threads are daemons, unlike a
     ThreadPoolExecutor's, which the interpreter waits for at exit, so a stuck one cannot
     hold up the end of the test session either.
     """
@@ -71,7 +73,14 @@ def run_in_threads(calls: list[Callable[[], T]]) -> list[T]:
 
     for work, future in zip(calls, futures, strict=True):
         threading.Thread(target=run, args=(work, future), daemon=True).start()
-    return [future.result(timeout=TIMEOUT_S) for future in futures]
+    _, pending = wait(futures, timeout=TIMEOUT_S)
+    for future in futures:
+        if future.done() and (error := future.exception()) is not None:
+            raise error
+    if pending:
+        msg = f"{len(pending)} of {len(futures)} threads did not return within {TIMEOUT_S}s"
+        raise TimeoutError(msg)
+    return [future.result() for future in futures]
 
 
 def close_within(client: Permit) -> None:
