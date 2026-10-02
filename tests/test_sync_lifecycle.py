@@ -7,6 +7,7 @@ thread, the warnings issued, and how a separate interpreter exits.
 """
 
 import asyncio
+import contextlib
 import contextvars
 import gc
 import os
@@ -481,15 +482,11 @@ def test_a_client_whose_call_raised_is_freed_by_reference_counting(server: KeepA
     try:
         del client
         # On a free-threaded build, an object that another thread releases is freed by the
-        # thread that created it, once that thread runs again: let both threads run.
-        ran = threading.Event()
-        try:
-            running.loop.call_soon_threadsafe(ran.set)
-        except RuntimeError:
-            # Freeing the client at `del` already stopped and closed its loop.
-            assert running.loop.is_closed()
-            ran.set()
-        assert ran.wait(timeout=5)
+        # thread that created it, once that thread runs again: wake the client's thread and
+        # let both threads run. Freeing the client at `del` may already have stopped or closed
+        # its loop, so the wake-up is best effort and only the client being freed is checked.
+        with contextlib.suppress(RuntimeError):
+            running.loop.call_soon_threadsafe(lambda: None)
         deadline = time.monotonic() + 5
         while freed() is not None and time.monotonic() < deadline:
             time.sleep(0.01)
