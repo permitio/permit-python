@@ -499,6 +499,15 @@ async def test_permission_check_e2e(
 
         print_break()
         logger.info("testing get authorized users")
+
+        # The PDP's authorized-users answer can trail its decisions, so poll for it too.
+        async def user_authorized() -> bool:
+            answer = await permit.authorized_users(
+                RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
+            )
+            return user.key in answer.users
+
+        await wait_until(user_authorized, f"the PDP to list '{user.key}' as authorized")
         authorized_users = await permit.authorized_users(
             RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
         )
@@ -708,6 +717,15 @@ async def test_local_facts_uploader_permission_check_e2e(
 
             print_break()
             logger.info("testing get authorized users")
+
+            # The PDP's authorized-users answer can trail its decisions, so poll for it too.
+            async def user_authorized() -> bool:
+                answer = await permit.authorized_users(
+                    RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
+                )
+                return user.key in answer.users
+
+            await wait_until(user_authorized, f"the PDP to list '{user.key}' as authorized")
             authorized_users = await permit.authorized_users(
                 RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
             )
