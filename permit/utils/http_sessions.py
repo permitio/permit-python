@@ -49,6 +49,11 @@ class LoopSessions:
     The sessions carry no headers, base URL or timeout: each request brings its own, so one
     session serves every request sent from its loop. They keep no cookies either, so a
     request carries exactly the headers it would carry through a session of its own.
+
+    Every API object, HTTP client and enforcer builds one of these for itself, so that it
+    works when used alone. A ``Permit`` client then gives all of them its own two, one for
+    the Permit API and one for the PDP, through their ``_use_sessions()``: the ones they
+    built open no session, and are collected right away.
     """
 
     def __init__(self) -> None:
