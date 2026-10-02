@@ -17,7 +17,7 @@ from decimal import Decimal
 from operator import attrgetter
 from pathlib import Path
 from typing import Any, get_type_hints
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import aiohttp
 import pydantic
@@ -31,7 +31,6 @@ from werkzeug import Request
 import permit
 from permit import Permit, Resource, User, exceptions
 from permit.api.context import ApiKeyAccessLevel
-from permit.api.elements import ElementsApi
 from permit.api.encoders import jsonable_encoder
 from permit.api.environments import EnvironmentsApi
 from permit.api.models import (
@@ -399,37 +398,6 @@ async def test_every_sdk_client_sends_the_standard_bearer_scheme(
         f"{FACTS}/users": "Bearer test-token",
         "/local/role_assignments": "Bearer test-token",
     }
-
-
-async def test_elements_login_as_sends_canonical_uuid_strings(
-    httpserver: HTTPServer, config: PermitConfig
-) -> None:
-    """UUID ids must be sent in canonical hyphenated form, not UUID.hex."""
-    httpserver.expect_request("/v2/auth/elements_login_as", method="POST").respond_with_json(
-        {"redirect_url": "http://elements.permit.test/login"}
-    )
-
-    await ElementsApi(config).login_as(
-        UUID("01234567-89ab-cdef-0123-456789abcdef"),
-        UUID("fedcba98-7654-3210-fedc-ba9876543210"),
-    )
-
-    assert single_request(httpserver).get_json() == {
-        "user_id": "01234567-89ab-cdef-0123-456789abcdef",
-        "tenant_id": "fedcba98-7654-3210-fedc-ba9876543210",
-    }
-
-
-async def test_elements_login_as_passes_string_ids_through(
-    httpserver: HTTPServer, config: PermitConfig
-) -> None:
-    httpserver.expect_request("/v2/auth/elements_login_as", method="POST").respond_with_json(
-        {"redirect_url": "http://elements.permit.test/login"}
-    )
-
-    await ElementsApi(config).login_as("user-1", "tenant-1")
-
-    assert single_request(httpserver).get_json() == {"user_id": "user-1", "tenant_id": "tenant-1"}
 
 
 async def test_tenants_delete_tenant_user_targets_the_tenant_membership(

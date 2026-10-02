@@ -28,7 +28,8 @@ USER_ID = "01234567-89ab-cdef-0123-456789abcdef"
 TENANT_ID = "fedcba98-7654-3210-fedc-ba9876543210"
 TICKET = {"redirect_url": "https://app.example.com/login?token=abc", "token": "abc"}
 
-# The ids login_as() is called with, and the ids it sends.
+# The ids login_as() is called with, and the ids it sends: a UUID in its canonical
+# hyphenated form, not UUID.hex.
 IDS: dict[str, tuple[str | UUID, str | UUID, dict[str, str]]] = {
     "keys": ("alice", "acme", {"user_id": "alice", "tenant_id": "acme"}),
     "uuids": (UUID(USER_ID), UUID(TENANT_ID), {"user_id": USER_ID, "tenant_id": TENANT_ID}),
