@@ -99,12 +99,16 @@ The cases that need a decision most:
    not trace, such as a client passed in from another module:
 
    ```bash
-   python -m pytest -W error::DeprecationWarning -W "ignore:Use PermitError instead:DeprecationWarning"
+   python -m pytest -W error::DeprecationWarning
    ```
 
-   For unittest, pass the same `-W` options to `python -m unittest`. The second filter is
-   required: `import permit` warns because `PermitConnectionError` subclasses the deprecated
-   `PermitException`, and without the filter every module that imports permit fails to load.
+   For unittest, pass the same `-W` option to `python -m unittest`. A line that imports
+   `PermitException`, or reads it from `permit` or `permit.exceptions`, fails too when it runs:
+   catch `PermitConnectionError` instead. So does a star import of either module, which binds
+   `PermitException` and warns once even where the code never uses it: import the names the
+   code uses instead. If the project resolved
+   permit 3.0.0, `import permit` itself warns ("Use PermitError instead") and every module that
+   imports permit fails to load: add `-W "ignore:Use PermitError instead:DeprecationWarning"`.
    If other libraries' warnings fail the run, use
    `-W "error:permit.api.:DeprecationWarning"`, which fails only on the flat `permit.api`
    methods. On pydantic 1 also add `-W "ignore:Support for pydantic 1:DeprecationWarning"`

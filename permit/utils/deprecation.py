@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Callable
 from functools import wraps
 from inspect import iscoroutinefunction
@@ -7,6 +8,32 @@ from warnings import warn
 from permit.utils.sync import _blocking_call_site
 
 _F = TypeVar("_F", bound=Callable[..., Any])
+
+# The names importlib's frozen bootstrap module has: its own until `import importlib` renames it.
+_IMPORTLIB_BOOTSTRAP = frozenset({"_frozen_importlib", "importlib._bootstrap"})
+
+
+def _warn_deprecated_name(message: str) -> None:
+    """Issue a `DeprecationWarning` attributed to the line that read a deprecated module attribute.
+
+    Call it from a module's ``__getattr__`` (PEP 562) when it serves a deprecated name.
+
+    ``from package import name`` reads the name twice: importlib's ``_handle_fromlist`` first
+    checks that the package has it, then the importing line reads it. Only the second read
+    warns, so every access warns once, at the line that made it.
+
+    Args:
+        message: The warning text, typically naming the replacement.
+    """
+    getattr_frame = sys._getframe(1)  # noqa: SLF001 - the documented way to read a caller's frame
+    reader = getattr_frame.f_back
+    if (
+        reader is not None
+        and reader.f_code.co_name == "_handle_fromlist"
+        and reader.f_globals.get("__name__") in _IMPORTLIB_BOOTSTRAP
+    ):
+        return
+    warn(message, DeprecationWarning, stacklevel=3)
 
 
 def _warn_deprecated(message: str) -> None:

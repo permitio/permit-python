@@ -467,13 +467,17 @@ summary.
   request is sent:
 
   ```bash
-  python -m pytest -W error::DeprecationWarning -W "ignore:Use PermitError instead:DeprecationWarning"
+  python -m pytest -W error::DeprecationWarning
   ```
 
-  The second filter is needed in 2.x and 3.x alike: `import permit` warns because
-  `PermitConnectionError` subclasses the deprecated `PermitException`, and that warning comes from
-  inside the SDK. To fail on permit's flat methods only, use
-  `-W "error:permit.api.:DeprecationWarning"`.
+  It also fails on each line that imports `PermitException`, or reads `permit.PermitException`
+  or `permit.exceptions.PermitException`, as that line runs (an `except` clause reads it only
+  when an exception reaches it). A star import of `permit` or `permit.exceptions` binds
+  `PermitException`, so it fails too, even where the code never uses the name: import the names
+  the code uses instead. permit 4.0 removes `PermitException`: catch `PermitConnectionError`
+  instead. permit 2.7.0 to 3.0.0 warn on `import permit` itself ("Use PermitError instead"),
+  from inside the SDK; on those, add `-W "ignore:Use PermitError instead:DeprecationWarning"`.
+  To fail on permit's flat methods only, use `-W "error:permit.api.:DeprecationWarning"`.
 - **To silence them** while you migrate, add filters for the messages:
 
   ```ini
@@ -482,6 +486,7 @@ summary.
   filterwarnings =
       ignore:permit\.api\.\w+\(\) is deprecated:DeprecationWarning
       ignore:Support for pydantic 1:DeprecationWarning
+      ignore:PermitException is deprecated:DeprecationWarning
   ```
 
   In code: `warnings.filterwarnings("ignore", message=r"permit\.api\.\w+\(\) is deprecated", category=DeprecationWarning)`.

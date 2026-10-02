@@ -1,0 +1,440 @@
+"""Offline tests for the deprecation of ``PermitException`` (PER-16331).
+
+permit 4.0 removes ``PermitException``. Until then, every read of the name, from ``permit`` or
+from ``permit.exceptions``, issues one DeprecationWarning that names 4.0 and the replacement,
+attributed to the line that read it. A star import of either module reads it too: both list it
+in ``__all__``, so code that star-imports them keeps the name. Code that neither names it nor
+star-imports those modules gets no warning, whatever else it imports. The class itself is
+unchanged: ``PermitConnectionError`` still subclasses it, so ``except PermitException`` keeps
+catching connection errors.
+
+This process imported permit before any test ran, so the tests of a first import run in a fresh
+interpreter and report every warning recorded there.
+"""
+
+import asyncio
+import inspect
+import json
+import os
+import pickle
+import pydoc
+import subprocess
+import sys
+import warnings
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+from unittest import mock
+
+import aiohttp
+import pytest
+
+import permit
+from permit import exceptions
+from permit.exceptions import PermitConnectionError, PermitError, handle_client_error
+from permit.utils.deprecation import _warn_deprecated_name
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+
+ON_PYDANTIC_1 = PYDANTIC_VERSION < (2, 0)
+
+MESSAGE = (
+    "PermitException is deprecated and will be removed in permit 4.0; catch "
+    "PermitConnectionError instead (in 4.0 it becomes a PermitError)."
+)
+
+# The directory that holds the permit package this process imported, so that the fresh
+# interpreter imports the same copy whether or not permit is installed.
+PERMIT_PARENT = Path(permit.__file__).resolve().parents[1]
+
+# Each way to read the name, as the first line in a fresh interpreter that mentions permit.
+FIRST_READS = [
+    "from permit import PermitException",
+    "from permit.exceptions import PermitException",
+    "import permit; permit.PermitException",
+    "import permit.exceptions; permit.exceptions.PermitException",
+]
+
+CONSUMER = """\
+import json
+import warnings
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    {first_read}
+
+records = [
+    {{
+        "category": w.category.__name__,
+        "message": str(w.message),
+        "filename": w.filename,
+        "lineno": w.lineno,
+    }}
+    for w in caught
+]
+print(json.dumps(records))
+"""
+
+FIRST_READ_LINENO = CONSUMER.splitlines().index("    {first_read}") + 1
+
+
+def run_in_fresh_interpreter(*arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, *arguments],
+        env={**os.environ, "PYTHONPATH": str(PERMIT_PARENT)},
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def recorded_warnings(caught: list[warnings.WarningMessage]) -> list[tuple[type, str, str, int]]:
+    return [(w.category, str(w.message), w.filename, w.lineno) for w in caught]
+
+
+def read_permit_exception() -> type[Exception]:
+    """The class that ``permit.PermitException`` names, read with its warning expected."""
+    with pytest.warns(DeprecationWarning, match="PermitException is deprecated"):
+        return permit.PermitException  # type: ignore[deprecated]
+
+
+@pytest.mark.parametrize("first_read", FIRST_READS)
+def test_reading_the_name_first_warns_once_at_that_line(tmp_path: Path, first_read: str) -> None:
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text(CONSUMER.format(first_read=first_read))
+
+    result = run_in_fresh_interpreter(str(consumer))
+
+    assert result.returncode == 0, result.stderr
+    records: list[dict[str, Any]] = json.loads(result.stdout)
+    # On pydantic 1, importing permit also warns that pydantic 1 is deprecated, on purpose
+    # (tests/test_fix_pydantic1_deprecation.py).
+    records = [record for record in records if "Support for pydantic 1" not in record["message"]]
+    assert records == [
+        {
+            "category": "DeprecationWarning",
+            "message": MESSAGE,
+            "filename": str(consumer),
+            "lineno": FIRST_READ_LINENO,
+        }
+    ]
+
+
+def test_every_read_of_the_name_warns_once_at_its_line(tmp_path: Path) -> None:
+    reads = [
+        "from permit import PermitException",
+        "from permit.exceptions import PermitException",
+        "permit.PermitException",
+        "permit.exceptions.PermitException",
+        "getattr(permit, 'PermitException')",
+        "from permit import PermitException",
+    ]
+    filename = str(tmp_path / "consumer.py")
+    code = compile("\n".join(reads), filename, "exec")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        exec(code, {"permit": permit})  # noqa: S102 - the reads under test, as a user writes them
+
+    assert recorded_warnings(caught) == [
+        (DeprecationWarning, MESSAGE, filename, lineno) for lineno in range(1, len(reads) + 1)
+    ]
+
+
+# A module __getattr__ that serves a deprecated name, and a function that reads the name.
+NAME_READER = """\
+def getattr_hook():
+    _warn_deprecated_name("probe message")
+
+
+def {reader}():
+    getattr_hook()
+"""
+
+NAME_READER_LINENO = NAME_READER.splitlines().index("    getattr_hook()") + 1
+
+
+@pytest.mark.parametrize(
+    ("module_name", "reader", "warnings_issued"),
+    [
+        # importlib's check in `from package import name`, under the names its bootstrap module
+        # has before and after `import importlib` renames it.
+        ("_frozen_importlib", "_handle_fromlist", 0),
+        ("importlib._bootstrap", "_handle_fromlist", 0),
+        # A function of that name in any other module, or other importlib code, reads the name.
+        ("user_module", "_handle_fromlist", 1),
+        ("importlib._bootstrap", "_find_and_load", 1),
+    ],
+)
+def test_the_name_warning_skips_only_importlibs_fromlist_check(
+    tmp_path: Path, module_name: str, reader: str, warnings_issued: int
+) -> None:
+    # warnings skips frames whose file name mentions importlib's bootstrap, so this one doesn't.
+    filename = str(tmp_path / "reader.py")
+    namespace: dict[str, Any] = {
+        "__name__": module_name,
+        "_warn_deprecated_name": _warn_deprecated_name,
+    }
+    code = compile(NAME_READER.format(reader=reader), filename, "exec")
+    exec(code, namespace)  # noqa: S102 - defines the frames under test
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        namespace[reader]()
+
+    expected = [(DeprecationWarning, "probe message", filename, NAME_READER_LINENO)]
+    assert recorded_warnings(caught) == expected * warnings_issued
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "import permit",
+        "import permit.exceptions",
+        "import permit.sync",
+        "from permit import PermitConnectionError, PermitError",
+        "import permit, permit.exceptions; dir(permit); dir(permit.exceptions)",
+        "from permit import PermitConnectionError\nclass Mine(PermitConnectionError): pass",
+    ],
+)
+def test_code_that_does_not_name_it_does_not_warn(code: str) -> None:
+    options = ["-W", "error"]
+    if ON_PYDANTIC_1:
+        # importing permit warns on pydantic 1 on purpose; the later -W option takes precedence.
+        options += ["-W", "ignore:Support for pydantic 1 is deprecated:DeprecationWarning"]
+
+    result = run_in_fresh_interpreter(*options, "-c", code)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+
+
+# A star import, then a handler for PermitException, as code written for permit 2.x has them.
+# The prelude imports one of the clients first, or nothing.
+STAR_IMPORTER = """\
+import json
+import warnings
+{prelude}
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    from {module} import *
+
+try:
+    raise PermitConnectionError("boom")
+except PermitException as error:
+    handled = type(error).__name__
+
+records = [
+    {{
+        "category": w.category.__name__,
+        "message": str(w.message),
+        "filename": w.filename,
+        "lineno": w.lineno,
+    }}
+    for w in caught
+]
+print(json.dumps({{"warnings": records, "handled": handled}}))
+"""
+
+STAR_IMPORT_LINENO = STAR_IMPORTER.splitlines().index("    from {module} import *") + 1
+
+
+@pytest.mark.parametrize("module", ["permit", "permit.exceptions"])
+@pytest.mark.parametrize(
+    "prelude",
+    ["", "from permit import Permit", "from permit.sync import Permit"],
+    ids=["star-import-first", "async-client-first", "sync-client-first"],
+)
+def test_a_star_import_binds_the_name_and_warns_once_at_its_line(
+    tmp_path: Path, module: str, prelude: str
+) -> None:
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text(STAR_IMPORTER.format(prelude=prelude, module=module))
+
+    result = run_in_fresh_interpreter(str(consumer))
+
+    assert result.returncode == 0, result.stderr
+    output: dict[str, Any] = json.loads(result.stdout)
+    # On pydantic 1, importing permit also warns that pydantic 1 is deprecated, on purpose.
+    records = [
+        record for record in output["warnings"] if "Support for pydantic 1" not in record["message"]
+    ]
+    assert records == [
+        {
+            "category": "DeprecationWarning",
+            "message": MESSAGE,
+            "filename": str(consumer),
+            "lineno": STAR_IMPORT_LINENO,
+        }
+    ]
+    assert output["handled"] == "PermitConnectionError"
+
+
+# Names a star import bound before the modules had __all__ and binds no longer: names the
+# modules import for their own use from the standard library, typing, pydantic and aiohttp, and
+# permit.exceptions' type variables and its imports of two SDK internals.
+NOT_EXPORTED = {
+    # What `from permit.api.models import *` brings into permit besides the models.
+    "permit": {
+        "Any",
+        "AnyUrl",
+        "BaseModel",
+        "Dict",
+        "EmailStr",
+        "Enum",
+        "Extra",
+        "Field",
+        "List",
+        "Literal",
+        "Optional",
+        "UUID",
+        "Union",
+        "annotations",
+        "conint",
+        "constr",
+        "datetime",
+    },
+    "permit.exceptions": {
+        "Any",
+        "Awaitable",
+        "Callable",
+        "Coroutine",
+        "HTTPStatus",
+        "P",
+        "PYDANTIC_VERSION",
+        "ParamSpec",
+        "R",
+        "TYPE_CHECKING",
+        "TypeVar",
+        "ValidationError",
+        "aiohttp",
+        "deprecated",
+        "functools",
+        "sdk_logger",
+    },
+}
+
+
+def public_names(module: ModuleType) -> set[str]:
+    """The names the module binds without a leading underscore, other than its submodules.
+
+    Importing a submodule binds it in its package, so which ones ``permit`` has depends on what
+    the process imported: ``sync`` only after ``import permit.sync``. A star import binds none.
+    """
+    return {
+        name
+        for name, value in vars(module).items()
+        if not name.startswith("_")
+        and not (isinstance(value, ModuleType) and value.__name__ == f"{module.__name__}.{name}")
+    }
+
+
+@pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
+def test_all_lists_every_public_name(module: ModuleType) -> None:
+    """A star import binds only what __all__ lists, so a public name missing from it is lost."""
+    listed: list[str] = module.__all__
+    public = public_names(module)
+    not_exported = NOT_EXPORTED[module.__name__]
+
+    missing = sorted(public - not_exported - set(listed))
+    assert missing == [], f"Add these to {module.__name__}.__all__ (or to NOT_EXPORTED)"
+    assert sorted(not_exported - public) == [], "The module no longer binds these: drop them"
+    assert sorted(not_exported & set(listed)) == []
+    # A star import reads each listed name, so a duplicate PermitException would warn twice.
+    assert len(set(listed)) == len(listed), f"{module.__name__}.__all__ lists a name twice"
+
+
+@pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
+def test_all_lists_only_names_the_module_serves(module: ModuleType) -> None:
+    """Every listed name is an attribute, except PermitException, which __getattr__ serves."""
+    listed: list[str] = module.__all__
+
+    assert sorted(set(listed) - public_names(module)) == ["PermitException"]
+
+
+@pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
+def test_introspecting_a_module_does_not_warn(module: ModuleType) -> None:
+    """help(), inspect.getmembers() and mock's autospec read every name that dir() lists."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        pydoc.render_doc(module)
+        inspect.getmembers(module)
+        mock.create_autospec(module)
+
+
+def test_both_modules_serve_the_same_class() -> None:
+    with pytest.warns(DeprecationWarning, match="PermitException is deprecated"):
+        from_exceptions = exceptions.PermitException  # type: ignore[deprecated]
+
+    assert read_permit_exception() is from_exceptions
+    assert PermitConnectionError.__mro__[1] is from_exceptions
+
+
+def test_except_permit_exception_still_catches_a_connection_error() -> None:
+    """Regression guard, not an endorsement: 4.0 re-parents PermitConnectionError, not 3.x.
+
+    Consumers of 2.x catch connection failures with ``except PermitException``. Moving
+    PermitConnectionError under PermitError in 3.x would silently stop that handler from
+    catching them.
+    """
+    permit_exception = read_permit_exception()
+
+    @handle_client_error
+    async def send() -> None:
+        raise aiohttp.ClientConnectionError
+
+    async def call_as_existing_code_does() -> str:
+        try:
+            await send()
+        except permit_exception:
+            return "caught"
+        return "not raised"
+
+    assert asyncio.run(call_as_existing_code_does()) == "caught"
+
+
+def test_the_class_and_its_subclass_are_unchanged() -> None:
+    permit_exception = read_permit_exception()
+    error = PermitConnectionError("boom")
+
+    assert isinstance(error, permit_exception)
+    assert isinstance(error, PermitError)
+    assert [f"{cls.__module__}.{cls.__qualname__}" for cls in PermitConnectionError.__mro__] == [
+        "permit.exceptions.PermitConnectionError",
+        "permit.exceptions.PermitException",
+        "permit.exceptions.PermitError",
+        "builtins.Exception",
+        "builtins.BaseException",
+        "builtins.object",
+    ]
+    assert repr(permit_exception("boom")) == "PermitException('boom')"
+    assert repr(error) == "PermitConnectionError('boom')"
+
+
+def test_a_connection_error_pickles_without_a_warning() -> None:
+    error = PermitConnectionError("boom")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        restored = pickle.loads(pickle.dumps(error))  # noqa: S301 - this process pickled it
+
+    assert type(restored) is PermitConnectionError
+    assert restored.args == ("boom",)
+    assert restored.original_error is None
+
+
+def test_only_reading_the_name_warns() -> None:
+    """Creating, raising, catching or subclassing the class does not warn by itself.
+
+    ``_PermitException`` is the name the SDK itself uses for the class.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(exceptions._PermitException):
+            raise exceptions._PermitException
+
+        class Custom(exceptions._PermitException):
+            pass
+
+        Custom("boom")

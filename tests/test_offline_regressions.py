@@ -8,7 +8,6 @@ issued.
 
 import ast
 import inspect
-import subprocess
 import sys
 import warnings
 from collections.abc import AsyncIterator, Sequence
@@ -29,7 +28,7 @@ from pytest_httpserver import HTTPServer
 from werkzeug import Request
 
 import permit
-from permit import Permit, Resource, User, exceptions
+from permit import Permit, Resource, User
 from permit.api.context import ApiKeyAccessLevel
 from permit.api.encoders import jsonable_encoder
 from permit.api.environments import EnvironmentsApi
@@ -510,58 +509,11 @@ async def test_handle_api_error_rejects_redirect_statuses(
         assert exc_info.value.status_code == status
 
 
-def test_permit_connection_error_still_caught_by_the_deprecated_base() -> None:
-    # Regression guard, not an endorsement. `PermitException` is deprecated,
-    # but consumers on 2.6.x catch it, and re-parenting PermitConnectionError
-    # onto PermitError would silently stop `except PermitException` from
-    # catching connection failures. Re-parent it in a major version, not here.
-    assert issubclass(PermitConnectionError, exceptions.PermitException)  # type: ignore[deprecated]
-
-
 def test_permit_connection_error_is_still_a_permit_error() -> None:
     error = PermitConnectionError("boom")
 
     assert isinstance(error, PermitError)
     assert error.original_error is None
-
-
-def test_importing_the_sdk_emits_no_deprecation_warning() -> None:
-    # On pydantic 1, importing permit warns on purpose that pydantic 1 support is deprecated
-    # (see test_fix_pydantic1_deprecation.py); the later -W option takes precedence.
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-W",
-            "error::DeprecationWarning",
-            "-W",
-            "ignore:Support for pydantic 1 is deprecated:DeprecationWarning",
-            "-c",
-            "import permit",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_permit_exception_still_warns_when_instantiated() -> None:
-    with pytest.warns(DeprecationWarning, match="Use PermitError instead"):
-        exceptions.PermitException("boom")  # type: ignore[deprecated]
-
-
-def test_permit_exception_still_warns_when_subclassed() -> None:
-    with pytest.warns(DeprecationWarning, match="Use PermitError instead"):
-
-        class _Custom(exceptions.PermitException):  # type: ignore[deprecated]
-            pass
-
-
-def test_permit_connection_error_instantiation_does_not_warn() -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        PermitConnectionError("boom")
 
 
 def test_check_query_context_is_optional() -> None:
