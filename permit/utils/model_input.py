@@ -1,9 +1,12 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence, TypeVar, Union
+from typing import TYPE_CHECKING, Any, List, TypeVar  # noqa: UP035 - runtime annotation below
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import TypeAlias
+
     _Model = TypeVar("_Model")
 
-    ModelInput = Union[_Model, Dict[str, Any]]
+    ModelInput: TypeAlias = _Model | dict[str, Any]
     """Annotation for an SDK method parameter that takes a model or an equivalent dict.
 
     Methods decorated with ``validate_arguments`` validate a dict argument into the
@@ -11,7 +14,7 @@ if TYPE_CHECKING:
     that call if the annotation also allows a dict.
     """
 
-    ModelListInput = Sequence[Union[_Model, Dict[str, Any]]]
+    ModelListInput: TypeAlias = Sequence[_Model | dict[str, Any]]
     """Annotation for a bulk parameter that takes a list of models or equivalent dicts.
 
     A ``Sequence``, not a ``List``: ``List`` is invariant, so a type checker would
@@ -40,5 +43,5 @@ else:
         hand the method a tuple when the caller passed a tuple.
         """
 
-        def __class_getitem__(cls, model: type) -> Any:
-            return List[model]
+        def __class_getitem__(cls, model: type) -> object:
+            return List[model]  # noqa: UP006 - runtime annotation kept identical to 3.0.0

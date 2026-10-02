@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -10,24 +10,21 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments
 
-from permit.utils.model_input import ModelInput
-
-from .base import (
-    BasePermitApi,
-    SimpleHttpClient,
-    pagination_params,
-)
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import (
+from permit.api.base import BasePermitApi, SimpleHttpClient, pagination_params
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import (
     ElementsUserInviteApprove,
     ElementsUserInviteCreate,
     ElementsUserInviteRead,
     PaginatedResultElementsUserInviteRead,
     UserRead,
 )
+from permit.utils.model_input import ModelInput
 
 
 class UserInvitesApi(BasePermitApi):
+    """Manage user invites."""
+
     @property
     def __user_invites(self) -> SimpleHttpClient:
         return self._build_http_client(
@@ -35,9 +32,10 @@ class UserInvitesApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, page: int = 1, per_page: int = 100) -> PaginatedResultElementsUserInviteRead:
-        """
-        Retrieves a list of user invites.
+    async def list(
+        self, page: int = 1, per_page: int = 100
+    ) -> PaginatedResultElementsUserInviteRead:
+        """Retrieves a list of user invites.
 
         Args:
             page: The page number to retrieve (default: 1).
@@ -48,7 +46,8 @@ class UserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -60,8 +59,7 @@ class UserInvitesApi(BasePermitApi):
 
     @validate_arguments
     async def get(self, user_invite_id: str) -> ElementsUserInviteRead:
-        """
-        Retrieves a single user invite by ID.
+        """Retrieves a single user invite by ID.
 
         Args:
             user_invite_id: The ID of the user invite to retrieve.
@@ -71,16 +69,18 @@ class UserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__user_invites.get(f"/{user_invite_id}", model=ElementsUserInviteRead)
 
     @validate_arguments
-    async def create(self, user_invite_data: ModelInput[ElementsUserInviteCreate]) -> ElementsUserInviteRead:
-        """
-        Creates a new user invite.
+    async def create(
+        self, user_invite_data: ModelInput[ElementsUserInviteCreate]
+    ) -> ElementsUserInviteRead:
+        """Creates a new user invite.
 
         Args:
             user_invite_data: The user invite data to create.
@@ -90,16 +90,18 @@ class UserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
-        return await self.__user_invites.post("", model=ElementsUserInviteRead, json=user_invite_data)
+        return await self.__user_invites.post(
+            "", model=ElementsUserInviteRead, json=user_invite_data
+        )
 
     @validate_arguments
     async def delete(self, user_invite_id: str) -> None:
-        """
-        Deletes a user invite.
+        """Deletes a user invite.
 
         Args:
             user_invite_id: The ID of the user invite to delete.
@@ -109,16 +111,18 @@ class UserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         await self.__user_invites.delete(f"/{user_invite_id}")
 
     @validate_arguments
-    async def approve(self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]) -> UserRead:
-        """
-        Approves a user invite.
+    async def approve(
+        self, user_invite_id: str, approve_data: ModelInput[ElementsUserInviteApprove]
+    ) -> UserRead:
+        """Approves a user invite.
 
         Args:
             user_invite_id: The ID of the user invite to approve.
@@ -129,7 +133,8 @@ class UserInvitesApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)

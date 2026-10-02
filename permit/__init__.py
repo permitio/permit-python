@@ -24,7 +24,7 @@ from permit.exceptions import PermitContextError as PermitContextError
 from permit.exceptions import PermitError as PermitError
 
 # Deprecated, but still exported for existing callers.
-from permit.exceptions import PermitException as PermitException
+from permit.exceptions import PermitException as PermitException  # type: ignore[deprecated]
 from permit.exceptions import PermitNotFoundError as PermitNotFoundError
 from permit.exceptions import PermitValidationError as PermitValidationError
 from permit.permit import Permit as Permit
@@ -37,7 +37,8 @@ if _PYDANTIC_VERSION < (2, 0):
     # import machinery's frames are skipped), which Python shows by default when that is
     # __main__.
     _warnings.warn(
-        "Support for pydantic 1 is deprecated and will be removed in permit 4.0. Upgrade to pydantic 2.",
+        "Support for pydantic 1 is deprecated and will be removed in permit 4.0. "
+        "Upgrade to pydantic 2.",
         DeprecationWarning,
         stacklevel=2,
     )

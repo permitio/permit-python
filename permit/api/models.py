@@ -295,7 +295,7 @@ class ApproveMessage(BaseModel):
     class Config:
         extra = Extra.allow
 
-    message: str = Field(..., title='Message')
+    detail: str = Field(..., title='Detail')
 
 
 class AttributeType(str, Enum):

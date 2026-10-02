@@ -3,13 +3,20 @@ import functools
 import inspect
 import sys
 import warnings
+from collections.abc import Awaitable, Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from functools import wraps
 from types import FrameType
-from typing import Any, Awaitable, Callable, Coroutine, Dict, NamedTuple, Optional, Set, Type, TypeVar, cast
+from typing import (
+    Any,
+    NamedTuple,
+    TypeGuard,
+    TypeVar,
+    cast,
+)
 
-from typing_extensions import ParamSpec, TypeGuard
+from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -28,10 +35,10 @@ class _CallSite(NamedTuple):
 
     filename: str
     lineno: int
-    module_globals: Dict[str, Any]
+    module_globals: dict[str, Any]
 
     @classmethod
-    def from_frame(cls, frame: Optional[FrameType]) -> "_CallSite":
+    def from_frame(cls, frame: FrameType | None) -> "_CallSite":
         """The line `frame` is running, or, with no frame, the place `warnings.warn` blames then.
 
         There is no frame when C code calls the blocking method directly, as it does an
@@ -41,7 +48,7 @@ class _CallSite(NamedTuple):
             return cls("<sys>", 0, sys.__dict__)
         return cls(frame.f_code.co_filename, frame.f_lineno, frame.f_globals)
 
-    def warn(self, message: str, category: Type[Warning]) -> None:
+    def warn(self, message: str, category: type[Warning]) -> None:
         """Issue a warning attributed to this line, exactly as `warnings.warn` would from its frame.
 
         The module name and the once-per-line registry come from the calling module, as
@@ -65,7 +72,9 @@ class _CallSite(NamedTuple):
         )
 
 
-_blocking_call_site: ContextVar[Optional[_CallSite]] = ContextVar("permit_blocking_call_site", default=None)
+_blocking_call_site: ContextVar[_CallSite | None] = ContextVar(
+    "permit_blocking_call_site", default=None
+)
 """The line that made the blocking call whose coroutine runs in this context, otherwise None.
 
 The coroutine runs under asyncio, whose frames stand between it and that line, so code in it
@@ -109,7 +118,8 @@ def run_coroutine_sync(coroutine: Coroutine[Any, Any, T]) -> T:
     Returns:
         Whatever the coroutine returns.
     """
-    return _run_blocking(coroutine, _CallSite.from_frame(sys._getframe(0).f_back))
+    caller = sys._getframe(0).f_back  # noqa: SLF001 - the documented way to read a caller's frame
+    return _run_blocking(coroutine, _CallSite.from_frame(caller))
 
 
 def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
@@ -130,14 +140,17 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
         if _blocking_call_site.get() is not None:
             return func(*args, **kwargs)  # type: ignore[return-value]
         # Read in the caller's thread, while its frame is the one that called us.
-        call_site = _CallSite.from_frame(sys._getframe(0).f_back)
+        caller = sys._getframe(0).f_back  # noqa: SLF001 - see run_coroutine_sync
+        call_site = _CallSite.from_frame(caller)
         return _run_blocking(func(*args, **kwargs), call_site)
 
     setattr(wrapper, SYNC_WRAPPER_MARKER, True)
     return wrapper
 
 
-def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
+def iscoroutine_func(
+    callable: Callable[..., object],  # noqa: A002 - public parameter; renaming breaks keyword callers
+) -> TypeGuard[Callable[..., Awaitable[object]]]:
     """Whether calling `callable` produces an awaitable.
 
     `inspect.iscoroutinefunction` on its own is not enough: a decorator may wrap
@@ -153,8 +166,8 @@ def iscoroutine_func(callable: Callable) -> TypeGuard[Callable[..., Awaitable]]:
     Returns:
         True if calling it returns an awaitable.
     """
-    candidate: Optional[Any] = callable
-    seen: Set[int] = set()
+    candidate: object | None = callable
+    seen: set[int] = set()
     while candidate is not None and id(candidate) not in seen:
         seen.add(id(candidate))
         if getattr(candidate, SYNC_WRAPPER_MARKER, False):
@@ -178,7 +191,8 @@ class SyncClass(type):
     bodies - every method they expose is inherited from their async counterpart.
     """
 
-    def __new__(cls, name, bases, class_dict):
+    def __new__(cls, name: str, bases: tuple[type, ...], class_dict: dict[str, Any]) -> "SyncClass":
+        """Create the class, then replace each public coroutine method with a blocking wrapper."""
         class_obj = super().__new__(cls, name, bases, class_dict)
 
         for attr_name in dir(class_obj):
@@ -191,7 +205,7 @@ class SyncClass(type):
                 continue
 
             # monkey-patch public async method using the async_to_sync decorator
-            coroutine_function = cast(Callable[..., Coroutine[Any, Any, Any]], attr)
+            coroutine_function = cast("Callable[..., Coroutine[Any, Any, Any]]", attr)
             setattr(class_obj, attr_name, async_to_sync(coroutine_function))
 
         return class_obj

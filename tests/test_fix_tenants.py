@@ -12,7 +12,7 @@ import json
 import re
 import uuid
 from operator import attrgetter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -28,11 +28,11 @@ NOW = "2024-01-01T00:00:00+00:00"
 
 SCOPE_PATH = "/v2/api-key/scope"
 
-RecordedRequest = Tuple[str, str, dict]
+RecordedRequest = tuple[str, str, dict[str, Any]]
 
 
 def _make_permit(
-    httpserver: HTTPServer, *, proxy_facts_via_pdp: bool, response: Optional[Dict[str, Any]] = None
+    httpserver: HTTPServer, *, proxy_facts_via_pdp: bool, response: dict[str, Any] | None = None
 ) -> Permit:
     """Build a Permit client whose PDP *and* REST API both point at ``httpserver``.
 
@@ -59,7 +59,7 @@ def _make_permit(
     )
 
 
-def _facts_requests(httpserver: HTTPServer) -> List[RecordedRequest]:
+def _facts_requests(httpserver: HTTPServer) -> list[RecordedRequest]:
     """Every request the SDK made, except the api-key scope bootstrap call."""
     requests = []
     for request, _response in httpserver.log:
@@ -70,7 +70,7 @@ def _facts_requests(httpserver: HTTPServer) -> List[RecordedRequest]:
     return requests
 
 
-async def test_tenants_bulk_create_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer):
+async def test_tenants_bulk_create_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.tenants.bulk_create([TenantCreate(key="tenant-1", name="Tenant 1")])
@@ -85,16 +85,20 @@ async def test_tenants_bulk_create_targets_the_pdp_tenants_endpoint(httpserver: 
     httpserver.check_assertions()
 
 
-async def test_tenants_bulk_delete_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer):
+async def test_tenants_bulk_delete_targets_the_pdp_tenants_endpoint(httpserver: HTTPServer) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.tenants.bulk_delete(["tenant-1", "tenant-2"])
 
-    assert _facts_requests(httpserver) == [("DELETE", "/facts/bulk/tenants", {"idents": ["tenant-1", "tenant-2"]})]
+    assert _facts_requests(httpserver) == [
+        ("DELETE", "/facts/bulk/tenants", {"idents": ["tenant-1", "tenant-2"]})
+    ]
     httpserver.check_assertions()
 
 
-async def test_tenant_bulk_operations_never_reach_the_users_endpoint(httpserver: HTTPServer):
+async def test_tenant_bulk_operations_never_reach_the_users_endpoint(
+    httpserver: HTTPServer,
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.tenants.bulk_create([TenantCreate(key="tenant-1", name="Tenant 1")])
@@ -104,15 +108,19 @@ async def test_tenant_bulk_operations_never_reach_the_users_endpoint(httpserver:
     assert paths == {"/facts/bulk/tenants"}
 
 
-async def test_users_bulk_create_targets_the_pdp_users_endpoint(httpserver: HTTPServer):
+async def test_users_bulk_create_targets_the_pdp_users_endpoint(httpserver: HTTPServer) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.users.bulk_create([UserCreate(key="user-1")])
 
-    assert _facts_requests(httpserver) == [("POST", "/facts/bulk/users", {"operations": [{"key": "user-1"}]})]
+    assert _facts_requests(httpserver) == [
+        ("POST", "/facts/bulk/users", {"operations": [{"key": "user-1"}]})
+    ]
 
 
-async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(httpserver: HTTPServer):
+async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(
+    httpserver: HTTPServer,
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True)
 
     await permit.api.resource_instances.bulk_replace(
@@ -130,7 +138,9 @@ async def test_resource_instances_bulk_operations_target_their_pdp_endpoint(http
     ]
 
 
-async def test_tenants_bulk_create_without_pdp_proxy_targets_the_rest_api(httpserver: HTTPServer):
+async def test_tenants_bulk_create_without_pdp_proxy_targets_the_rest_api(
+    httpserver: HTTPServer,
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=False)
 
     await permit.api.tenants.bulk_create([TenantCreate(key="tenant-1", name="Tenant 1")])
@@ -144,7 +154,7 @@ async def test_tenants_bulk_create_without_pdp_proxy_targets_the_rest_api(httpse
     ]
 
 
-def _read_payload(**fields: Any) -> Dict[str, Any]:
+def _read_payload(**fields: Any) -> dict[str, Any]:
     """A facts read-model response: the ids and timestamps they all require, plus ``fields``."""
     return {
         "id": str(uuid.uuid4()),
@@ -159,9 +169,17 @@ def _read_payload(**fields: Any) -> Dict[str, Any]:
 
 ROLE_ASSIGNMENT = {"user": "user-1", "role": "admin", "tenant": "tenant-1"}
 ROLE_ASSIGNMENT_READ = _read_payload(
-    **ROLE_ASSIGNMENT, user_id=str(uuid.uuid4()), role_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())
+    **ROLE_ASSIGNMENT,
+    user_id=str(uuid.uuid4()),
+    role_id=str(uuid.uuid4()),
+    tenant_id=str(uuid.uuid4()),
 )
-RELATIONSHIP_TUPLE = {"subject": "folder:f-1", "relation": "parent", "object": "document:doc-1", "tenant": "tenant-1"}
+RELATIONSHIP_TUPLE = {
+    "subject": "folder:f-1",
+    "relation": "parent",
+    "object": "document:doc-1",
+    "tenant": "tenant-1",
+}
 RESOURCE_INSTANCE = {"key": "doc-1", "resource": "document", "tenant": "tenant-1"}
 
 # Each single-object write the SDK proxies through the PDP, called on ``permit.api``; the one
@@ -182,7 +200,9 @@ SINGLE_WRITES = [
     pytest.param(
         call("resource_instances.create", RESOURCE_INSTANCE),
         ("POST", "/facts/resource_instances", RESOURCE_INSTANCE),
-        _read_payload(**RESOURCE_INSTANCE, resource_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())),
+        _read_payload(
+            **RESOURCE_INSTANCE, resource_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())
+        ),
         id="resource_instances.create",
     ),
     pytest.param(
@@ -214,8 +234,8 @@ SINGLE_WRITES = [
 
 @pytest.mark.parametrize(("target", "expected", "response"), SINGLE_WRITES)
 async def test_single_fact_writes_target_their_pdp_endpoint(
-    httpserver: HTTPServer, target: Call, expected: RecordedRequest, response: Dict[str, Any]
-):
+    httpserver: HTTPServer, target: Call, expected: RecordedRequest, response: dict[str, Any]
+) -> None:
     permit = _make_permit(httpserver, proxy_facts_via_pdp=True, response=response)
     # A copy, so an SDK that edited the caller's dict could not also edit the expected body.
     args, kwargs = copy.deepcopy((target.args, target.kwargs))

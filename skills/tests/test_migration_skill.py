@@ -33,7 +33,7 @@ import textwrap
 import warnings
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -88,7 +88,7 @@ def config(httpserver: HTTPServer) -> PermitConfig:
     return PermitConfig(token="test-token", api_url=base_url, pdp=base_url, api_context=api_context)
 
 
-def sent(request: Request) -> Dict[str, Any]:
+def sent(request: Request) -> dict[str, Any]:
     """What a request put on the wire, in a form two requests can be compared by."""
     body = request.get_data()
     return {
@@ -99,7 +99,7 @@ def sent(request: Request) -> Dict[str, Any]:
     }
 
 
-Row = Tuple[str, int, str, str]
+Row = tuple[str, int, str, str]
 
 
 def load_scanner() -> ModuleType:
@@ -121,11 +121,11 @@ def load_scanner() -> ModuleType:
 scan = load_scanner()
 
 
-def findings(root: Path) -> List[Row]:
+def findings(root: Path) -> list[Row]:
     return [(item.path, item.line, item.change, item.safety) for item in scan.Project(root).scan()]
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def sample_app(name: str) -> Path:
     """Copy a sample app out of the repo and give its *.fixture files their real names."""
     target = Path(tempfile.mkdtemp(prefix="permit-migration-")) / name
@@ -136,7 +136,7 @@ def sample_app(name: str) -> Path:
     return target
 
 
-def write(root: Path, files: Dict[str, str]) -> Path:
+def write(root: Path, files: dict[str, str]) -> Path:
     for name, content in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +148,7 @@ def write(root: Path, files: Dict[str, str]) -> Path:
 # The sample apps
 # ---------------------------------------------------------------------------
 
-V2_FINDINGS: Set[Row] = {
+V2_FINDINGS: set[Row] = {
     (".gitlab-ci.yml", 2, "C1", REVIEW),
     (".gitlab-ci.yml", 5, "C1", REVIEW),
     (".python-version", 1, "C1", REVIEW),
@@ -202,8 +202,8 @@ V2_FINDINGS: Set[Row] = {
 }
 
 
-def test_git_tracks_every_fixture_file():
-    """A fixture file that git ignores is missing from every clone, so the tests below fail in CI."""
+def test_git_tracks_every_fixture_file() -> None:
+    """A fixture file that git ignores is missing from every clone, so CI fails the tests below."""
     if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
         pytest.skip("not a git checkout")
     files = [
@@ -212,36 +212,50 @@ def test_git_tracks_every_fixture_file():
         if path.is_file() and "__pycache__" not in path.parts
     ]
 
-    result = subprocess.run(["git", "check-ignore", *files], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        ["git", "check-ignore", *files],  # noqa: S607 - the git on PATH, as in CI
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
-    assert result.returncode == 1, f"git ignores these fixture files:\n{result.stdout}{result.stderr}"
+    assert result.returncode == 1, (
+        f"git ignores these fixture files:\n{result.stdout}{result.stderr}"
+    )
 
 
-def test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest():
+def test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest() -> None:
     manifests = re.compile(
         r"(pyproject\.toml|setup\.py|setup\.cfg|Pipfile(\.lock)?|poetry\.lock|uv\.lock|.*requirements.*\.txt)"
     )
-    named = [path.relative_to(FIXTURES).as_posix() for path in FIXTURES.rglob("*") if manifests.fullmatch(path.name)]
+    named = [
+        path.relative_to(FIXTURES).as_posix()
+        for path in FIXTURES.rglob("*")
+        if manifests.fullmatch(path.name)
+    ]
 
     assert named == [], f"store these as <name>.fixture: {named}"
 
 
-def test_scanner_finds_every_site_in_the_2x_app():
+def test_scanner_finds_every_site_in_the_2x_app() -> None:
     found = findings(sample_app("v2_app"))
 
     assert len(found) == len(set(found)), "a site was reported twice"
     assert set(found) == V2_FINDINGS
 
 
-def test_scanner_reports_nothing_in_the_migrated_app():
+def test_scanner_reports_nothing_in_the_migrated_app() -> None:
     project = scan.Project(sample_app("v3_app"))
 
     assert project.scan() == []
     assert project.skipped == []
 
 
-def test_safe_edits_name_the_replacement():
-    messages = {(item.path, item.line): item.message for item in scan.Project(sample_app("v2_app")).scan()}
+def test_safe_edits_name_the_replacement() -> None:
+    messages = {
+        (item.path, item.line): item.message for item in scan.Project(sample_app("v2_app")).scan()
+    }
 
     assert "use self.permit.api.tenants.get(...)" in messages[("app/aliases.py", 18)]
     assert "rename tenant= to tenant_data=" in messages[("app/async_app.py", 21)]
@@ -255,7 +269,7 @@ def test_safe_edits_name_the_replacement():
     assert "switch it to the async permit.Permit" in messages[("app/sync_app.py", 23)]
 
 
-def test_json_report_matches_the_findings_and_names_the_changes():
+def test_json_report_matches_the_findings_and_names_the_changes() -> None:
     result = subprocess.run(
         [sys.executable, str(SCANNER), str(sample_app("v2_app")), "--json"],
         capture_output=True,
@@ -265,7 +279,9 @@ def test_json_report_matches_the_findings_and_names_the_changes():
 
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout)
-    rows = {(item["path"], item["line"], item["change"], item["safety"]) for item in report["findings"]}
+    rows = {
+        (item["path"], item["line"], item["change"], item["safety"]) for item in report["findings"]
+    }
     assert rows == V2_FINDINGS
     assert set(report["changes"]) == {row[2] for row in V2_FINDINGS}
     assert report["summary"]["uses_sync_client"] is True
@@ -281,7 +297,7 @@ def test_json_report_matches_the_findings_and_names_the_changes():
 # ---------------------------------------------------------------------------
 
 
-def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path):
+def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -320,7 +336,7 @@ def test_scanner_follows_every_way_of_importing_the_clients(tmp_path: Path):
     assert findings(tmp_path) == [("app.py", line, "A2", SAFE) for line in (18, 19, 20, 21, 23, 24)]
 
 
-def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: Path):
+def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -367,7 +383,7 @@ def test_awaiting_a_blocking_method_is_a_question_only_in_async_code(tmp_path: P
         assert "(recommended)" in item.message
 
 
-def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path):
+def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -403,11 +419,18 @@ def test_async_mocks_of_the_three_methods_need_review(tmp_path: Path):
     assert "use Mock or MagicMock" in scan.Project(tmp_path).scan()[0].message
 
     # Without the blocking client in the project, an AsyncMock of these methods is right.
-    write(tmp_path, {"test_app.py": "from unittest.mock import AsyncMock\nclient.authorized_users = AsyncMock()\n"})
+    write(
+        tmp_path,
+        {
+            "test_app.py": (
+                "from unittest.mock import AsyncMock\nclient.authorized_users = AsyncMock()\n"
+            )
+        },
+    )
     assert findings(tmp_path) == []
 
 
-def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path):
+def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -434,7 +457,7 @@ def test_scanner_follows_module_aliases_to_removed_names(tmp_path: Path):
     ]
 
 
-def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path):
+def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -455,7 +478,7 @@ def test_scanner_follows_star_imports_to_removed_names(tmp_path: Path):
     assert findings(tmp_path) == [("app.py", 4, "A3", SAFE), ("app.py", 5, "A3", SAFE)]
 
 
-def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path):
+def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -475,7 +498,7 @@ def test_context_store_transform_is_described_as_it_behaved(tmp_path: Path):
     assert "It applied the functions registered with register_transform()" in messages[1]
 
 
-def test_untraced_receivers_are_never_safe(tmp_path: Path):
+def test_untraced_receivers_are_never_safe(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -493,7 +516,7 @@ def test_untraced_receivers_are_never_safe(tmp_path: Path):
     assert findings(tmp_path) == [("service.py", 2, "D2", REVIEW), ("service.py", 3, "A2", REVIEW)]
 
 
-def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path):
+def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -565,7 +588,7 @@ def test_a_name_bound_in_a_function_hides_the_module_level_value(tmp_path: Path)
     ]
 
 
-def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
+def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -587,7 +610,7 @@ def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
                     e.model_dump(),
                     loaded.model_copy(),
                 )
-            """
+            """  # noqa: E501 - sample code as a user writes it
         },
     )
 
@@ -600,7 +623,7 @@ def test_a_name_annotated_with_an_sdk_model_is_one(tmp_path: Path):
     ]
 
 
-def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
+def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -662,7 +685,7 @@ def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
         ("app.py", 26, "A2", SAFE),
         ("app.py", 34, "A2", REVIEW),
         ("app.py", 41, "A2", SAFE),
-        # Bound to both clients: .api exists on either, but asyncio.run() is right only on the async one.
+        # Bound to both clients: .api exists on either, but asyncio.run() suits only the async one.
         ("app.py", 45, "A2", REVIEW),
         ("app.py", 46, "D2", SAFE),
         # Bound to a client and to something else: nothing is safe.
@@ -673,7 +696,7 @@ def test_a_value_bound_to_something_else_as_well_is_not_traced(tmp_path: Path):
     ]
 
 
-def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path):
+def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -705,7 +728,7 @@ def test_starred_arguments_make_a_deprecated_call_need_review(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def test_only_visibly_optional_values_are_reported_for_w1(tmp_path: Path):
+def test_only_visibly_optional_values_are_reported_for_w1(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -729,14 +752,14 @@ def test_only_visibly_optional_values_are_reported_for_w1(tmp_path: Path):
                 if email is not None:
                     await permit.api.users.update(key, UserUpdate(email=email))
                 await permit.api.users.update(key, UserUpdate(email=email)) if email else None
-            """
+            """  # noqa: E501 - sample code as a user writes it
         },
     )
 
     assert findings(tmp_path) == [("app.py", line, "W1", REVIEW) for line in (10, 11, 12, 13, 15)]
 
 
-def test_guarded_optional_fields_are_not_reported(tmp_path: Path):
+def test_guarded_optional_fields_are_not_reported(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -762,7 +785,7 @@ def test_guarded_optional_fields_are_not_reported(tmp_path: Path):
     assert findings(tmp_path) == [("app.py", 8, "A5", REVIEW)]
 
 
-def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: Path):
+def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -780,15 +803,15 @@ def test_audit_log_objects_need_an_isinstance_check_not_a_none_check(tmp_path: P
                 truthy = log.objects and log.objects.user_object
                 config = log.pdp_config_id.hex if isinstance(log.pdp_config_id, UUID) else None
                 return unguarded, not_none, typed, truthy, config
-            """
+            """  # noqa: E501 - sample code as a user writes it
         },
     )
 
     assert findings(tmp_path) == [("app.py", 8, "A4", REVIEW), ("app.py", 9, "A4", REVIEW)]
 
 
-def test_audit_log_objects_default_to_an_empty_dict():
-    """What A4 in both docs and the scanner's message say: `is not None` does not guard `objects`."""
+def test_audit_log_objects_default_to_an_empty_dict() -> None:
+    """What A4 in the docs and the scanner's message say: `is not None` does not guard `objects`."""
     field = DetailedAuditLogModel.__fields__["objects"]
 
     assert field.required is False
@@ -947,7 +970,9 @@ def test_audit_log_objects_default_to_an_empty_dict():
         ),
     ],
 )
-def test_dependency_files(tmp_path: Path, name: str, content: str, expected: List[Tuple[int, str, str]]):
+def test_dependency_files(
+    tmp_path: Path, name: str, content: str, expected: list[tuple[int, str, str]]
+) -> None:
     write(tmp_path, {name: content})
 
     assert findings(tmp_path) == [(name, line, change, safety) for line, change, safety in expected]
@@ -975,33 +1000,52 @@ def test_dependency_files(tmp_path: Path, name: str, content: str, expected: Lis
             id="github-actions",
         ),
         pytest.param(
-            ".circleci/config.yml", "jobs:\n  test:\n    docker:\n      - image: cimg/python:3.9\n", [4], id="circleci"
+            ".circleci/config.yml",
+            "jobs:\n  test:\n    docker:\n      - image: cimg/python:3.9\n",
+            [4],
+            id="circleci",
         ),
         pytest.param(
-            "tox.ini", "[tox]\nenvlist = py38, py310\n[testenv:lint]\nbasepython = python3.12\n", [2], id="tox"
+            "tox.ini",
+            "[tox]\nenvlist = py38, py310\n[testenv:lint]\nbasepython = python3.12\n",
+            [2],
+            id="tox",
         ),
         pytest.param(
-            "Dockerfile.prod", "ARG PYTHON_VERSION=3.9\nFROM python:${PYTHON_VERSION}\n", [1], id="dockerfile-arg"
+            "Dockerfile.prod",
+            "ARG PYTHON_VERSION=3.9\nFROM python:${PYTHON_VERSION}\n",
+            [1],
+            id="dockerfile-arg",
         ),
         pytest.param("runtime.txt", "python-3.9.18\n", [1], id="runtime.txt"),
-        pytest.param(".tool-versions", "nodejs 20.1.0\npython 3.9.18 3.12.1\n", [2], id="tool-versions"),
+        pytest.param(
+            ".tool-versions", "nodejs 20.1.0\npython 3.9.18 3.12.1\n", [2], id="tool-versions"
+        ),
         pytest.param("mypy.ini", "[mypy]\npython_version = 3.9\n", [2], id="mypy"),
         pytest.param("pyrightconfig.json", '{\n  "pythonVersion": "3.8"\n}\n', [2], id="pyright"),
-        pytest.param("pyproject.toml", '[project]\nrequires-python = "~=3.9"\n', [2], id="compatible-release"),
-        pytest.param("pyproject.toml", '[project]\nrequires-python = ">3.9"\n', [2], id="greater-than"),
-        pytest.param("pyproject.toml", '[project]\nrequires-python = ">=3.10"\n', [], id="310-floor"),
-        pytest.param("pyproject.toml", '[project]\nrequires-python = "==3.12.*"\n', [], id="312-wildcard"),
+        pytest.param(
+            "pyproject.toml", '[project]\nrequires-python = "~=3.9"\n', [2], id="compatible-release"
+        ),
+        pytest.param(
+            "pyproject.toml", '[project]\nrequires-python = ">3.9"\n', [2], id="greater-than"
+        ),
+        pytest.param(
+            "pyproject.toml", '[project]\nrequires-python = ">=3.10"\n', [], id="310-floor"
+        ),
+        pytest.param(
+            "pyproject.toml", '[project]\nrequires-python = "==3.12.*"\n', [], id="312-wildcard"
+        ),
         pytest.param(".python-version", "3.10\n", [], id="python-version-310"),
         pytest.param("Dockerfile", "FROM python:3.13-slim AS build\n", [], id="dockerfile-313"),
     ],
 )
-def test_python_pins_below_310(tmp_path: Path, name: str, content: str, lines: List[int]):
+def test_python_pins_below_310(tmp_path: Path, name: str, content: str, lines: list[int]) -> None:
     write(tmp_path, {name: content})
 
     assert findings(tmp_path) == [(name, line, "C1", REVIEW) for line in lines]
 
 
-def test_type_checker_settings_that_hide_permit(tmp_path: Path):
+def test_type_checker_settings_that_hide_permit(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -1055,7 +1099,7 @@ def test_type_checker_settings_that_hide_permit(tmp_path: Path):
     ]
 
 
-def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path):
+def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path) -> None:
     config = '[tool.pytest.ini_options]\nfilterwarnings = [\n    "error",\n]\n'
     write(tmp_path, {"pyproject.toml": config, "requirements.txt": "pydantic>=2.8\n"})
     assert findings(tmp_path) == []
@@ -1070,7 +1114,7 @@ def test_warnings_as_errors_matter_only_on_pydantic_1(tmp_path: Path):
     assert ("pytest.ini", 2, "D1", REVIEW) in findings(tmp_path)
 
 
-def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
+def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -1081,7 +1125,10 @@ def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
                 "ignore:permit\\\\.api\\\\.\\\\w+\\\\(\\\\) is deprecated:DeprecationWarning",
             ]
             """,
-            "setup.cfg": "[tool:pytest]\nfilterwarnings =\n    ignore:use permit\\.elements:DeprecationWarning\n",
+            "setup.cfg": (
+                "[tool:pytest]\nfilterwarnings =\n"
+                "    ignore:use permit\\.elements:DeprecationWarning\n"
+            ),
             "conftest.py": """
             import warnings
 
@@ -1090,11 +1137,11 @@ def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
             warnings.filterwarnings("ignore", message=r"use permit\\.api", category=DeprecationWarning)
             pytest.mark.filterwarnings("ignore:use permit.api.users.get")
             EXPECTED = "permit.api.get_user() is deprecated ...; use permit.api.users.get() instead."
-            """,
+            """,  # noqa: E501 - sample code as a user writes it
         },
     )
 
-    # The 3.x filter and the 3.x message itself, where "use permit.api" is not at the start, are fine.
+    # The 3.x filter, and the 3.x message where "use permit.api" is not at the start, are fine.
     assert findings(tmp_path) == [
         ("conftest.py", 5, "D2", REVIEW),
         ("conftest.py", 6, "D2", REVIEW),
@@ -1103,13 +1150,18 @@ def test_warning_filters_written_for_the_2x_text_need_review(tmp_path: Path):
     ]
 
 
-def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path: Path):
-    write(tmp_path, {"app.py": "import httpx\nimport anyio\n", "requirements-dev.txt": "httpx==0.28.1\n"})
+def test_httpx_counts_as_declared_when_any_dependency_file_declares_it(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        {"app.py": "import httpx\nimport anyio\n", "requirements-dev.txt": "httpx==0.28.1\n"},
+    )
 
     assert findings(tmp_path) == [("app.py", 2, "C2", REVIEW)]
 
 
-def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(tmp_path: Path):
+def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(
+    tmp_path: Path,
+) -> None:
     packages = ["httpx", "zipp", "httpcore", "h11", "anyio", "certifi", "sniffio", "exceptiongroup"]
     write(tmp_path, {"app.py": "".join(f"import {name}\n" for name in packages)})
 
@@ -1123,7 +1175,7 @@ def test_every_package_that_left_the_tree_is_reported_when_imported_undeclared(t
         assert {name for name in packages if f"`{name}`" in section} == set(packages), path.name
 
 
-def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path):
+def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
@@ -1157,7 +1209,7 @@ def test_a_compiled_requirements_file_is_a_lock_not_a_declaration(tmp_path: Path
 # ---------------------------------------------------------------------------
 
 
-def test_scanner_skips_environments_and_build_output(tmp_path: Path):
+def test_scanner_skips_environments_and_build_output(tmp_path: Path) -> None:
     deprecated_call = "from permit import Permit\nPermit(token='t').api.get_user('u')\n"
     write(
         tmp_path,
@@ -1176,7 +1228,7 @@ def test_scanner_skips_environments_and_build_output(tmp_path: Path):
     assert findings(tmp_path) == [("src/app.py", 2, "D2", SAFE)]
 
 
-def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path):
+def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path) -> None:
     write(tmp_path, {"broken.py": "def (:\n", "app.py": "import permit\npermit.PYDANTIC_VERSION\n"})
     project = scan.Project(tmp_path)
 
@@ -1184,11 +1236,15 @@ def test_a_file_that_does_not_parse_is_skipped_and_reported(tmp_path: Path):
     assert [item["path"] for item in project.skipped] == ["broken.py"]
 
 
-def test_scanner_does_not_modify_the_project():
+def test_scanner_does_not_modify_the_project() -> None:
     root = sample_app("v2_app")
 
-    def digest() -> Dict[str, str]:
-        return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in root.rglob("*") if path.is_file()}
+    def digest() -> dict[str, str]:
+        return {
+            str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in root.rglob("*")
+            if path.is_file()
+        }
 
     before = digest()
     subprocess.run([sys.executable, str(SCANNER), str(root)], capture_output=True, check=True)
@@ -1204,7 +1260,9 @@ def test_scanner_does_not_modify_the_project():
         pytest.param(["--unknown-flag"], 2, id="unknown-flag"),
     ],
 )
-def test_exit_status_is_non_zero_only_for_usage_errors(tmp_path: Path, arguments: List[str], status: int):
+def test_exit_status_is_non_zero_only_for_usage_errors(
+    tmp_path: Path, arguments: list[str], status: int
+) -> None:
     values = {"fixture": str(sample_app("v2_app")), "missing": str(tmp_path / "missing")}
     command = [sys.executable, str(SCANNER), *(argument.format(**values) for argument in arguments)]
 
@@ -1213,20 +1271,36 @@ def test_exit_status_is_non_zero_only_for_usage_errors(tmp_path: Path, arguments
     assert result.returncode == status, result.stderr
 
 
-def test_scanner_uses_only_the_standard_library_and_python_38_syntax():
+def test_scanner_uses_only_the_standard_library_and_python_38_syntax() -> None:
     source = SCANNER.read_text()
     tree = ast.parse(source, feature_version=(3, 8))
     imported = {
-        alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
-    } | {node.module.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+        alias.name.split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    } | {
+        node.module.split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
 
     assert imported <= sys.stdlib_module_names
     # Standard-library APIs newer than 3.8 that ast.parse's feature_version cannot see.
-    for newer in (".removeprefix(", ".removesuffix(", "ast.unparse", "strict=", "tomllib", "zoneinfo"):
+    for newer in (
+        ".removeprefix(",
+        ".removesuffix(",
+        "ast.unparse",
+        "strict=",
+        "tomllib",
+        "zoneinfo",
+    ):
         assert newer not in source, newer
     for node in ast.walk(tree):
         if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
-            assert node.value.id not in ("list", "dict", "set", "tuple", "type"), "builtin generics need 3.9"
+            assert node.value.id not in ("list", "dict", "set", "tuple", "type"), (
+                "builtin generics need 3.9"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -1234,7 +1308,7 @@ def test_scanner_uses_only_the_standard_library_and_python_38_syntax():
 # ---------------------------------------------------------------------------
 
 
-def frontmatter() -> Dict[str, str]:
+def frontmatter() -> dict[str, str]:
     text = (SKILL_DIR / "SKILL.md").read_text()
     match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
     assert match, "SKILL.md must start with YAML frontmatter"
@@ -1246,7 +1320,7 @@ def frontmatter() -> Dict[str, str]:
     return fields
 
 
-def test_skill_frontmatter_has_only_a_valid_name_and_description():
+def test_skill_frontmatter_has_only_a_valid_name_and_description() -> None:
     fields = frontmatter()
 
     assert set(fields) == {"name", "description"}
@@ -1262,8 +1336,10 @@ def test_skill_frontmatter_has_only_a_valid_name_and_description():
         assert trigger in description
 
 
-def test_skill_passes_the_skill_creator_validator():
-    quick_validate = pytest.importorskip("quick_validate", reason="skill-creator's quick_validate is not on the path")
+def test_skill_passes_the_skill_creator_validator() -> None:
+    quick_validate = pytest.importorskip(
+        "quick_validate", reason="skill-creator's quick_validate is not on the path"
+    )
 
     valid, message = quick_validate.validate_skill(SKILL_DIR)
 
@@ -1282,7 +1358,7 @@ def skill_step(number: int) -> str:
     return flat(match.group(0))
 
 
-def test_skill_stops_on_any_python_below_310_before_editing_anything():
+def test_skill_stops_on_any_python_below_310_before_editing_anything() -> None:
     preflight = skill_step(1)
 
     assert "Stop if anything says Python below 3.10:" in preflight
@@ -1293,15 +1369,21 @@ def test_skill_stops_on_any_python_below_310_before_editing_anything():
     assert "Raise the C1 pins the user approved in step 1" in skill_step(3)
 
 
-def test_skill_leaves_judgement_calls_and_checks_to_the_project():
+def test_skill_leaves_judgement_calls_and_checks_to_the_project() -> None:
     assert "Don't guess." in skill_step(5)
     assert "Remove imports an edit leaves unused" in skill_step(4)
     verify = skill_step(6)
-    for check in ("tests", "type checker", "linter", "deprecation warnings as errors", "Re-run the scan"):
+    for check in (
+        "tests",
+        "type checker",
+        "linter",
+        "deprecation warnings as errors",
+        "Re-run the scan",
+    ):
         assert check in verify, check
 
 
-def test_skill_is_self_contained_and_small():
+def test_skill_is_self_contained_and_small() -> None:
     files = sorted(
         path.relative_to(SKILL_DIR).as_posix()
         for path in SKILL_DIR.rglob("*")
@@ -1314,7 +1396,9 @@ def test_skill_is_self_contained_and_small():
         # A path out of the skill folder, not the ellipsis in `GET .../resources`.
         assert not re.search(r"(?<![.\w])\.\./", text)
     assert len((SKILL_DIR / "SKILL.md").read_text().splitlines()) < 500
-    for link in re.findall(r"`(references/[\w./-]+|scripts/[\w./-]+)`", (SKILL_DIR / "SKILL.md").read_text()):
+    for link in re.findall(
+        r"`(references/[\w./-]+|scripts/[\w./-]+)`", (SKILL_DIR / "SKILL.md").read_text()
+    ):
         assert (SKILL_DIR / link).is_file(), link
 
 
@@ -1325,19 +1409,21 @@ def test_skill_is_self_contained_and_small():
 
 def doc_section(path: Path, change: str) -> str:
     """The text under a change's `### ID. Title` heading, up to the next heading."""
-    match = re.search(rf"^### {change}\. .*?(?=^##)", path.read_text() + "\n## end", re.MULTILINE | re.DOTALL)
+    match = re.search(
+        rf"^### {change}\. .*?(?=^##)", path.read_text() + "\n## end", re.MULTILINE | re.DOTALL
+    )
     assert match, f"{path.name} has no section for {change}"
     return match.group(0)
 
 
-def change_headings(path: Path) -> Dict[str, str]:
+def change_headings(path: Path) -> dict[str, str]:
     headings = re.findall(r"^#{2,4} ([A-Z]\d+)\. (.+)$", path.read_text(), re.MULTILINE)
     ids = [change for change, _ in headings]
     assert len(ids) == len(set(ids)), f"{path.name} has a change ID twice"
     return dict(headings)
 
 
-def test_every_change_id_is_in_both_docs_under_the_same_heading():
+def test_every_change_id_is_in_both_docs_under_the_same_heading() -> None:
     catalogue = change_headings(CHANGES)
 
     assert catalogue == change_headings(MIGRATION)
@@ -1345,7 +1431,7 @@ def test_every_change_id_is_in_both_docs_under_the_same_heading():
         assert catalogue.get(change) == title, change
 
 
-def test_the_catalogue_contents_list_every_change():
+def test_the_catalogue_contents_list_every_change() -> None:
     text = CHANGES.read_text()
     contents = text.split("## Contents", 1)[1].split("\n### ", 1)[0]
 
@@ -1353,7 +1439,7 @@ def test_the_catalogue_contents_list_every_change():
         assert f"[{change}" in contents, change
 
 
-def deprecated_mapping() -> Dict[str, str]:
+def deprecated_mapping() -> dict[str, str]:
     source = (REPO_ROOT / "permit" / "api" / "deprecated.py").read_text()
     mapping = {}
     for node in ast.walk(ast.parse(source)):
@@ -1363,11 +1449,13 @@ def deprecated_mapping() -> Dict[str, str]:
     return mapping
 
 
-def doc_mapping(path: Path) -> Dict[str, Tuple[str, Optional[Dict[str, str]]]]:
+def doc_mapping(path: Path) -> dict[str, tuple[str, dict[str, str] | None]]:
     rows = re.findall(
-        r"^\| `permit\.api\.(\w+)\(\)` \| `(permit\.[\w.]+)\(\)` \|(.*)\|$", path.read_text(), re.MULTILINE
+        r"^\| `permit\.api\.(\w+)\(\)` \| `(permit\.[\w.]+)\(\)` \|(.*)\|$",
+        path.read_text(),
+        re.MULTILINE,
     )
-    mapping: Dict[str, Tuple[str, Optional[Dict[str, str]]]] = {}
+    mapping: dict[str, tuple[str, dict[str, str] | None]] = {}
     for old, new, keywords in rows:
         assert old not in mapping, f"{path.name} lists {old} twice"
         renames = dict(re.findall(r"`(\w+)=` (?:to|becomes) `(\w+)=`", keywords))
@@ -1375,9 +1463,11 @@ def doc_mapping(path: Path) -> Dict[str, Tuple[str, Optional[Dict[str, str]]]]:
     return mapping
 
 
-def test_the_21_method_mapping_matches_the_sdk_in_both_docs_and_the_scanner():
+def test_the_21_method_mapping_matches_the_sdk_in_both_docs_and_the_scanner() -> None:
     sdk = deprecated_mapping()
-    scanner = {old: (f"permit.{new}", renames) for old, (new, renames) in scan.DEPRECATED_METHODS.items()}
+    scanner = {
+        old: (f"permit.{new}", renames) for old, (new, renames) in scan.DEPRECATED_METHODS.items()
+    }
 
     assert len(sdk) == 21
     assert {old: new for old, (new, _) in scanner.items()} == sdk
@@ -1385,11 +1475,11 @@ def test_the_21_method_mapping_matches_the_sdk_in_both_docs_and_the_scanner():
     assert doc_mapping(MIGRATION) == scanner
 
 
-def test_the_keyword_renames_match_the_sdk_signatures():
-    """A rename is where the deprecated method and its replacement name the same position differently."""
+def test_the_keyword_renames_match_the_sdk_signatures() -> None:
+    """A rename: the deprecated method and its replacement name one position differently."""
     client = Permit(PermitConfig(token="permit_key_test"))
     for old, (new, renames) in scan.DEPRECATED_METHODS.items():
-        replacement = client
+        replacement: Any = client
         for part in new.split("."):
             replacement = getattr(replacement, part)
         old_parameters = list(inspect.signature(getattr(client.api, old)).parameters)
@@ -1406,19 +1496,19 @@ def test_the_keyword_renames_match_the_sdk_signatures():
         assert len(old_parameters) == len(new_parameters), old
 
 
-def test_the_removed_names_really_are_gone():
+def test_the_removed_names_really_are_gone() -> None:
     for module_name, name in scan.REMOVED:
         module = importlib.import_module(module_name)
         assert not hasattr(module, name), f"{module_name}.{name} still exists"
 
 
-def removed_rows(path: Path, change: str) -> Dict[Tuple[str, str], Optional[str]]:
+def removed_rows(path: Path, change: str) -> dict[tuple[str, str], str | None]:
     """(module, name) -> the Safety cell, or None, for each removed name a change's table lists.
 
     A cell names them as `permit.module.name`, or as `name`, `name` from `module`, `module`,
     with `;` between groups. Rows that name no module (methods, say) are skipped.
     """
-    rows: Dict[Tuple[str, str], Optional[str]] = {}
+    rows: dict[tuple[str, str], str | None] = {}
     for line in doc_section(path, change).splitlines():
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if not line.lstrip().startswith("|") or len(cells) < 2 or set(cells[0]) <= {"-", " "}:
@@ -1433,36 +1523,44 @@ def removed_rows(path: Path, change: str) -> Dict[Tuple[str, str], Optional[str]
                 continue
             module = ""
             for item in re.findall(r"`([\w.]+)`", group):
+                name = item
                 if item.startswith("permit."):
-                    module, _, item = item.rpartition(".")
+                    module, _, name = item.rpartition(".")
                 if module:
-                    rows[(module, item)] = safety
+                    rows[(module, name)] = safety
     return rows
 
 
-def test_the_removed_name_tables_match_the_scanner():
+def test_the_removed_name_tables_match_the_scanner() -> None:
     for change in ("A3", "A6"):
-        scanner = {key: safety for key, (found, safety, _) in scan.REMOVED.items() if found == change}
+        scanner = {
+            key: safety for key, (found, safety, _) in scan.REMOVED.items() if found == change
+        }
         assert removed_rows(CHANGES, change) == scanner, change
         section = doc_section(MIGRATION, change)
         for _, name in scanner:
-            assert re.search(rf"`(?:[\w.]+\.)?{name}`", section), f"MIGRATION.md {change} does not name {name}"
+            assert re.search(rf"`(?:[\w.]+\.)?{name}`", section), (
+                f"MIGRATION.md {change} does not name {name}"
+            )
     assert set(removed_rows(MIGRATION, "A6")) == set(removed_rows(CHANGES, "A6"))
 
 
-def test_the_floor_tables_match_the_runtime_requirements():
+def test_the_floor_tables_match_the_runtime_requirements() -> None:
     with (REPO_ROOT / "pyproject.toml").open("rb") as file:
         dependencies = tomllib.load(file)["project"]["dependencies"]
-    requirements: Dict[str, List[Requirement]] = {}
+    requirements: dict[str, list[Requirement]] = {}
     for dependency in dependencies:
         requirement = Requirement(dependency)
         requirements.setdefault(requirement.name.lower().replace("_", "-"), []).append(requirement)
 
     def allowed(name: str, version: str, python: str) -> bool:
         for requirement in requirements[name]:
-            if requirement.marker is None or requirement.marker.evaluate({"python_version": python}):
+            if requirement.marker is None or requirement.marker.evaluate(
+                {"python_version": python}
+            ):
                 return requirement.specifier.contains(version, prereleases=True)
-        raise AssertionError(f"no {name} requirement applies to Python {python}")
+        msg = f"no {name} requirement applies to Python {python}"
+        raise AssertionError(msg)
 
     def below(version: str) -> str:
         """A version just below a floor: 2.8.0 -> 2.7.999, 1.10.18 -> 1.10.17, 2.13 -> 2.12."""
@@ -1471,22 +1569,34 @@ def test_the_floor_tables_match_the_runtime_requirements():
         return ".".join(str(part) for part in parts)
 
     for path in (MIGRATION, CHANGES):
-        cells = dict(re.findall(r"^\s*\| `([\w-]+)` \| `[^|]*` \| (`.+) \|$", path.read_text(), re.MULTILINE))
+        cells = dict(
+            re.findall(r"^\s*\| `([\w-]+)` \| `[^|]*` \| (`.+) \|$", path.read_text(), re.MULTILINE)
+        )
         assert set(cells) == {"aiohttp", "loguru", "typing-extensions", "pydantic"}, path.name
         for name in ("aiohttp", "loguru", "typing-extensions"):
             specifier = SpecifierSet(cells[name].strip("`"))
-            assert [requirement.specifier for requirement in requirements[name]] == [specifier], name
+            assert [requirement.specifier for requirement in requirements[name]] == [specifier], (
+                name
+            )
             assert scan.FLOOR_TEXT[name] == f"{name}{cells[name].strip('`')}"
             floor = next(spec.version for spec in specifier if spec.operator == ">=")
             ceiling = next(spec.version for spec in specifier if spec.operator == "<")
             assert scan.FLOORS[name] == [(Version(floor).release, Version(ceiling).release)], name
-        floors = re.findall(r"`>=([\d.]+),<2` or `>=([\d.]+)` on (?:Python )?(3\.\d+)(?:-(3\.\d+))?", cells["pydantic"])
-        assert [row[2:] for row in floors] == [("3.10", "3.12"), ("3.13", ""), ("3.14", "")], path.name
+        floors = re.findall(
+            r"`>=([\d.]+),<2` or `>=([\d.]+)` on (?:Python )?(3\.\d+)(?:-(3\.\d+))?",
+            cells["pydantic"],
+        )
+        assert [row[2:] for row in floors] == [("3.10", "3.12"), ("3.13", ""), ("3.14", "")], (
+            path.name
+        )
         for v1_floor, v2_floor, first, last in floors:
             for minor in range(int(first[2:]), int((last or first)[2:]) + 1):
                 for floor in (v1_floor, v2_floor):
                     assert allowed("pydantic", floor, f"3.{minor}"), (floor, minor)
-                    assert not allowed("pydantic", below(floor), f"3.{minor}"), (below(floor), minor)
+                    assert not allowed("pydantic", below(floor), f"3.{minor}"), (
+                        below(floor),
+                        minor,
+                    )
         documented = {version for row in floors for version in row[:2]}
         assert set(re.findall(r">=([\d.]+)", scan.FLOOR_TEXT["pydantic"])) == documented
         assert scan.FLOORS["pydantic"] == [
@@ -1495,8 +1605,11 @@ def test_the_floor_tables_match_the_runtime_requirements():
         ]
 
 
-def test_the_staying_on_2x_advice_states_what_was_verified():
-    for path, heading in ((MIGRATION, "## Staying on 2.x for now"), (SKILL_DIR / "SKILL.md", "## Staying on 2.x")):
+def test_the_staying_on_2x_advice_states_what_was_verified() -> None:
+    for path, heading in (
+        (MIGRATION, "## Staying on 2.x for now"),
+        (SKILL_DIR / "SKILL.md", "## Staying on 2.x"),
+    ):
         section = flat(path.read_text().split(heading, 1)[1].split("\n## ", 1)[0])
         for fact in (
             "aiohttp>=3.14.3",
@@ -1509,7 +1622,9 @@ def test_the_staying_on_2x_advice_states_what_was_verified():
         ):
             assert fact in section, (path.name, fact)
     assert "On Python 3.8 or 3.9 this is not possible." in flat(MIGRATION.read_text())
-    assert "the aiohttp and anyio fixes can't be installed" in flat((SKILL_DIR / "SKILL.md").read_text())
+    assert "the aiohttp and anyio fixes can't be installed" in flat(
+        (SKILL_DIR / "SKILL.md").read_text()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1526,23 +1641,44 @@ def test_flat_call():
 """
 
 
-def run_pytest_with(tmp_path: Path, options: List[str]) -> str:
+def run_pytest_with(tmp_path: Path, options: list[str]) -> str:
     """Run a test that makes one flat permit.api call under the given -W options."""
     if PYDANTIC_VERSION < (2, 0):
         # SKILL.md step 6 and D1: on pydantic 1, `import permit` warns once, so add this filter too.
         options = [*options, "-W", "ignore:Support for pydantic 1:DeprecationWarning"]
     (tmp_path / "test_flat.py").write_text(FLAT_CALL_TEST)
-    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *options, "test_flat.py"]
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        *options,
+        "test_flat.py",
+    ]
     # The permit under test, whether or not it is installed, and no warning settings from outside.
-    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")
+    }
     env["PYTHONPATH"] = str(REPO_ROOT)
-    result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True, check=False, timeout=120)
+    result = subprocess.run(
+        command, cwd=tmp_path, env=env, capture_output=True, text=True, check=False, timeout=120
+    )
     return result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("path", [SKILL_DIR / "SKILL.md", MIGRATION], ids=["SKILL.md", "MIGRATION.md"])
-def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(tmp_path: Path, path: Path):
-    command = re.search(r"^\s*python -m pytest((?: -W (?:\"[^\"]+\"|\S+))+)\s*$", path.read_text(), re.MULTILINE)
+@pytest.mark.parametrize(
+    "path", [SKILL_DIR / "SKILL.md", MIGRATION], ids=["SKILL.md", "MIGRATION.md"]
+)
+def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(
+    tmp_path: Path, path: Path
+) -> None:
+    command = re.search(
+        r"^\s*python -m pytest((?: -W (?:\"[^\"]+\"|\S+))+)\s*$", path.read_text(), re.MULTILINE
+    )
     assert command, f"{path.name} has no `python -m pytest -W ...` command"
 
     output = run_pytest_with(tmp_path, shlex.split(command.group(1)))
@@ -1552,7 +1688,7 @@ def test_the_documented_warnings_as_errors_run_fails_on_a_flat_call(tmp_path: Pa
     assert "DeprecationWarning: permit.api.get_user() is deprecated" in output, output
 
 
-def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: Path):
+def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: Path) -> None:
     for path in (SKILL_DIR / "SKILL.md", MIGRATION):
         assert '-W "error:permit.api.:DeprecationWarning"' in path.read_text(), path.name
 
@@ -1562,30 +1698,36 @@ def test_the_documented_narrow_filter_fails_only_on_the_flat_methods(tmp_path: P
     assert "DeprecationWarning: permit.api.get_user() is deprecated" in output, output
 
 
-def test_the_documented_filter_silences_the_flat_methods(httpserver: HTTPServer, config: PermitConfig):
+def test_the_documented_filter_silences_the_flat_methods(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     text = MIGRATION.read_text()
     code = re.search(r"In code: `(warnings\.filterwarnings\(.+\))`\.", text)
     assert code, "MIGRATION.md has no in-code filter"
     ini_filter = re.search(r"^\s*ignore:(permit\\\.api.+):DeprecationWarning$", text, re.MULTILINE)
     assert ini_filter, "MIGRATION.md has no pytest.ini filter for the flat methods"
-    assert f'message=r"{ini_filter.group(1)}"' in code.group(1), "the ini and in-code filters differ"
-    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_json("user-1"))
+    assert f'message=r"{ini_filter.group(1)}"' in code.group(1), (
+        "the ini and in-code filters differ"
+    )
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        user_json("user-1")
+    )
     client = Permit(config)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
         with pytest.raises(DeprecationWarning):
             asyncio.run(client.api.get_user("user-1"))
-        exec(code.group(1), {"warnings": warnings})
+        exec(code.group(1), {"warnings": warnings})  # noqa: S102 - the guide's snippet under test
         assert asyncio.run(client.api.get_user("user-1")).key == "user-1"
 
 
-def diff_sides(change: str) -> Tuple[str, str]:
+def diff_sides(change: str) -> tuple[str, str]:
     """The code before and after the first diff under a change's heading in MIGRATION.md."""
     block = re.search(r"```diff\n(.*?)```", doc_section(MIGRATION, change), re.DOTALL)
     assert block, f"MIGRATION.md {change} has no diff"
-    before: List[str] = []
-    after: List[str] = []
+    before: list[str] = []
+    after: list[str] = []
     for line in block.group(1).splitlines():
         marker, code = line[:2], line[2:]
         if marker in ("- ", "  ", ""):
@@ -1595,12 +1737,15 @@ def diff_sides(change: str) -> Tuple[str, str]:
     return "\n".join(before), "\n".join(after)
 
 
-def run_snippet(code: str, namespace: Dict[str, Any]) -> Dict[str, Any]:
+def run_snippet(code: str, namespace: dict[str, Any]) -> dict[str, Any]:
     """Run a snippet from the guide, as a coroutine when it awaits, and return what it bound."""
+    # The snippets are the guide's own examples, which is what these tests check.
     if "await " not in code:
-        exec(code, namespace)
+        exec(code, namespace)  # noqa: S102
         return namespace
-    exec(f"async def _snippet():\n{textwrap.indent(code, '    ')}\n    return locals()\n", namespace)
+    exec(  # noqa: S102
+        f"async def _snippet():\n{textwrap.indent(code, '    ')}\n    return locals()\n", namespace
+    )
     return asyncio.run(namespace["_snippet"]())
 
 
@@ -1613,11 +1758,17 @@ IDS = {
 }
 
 
-def user_json(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "email": f"{key}@example.com", "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+def user_json(key: str) -> dict[str, Any]:
+    return {
+        **IDS,
+        "key": key,
+        "email": f"{key}@example.com",
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
-def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: PermitConfig):
+def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: PermitConfig) -> None:
     relation = {
         **IDS,
         "key": "parent",
@@ -1643,7 +1794,7 @@ def test_the_guide_a1_diff_reads_the_page(httpserver: HTTPServer, config: Permit
 
 def test_the_guide_a2_diff_calls_the_blocking_method_directly(
     httpserver: HTTPServer, config: PermitConfig, monkeypatch: pytest.MonkeyPatch
-):
+) -> None:
     httpserver.expect_request("/authorized_users", method="POST").respond_with_json(
         {"resource": "document:1", "tenant": "default", "users": {}}
     )
@@ -1664,7 +1815,7 @@ def test_the_guide_a2_diff_calls_the_blocking_method_directly(
 
 
 @pytest.mark.parametrize("change", ["A3", "A6"])
-def test_the_guide_import_diffs_import_what_3_0_has(change: str):
+def test_the_guide_import_diffs_import_what_3_0_has(change: str) -> None:
     before, after = diff_sides(change)
 
     run_snippet(after, {})
@@ -1672,23 +1823,30 @@ def test_the_guide_import_diffs_import_what_3_0_has(change: str):
         run_snippet(before, {})
 
 
-def test_the_guide_a4_and_a5_diffs_handle_missing_values():
-    log = DetailedAuditLogModel.construct(pdp_config_id=None, objects={})
+def test_the_guide_a4_and_a5_diffs_handle_missing_values() -> None:
+    # construct() skips validation, so a model can hold only the fields a snippet reads; the
+    # pydantic plugin types it as if every required field had to be passed.
+    log = DetailedAuditLogModel.construct(pdp_config_id=None, objects={})  # type: ignore[call-arg, arg-type]
     before, after = diff_sides("A4")
     found = run_snippet(after, {"log": log, "AuditLogObjectsModel": AuditLogObjectsModel})
     assert (found["config_id"], found["user"]) == (None, None)
     with pytest.raises(AttributeError):
         run_snippet(before, {"log": log})
 
-    tuples = [RelationshipTupleRead.construct(object_id=None), RelationshipTupleRead.construct(object_id=UUID(int=1))]
+    tuples = [
+        RelationshipTupleRead.construct(object_id=None),  # type: ignore[call-arg]
+        RelationshipTupleRead.construct(object_id=UUID(int=1)),  # type: ignore[call-arg]
+    ]
     before, after = diff_sides("A5")
     assert run_snippet(after, {"tuples": tuples})["ids"] == [UUID(int=1).hex]
     with pytest.raises(AttributeError):
         run_snippet(before, {"tuples": tuples})
 
 
-def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(httpserver: HTTPServer, config: PermitConfig):
-    bodies: List[Any] = []
+def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    bodies: list[Any] = []
 
     def record(request: Request) -> Response:
         bodies.append(json.loads(request.get_data()))
@@ -1705,7 +1863,9 @@ def test_the_guide_w1_diff_sends_only_the_fields_that_have_values(httpserver: HT
     assert bodies == [{"first_name": "Ada"}, {"first_name": "Ada", "last_name": None}]
 
 
-def test_the_guide_w5_diff_matches_the_header_permit_sends(httpserver: HTTPServer, config: PermitConfig):
+def test_the_guide_w5_diff_matches_the_header_permit_sends(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
     asyncio.run(Permit(config).check("user-1", "read", "document"))
     request = httpserver.log[-1][0]
@@ -1716,8 +1876,12 @@ def test_the_guide_w5_diff_matches_the_header_permit_sends(httpserver: HTTPServe
         run_snippet(before, {"request": request, "token": config.token})
 
 
-def test_the_guide_t2_diff_uses_the_pydantic_v1_method(httpserver: HTTPServer, config: PermitConfig):
-    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_json("user-1"))
+def test_the_guide_t2_diff_uses_the_pydantic_v1_method(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        user_json("user-1")
+    )
     before, after = diff_sides("T2")
 
     assert run_snippet(after, {"permit": Permit(config)})["data"]["key"] == "user-1"
@@ -1725,7 +1889,9 @@ def test_the_guide_t2_diff_uses_the_pydantic_v1_method(httpserver: HTTPServer, c
         run_snippet(before, {"permit": Permit(config)})
 
 
-def test_the_guide_d2_diff_sends_the_same_requests(httpserver: HTTPServer, config: PermitConfig):
+def test_the_guide_d2_diff_sends_the_same_requests(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     assignment = {
         **IDS,
         "user": "user-1",
@@ -1736,8 +1902,12 @@ def test_the_guide_d2_diff_sends_the_same_requests(httpserver: HTTPServer, confi
         "tenant_id": IDS["id"],
         "created_at": TIMESTAMP,
     }
-    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(user_json("user-1"))
-    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="POST").respond_with_json(assignment)
+    httpserver.expect_request(f"{FACTS}/users/user-1", method="GET").respond_with_json(
+        user_json("user-1")
+    )
+    httpserver.expect_request(f"{FACTS}/users/user-1/roles", method="POST").respond_with_json(
+        assignment
+    )
     before, after = diff_sides("D2")
 
     run_snippet(after, {"permit": Permit(config)})
@@ -1747,24 +1917,30 @@ def test_the_guide_d2_diff_sends_the_same_requests(httpserver: HTTPServer, confi
         run_snippet(before, {"permit": Permit(config)})
 
     assert [sent(request) for request, _ in httpserver.log] == replacement
-    assert [request["path"] for request in replacement] == [f"{FACTS}/users/user-1", f"{FACTS}/users/user-1/roles"]
+    assert [request["path"] for request in replacement] == [
+        f"{FACTS}/users/user-1",
+        f"{FACTS}/users/user-1/roles",
+    ]
 
 
-def safety_markers(section: str) -> Set[str]:
+def safety_markers(section: str) -> set[str]:
     bold = re.findall(r"\*\*(SAFE|NEEDS-REVIEW)\b", section)
     cells = re.findall(r"\| (SAFE|NEEDS-REVIEW) \|", section)
     return set(bold) | set(cells)
 
 
-def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
+def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path) -> None:
     write(
         tmp_path,
         {
             "requirements-dev.txt": "permit @ git+https://github.com/permitio/permit-python\n",
-            "app.py": "import anyio\nfrom permit import Permit  # type: ignore[import-untyped, attr-defined]\n",
+            "app.py": (
+                "import anyio\n"
+                "from permit import Permit  # type: ignore[import-untyped, attr-defined]\n"
+            ),
         },
     )
-    reported: Dict[str, Set[str]] = {}
+    reported: dict[str, set[str]] = {}
     for _, _, change, safety in findings(sample_app("v2_app")) + findings(tmp_path):
         reported.setdefault(change, set()).add(safety)
 
@@ -1772,8 +1948,8 @@ def test_the_catalogue_states_the_safety_the_scanner_reports(tmp_path: Path):
         assert safety_markers(doc_section(CHANGES, change)) == reported.get(change, set()), change
 
 
-def test_the_catalogue_never_calls_an_untraced_receiver_safe():
-    items: List[List[str]] = []
+def test_the_catalogue_never_calls_an_untraced_receiver_safe() -> None:
+    items: list[list[str]] = []
     for line in CHANGES.read_text().splitlines():
         if re.match(r"^\s*- ", line):
             items.append([line.strip()])

@@ -34,7 +34,7 @@ the site to the user with the recommendation, and apply what they choose).
   or `uv pip compile`, recognised by its header or `# via` lines) that pins permit below 3.
 - Edit: `permit>=3.0.0,<4`. Regenerate the lock file with the project's own tool (`uv lock`,
   `poetry lock`, `pipenv lock`, `pip-compile`, or the command in a compiled file's header); never
-  edit a lock by hand. **SAFE.** A direct URL or unparseable spec is **NEEDS-REVIEW**.
+  edit a lock by hand. **SAFE.** A direct URL or unparsable spec is **NEEDS-REVIEW**.
 
 ## Compatibility
 

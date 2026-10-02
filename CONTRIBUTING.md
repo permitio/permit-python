@@ -18,6 +18,27 @@ uv run pre-commit install    # lint, format, type-check and uv.lock checks on ev
 import the working tree's `permit`. `.python-version` selects Python 3.11, the version the
 end-to-end CI job runs on. The SDK itself supports Python 3.10 and later.
 
+The ruff, mypy and typos hooks run through `uv run --locked`, which syncs `.venv` to `uv.lock`
+before running the tool, so the versions in `uv.lock` are the only ones in play; the hooks fail
+if `uv.lock` is out of date with `pyproject.toml`. That sync uses the default groups, so a commit
+also switches a `.venv` synced with `--group pydantic-v1` back to pydantic 2.x. The same checks
+by hand:
+
+```sh
+uv run ruff check              # lint (the rule set is `select = ["ALL"]` minus justified ignores)
+uv run ruff format             # format
+uv run mypy                    # strict type check of every Python file but the generated models
+uv run typos                   # spelling
+```
+
+The SDK is type-checked against both pydantic majors, because it imports pydantic differently
+per major. CI runs mypy once more under pydantic 1; do the same locally when touching a pydantic
+import:
+
+```sh
+uv run --group pydantic-v1 mypy
+```
+
 ## Dependencies
 
 - Runtime requirements are `[project].dependencies` in `pyproject.toml`. They are open
@@ -46,6 +67,10 @@ against local mock servers and need no PDP, API key or network access:
 ```sh
 uv run pytest -m "not e2e"
 ```
+
+Any warning fails the test that raised it (`filterwarnings` in `[tool.pytest]`), except the
+one `import permit` issues on pydantic 1 on purpose. The migration skill's and the CI
+scripts' tests do the same with their own configs.
 
 ### Both pydantic majors
 
@@ -77,7 +102,7 @@ versions the runtime requirements allow and at the newest.
 `tests/test_typing_surface.py` runs mypy on `tests/type_check/consumer.py` the way a user's
 project sees an installed permit, and fails while `permit/_sync_types.pyi` is out of date
 (see [Regenerating the sync stubs](#regenerating-the-sync-stubs)). The `mypy` pre-commit
-hook type-checks the SDK itself.
+hook type-checks the SDK itself, strictly and with the pydantic plugin (see [Setup](#setup)).
 
 ### The migration skill's tests
 
@@ -191,8 +216,8 @@ has to be restored by hand.
 3. Re-apply the hand fixes: the entries in `.github/scripts/schema_drift_allowlist.json`
    whose reason says "by hand".
 
-4. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff in
-   `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
+4. Do not run `ruff format` on it: `permit/api/models.py` is excluded from ruff and typos
+   in `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
 
 5. Run the schema drift check, the offline tests under both pydantic majors (see above) and
    `uv run pre-commit run --all-files`.

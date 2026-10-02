@@ -35,6 +35,11 @@ updates:
       default-days: 7
       semver-major-days: 14
     groups:
+      # Listed first, since a dependency joins the first group it matches. A new
+      # lint rule or type-check error in one of these must not hold up the
+      # runtime floor bumps grouped below, so they get a PR of their own.
+      lint-tools:
+        patterns: ["ruff", "mypy", "typos"]
       minor-and-patch:
         update-types: ["minor", "patch"]
     ignore:
@@ -69,6 +74,28 @@ updates:
     commit-message:
       prefix: "deps"
       prefix-development: "deps-dev"
+    labels:
+      - "dependencies"
+
+  # pre-commit hook revisions in .pre-commit-config.yaml. Dependabot follows the
+  # `# frozen: vX` comment on SHA-pinned revs and rewrites the SHA and the
+  # comment together. `repo: local` hooks (ruff, mypy, typos, uv-lock) are
+  # skipped: ruff, mypy and typos come from uv.lock, which the "uv" entry above
+  # maintains, and uv-lock runs the uv on PATH. Only `default-days` cooldown is
+  # supported for this ecosystem.
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "deps"
     labels:
       - "dependencies"
 

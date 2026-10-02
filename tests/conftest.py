@@ -2,6 +2,8 @@ import asyncio
 import functools
 import os
 import random
+from collections.abc import Awaitable, Callable, Coroutine, Iterator
+from typing import Any, ParamSpec, TypeVar
 
 import pytest
 from loguru import logger
@@ -25,6 +27,10 @@ def config(httpserver: HTTPServer) -> PermitConfig:
     return offline_config(httpserver.url_for("").rstrip("/"))
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
 # The fixtures below need a real API key, the Permit API and a PDP. Every test
 # that uses them is marked e2e, which the offline CI job deselects.
 MISSING_KEY = (
@@ -36,9 +42,13 @@ MISSING_KEY = (
 @pytest.fixture
 def permit_config() -> PermitConfig:
     default_pdp_address = (
-        "https://cloudpdp.api.permit.io" if os.getenv("CLOUD_PDP") == "true" else "http://localhost:7766"
+        "https://cloudpdp.api.permit.io"
+        if os.getenv("CLOUD_PDP") == "true"
+        else "http://localhost:7766"
     )
-    default_api_address = "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
+    default_api_address = (
+        "https://api.permit.io" if os.getenv("API_TIER") == "prod" else "http://localhost:8000"
+    )
 
     token = os.getenv("PDP_API_KEY", "")
     pdp_address = os.getenv("PDP_URL", default_pdp_address)
@@ -126,7 +136,7 @@ def _retry_after_seconds(err: PermitApiError) -> float | None:
     """The server's own Retry-After, when it sends one."""
     try:
         raw = err.response.headers.get("Retry-After")
-    except Exception:  # noqa: BLE001 - a missing/odd header must never mask the 429
+    except Exception:  # a missing/odd header must never mask the 429
         return None
     if not raw:
         return None
@@ -136,9 +146,11 @@ def _retry_after_seconds(err: PermitApiError) -> float | None:
         return None
 
 
-def _retry_on_rate_limit(method):
+def _retry_on_rate_limit(
+    method: Callable[P, Awaitable[R]],
+) -> Callable[P, Coroutine[Any, Any, R]]:
     @functools.wraps(method)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         for attempt in range(_MAX_RETRIES):
             try:
                 return await method(*args, **kwargs)
@@ -151,16 +163,20 @@ def _retry_on_rate_limit(method):
                 delay = _retry_after_seconds(err)
                 if delay is None:
                     delay = min(_BASE_BACKOFF_S * (2**attempt), _MAX_BACKOFF_S)
-                    delay *= 0.5 + random.random() / 2
-                logger.warning(f"rate limited (429); retrying in {delay:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                    delay *= 0.5 + random.random() / 2  # noqa: S311 - jitter, not crypto
+                logger.warning(
+                    f"rate limited (429); retrying in {delay:.1f}s "
+                    f"(attempt {attempt + 1}/{_MAX_RETRIES})"
+                )
                 await asyncio.sleep(delay)
-        raise AssertionError("unreachable")  # pragma: no cover
+        msg = "unreachable"
+        raise AssertionError(msg)  # pragma: no cover
 
     return wrapper
 
 
 @pytest.fixture(scope="session", autouse=True)
-def retry_rate_limited_requests():
+def retry_rate_limited_requests() -> Iterator[None]:
     """Make every SDK HTTP verb retry a 429 for the duration of the test session."""
     verbs = ("get", "post", "put", "patch", "delete")
     originals = {verb: getattr(SimpleHttpClient, verb) for verb in verbs}

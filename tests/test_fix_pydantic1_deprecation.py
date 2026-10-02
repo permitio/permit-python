@@ -1,8 +1,8 @@
 """Offline tests for the pydantic 1 deprecation warning (PER-16236).
 
-A future major release, permit 4.0, will drop pydantic 1. Until then, importing permit on pydantic 1 issues one
-DeprecationWarning that names 4.0 and says what to do, attributed to the line that imported
-permit. On pydantic 2 it issues none.
+A future major release, permit 4.0, will drop pydantic 1. Until then, importing permit on
+pydantic 1 issues one DeprecationWarning that names 4.0 and says what to do, attributed to the
+line that imported permit. On pydantic 2 it issues none.
 
 This process imported permit before any test ran, so each warning test imports it in a
 fresh interpreter and reports every warning recorded there.
@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -58,7 +59,7 @@ print(json.dumps(records))
 FIRST_IMPORT_LINENO = CONSUMER.splitlines().index("    {first_import}") + 1
 
 
-def pydantic_1_warnings_on_import(consumer: Path, first_import: str) -> list[dict]:
+def pydantic_1_warnings_on_import(consumer: Path, first_import: str) -> list[dict[str, Any]]:
     """Run a script that imports permit in a fresh interpreter, recording every warning.
 
     Returns the recorded warnings whose message mentions pydantic 1, of any category.
@@ -78,7 +79,9 @@ def pydantic_1_warnings_on_import(consumer: Path, first_import: str) -> list[dic
 
 @pytest.mark.skipif(not ON_PYDANTIC_1, reason="pydantic 2 is installed")
 @pytest.mark.parametrize("first_import", FIRST_IMPORTS)
-def test_importing_permit_on_pydantic_1_warns_once_at_the_import(tmp_path: Path, first_import: str):
+def test_importing_permit_on_pydantic_1_warns_once_at_the_import(
+    tmp_path: Path, first_import: str
+) -> None:
     consumer = tmp_path / "consumer.py"
 
     warned = pydantic_1_warnings_on_import(consumer, first_import)
@@ -94,20 +97,20 @@ def test_importing_permit_on_pydantic_1_warns_once_at_the_import(tmp_path: Path,
 
 @pytest.mark.skipif(ON_PYDANTIC_1, reason="pydantic 1 is installed")
 @pytest.mark.parametrize("first_import", FIRST_IMPORTS)
-def test_importing_permit_on_pydantic_2_does_not_warn(tmp_path: Path, first_import: str):
+def test_importing_permit_on_pydantic_2_does_not_warn(tmp_path: Path, first_import: str) -> None:
     warned = pydantic_1_warnings_on_import(tmp_path / "consumer.py", first_import)
 
     assert warned == []
 
 
-def test_the_pydantic_version_permit_checks_is_not_a_public_name():
-    """permit reads the pydantic version to decide whether to warn; the constant is not API.
+def test_the_pydantic_version_permit_checks_is_not_a_public_name() -> None:
+    """Permit reads the pydantic version to decide whether to warn; the constant is not API.
 
     permit has no ``__all__``, so any name without a leading underscore is public: it is in
     ``dir(permit)`` and ``from permit import *`` exports it.
     """
-    exported: dict = {}
-    exec("from permit import *", exported)
+    exported: dict[str, object] = {}
+    exec("from permit import *", exported)  # noqa: S102 - what a star import exports is the subject
 
     assert "PYDANTIC_VERSION" not in exported, "from permit import * exports PYDANTIC_VERSION"
     assert not hasattr(permit, "PYDANTIC_VERSION")

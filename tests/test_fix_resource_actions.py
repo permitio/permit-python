@@ -10,7 +10,7 @@ body) and the model the response parses into. Every request is served by a local
 import asyncio
 import inspect
 from operator import attrgetter
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -28,6 +28,15 @@ from permit.api.resource_action_groups import ResourceActionGroupsApi
 from permit.api.resource_actions import ResourceActionsApi
 from permit.config import PermitConfig
 from permit.sync import Permit as SyncPermit
+from permit.utils.pydantic_version import PYDANTIC_VERSION
+
+if TYPE_CHECKING:
+    # The v1 API is what runs under either pydantic major, so type-check against it.
+    from pydantic.v1 import BaseModel
+elif PYDANTIC_VERSION < (2, 0):
+    from pydantic import BaseModel
+else:
+    from pydantic.v1 import BaseModel
 from tests.utils import SCHEMA, Call, call, sent
 
 RESOURCES = f"{SCHEMA}/resources"
@@ -39,7 +48,7 @@ DEFAULT_PAGE = [("page", "1"), ("per_page", "100")]
 SECOND_PAGE = [("page", "2"), ("per_page", "10")]
 
 
-def common(key: str, object_id: str) -> Dict[str, Any]:
+def common(key: str, object_id: str) -> dict[str, Any]:
     return {
         "key": key,
         "name": key.title(),
@@ -53,11 +62,11 @@ def common(key: str, object_id: str) -> Dict[str, Any]:
     }
 
 
-def action(key: str) -> Dict[str, Any]:
+def action(key: str) -> dict[str, Any]:
     return {**common(key, ACTION_ID), "permission_name": f"document:{key}"}
 
 
-def group(key: str) -> Dict[str, Any]:
+def group(key: str) -> dict[str, Any]:
     return {**common(key, GROUP_ID), "actions": ["read", "write"]}
 
 
@@ -71,10 +80,10 @@ class Case(NamedTuple):
     call: Call
     method: str
     path: str
-    query: List[Tuple[str, str]]
+    query: list[tuple[str, str]]
     body: Any
-    response: Union[Dict[str, Any], List[Dict[str, Any]], None]
-    model: Optional[type]
+    response: dict[str, Any] | list[dict[str, Any]] | None
+    model: type[BaseModel] | None
 
 
 ACTIONS = "permit.api.resource_actions"
@@ -136,7 +145,11 @@ CASES = {
         model=ResourceActionRead,
     ),
     "actions.create-from-dict": Case(
-        call=call(f"{ACTIONS}.create", "document", {"key": "write", "name": "Write", "attributes": {"risk": "high"}}),
+        call=call(
+            f"{ACTIONS}.create",
+            "document",
+            {"key": "write", "name": "Write", "attributes": {"risk": "high"}},
+        ),
         method="POST",
         path=f"{RESOURCES}/document/actions",
         query=[],
@@ -145,7 +158,9 @@ CASES = {
         model=ResourceActionRead,
     ),
     "actions.update": Case(
-        call=call(f"{ACTIONS}.update", "document", "write", ResourceActionUpdate(name="Write access")),
+        call=call(
+            f"{ACTIONS}.update", "document", "write", ResourceActionUpdate(name="Write access")
+        ),
         method="PATCH",
         path=f"{RESOURCES}/document/actions/write",
         query=[],
@@ -239,7 +254,9 @@ CASES = {
         model=ResourceActionGroupRead,
     ),
     "action_groups.update": Case(
-        call=call(f"{GROUPS}.update", "document", "editors", ResourceActionGroupUpdate(actions=["read"])),
+        call=call(
+            f"{GROUPS}.update", "document", "editors", ResourceActionGroupUpdate(actions=["read"])
+        ),
         method="PATCH",
         path=f"{RESOURCES}/document/action_groups/editors",
         query=[],
@@ -248,7 +265,9 @@ CASES = {
         model=ResourceActionGroupRead,
     ),
     "action_groups.update-clears-a-field": Case(
-        call=call(f"{GROUPS}.update", "document", "editors", {"name": "Editors", "description": None}),
+        call=call(
+            f"{GROUPS}.update", "document", "editors", {"name": "Editors", "description": None}
+        ),
         method="PATCH",
         path=f"{RESOURCES}/document/action_groups/editors",
         query=[],
@@ -268,11 +287,13 @@ CASES = {
 }
 
 
-def public_methods(api: type) -> set:
-    return {name for name, value in vars(api).items() if not name.startswith("_") and callable(value)}
+def public_methods(api: type) -> set[str]:
+    return {
+        name for name, value in vars(api).items() if not name.startswith("_") and callable(value)
+    }
 
 
-def test_every_public_method_has_a_case():
+def test_every_public_method_has_a_case() -> None:
     expected = {f"{ACTIONS}.{name}" for name in public_methods(ResourceActionsApi)} | {
         f"{GROUPS}.{name}" for name in public_methods(ResourceActionGroupsApi)
     }
@@ -283,7 +304,9 @@ def test_every_public_method_has_a_case():
 
 @pytest.mark.parametrize("flavour", ["async", "sync"])
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
-def test_request_and_response(httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str):
+def test_request_and_response(
+    httpserver: HTTPServer, config: PermitConfig, case: Case, flavour: str
+) -> None:
     handler = httpserver.expect_request(case.path, method=case.method)
     if case.response is None:
         handler.respond_with_data("", status=204)

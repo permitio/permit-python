@@ -7,17 +7,20 @@ replacement sends and return what it returns. Every request is served by a local
 ``/v2/api-key/scope`` lookup are needed.
 """
 
+import ast
 import asyncio
 import copy
 import inspect
 import json
 import os
+import re
 import subprocess
 import sys
 import warnings
+from collections.abc import Awaitable, Callable
 from operator import attrgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, NamedTuple
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -53,15 +56,27 @@ IDS = {
 }
 
 
-def user(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "email": f"{key}@example.com", "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+def user(key: str) -> dict[str, Any]:
+    return {
+        **IDS,
+        "key": key,
+        "email": f"{key}@example.com",
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
-def role(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "name": key.title(), "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+def role(key: str) -> dict[str, Any]:
+    return {
+        **IDS,
+        "key": key,
+        "name": key.title(),
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
-def tenant(key: str) -> Dict[str, Any]:
+def tenant(key: str) -> dict[str, Any]:
     return {
         **IDS,
         "key": key,
@@ -72,11 +87,17 @@ def tenant(key: str) -> Dict[str, Any]:
     }
 
 
-def resource(key: str) -> Dict[str, Any]:
-    return {**IDS, "key": key, "name": key.title(), "created_at": TIMESTAMP, "updated_at": TIMESTAMP}
+def resource(key: str) -> dict[str, Any]:
+    return {
+        **IDS,
+        "key": key,
+        "name": key.title(),
+        "created_at": TIMESTAMP,
+        "updated_at": TIMESTAMP,
+    }
 
 
-def assignment() -> Dict[str, Any]:
+def assignment() -> dict[str, Any]:
     return {
         **IDS,
         "user": "user-1",
@@ -102,9 +123,9 @@ class FacadeCase(NamedTuple):
 
     facade: Call
     replacement: Call
-    request: Tuple[str, str]
-    response: Union[Dict[str, Any], List[Dict[str, Any]], None]
-    model: Optional[type]
+    request: tuple[str, str]
+    response: dict[str, Any] | list[dict[str, Any]] | None
+    model: type | None
 
 
 NEW_USER = {"key": "user-1", "email": "user-1@example.com"}
@@ -141,7 +162,9 @@ CASES = [
     ),
     FacadeCase(
         facade=call("permit.api.get_assigned_roles", "user-1", "tenant-1", page=2, per_page=10),
-        replacement=call("permit.api.users.get_assigned_roles", "user-1", tenant="tenant-1", page=2, per_page=10),
+        replacement=call(
+            "permit.api.users.get_assigned_roles", "user-1", tenant="tenant-1", page=2, per_page=10
+        ),
         request=("GET", f"{FACTS}/role_assignments"),
         response=[assignment()],
         model=RoleAssignmentRead,
@@ -295,7 +318,9 @@ CASES = [
     ),
     FacadeCase(
         facade=call("permit.api.update_resource", "document", ResourceUpdate(**RESOURCE_CHANGES)),
-        replacement=call("permit.api.resources.update", "document", ResourceUpdate(**RESOURCE_CHANGES)),
+        replacement=call(
+            "permit.api.resources.update", "document", ResourceUpdate(**RESOURCE_CHANGES)
+        ),
         request=("PATCH", f"{SCHEMA}/resources/document"),
         response=resource("document"),
         model=ResourceRead,
@@ -319,38 +344,61 @@ CASES = [
 
 def removal_warning(case: FacadeCase) -> str:
     return (
-        f"{case.facade.path}() is deprecated and will be removed in permit 4.0; use {case.replacement.path}() instead."
+        f"{case.facade.path}() is deprecated and will be removed in permit 4.0; "
+        f"use {case.replacement.path}() instead."
     )
 
 
-def deprecations(caught: List[warnings.WarningMessage]) -> List[Tuple[type, str, str, int]]:
+def deprecations(caught: list[warnings.WarningMessage]) -> list[tuple[type, str, str, int]]:
     """Every DeprecationWarning in ``caught``, whoever raised it, and the line it points at.
 
     Other categories are left out: a ResourceWarning, for one, comes from garbage
     collection and can land in whichever test happens to be running.
     """
     return [
-        (w.category, str(w.message), w.filename, w.lineno) for w in caught if issubclass(w.category, DeprecationWarning)
+        (w.category, str(w.message), w.filename, w.lineno)
+        for w in caught
+        if issubclass(w.category, DeprecationWarning)
     ]
 
 
-def call_blocking(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
+def call_blocking(
+    method: Callable[..., object], args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> object:
     return method(*args, **kwargs)
 
 
-async def call_awaiting(method: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
+async def call_awaiting(
+    method: Callable[..., Awaitable[object]], args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> object:
     return await method(*args, **kwargs)
 
 
+def statement_line(helper: Callable[..., Any]) -> int:
+    """The line of the one statement in ``helper``'s body, however its signature is laid out."""
+    (function,) = ast.parse(inspect.getsource(helper)).body
+    assert isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+    (statement,) = function.body
+    return helper.__code__.co_firstlineno + statement.lineno - 1
+
+
 # Where each client's deprecation warning must point: the line in this file that calls
-# the method, which is the first line of the helper above that calls it for that client.
+# the method, which is the statement in the helper above that calls it for that client.
 CALL_SITES = {
-    "sync": (__file__, call_blocking.__code__.co_firstlineno + 1),
-    "async": (__file__, call_awaiting.__code__.co_firstlineno + 1),
+    "sync": (__file__, statement_line(call_blocking)),
+    "async": (__file__, statement_line(call_awaiting)),
 }
 
 
-MODEL_INPUTS = (UserCreate, TenantCreate, TenantUpdate, RoleCreate, RoleUpdate, ResourceCreate, ResourceUpdate)
+MODEL_INPUTS = (
+    UserCreate,
+    TenantCreate,
+    TenantUpdate,
+    RoleCreate,
+    RoleUpdate,
+    ResourceCreate,
+    ResourceUpdate,
+)
 
 
 def case_id(case: FacadeCase) -> str:
@@ -361,18 +409,21 @@ def case_id(case: FacadeCase) -> str:
     return name
 
 
-def assert_parsed(result: Any, case: FacadeCase) -> None:
+def assert_parsed(result: object, case: FacadeCase) -> None:
     if case.model is None:
         assert result is None
     elif isinstance(case.response, list):
+        assert isinstance(result, list)
         assert [type(item) for item in result] == [case.model] * len(case.response)
     else:
         assert type(result) is case.model
 
 
-def test_the_table_covers_every_deprecated_method():
+def test_the_table_covers_every_deprecated_method() -> None:
     deprecated = {
-        f"permit.api.{name}" for name, value in vars(DeprecatedApi).items() if inspect.iscoroutinefunction(value)
+        f"permit.api.{name}"
+        for name, value in vars(DeprecatedApi).items()
+        if inspect.iscoroutinefunction(value)
     }
 
     assert deprecated == {case.facade.path for case in CASES}
@@ -383,7 +434,7 @@ def test_the_table_covers_every_deprecated_method():
 @pytest.mark.parametrize("case", CASES, ids=[case_id(case) for case in CASES])
 def test_deprecated_method_warns_and_matches_its_replacement(
     httpserver: HTTPServer, config: PermitConfig, case: FacadeCase, flavour: str
-):
+) -> None:
     http_method, path = case.request
     handler = httpserver.expect_request(path, method=http_method)
     if case.response is None:
@@ -393,7 +444,7 @@ def test_deprecated_method_warns_and_matches_its_replacement(
 
     client = Permit(config) if flavour == "async" else SyncPermit(config)
 
-    def invoke(target: Call) -> Any:
+    def invoke(target: Call) -> object:
         # Each call gets its own copy of the inputs, so neither can see what the other did to them.
         args, kwargs = copy.deepcopy((target.args, target.kwargs))
         method = attrgetter(target.path.removeprefix("permit."))(client)
@@ -406,11 +457,15 @@ def test_deprecated_method_warns_and_matches_its_replacement(
     with warnings.catch_warnings(record=True) as replacement_warnings:
         warnings.simplefilter("always")
         expected = invoke(case.replacement)
-    with pytest.warns(DeprecationWarning) as facade_warnings:
+    with pytest.warns(
+        DeprecationWarning, match=re.escape(removal_warning(case))
+    ) as facade_warnings:
         result = invoke(case.facade)
 
     assert deprecations(replacement_warnings) == []
-    assert deprecations(facade_warnings) == [(DeprecationWarning, removal_warning(case), *CALL_SITES[flavour])]
+    assert deprecations(facade_warnings.list) == [
+        (DeprecationWarning, removal_warning(case), *CALL_SITES[flavour])
+    ]
 
     assert len(httpserver.log) == 2, [sent(request) for request, _ in httpserver.log]
     replacement_request, facade_request = (sent(request) for request, _ in httpserver.log)
@@ -466,8 +521,12 @@ SCRIPT_CALL_LINES = [
 ]
 
 
-def test_a_script_gets_one_warning_per_call_at_the_call(httpserver: HTTPServer, tmp_path: Path):
-    """A script runs as ``__main__``, which has no ``__spec__``, and it is the one module
+def test_a_script_gets_one_warning_per_call_at_the_call(
+    httpserver: HTTPServer, tmp_path: Path
+) -> None:
+    """A script gets each client's warning once, at the line that called the method.
+
+    A script runs as ``__main__``, which has no ``__spec__``, and it is the one module
     Python's default filters show DeprecationWarnings for.
 
     The script calls the method through each client, three times from the same line. The
@@ -481,7 +540,11 @@ def test_a_script_gets_one_warning_per_call_at_the_call(httpserver: HTTPServer, 
     httpserver.expect_request(path, method=http_method).respond_with_json(case.response)
     script = tmp_path / "script.py"
     script.write_text(SCRIPT)
-    env = {name: value for name, value in os.environ.items() if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("PYTHONWARNINGS", "PYTHONDEVMODE")
+    }
     env["PYTHONPATH"] = os.pathsep.join([str(PERMIT_PARENT), str(TESTS_PARENT)])
 
     result = subprocess.run(

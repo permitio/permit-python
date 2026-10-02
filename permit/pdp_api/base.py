@@ -1,3 +1,5 @@
+from typing import Any
+
 from permit import PermitConfig
 from permit.api.base import ClientConfig, SimpleHttpClient, pagination_params
 
@@ -5,20 +7,17 @@ __all__ = ["BasePdpPermitApi", "ClientConfig", "pagination_params"]
 
 
 class BasePdpPermitApi:
-    """
-    The base class for Permit APIs.
-    """
+    """The base class for Permit APIs."""
 
-    def __init__(self, config: PermitConfig):
-        """
-        Initialize a BasePermitApi.
+    def __init__(self, config: PermitConfig) -> None:
+        """Initialize a BasePermitApi.
 
         Args:
             config: The Permit SDK configuration.
         """
         self.config = config
 
-    def _build_http_client(self, endpoint_url: str = "", **kwargs):
+    def _build_http_client(self, endpoint_url: str = "", **kwargs: Any) -> SimpleHttpClient:
         client_config = ClientConfig(
             base_url=f"{self.config.pdp}",
             headers={

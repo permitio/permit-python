@@ -1,6 +1,6 @@
 import json
 import uuid
-from typing import Any, Dict, NamedTuple, Tuple
+from typing import Any, NamedTuple
 
 import pytest
 from loguru import logger
@@ -39,15 +39,15 @@ class Call(NamedTuple):
     """A method, by the dotted path a user writes, and the arguments to call it with."""
 
     path: str
-    args: Tuple[Any, ...]
-    kwargs: Dict[str, Any]
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
 
 
 def call(path: str, *args: Any, **kwargs: Any) -> Call:
     return Call(path, args, kwargs)
 
 
-def sent(request: Request) -> Dict[str, Any]:
+def sent(request: Request) -> dict[str, Any]:
     """What a request put on the wire, in a form two requests can be compared by."""
     body = request.get_data()
     return {
@@ -61,9 +61,10 @@ def sent(request: Request) -> Dict[str, Any]:
 # --- end-to-end tests ---------------------------------------------------------
 
 
-def handle_api_error(error: PermitApiError, message: str):
+def handle_api_error(error: PermitApiError, message: str) -> None:
     err = (
-        f"{message}: status={error.status_code}, url={error.request_url}, method={error.response.method}, "
+        f"{message}: status={error.status_code}, url={error.request_url}, "
+        f"method={error.response.method}, "
         f"details={error.details}, content-type={error.content_type}"
     )
     logger.error(err)
@@ -80,7 +81,7 @@ def handle_api_error(error: PermitApiError, message: str):
 _CLEANUP_TOLERATED_STATUSES = frozenset({404})
 
 
-def handle_cleanup_error(error: PermitApiError, message: str):
+def handle_cleanup_error(error: PermitApiError, message: str) -> None:
     """Report a teardown failure without failing an otherwise-passing test.
 
     Failing a test for a teardown hiccup hides whatever it was actually
@@ -91,7 +92,8 @@ def handle_cleanup_error(error: PermitApiError, message: str):
     """
     if error.status_code in _CLEANUP_TOLERATED_STATUSES:
         logger.warning(
-            f"{message}: tolerated during cleanup (status={error.status_code}), continuing. " f"url={error.request_url}"
+            f"{message}: tolerated during cleanup (status={error.status_code}), "
+            f"continuing. url={error.request_url}"
         )
         return
     handle_api_error(error, message)

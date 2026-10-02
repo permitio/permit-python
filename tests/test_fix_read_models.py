@@ -13,7 +13,7 @@ PDP or network is involved.
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -29,18 +29,26 @@ from tests.utils import FACTS
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc).isoformat()
 
 
-def ids(*names: str) -> Dict[str, str]:
+def ids(*names: str) -> dict[str, str]:
     return {name: str(uuid4()) for name in names}
 
 
-def tuple_payload(**fields: Any) -> Dict[str, Any]:
+def tuple_payload(**fields: Any) -> dict[str, Any]:
     """A relationship tuple read with every field the schema requires, plus ``fields``."""
     return {
         "subject": "folder:f-1",
         "relation": "parent",
         "object": "document:*",
         "tenant": "tenant-1",
-        **ids("id", "subject_id", "relation_id", "tenant_id", "organization_id", "project_id", "environment_id"),
+        **ids(
+            "id",
+            "subject_id",
+            "relation_id",
+            "tenant_id",
+            "organization_id",
+            "project_id",
+            "environment_id",
+        ),
         "created_at": NOW,
         "updated_at": NOW,
         **fields,
@@ -56,8 +64,8 @@ WILDCARD_OBJECT_ID = [
 
 @pytest.mark.parametrize("object_id", WILDCARD_OBJECT_ID)
 async def test_relationship_tuples_list_parses_a_tuple_without_an_object_id(
-    httpserver: HTTPServer, config: PermitConfig, object_id: Dict[str, Any]
-):
+    httpserver: HTTPServer, config: PermitConfig, object_id: dict[str, Any]
+) -> None:
     concrete = tuple_payload(object="document:doc-1", object_id=str(uuid4()))
     httpserver.expect_request(f"{FACTS}/relationship_tuples", method="GET").respond_with_json(
         [tuple_payload(**object_id), concrete]
@@ -72,8 +80,8 @@ async def test_relationship_tuples_list_parses_a_tuple_without_an_object_id(
 
 @pytest.mark.parametrize("object_id", WILDCARD_OBJECT_ID)
 async def test_relationship_tuples_create_parses_a_tuple_without_an_object_id(
-    httpserver: HTTPServer, config: PermitConfig, object_id: Dict[str, Any]
-):
+    httpserver: HTTPServer, config: PermitConfig, object_id: dict[str, Any]
+) -> None:
     httpserver.expect_request(f"{FACTS}/relationship_tuples", method="POST").respond_with_json(
         tuple_payload(**object_id)
     )
@@ -86,16 +94,23 @@ async def test_relationship_tuples_create_parses_a_tuple_without_an_object_id(
 
 
 @pytest.mark.parametrize("object_id", WILDCARD_OBJECT_ID)
-def test_detailed_relationship_tuple_parses_without_an_object_id_or_details(object_id: Dict[str, Any]):
+def test_detailed_relationship_tuple_parses_without_an_object_id_or_details(
+    object_id: dict[str, Any],
+) -> None:
     # No SDK method returns this model, so it is parsed directly.
     detailed = RelationshipTupleDetailedRead.parse_obj(tuple_payload(**object_id))
 
-    details = (detailed.subject_details, detailed.relation_details, detailed.object_details, detailed.tenant_details)
+    details = (
+        detailed.subject_details,
+        detailed.relation_details,
+        detailed.object_details,
+        detailed.tenant_details,
+    )
     assert detailed.object_id is None
     assert details == (None, None, None, None)
 
 
-def test_detailed_relationship_tuple_still_parses_its_details():
+def test_detailed_relationship_tuple_still_parses_its_details() -> None:
     detailed = RelationshipTupleDetailedRead.parse_obj(
         tuple_payload(
             object="document:doc-1",
@@ -117,7 +132,9 @@ def test_detailed_relationship_tuple_still_parses_its_details():
     assert detailed.tenant_details.name == "Tenant 1"
 
 
-async def test_environments_get_api_key_parses_a_nats_pdp_config_key(httpserver: HTTPServer, config: PermitConfig):
+async def test_environments_get_api_key_parses_a_nats_pdp_config_key(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     httpserver.expect_request("/v2/api-key/project-1/env-1", method="GET").respond_with_json(
         {
             **ids("id", "organization_id", "project_id", "environment_id"),
@@ -131,7 +148,9 @@ async def test_environments_get_api_key_parses_a_nats_pdp_config_key(httpserver:
     assert key.owner_type is APIKeyOwnerType.nats_pdp_config
 
 
-async def test_users_get_keeps_every_attribute_value_and_null_as_sent(httpserver: HTTPServer, config: PermitConfig):
+async def test_users_get_keeps_every_attribute_value_and_null_as_sent(
+    httpserver: HTTPServer, config: PermitConfig
+) -> None:
     """Attribute values keep their JSON types: a bool is not an int, a whole float is not an int."""
     attributes = {
         "true": True,

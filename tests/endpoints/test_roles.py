@@ -1,12 +1,13 @@
 import asyncio
-from typing import Awaitable, Callable, List, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 import pytest
 from loguru import logger
-from tests.utils import handle_cleanup_error, unique_key
 
 from permit import ActionBlockEditable, Permit, ResourceCreate
 from permit.exceptions import PermitApiDetailedError, PermitApiError
+from tests.utils import handle_cleanup_error, unique_key
 
 pytestmark = pytest.mark.e2e
 
@@ -53,7 +54,7 @@ async def retry_while_permissions_propagate(
             await asyncio.sleep(PROPAGATION_POLL_INTERVAL_SECONDS)
 
 
-async def list_own_role_keys(permit: Permit) -> List[str]:
+async def list_own_role_keys(permit: Permit) -> list[str]:
     """The keys of roles created by this test, sorted, across all pages.
 
     The shared environment can easily hold more roles than fit on a single page,
@@ -62,7 +63,7 @@ async def list_own_role_keys(permit: Permit) -> List[str]:
     """
     per_page = 100
     page = 1
-    keys: List[str] = []
+    keys: list[str] = []
     while True:
         roles = await permit.api.roles.list(page=page, per_page=per_page)
         keys.extend(role.key for role in roles if role.key.startswith(TEST_PREFIX))
@@ -71,7 +72,7 @@ async def list_own_role_keys(permit: Permit) -> List[str]:
         page += 1
 
 
-async def test_roles(permit: Permit):
+async def test_roles(permit: Permit) -> None:
     logger.info("initial setup of objects")
     # none of this test's roles exist yet
     assert await list_own_role_keys(permit) == []
@@ -149,19 +150,26 @@ async def test_roles(permit: Permit):
         assert len(empty.permissions) == 0
 
         # both of this test's roles are now listed, and nothing else of its own
-        assert await list_own_role_keys(permit) == sorted([TEST_ADMIN_ROLE_KEY, TEST_EMPTY_ROLE_KEY])
+        assert await list_own_role_keys(permit) == sorted(
+            [TEST_ADMIN_ROLE_KEY, TEST_EMPTY_ROLE_KEY]
+        )
 
         # assign permissions to roles
         assigned_empty = await retry_while_permissions_propagate(
-            lambda: permit.api.roles.assign_permissions(TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"])
+            lambda: permit.api.roles.assign_permissions(
+                TEST_EMPTY_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:delete"]
+            )
         )
 
         assert assigned_empty.key == empty.key
+        assert assigned_empty.permissions is not None
         assert len(assigned_empty.permissions) == 1
         assert f"{TEST_RESOURCE_KEY}:delete" in assigned_empty.permissions
 
         # remove permissions from role
-        await permit.api.roles.remove_permissions(TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"])
+        await permit.api.roles.remove_permissions(
+            TEST_ADMIN_ROLE_KEY, [f"{TEST_RESOURCE_KEY}:create"]
+        )
 
         # get
         admin = await permit.api.roles.get(TEST_ADMIN_ROLE_KEY)
@@ -170,6 +178,7 @@ async def test_roles(permit: Permit):
         assert admin is not None
         assert admin.key == TEST_ADMIN_ROLE_KEY
         assert admin.description == "a test role"
+        assert admin.permissions is not None
         assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
         assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
 
@@ -186,6 +195,7 @@ async def test_roles(permit: Permit):
         assert admin is not None
         assert admin.key == TEST_ADMIN_ROLE_KEY
         assert admin.description == "wat"
+        assert admin.permissions is not None
         assert f"{TEST_RESOURCE_KEY}:create" not in admin.permissions
         assert f"{TEST_RESOURCE_KEY}:read" in admin.permissions
     finally:

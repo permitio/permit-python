@@ -1,6 +1,6 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from ..utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.pydantic_version import PYDANTIC_VERSION
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -10,18 +10,15 @@ elif PYDANTIC_VERSION < (2, 0):
 else:
     from pydantic.v1 import validate_arguments
 
+from permit.api.base import BasePermitApi, SimpleHttpClient, pagination_params
+from permit.api.context import ApiContextLevel, ApiKeyAccessLevel
+from permit.api.models import ResourceActionCreate, ResourceActionRead, ResourceActionUpdate
 from permit.utils.model_input import ModelInput
-
-from .base import (
-    BasePermitApi,
-    SimpleHttpClient,
-    pagination_params,
-)
-from .context import ApiContextLevel, ApiKeyAccessLevel
-from .models import ResourceActionCreate, ResourceActionRead, ResourceActionUpdate
 
 
 class ResourceActionsApi(BasePermitApi):
+    """Manage the actions of a resource."""
+
     @property
     def __actions(self) -> SimpleHttpClient:
         return self._build_http_client(
@@ -29,9 +26,10 @@ class ResourceActionsApi(BasePermitApi):
         )
 
     @validate_arguments
-    async def list(self, resource_key: str, page: int = 1, per_page: int = 100) -> List[ResourceActionRead]:
-        """
-        Retrieves a list of actions.
+    async def list(
+        self, resource_key: str, page: int = 1, per_page: int = 100
+    ) -> list[ResourceActionRead]:
+        """Retrieves a list of actions.
 
         Args:
             resource_key: The key of the resource to filter on.
@@ -43,23 +41,25 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self.__actions.get(
             f"/{resource_key}/actions",
-            model=List[ResourceActionRead],
+            model=list[ResourceActionRead],
             params=pagination_params(page, per_page),
         )
 
     async def _get(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        return await self.__actions.get(f"/{resource_key}/actions/{action_key}", model=ResourceActionRead)
+        return await self.__actions.get(
+            f"/{resource_key}/actions/{action_key}", model=ResourceActionRead
+        )
 
     @validate_arguments
     async def get(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        """
-        Retrieves a action by its key.
+        """Retrieves a action by its key.
 
         Args:
             resource_key: The key of the resource the action belongs to.
@@ -70,7 +70,8 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -78,8 +79,8 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_key(self, resource_key: str, action_key: str) -> ResourceActionRead:
-        """
-        Retrieves a action by its key.
+        """Retrieves a action by its key.
+
         Alias for the get method.
 
         Args:
@@ -91,7 +92,8 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -99,8 +101,8 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def get_by_id(self, resource_id: str, action_id: str) -> ResourceActionRead:
-        """
-        Retrieves a action by its ID.
+        """Retrieves a action by its ID.
+
         Alias for the get method.
 
         Args:
@@ -112,16 +114,18 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
         return await self._get(resource_id, action_id)
 
     @validate_arguments
-    async def create(self, resource_key: str, action_data: ModelInput[ResourceActionCreate]) -> ResourceActionRead:
-        """
-        Creates a new action.
+    async def create(
+        self, resource_key: str, action_data: ModelInput[ResourceActionCreate]
+    ) -> ResourceActionRead:
+        """Creates a new action.
 
         Args:
             resource_key: The key of the resource under which the action should be created.
@@ -132,7 +136,8 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -146,8 +151,7 @@ class ResourceActionsApi(BasePermitApi):
     async def update(
         self, resource_key: str, action_key: str, action_data: ModelInput[ResourceActionUpdate]
     ) -> ResourceActionRead:
-        """
-        Updates a action.
+        """Updates a action.
 
         Args:
             resource_key: The key of the resource the action belongs to.
@@ -159,7 +163,8 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
@@ -171,8 +176,7 @@ class ResourceActionsApi(BasePermitApi):
 
     @validate_arguments
     async def delete(self, resource_key: str, action_key: str) -> None:
-        """
-        Deletes a action.
+        """Deletes a action.
 
         Args:
             resource_key: The key of the resource the action belongs to.
@@ -180,7 +184,8 @@ class ResourceActionsApi(BasePermitApi):
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
-            PermitContextError: If the configured ApiContext does not match the required endpoint context.
+            PermitContextError: If the configured ApiContext does not match the required endpoint
+                context.
         """
         await self._ensure_access_level(ApiKeyAccessLevel.ENVIRONMENT_LEVEL_API_KEY)
         await self._ensure_context(ApiContextLevel.ENVIRONMENT)
