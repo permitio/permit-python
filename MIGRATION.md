@@ -472,12 +472,12 @@ summary.
 
   It also fails on each line that imports `PermitException`, or reads `permit.PermitException`
   or `permit.exceptions.PermitException`, as that line runs (an `except` clause reads it only
-  when an exception reaches it). permit 4.0 removes `PermitException`: catch
-  `PermitConnectionError` instead. `from permit import *` does not bind `PermitException`, so a
-  handler for it after a star import raises `NameError` when an exception reaches it. permit
-  2.7.0 to 3.0.0 warn on `import permit` itself ("Use PermitError instead"), from inside the
-  SDK; on those, add `-W "ignore:Use PermitError instead:DeprecationWarning"`. To fail on
-  permit's flat methods only, use `-W "error:permit.api.:DeprecationWarning"`.
+  when an exception reaches it). A star import of `permit` or `permit.exceptions` binds
+  `PermitException`, so it fails too, even where the code never uses the name: import the names
+  the code uses instead. permit 4.0 removes `PermitException`: catch `PermitConnectionError`
+  instead. permit 2.7.0 to 3.0.0 warn on `import permit` itself ("Use PermitError instead"),
+  from inside the SDK; on those, add `-W "ignore:Use PermitError instead:DeprecationWarning"`.
+  To fail on permit's flat methods only, use `-W "error:permit.api.:DeprecationWarning"`.
 - **To silence them** while you migrate, add filters for the messages:
 
   ```ini
