@@ -106,11 +106,13 @@ def test_importing_permit_on_pydantic_2_does_not_warn(tmp_path: Path, first_impo
 def test_the_pydantic_version_permit_checks_is_not_a_public_name() -> None:
     """Permit reads the pydantic version to decide whether to warn; the constant is not API.
 
-    permit has no ``__all__``, so any name without a leading underscore is public: it is in
-    ``dir(permit)`` and ``from permit import *`` exports it.
+    A name without a leading underscore is in ``dir(permit)``, and one in ``permit.__all__`` is
+    what ``from permit import *`` exports.
     """
     exported: dict[str, object] = {}
-    exec("from permit import *", exported)  # noqa: S102 - what a star import exports is the subject
+    # The star import also binds the deprecated PermitException, which warns.
+    with pytest.warns(DeprecationWarning, match="PermitException is deprecated"):
+        exec("from permit import *", exported)  # noqa: S102 - the star import is the subject
 
     assert "PYDANTIC_VERSION" not in exported, "from permit import * exports PYDANTIC_VERSION"
     assert not hasattr(permit, "PYDANTIC_VERSION")

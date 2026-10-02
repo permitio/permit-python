@@ -20,6 +20,26 @@ else:
 
 from permit.api.models import ErrorDetails, HTTPValidationError
 
+# What `from permit.exceptions import *` binds. PermitException is served by __getattr__ at
+# the end of this module, so a star import binds it with its warning.
+__all__ = [
+    "DEFAULT_SUPPORT_LINK",
+    "ErrorDetails",
+    "HTTPValidationError",
+    "PermitAlreadyExistsError",
+    "PermitApiDetailedError",
+    "PermitApiError",
+    "PermitConnectionError",
+    "PermitContextChangeError",
+    "PermitContextError",
+    "PermitError",
+    "PermitException",
+    "PermitNotFoundError",
+    "PermitValidationError",
+    "handle_api_error",
+    "handle_client_error",
+]
+
 DEFAULT_SUPPORT_LINK = "https://permit-io.slack.com/ssb/redirect"
 
 P = ParamSpec("P")

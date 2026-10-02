@@ -285,6 +285,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
 ]
 # The SDK's loguru wrapper, and the module that reads loguru's levels for log.level.
 "permit/{logger,utils/sdk_logger}.py" = ["TID251"]
+# __all__ lists the API models, which the package gets from `from permit.api.models import *`
+# and ruff cannot follow. tests/test_fix_permit_exception_deprecation.py checks that the
+# package serves every name in __all__.
+"permit/__init__.py" = ["F405"]
 # These are standalone CLI programs, not library code: writing the rendered
 # report to stdout IS their interface, so the "no print" rule does not apply.
 "{.github/scripts,scripts,skills/permit-python-3-migration/scripts}/*.py" = [

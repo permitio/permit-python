@@ -2,9 +2,11 @@
 
 permit 4.0 removes ``PermitException``. Until then, every read of the name, from ``permit`` or
 from ``permit.exceptions``, issues one DeprecationWarning that names 4.0 and the replacement,
-attributed to the line that read it. Code that never names it gets no warning, whatever else it
-imports. The class itself is unchanged: ``PermitConnectionError`` still subclasses it, so
-``except PermitException`` keeps catching connection errors.
+attributed to the line that read it. A star import of either module reads it too: both list it
+in ``__all__``, so code that star-imports them keeps the name. Code that neither names it nor
+star-imports those modules gets no warning, whatever else it imports. The class itself is
+unchanged: ``PermitConnectionError`` still subclasses it, so ``except PermitException`` keeps
+catching connection errors.
 
 This process imported permit before any test ran, so the tests of a first import run in a fresh
 interpreter and report every warning recorded there.
@@ -190,8 +192,6 @@ def test_the_name_warning_skips_only_importlibs_fromlist_check(
         "import permit",
         "import permit.exceptions",
         "import permit.sync",
-        "from permit import *",
-        "from permit.exceptions import *",
         "from permit import PermitConnectionError, PermitError",
         "import permit, permit.exceptions; dir(permit); dir(permit.exceptions)",
         "from permit import PermitConnectionError\nclass Mine(PermitConnectionError): pass",
@@ -209,17 +209,148 @@ def test_code_that_does_not_name_it_does_not_warn(code: str) -> None:
     assert result.stderr == ""
 
 
+# A star import, then a handler for PermitException, as code written for permit 2.x has them.
+# The prelude imports one of the clients first, or nothing.
+STAR_IMPORTER = """\
+import json
+import warnings
+{prelude}
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    from {module} import *
+
+try:
+    raise PermitConnectionError("boom")
+except PermitException as error:
+    handled = type(error).__name__
+
+records = [
+    {{
+        "category": w.category.__name__,
+        "message": str(w.message),
+        "filename": w.filename,
+        "lineno": w.lineno,
+    }}
+    for w in caught
+]
+print(json.dumps({{"warnings": records, "handled": handled}}))
+"""
+
+STAR_IMPORT_LINENO = STAR_IMPORTER.splitlines().index("    from {module} import *") + 1
+
+
 @pytest.mark.parametrize("module", ["permit", "permit.exceptions"])
-def test_a_star_import_neither_warns_nor_binds_the_name(module: str) -> None:
-    """A star import reads every name it binds, so binding PermitException would warn."""
-    namespace: dict[str, object] = {}
+@pytest.mark.parametrize(
+    "prelude",
+    ["", "from permit import Permit", "from permit.sync import Permit"],
+    ids=["star-import-first", "async-client-first", "sync-client-first"],
+)
+def test_a_star_import_binds_the_name_and_warns_once_at_its_line(
+    tmp_path: Path, module: str, prelude: str
+) -> None:
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text(STAR_IMPORTER.format(prelude=prelude, module=module))
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        exec(f"from {module} import *", namespace)  # noqa: S102 - the star import is the subject
+    result = run_in_fresh_interpreter(str(consumer))
 
-    assert "PermitConnectionError" in namespace
-    assert "PermitException" not in namespace
+    assert result.returncode == 0, result.stderr
+    output: dict[str, Any] = json.loads(result.stdout)
+    # On pydantic 1, importing permit also warns that pydantic 1 is deprecated, on purpose.
+    records = [
+        record for record in output["warnings"] if "Support for pydantic 1" not in record["message"]
+    ]
+    assert records == [
+        {
+            "category": "DeprecationWarning",
+            "message": MESSAGE,
+            "filename": str(consumer),
+            "lineno": STAR_IMPORT_LINENO,
+        }
+    ]
+    assert output["handled"] == "PermitConnectionError"
+
+
+# Names a star import bound before the modules had __all__ and binds no longer: names the
+# modules import for their own use from the standard library, typing, pydantic and aiohttp, and
+# permit.exceptions' type variables and its imports of two SDK internals.
+NOT_EXPORTED = {
+    # What `from permit.api.models import *` brings into permit besides the models.
+    "permit": {
+        "Any",
+        "AnyUrl",
+        "BaseModel",
+        "Dict",
+        "EmailStr",
+        "Enum",
+        "Extra",
+        "Field",
+        "List",
+        "Literal",
+        "Optional",
+        "UUID",
+        "Union",
+        "annotations",
+        "conint",
+        "constr",
+        "datetime",
+    },
+    "permit.exceptions": {
+        "Any",
+        "Awaitable",
+        "Callable",
+        "Coroutine",
+        "HTTPStatus",
+        "P",
+        "PYDANTIC_VERSION",
+        "ParamSpec",
+        "R",
+        "TYPE_CHECKING",
+        "TypeVar",
+        "ValidationError",
+        "aiohttp",
+        "deprecated",
+        "functools",
+        "sdk_logger",
+    },
+}
+
+
+def public_names(module: ModuleType) -> set[str]:
+    """The names the module binds without a leading underscore, other than its submodules.
+
+    Importing a submodule binds it in its package, so which ones ``permit`` has depends on what
+    the process imported: ``sync`` only after ``import permit.sync``. A star import binds none.
+    """
+    return {
+        name
+        for name, value in vars(module).items()
+        if not name.startswith("_")
+        and not (isinstance(value, ModuleType) and value.__name__ == f"{module.__name__}.{name}")
+    }
+
+
+@pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
+def test_all_lists_every_public_name(module: ModuleType) -> None:
+    """A star import binds only what __all__ lists, so a public name missing from it is lost."""
+    listed: list[str] = module.__all__
+    public = public_names(module)
+    not_exported = NOT_EXPORTED[module.__name__]
+
+    missing = sorted(public - not_exported - set(listed))
+    assert missing == [], f"Add these to {module.__name__}.__all__ (or to NOT_EXPORTED)"
+    assert sorted(not_exported - public) == [], "The module no longer binds these: drop them"
+    assert sorted(not_exported & set(listed)) == []
+    # A star import reads each listed name, so a duplicate PermitException would warn twice.
+    assert len(set(listed)) == len(listed), f"{module.__name__}.__all__ lists a name twice"
+
+
+@pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
+def test_all_lists_only_names_the_module_serves(module: ModuleType) -> None:
+    """Every listed name is an attribute, except PermitException, which __getattr__ serves."""
+    listed: list[str] = module.__all__
+
+    assert sorted(set(listed) - public_names(module)) == ["PermitException"]
 
 
 @pytest.mark.parametrize("module", [permit, exceptions], ids=["permit", "permit.exceptions"])
