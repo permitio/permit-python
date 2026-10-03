@@ -75,7 +75,7 @@ class GroupsApi(BasePermitApi):
 
         Returns:
             One page of groups, with the total count. Each group's ``group_instance_key`` is
-            its instance key alone, and ``id`` is its instance id.
+                its instance key alone, and ``id`` is its instance id.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -104,7 +104,7 @@ class GroupsApi(BasePermitApi):
 
         Returns:
             The group. Its ``group_instance_key`` is its instance key alone, and ``id`` is
-            its instance id.
+                its instance id.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code, such as 404 when no

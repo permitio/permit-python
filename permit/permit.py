@@ -177,10 +177,10 @@ class Permit:
 
         Yields:
             Permit: A Permit instance that is configured to wait for facts to be synced. It
-            sends its requests over this client's connections, so it needs no ``close()``:
-            closing this client closes them, and its own ``close()`` does nothing. With
-            ``proxy_facts_via_pdp`` off, it logs a warning and yields this client itself,
-            whose ``close()`` closes them.
+                sends its requests over this client's connections, so it needs no ``close()``:
+                closing this client closes them, and its own ``close()`` does nothing. With
+                ``proxy_facts_via_pdp`` off, it logs a warning and yields this client itself,
+                whose ``close()`` closes them.
 
         See Also:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader

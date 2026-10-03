@@ -546,7 +546,7 @@ class SyncGroupsApi(BasePermitApi):
 
         Returns:
             One page of groups, with the total count. Each group's ``group_instance_key`` is
-            its instance key alone, and ``id`` is its instance id.
+                its instance key alone, and ``id`` is its instance id.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -566,7 +566,7 @@ class SyncGroupsApi(BasePermitApi):
 
         Returns:
             The group. Its ``group_instance_key`` is its instance key alone, and ``id`` is
-            its instance id.
+                its instance id.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code, such as 404 when no
@@ -813,7 +813,7 @@ class SyncPdpsApi(BasePermitApi):
 
         Returns:
             The id of the data update that carries the refresh, and the ids of the PDP
-            configurations it was sent to.
+                configurations it was sent to.
 
         Raises:
             pydantic.v1.ValidationError: If ``reason`` is longer than 512 characters. Nothing
@@ -1716,7 +1716,7 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Returns:
             a PaginatedResultRelationRead holding the relations in ``.data`` and the
-            total number of relations on the resource in ``.total_count``.
+                total number of relations on the resource in ``.total_count``.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -3220,7 +3220,7 @@ class SyncEnforcer:
 
         Returns:
             The user's tenants, each with its key and attributes. Empty when the user has no
-            tenant-level role or the PDP does not know the user.
+                tenant-level role or the PDP does not know the user.
 
         Raises:
             PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any

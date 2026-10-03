@@ -600,7 +600,7 @@ class Enforcer:
 
         Returns:
             The user's tenants, each with its key and attributes. Empty when the user has no
-            tenant-level role or the PDP does not know the user.
+                tenant-level role or the PDP does not know the user.
 
         Raises:
             PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any
