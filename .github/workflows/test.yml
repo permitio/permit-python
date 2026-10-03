@@ -713,7 +713,6 @@ jobs:
   # the SDK's suite, with skills/tests/pytest.ini.
   migration-skill:
     name: Migration Skill Tests (pydantic ${{ matrix.pydantic }})
-    if: github.event_name == 'never'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
