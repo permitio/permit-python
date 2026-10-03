@@ -1,19 +1,27 @@
 name: Test
 on:
   # Every PR, whatever its base: a stacked PR, whose base is another PR's
-  # branch, gets the full suite before it merges.
+  # branch, gets the full suite before it merges. No path filter: GitHub
+  # leaves a required check that never runs pending, which blocks the PR.
   pull_request:
+  # Every merge to main runs everything too, the dependency audit included,
+  # so a regression shows as a failed run on main rather than on the next PR.
+  # No PR comment is posted on push; the job summaries carry the detail.
   push:
     branches:
       - main
       - master
 
-# Least privilege. Nothing in this workflow writes to the repository; the
-# Permit API calls authenticate with their own secret, not GITHUB_TOKEN.
+# Least privilege: read-only by default. Nothing in this workflow writes to the
+# repository; the Permit API calls authenticate with their own secret, not
+# GITHUB_TOKEN. pull-requests: write is granted per job, only to the two jobs
+# that post on the PR: the audit comment and dependency review.
 permissions:
   contents: read
 
 env:
+  # The Python the dependency audit and its scripts' tests run on.
+  PYTHON_VERSION: "3.11"
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
   # The PDP the required `pytest` jobs run against, pinned by version and by the
@@ -504,7 +512,7 @@ jobs:
           --api-coverage-record "${RUNNER_TEMP}/api-coverage/offline.jsonl"
 
       # A missing artifact is not an error here: the report says "not run" for the
-      # e2e column. NODE_OPTIONS: see the same step in security.yml.
+      # e2e column. NODE_OPTIONS: see the comment job's download step.
       - name: Download the e2e request records
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -766,3 +774,270 @@ jobs:
               sys.exit("the scanner found nothing in the 2.x sample app on Python 3.9")
           print(f"Python 3.9: {len(report['findings'])} findings")
           PY
+
+  # The job id is the required status check "pre-commit" on main; keep it.
+  #
+  # These steps do what pre-commit/action v3.0.1 does, written out: its last
+  # release pins actions/cache@v4, which targets the deprecated Node 20
+  # runtime, and it has had no release since. pre-commit itself comes from
+  # uv.lock rather than a pip install.
+  pre-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: "3.11"
+          enable-cache: true
+
+      # Hook environments, keyed on the config that defines them and on the
+      # Python they were built with, since a hook venv does not survive an
+      # interpreter change. This is the cache pre-commit/action used to provide.
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: >-
+            pre-commit-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
+            hashFiles('.pre-commit-config.yaml') }}
+
+      # pre-commit itself comes from the locked dev group. The ruff, mypy and
+      # typos hooks are `repo: local` and run through `uv run --locked`, which
+      # syncs .venv to the default groups first: the project, its dependencies
+      # (pydantic 2) and the dev tools, so mypy checks against the SDK's real
+      # dependencies.
+      - name: Run pre-commit
+        run: >-
+          uv run --locked
+          pre-commit run --all-files --show-diff-on-failure --color=always
+
+      # The SDK imports pydantic differently per major, so its types are checked
+      # against pydantic 1 as well (the hook above ran against pydantic 2).
+      - name: Type-check against pydantic 1
+        run: uv run --locked --group pydantic-v1 mypy
+
+  # The dependency audit (.github/actions/dependency-audit), on every PR and
+  # every push to main. security.yml runs the same audit weekly.
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-24.04
+    # Read-only ON PURPOSE. `uv pip compile` builds an sdist to read its
+    # metadata for any dependency without a wheel, which runs that package's
+    # setup.py on the runner -- against a dependency list the PR author
+    # controls. Holding a `pull-requests: write` GITHUB_TOKEN across that step
+    # would hand arbitrary PR-authored code a writable token. The comment is
+    # posted by a separate job that has the token but never executes any of
+    # this PR's dependency code.
+    permissions:
+      contents: read
+    outputs:
+      gate_failed: ${{ steps.audit.outputs.failed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # .github/actions/dependency-audit holds the audit's steps. It is a
+      # local action, so it runs from the checkout above. zizmor asks for the
+      # self-repository syntax ($/...) instead of ./, which actionlint (v1.7.12)
+      # rejects.
+      - name: Dependency audit
+        id: audit
+        uses: ./.github/actions/dependency-audit # zizmor: ignore[self-repository]
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+  # Holds a write token, and does nothing but download an artifact and post it.
+  # It never runs dependency resolution, so PR-authored package code and the
+  # writable token never coexist in the same job.
+  comment:
+    name: Post Audit Comment
+    runs-on: ubuntu-24.04
+    needs: [audit]
+    # always(): the comment matters most when the audit FAILED.
+    # Fork PRs get a read-only token, so the post would fail -- they are served
+    # by the ::error:: annotations the audit job emits instead.
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
+      # calls the deprecated Buffer() constructor, so every download prints
+      # DEP0005 (actions/download-artifact#484). That is the action's code, not
+      # this workflow's, and no newer release exists. This hides DEP0005 alone;
+      # drop it once a release stops printing the warning.
+      - name: Download audit artifacts
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
+        with:
+          name: dependency-audit
+          path: /tmp/audit
+
+      # The script checks the report itself. hashFiles() in `if:` cannot:
+      # it ignores every file outside the workspace, so it returns '' for
+      # anything under /tmp/audit.
+      - name: Comment on PR
+        if: steps.download.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          # listComments is paginated: on a busy PR the marker may not be on
+          # page 1, and missing it would post a duplicate comment every run.
+          script: |
+            const fs = require('fs');
+            const REPORT = '/tmp/audit/comment.md';
+            const MARKER = '<!-- permit-python:audit:deps -->';
+            // GitHub rejects a comment body longer than this.
+            const MAX_COMMENT_CHARS = 65536;
+
+            // format_audit.py starts every body it renders with the marker, so
+            // a report without it means the render step did not finish.
+            let body = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';
+            if (!body.startsWith(MARKER)) {
+              core.warning(
+                `No rendered audit report in the artifact (${REPORT}), so no PR comment ` +
+                'was posted. See the Dependency Audit job for what went wrong.'
+              );
+              return;
+            }
+            if (body.length > MAX_COMMENT_CHARS) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+              core.warning(
+                `The audit report is ${body.length} characters, over GitHub's ` +
+                `${MAX_COMMENT_CHARS}-character comment limit. The PR comment links to ` +
+                'the job summary instead.'
+              );
+              body = [
+                MARKER,
+                '',
+                '## Dependency Security Audit',
+                '',
+                `The report is ${body.length} characters, too long for a PR comment ` +
+                  `(GitHub allows ${MAX_COMMENT_CHARS}). Read it in the ` +
+                  `[job summary](${runUrl}).`,
+                '',
+              ].join('\n');
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            // Match on author AND marker so a human quoting the report can
+            // never have their comment overwritten by CI.
+            const existing = comments.find(c =>
+              c.user?.login === 'github-actions[bot]' &&
+              c.body?.startsWith(MARKER)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # Free on public repositories. Flags dependencies a PR *introduces*, which
+  # the tree scan above cannot distinguish from ones that were already there,
+  # and additionally checks licences.
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  # The audit scripts decide whether a release ships. Their contract is
+  # load-bearing, so it is tested like any other code.
+  audit-scripts-test:
+    name: Audit Script Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      # pytest comes from uv.lock's dev group, so a new pytest release cannot
+      # fail this job through .github/scripts/pytest.ini, which turns every
+      # warning into an error; -c reads that file rather than the SDK's
+      # [tool.pytest] in pyproject.toml. The scripts under test are stdlib only,
+      # so --only-dev leaves the project uninstalled. The schema drift check's and
+      # the API coverage report's tests run here too: they live next to the audit
+      # scripts and need no more.
+      - name: Run CI script tests
+        run: >-
+          uv run --locked --only-dev
+          pytest -c .github/scripts/pytest.ini -q
+          .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py
+          .github/scripts/test_api_coverage.py
+
+      - name: Shellcheck the shell scripts
+        run: shellcheck .github/scripts/audit-deps.sh scripts/generate_models.sh
+
+  # A CVE gate that runs in a workflow an attacker can rewrite is not a gate.
+  workflow-hardening:
+    name: Workflow Hardening
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No inputs: the repository has no action.yml, so the runner builds its
+      # Dockerfile and runs actionlint with no arguments. actionlint exits 1
+      # on any finding, and a non-zero container exit fails the step.
+      - name: actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          # Findings are uploaded to code scanning by default, which needs
+          # Advanced Security. Keep it to the job log and the exit code.
+          advanced-security: false
+          persona: regular
