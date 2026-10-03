@@ -48,8 +48,10 @@ class Permit(AsyncPermit):
             address, as for the async client, ``permit.Permit``.
 
     Examples:
+        ```python
         with Permit(token="<YOUR_API_KEY>") as permit:
             permit.check("user", "read", "document")
+        ```
     """
 
     def __init__(self, config: PermitConfig | None = None, **options: Any) -> None:
@@ -91,11 +93,13 @@ class Permit(AsyncPermit):
                 stop and join.
 
         Examples:
+            ```python
             permit = Permit(token="<YOUR_API_KEY>")
             try:
                 permit.check("user", "read", "document")
             finally:
                 permit.close()
+            ```
         """
         if not self._owns_sessions:
             return
@@ -134,10 +138,11 @@ class Permit(AsyncPermit):
     def api(self) -> SyncPermitApiClient:  # type: ignore[override]
         """Access the Permit REST API using this property.
 
-        Usage example:
-
+        Examples:
+            ```python
             permit = Permit(token="<YOUR_API_KEY>")
             permit.api.roles.create(...)
+            ```
         """
         return self._api  # type: ignore[return-value]
 
@@ -145,10 +150,11 @@ class Permit(AsyncPermit):
     def elements(self) -> SyncElementsApi:  # type: ignore[override]
         """Access the Permit Elements API using this property.
 
-        Usage example:
-
+        Examples:
+            ```python
             permit = Permit(token="<YOUR_API_KEY>")
-            permit.elements.loginAs(user, tenant)
+            permit.elements.login_as(user, tenant)
+            ```
         """
         return self._elements  # type: ignore[return-value]
 
@@ -158,9 +164,11 @@ class Permit(AsyncPermit):
 
         Container PDP only: the cloud PDP serves none of its routes.
 
-        Usage example:
-        permit = Permit(token="<YOUR_API_KEY>")
-        permit.pdp_api.role_assignments(...)
+        Examples:
+            ```python
+            permit = Permit(token="<YOUR_API_KEY>")
+            permit.pdp_api.role_assignments.list()
+            ```
         """
         return self._pdp_api  # type: ignore[return-value]
 
@@ -186,24 +194,28 @@ class Permit(AsyncPermit):
                 PDP.
 
         Examples:
+            ```python
             # Bulk query of multiple check conventions
-            await permit.bulk_check([
-                {
-                    "user": user,
-                    "action": "close",
-                    "resource": {type: "issue", key: "1234"},
-                },
-                {
-                    "user": {key: "user"},
-                    "action": "close",
-                    "resource": "issue:1235",
-                },
-                {
-                    "user": "user_a",
-                    "action": "close",
-                    "resource": "issue",
-                },
-            ])
+            permit.bulk_check(
+                [
+                    {
+                        "user": user,
+                        "action": "close",
+                        "resource": {"type": "issue", "key": "1234"},
+                    },
+                    {
+                        "user": {"key": "user"},
+                        "action": "close",
+                        "resource": "issue:1235",
+                    },
+                    {
+                        "user": "user_a",
+                        "action": "close",
+                        "resource": "issue",
+                    },
+                ]
+            )
+            ```
         """
         return self._enforcer.bulk_check(checks, context)  # type: ignore[return-value]
 
@@ -231,15 +243,17 @@ class Permit(AsyncPermit):
                 PDP.
 
         Examples:
+            ```python
             # can the user close any issue?
-            permit.check(user, 'close', 'issue')
+            permit.check(user, "close", "issue")
 
             # can the user close any issue who's id is 1234?
-            permit.check(user, 'close', 'issue:1234')
+            permit.check(user, "close", "issue:1234")
 
             # can the user close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            permit.check(user, "close", {"type": "issue", "tenant": "t1"})
+            ```
         """
         return self._enforcer.check(user, action, resource, context)  # type: ignore[return-value]
 
@@ -266,15 +280,17 @@ class Permit(AsyncPermit):
                 PDP.
 
         Examples:
+            ```python
             # all the users that can close any issue?
-            permit.authorized_users('close', 'issue')
+            permit.authorized_users("close", "issue")
 
             # all the users that can close an issue who's id is 1234?
-            permit.authorized_users('close', 'issue:1234')
+            permit.authorized_users("close", "issue:1234")
 
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+            permit.authorized_users("close", {"type": "issue", "tenant": "t1"})
+            ```
         """
         return self._enforcer.authorized_users(action, resource, context)  # type: ignore[return-value]
 
@@ -337,9 +353,11 @@ class Permit(AsyncPermit):
                 other error status, or cannot be reached.
 
         Examples:
+            ```python
             # the tenants in which alice has a role
             tenants = permit.get_user_tenants("alice")
             keys = [tenant.key for tenant in tenants]
+            ```
         """
         return self._enforcer.get_user_tenants(user, context)  # type: ignore[return-value]
 
