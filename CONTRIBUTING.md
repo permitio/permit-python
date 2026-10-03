@@ -131,14 +131,17 @@ See [skills/tests/README.md](skills/tests/README.md).
 ### The CI scripts' tests
 
 `.github/scripts` holds the dependency audit's report formatter, the schema drift check and
-the API coverage report, with their tests. They need only pytest and the standard library,
-and run with their own pytest config, which turns every warning into an error. The command
-is the one the `Audit Script Tests` job runs:
+the API coverage report, with their tests, and the tests of the `CI` job and of the job-list
+check (see [CI](#ci)). They need only pytest and the standard library, and run with their own
+pytest config, which turns every warning into an error. `test_ci_checks.py` also runs the
+bash of those two steps, read from `test.yml`, so it needs bash, jq and
+[yq](https://github.com/mikefarah/yq) v4 on `PATH`, as GitHub's runners have them. The
+command is the one the `Audit Script Tests` job runs:
 
 ```sh
 uv run --only-dev pytest -c .github/scripts/pytest.ini \
   .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py \
-  .github/scripts/test_api_coverage.py
+  .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py
 ```
 
 ### End-to-end tests
@@ -146,22 +149,22 @@ uv run --only-dev pytest -c .github/scripts/pytest.ini \
 The tests marked `e2e` talk to a real Permit environment through a running PDP. `uv run
 pytest` with no arguments runs the whole suite (`testpaths` is `tests/`).
 
-CI (`.github/workflows/test.yml`) runs the e2e tests in four jobs. Each job creates its own
+`.github/workflows/test.yml` runs the e2e tests in four jobs. Each job creates its own
 scratch environment in the CI project and deletes it when the job ends, whether the tests
 passed or not:
 
-- `pytest (Pydantic pydantic<2.0.0)` and `pytest (Pydantic pydantic>=2.0.0)`, the required
-  checks, run the whole suite against a PDP container. Its image is `PINNED_PDP_IMAGE` at
+- `pytest (Pydantic pydantic<2.0.0)` and `pytest (Pydantic pydantic>=2.0.0)`, which the `CI`
+  job needs, run the whole suite against a PDP container. Its image is `PINNED_PDP_IMAGE` at
   the top of the workflow: `permitio/pdp-v2` pinned by version and digest, so a new PDP
-  release cannot fail a required check.
-- `e2e (latest PDP image)` is not a required check. Once both `pytest` jobs pass, it runs
-  the whole suite on pydantic 2 against `permitio/pdp-v2:latest` and logs the digest
-  `:latest` resolved to. If it fails while `pytest` passes, the newest PDP release behaves
-  differently from the pinned one.
-- `e2e (cloud PDP)` is not a required check. Once both `pytest` jobs pass, it runs
-  `tests/test_cloud_pdp_e2e.py` against the hosted cloud PDP,
-  `https://cloudpdp.api.permit.io`, with no container. Its tests create a small RBAC policy
-  in the scratch environment, wait for the cloud PDP to apply it, and check the exact
+  release cannot fail `CI`.
+- `e2e (latest PDP image)` does not block a pull request: `CI` does not need it. Once both
+  `pytest` jobs pass, it runs the whole suite on pydantic 2 against `permitio/pdp-v2:latest`
+  and logs the digest `:latest` resolved to. If it fails while `pytest` passes, the newest
+  PDP release behaves differently from the pinned one.
+- `e2e (cloud PDP)`, the other leg of that job, does not block a pull request either. Once
+  both `pytest` jobs pass, it runs `tests/test_cloud_pdp_e2e.py` against the hosted cloud
+  PDP, `https://cloudpdp.api.permit.io`, with no container. Its tests create a small RBAC
+  policy in the scratch environment, wait for the cloud PDP to apply it, and check the exact
   answers of `check`, `bulk_check`, `get_user_permissions` and `filter_objects`. Three more
   check that `get_user_tenants`, `permit.pdp_api` and the facts methods with
   `proxy_facts_via_pdp` on, whose routes the cloud PDP does not serve, raise the SDK's error
@@ -186,7 +189,7 @@ The jobs set:
   it (see "API coverage report").
 
 Without `API_TIER=prod` (or an explicit `PDP_CONTROL_PLANE`), `tests/conftest.py` sends API
-calls to `http://localhost:8000`. To reproduce the required jobs locally with an
+calls to `http://localhost:8000`. To reproduce the `pytest` jobs locally with an
 environment-level API key, on the PDP image they pin:
 
 ```sh
@@ -224,6 +227,37 @@ Docker pulls by the digest; the tag only names it.
 Then refresh the PDP spec snapshot the API coverage report reads, from a container of the
 new image (see "API coverage report" below). Until then, the `Audit Script Tests` job fails:
 a test there checks that `.github/api-specs/pdp.source.json` names the pinned image.
+
+## CI
+
+`.github/workflows/test.yml` holds every check a pull request must pass, and runs on every
+pull request and every push to `main`. Its last job, `CI`, is the one check to require: it
+needs every other job in the workflow and fails unless each of them succeeded. A job that
+failed, was cancelled or was skipped fails it, because GitHub counts a skipped required check
+as passing. The one exception is `Dependency Review`, which runs on pull requests only: on a
+push it is skipped, and `CI` passes. `Post Audit Comment` runs on every event, posts only on
+a pull request from a branch of this repository, and elsewhere succeeds with its steps
+skipped.
+
+To add a job to `test.yml`, do one of these in the same change:
+
+- add its id to the `needs` of the `ci` job, and set `EXPECTED_JOBS` in that job's step to
+  the new number of jobs in `needs`;
+- or, if it must not block a pull request, add its id to `ADVISORY_JOBS` in the `Check that
+  CI needs every job` step of the `Workflow Hardening` job, with a comment saying why.
+  `e2e-unpinned-pdp` (`e2e (latest PDP image)` and `e2e (cloud PDP)`) is the only one.
+
+That step fails `Workflow Hardening` when a job is in neither list, when an `ADVISORY_JOBS`
+entry is not a job, is listed twice or is also in `needs`, or when `EXPECTED_JOBS` is not
+the number of jobs in `needs`. `CI` itself exits 2 when the number of job results it gets is
+not `EXPECTED_JOBS`. When you delete a job, remove its id from `needs` and lower
+`EXPECTED_JOBS`, or remove it from `ADVISORY_JOBS`.
+
+`.github/workflows/security.yml` is the weekly dependency audit. Every Monday at 09:00 UTC,
+and when started with Run workflow, it runs the same audit as the `Dependency Audit` job
+(`.github/actions/dependency-audit`) and posts the result to Slack. It gates no pull
+request. Neither do the schema drift check (`schema-drift.yml`) and the weekly API coverage
+run (`api-coverage.yml`).
 
 ## Regenerating the sync stubs
 
