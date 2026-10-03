@@ -131,12 +131,12 @@ See [skills/tests/README.md](skills/tests/README.md).
 ### The CI scripts' tests
 
 `.github/scripts` holds the dependency audit's report formatter, the schema drift check and
-the API coverage report, with their tests, and the tests of the `CI` job and of the job-list
-check (see [CI](#ci)). They need only pytest and the standard library, and run with their own
-pytest config, which turns every warning into an error. `test_ci_checks.py` also runs the
-bash of those two steps, read from `test.yml`, so it needs bash, jq and
-[yq](https://github.com/mikefarah/yq) v4 on `PATH`, as GitHub's runners have them. The
-command is the one the `Audit Script Tests` job runs:
+the API coverage report, with their tests, and the tests of the `CI` job, the job-list check
+and the local actions' shellcheck (see [CI](#ci)). They need only pytest and the standard
+library, and run with their own pytest config, which turns every warning into an error.
+`test_ci_checks.py` also runs the bash of those three steps, read from `test.yml`, so it
+needs bash, jq, [yq](https://github.com/mikefarah/yq) v4 and shellcheck on `PATH`, as
+GitHub's runners have them. The command is the one the `Audit Script Tests` job runs:
 
 ```sh
 uv run --only-dev pytest -c .github/scripts/pytest.ini \
@@ -258,6 +258,10 @@ and when started with Run workflow, it runs the same audit as the `Dependency Au
 (`.github/actions/dependency-audit`) and posts the result to Slack. It gates no pull
 request. Neither do the schema drift check (`schema-drift.yml`) and the weekly API coverage
 run (`api-coverage.yml`).
+
+actionlint shellchecks the bash in workflows but not in the local actions under
+`.github/actions`, so the `Shellcheck the local actions` step of `Workflow Hardening` does
+that, with the options actionlint uses.
 
 ## Regenerating the sync stubs
 

@@ -1,9 +1,10 @@
-"""Tests for the CI job and the job-list check in .github/workflows/test.yml.
+"""Tests for the CI job and two Workflow Hardening checks in .github/workflows/test.yml.
 
-Both are bash in a workflow `run:` block. These tests read each block and its
-`env:` from test.yml with yq, and run it the way GitHub runs a `shell: bash`
-step, against planted job results and planted workflows. They need bash, jq and
-yq (mikefarah v4) on PATH, as GitHub's ubuntu-24.04 runners have them.
+The CI job, the job-list check and the local actions' shellcheck are bash in a
+workflow `run:` block. These tests read each block and its `env:` from test.yml
+with yq, and run it the way GitHub runs a `shell: bash` step, against planted
+job results, planted workflows and planted actions. They need bash, jq, yq
+(mikefarah v4) and shellcheck on PATH, as GitHub's ubuntu-24.04 runners have them.
 
 Run with:
 uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_ci_checks.py
@@ -25,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "test.yml"
 CI_STEP = ("ci", "Check the needed jobs")
 NEEDS_CHECK_STEP = ("workflow-hardening", "Check that CI needs every job")
+SHELLCHECK_STEP = ("workflow-hardening", "Shellcheck the local actions")
 ADVISORY_JOB = "e2e-unpinned-pdp"
 
 
@@ -386,3 +388,89 @@ def test_needs_check_exits_2_when_no_job_is_read(
     completed = run_needs_check(workflow, tmp_path, planted)
     assert completed.returncode == 2
     assert "No jobs read from" in completed.stdout
+
+
+# --- the local actions' shellcheck in Workflow Hardening ----------------------
+
+
+def bash_step(name: str, script: str) -> dict[str, str]:
+    return {"name": name, "shell": "bash", "run": script}
+
+
+def run_shellcheck_step(
+    workflow: dict[str, Any], tmp_path: Path, actions: dict[str, list[dict[str, str]]]
+) -> subprocess.CompletedProcess[str]:
+    """Runs the step against planted actions, each a list of composite steps (JSON is YAML)."""
+    actions_dir = tmp_path / "actions"
+    actions_dir.mkdir()
+    for name, steps in actions.items():
+        (actions_dir / name).mkdir()
+        action = {"name": name, "runs": {"using": "composite", "steps": steps}}
+        (actions_dir / name / "action.yml").write_text(json.dumps(action), encoding="utf-8")
+    tool("shellcheck")
+    return run_step(
+        find_step(workflow, SHELLCHECK_STEP), tmp_path, {"ACTIONS_DIR": str(actions_dir)}
+    )
+
+
+def test_shellcheck_step_passes_on_the_committed_actions(
+    workflow: dict[str, Any], tmp_path: Path
+) -> None:
+    tool("shellcheck")
+    completed = run_step(find_step(workflow, SHELLCHECK_STEP), tmp_path, {})
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "Shellcheck found nothing" in completed.stdout
+
+
+def test_shellcheck_step_fails_on_a_finding_and_names_its_step(
+    workflow: dict[str, Any], tmp_path: Path
+) -> None:
+    actions = {
+        "clean": [bash_step("Clean", 'echo "clean"')],
+        "mixed": [
+            {"name": "Checkout", "uses": "actions/checkout@v7"},
+            bash_step("Quoted", 'echo "$HOME"'),
+            bash_step("Unquoted", "echo $HOME"),
+        ],
+    }
+    completed = run_shellcheck_step(workflow, tmp_path, actions)
+    assert completed.returncode == 1
+    assert "SC2086" in completed.stdout
+    assert 'Step "Unquoted" has the shellcheck findings above' in completed.stdout
+    assert 'Step "Quoted"' not in completed.stdout
+    assert 'Step "Clean"' not in completed.stdout
+
+
+def test_shellcheck_step_reads_expressions_as_placeholders(
+    workflow: dict[str, Any], tmp_path: Path
+) -> None:
+    actions = {"expressions": [bash_step("Expression", 'echo "${{ inputs.python-version }}"')]}
+    completed = run_shellcheck_step(workflow, tmp_path, actions)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_shellcheck_step_leaves_off_the_checks_actionlint_turns_off(
+    workflow: dict[str, Any], tmp_path: Path
+) -> None:
+    actions = {"env": [bash_step("Variable from env", 'echo "$set_by_env"')]}
+    completed = run_shellcheck_step(workflow, tmp_path, actions)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize(
+    ("actions", "error"),
+    [
+        ({}, "Could not read"),
+        ({"uses-only": [{"name": "Checkout", "uses": "actions/checkout@v7"}]}, "No bash step read"),
+    ],
+    ids=["no action", "no bash step"],
+)
+def test_shellcheck_step_exits_2_when_no_bash_step_is_read(
+    workflow: dict[str, Any],
+    tmp_path: Path,
+    actions: dict[str, list[dict[str, str]]],
+    error: str,
+) -> None:
+    completed = run_shellcheck_step(workflow, tmp_path, actions)
+    assert completed.returncode == 2
+    assert f"title=Shellcheck::{error}" in completed.stdout

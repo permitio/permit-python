@@ -1018,8 +1018,9 @@ jobs:
       # [tool.pytest] in pyproject.toml. The scripts under test are stdlib only,
       # so --only-dev leaves the project uninstalled. The schema drift check's and
       # the API coverage report's tests run here too: they live next to the audit
-      # scripts and need no more. So do the tests of the CI job's and the job-list
-      # check's bash, which also run bash, jq and yq from the runner image.
+      # scripts and need no more. So do the tests of the bash of the CI job, the
+      # job-list check and the local actions' shellcheck, which also run bash,
+      # jq, yq and shellcheck from the runner image.
       - name: Run CI script tests
         run: >-
           uv run --locked --only-dev
@@ -1053,6 +1054,49 @@ jobs:
           # Advanced Security. Keep it to the job log and the exit code.
           advanced-security: false
           persona: regular
+
+      # actionlint shellchecks the `run:` blocks of workflows, not those of the
+      # local actions under .github/actions. This step shellchecks each of their
+      # `shell: bash` steps as actionlint would: every ${{ }} expression replaced
+      # by a placeholder, and the checks actionlint turns off left off (SC2154,
+      # for one, since `env:` sets variables shellcheck cannot see). Exits 1 on a
+      # finding, and 2 when no step is read.
+      - name: Shellcheck the local actions
+        shell: bash
+        env:
+          ACTIONS_DIR: .github/actions
+        run: |
+          status=0
+          checked=0
+          for action in "$ACTIONS_DIR"/*/action.yml; do
+            if ! count=$(yq '.runs.steps | length' "$action"); then
+              echo "::error file=$action,title=Shellcheck::Could not read $action."
+              exit 2
+            fi
+            for ((i = 0; i < count; i++)); do
+              if [[ $(yq ".runs.steps[$i].shell" "$action") != bash ]]; then
+                continue
+              fi
+              checked=$((checked + 1))
+              name=$(yq ".runs.steps[$i].name // \"step $((i + 1))\"" "$action")
+              if ! yq ".runs.steps[$i].run" "$action" |
+                sed -E 's/\$\{\{[^}]*\}\}/_/g' |
+                shellcheck --norc --shell=bash \
+                  --exclude=SC1091,SC2043,SC2050,SC2153,SC2154,SC2157,SC2194 -; then
+                echo "::error file=$action,title=Shellcheck::Step \"$name\" has the" \
+                  "shellcheck findings above."
+                status=1
+              fi
+            done
+          done
+          if [[ $checked -eq 0 ]]; then
+            echo "::error title=Shellcheck::No bash step read from $ACTIONS_DIR/*/action.yml."
+            exit 2
+          fi
+          if [[ $status -eq 0 ]]; then
+            echo "Shellcheck found nothing in the $checked bash steps of $ACTIONS_DIR."
+          fi
+          exit "$status"
 
       # CI gates only the jobs in its needs, so every other job in this workflow
       # must be listed there or in ADVISORY_JOBS, the jobs that run without
