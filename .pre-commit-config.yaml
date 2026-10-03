@@ -5,14 +5,21 @@
 # than running the hooks differently.
 minimum_prek_version: "0.5.3"
 
+# The Python that `language: python` hook environments are built with: the one
+# in .python-version. Without it prek builds them with whichever Python uv picks
+# first, which can be newer than 3.11 or free-threaded, and check-json and
+# check-toml then parse with that version's json and tomllib.
+default_language_version:
+  python: "3.11"
+
 repos:
   # Pinned to a commit rather than a tag, which can be moved; the `# frozen:`
   # comment names the release, and Dependabot updates both.
   #
-  # `language: python` makes prek run that release's hooks. Without it, prek
-  # runs its own Rust versions of them, which differ on some inputs: check-yaml
-  # accepts unknown tags, check-toml accepts TOML 1.1, check-json accepts an
-  # empty file, and others.
+  # `language: python` makes prek run that release's hooks, on the Python set in
+  # default_language_version above. Without it, prek runs its own Rust versions
+  # of them, which differ on some inputs: check-yaml accepts unknown tags,
+  # check-toml accepts TOML 1.1, check-json accepts an empty file, and others.
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
