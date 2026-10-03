@@ -6,9 +6,9 @@ updates:
   # Consumers never see uv.lock -- this package publishes open `>=` ranges --
   # so a Dependabot PR here raises the *floor* consumers are allowed to install
   # on, not just the version CI happens to resolve. That is the whole point:
-  # the floor is the exposure, and the audit gate in security.yml scans it
-  # explicitly. pydantic's floors are the exception: they are kept by hand
-  # (see `ignore` below).
+  # the floor is the exposure, and the dependency audit (test.yml on every PR,
+  # security.yml weekly) scans it explicitly. pydantic's floors are the
+  # exception: they are kept by hand (see `ignore` below).
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
@@ -55,8 +55,8 @@ updates:
       #   the old requirements.txt);
       # - a major bump would drop pydantic 1 support.
       # An ignore with no update-types also stops Dependabot security updates
-      # for pydantic. The audit gate in security.yml scans the newest pydantic
-      # and its pydantic 1 and pydantic 2 floors (resolved for Python 3.10), and
+      # for pydantic. The dependency audit scans the newest pydantic and its
+      # pydantic 1 and pydantic 2 floors (resolved for Python 3.10), and
       # fails on a fixable advisory. The pydantic versions in uv.lock move with
       # `uv lock --upgrade-package pydantic`.
       #
@@ -99,11 +99,14 @@ updates:
     labels:
       - "dependencies"
 
-  # GitHub Actions versions.
+  # GitHub Actions versions: "/" covers .github/workflows, and the local
+  # composite actions under .github/actions need their own entry.
   # Note: cooldown.semver-major-days is not supported for github-actions --
   # Dependabot only honours it on semver-strict ecosystems like uv and npm.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
       day: "monday"
