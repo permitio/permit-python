@@ -1004,13 +1004,14 @@ jobs:
       # [tool.pytest] in pyproject.toml. The scripts under test are stdlib only,
       # so --only-dev leaves the project uninstalled. The schema drift check's and
       # the API coverage report's tests run here too: they live next to the audit
-      # scripts and need no more.
+      # scripts and need no more. So do the tests of the CI job's and the job-list
+      # check's bash, which also run bash, jq and yq from the runner image.
       - name: Run CI script tests
         run: >-
           uv run --locked --only-dev
           pytest -c .github/scripts/pytest.ini -q
           .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py
-          .github/scripts/test_api_coverage.py
+          .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py
 
       - name: Shellcheck the shell scripts
         run: shellcheck .github/scripts/audit-deps.sh scripts/generate_models.sh
