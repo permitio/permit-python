@@ -38,7 +38,7 @@ class ResourceRelationsApi(BasePermitApi):
 
         Returns:
             a PaginatedResultRelationRead holding the relations in ``.data`` and the
-            total number of relations on the resource in ``.total_count``.
+                total number of relations on the resource in ``.total_count``.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.

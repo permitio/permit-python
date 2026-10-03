@@ -75,15 +75,19 @@ def decimal_encoder(dec_value: Decimal) -> int | float:
     results in failed round-tripping between encode and parse.
     Our Id type is a prime example of this.
 
-    >>> decimal_encoder(Decimal("1.0"))
-    1.0
-
-    >>> decimal_encoder(Decimal("1"))
-    1
-
     Raises:
         TypeError: If ``dec_value`` is NaN or infinite. JSON has no such values, so
             encoding one would send the API an invalid request body.
+
+    Examples:
+        ```pycon
+        >>> decimal_encoder(Decimal("1.0"))
+        1.0
+
+        >>> decimal_encoder(Decimal("1"))
+        1
+
+        ```
     """
     exponent = dec_value.as_tuple().exponent
     if not isinstance(exponent, int):

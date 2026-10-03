@@ -32,10 +32,12 @@ class Permit:
     The client keeps its HTTP connections open and reuses them: one aiohttp session, with
     its own pool of connections, for the Permit API and one for the PDP, per event loop it
     is used on. They are created by the first request from each loop. Close them with
-    ``await permit.close()``, or use the client as an async context manager::
+    ``await permit.close()``, or use the client as an async context manager:
 
-        async with Permit(token="<YOUR_API_KEY>") as permit:
-            await permit.check("user", "read", "document")
+    ```python
+    async with Permit(token="<YOUR_API_KEY>") as permit:
+        await permit.check("user", "read", "document")
+    ```
 
     A client that is never closed leaves nothing open behind it under ``asyncio.run()``,
     which closes the loop's sessions as it shuts the loop down, nor once it is garbage
@@ -131,10 +133,11 @@ class Permit:
 
         Once the SDK is initialized, the configuration is read-only.
 
-        Usage example:
-
+        Examples:
+            ```python
             permit = Permit(config)
             pdp_url = permit.config.pdp
+            ```
         """
         return self._config.copy()
 
@@ -173,11 +176,11 @@ class Permit:
                 default when that is None too.
 
         Yields:
-            Permit: A Permit instance that is configured to wait for facts to be synced. It
-            sends its requests over this client's connections, so it needs no ``close()``:
-            closing this client closes them, and its own ``close()`` does nothing. With
-            ``proxy_facts_via_pdp`` off, it logs a warning and yields this client itself,
-            whose ``close()`` closes them.
+            A Permit instance that is configured to wait for facts to be synced. It
+                sends its requests over this client's connections, so it needs no ``close()``:
+                closing this client closes them, and its own ``close()`` does nothing. With
+                ``proxy_facts_via_pdp`` off, it logs a warning and yields this client itself,
+                whose ``close()`` closes them.
 
         See Also:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
@@ -205,10 +208,11 @@ class Permit:
     def api(self) -> PermitApiClient:
         """Access the Permit REST API using this property.
 
-        Usage example:
-
+        Examples:
+            ```python
             permit = Permit(token="<YOUR_API_KEY>")
             await permit.api.roles.create(...)
+            ```
         """
         return self._api
 
@@ -216,10 +220,11 @@ class Permit:
     def elements(self) -> ElementsApi:
         """Access the Permit Elements API using this property.
 
-        Usage example:
-
+        Examples:
+            ```python
             permit = Permit(token="<YOUR_API_KEY>")
-            await permit.elements.loginAs(user, tenant)
+            await permit.elements.login_as(user, tenant)
+            ```
         """
         return self._elements
 
@@ -229,10 +234,11 @@ class Permit:
 
         Container PDP only: the cloud PDP serves none of its routes.
 
-        Usage example:
-
+        Examples:
+            ```python
             permit = Permit(token="<YOUR_API_KEY>")
             await permit.pdp_api.role_assignments.list()
+            ```
         """
         return self._pdp_api
 
@@ -251,7 +257,7 @@ class Permit:
                 Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+            Contains all the authorized users and the role assignments that
                 granted the permission.
 
         Raises:
@@ -259,15 +265,17 @@ class Permit:
                 PDP.
 
         Examples:
+            ```python
             # all the users that can close any issue?
-            await permit.authorized_users('close', 'issue')
+            await permit.authorized_users("close", "issue")
 
             # all the users that can close an issue who's id is 1234?
-            await permit.authorized_users('close', 'issue:1234')
+            await permit.authorized_users("close", "issue:1234")
 
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+            await permit.authorized_users("close", {"type": "issue", "tenant": "t1"})
+            ```
         """
         return await self._enforcer.authorized_users(action, resource, context)
 
@@ -284,7 +292,7 @@ class Permit:
                 Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each
+            A list of booleans indicating whether the user is authorized for each
                 resource.
 
         Raises:
@@ -292,24 +300,28 @@ class Permit:
                 PDP.
 
         Examples:
+            ```python
             # Bulk query of multiple check conventions
-            await permit.bulk_check([
-                {
-                    "user": user,
-                    "action": "close",
-                    "resource": {type: "issue", key: "1234"},
-                },
-                {
-                    "user": {key: "user"},
-                    "action": "close",
-                    "resource": "issue:1235",
-                },
-                {
-                    "user": "user_a",
-                    "action": "close",
-                    "resource": "issue",
-                },
-            ])
+            await permit.bulk_check(
+                [
+                    {
+                        "user": user,
+                        "action": "close",
+                        "resource": {"type": "issue", "key": "1234"},
+                    },
+                    {
+                        "user": {"key": "user"},
+                        "action": "close",
+                        "resource": "issue:1235",
+                    },
+                    {
+                        "user": "user_a",
+                        "action": "close",
+                        "resource": "issue",
+                    },
+                ]
+            )
+            ```
         """
         return await self._enforcer.bulk_check(checks, context)
 
@@ -330,22 +342,24 @@ class Permit:
                 Defaults to None.
 
         Returns:
-            bool: True if the user is authorized, False otherwise.
+            True if the user is authorized, False otherwise.
 
         Raises:
             PermitConnectionError: If an error occurs while sending the authorization request to the
                 PDP.
 
         Examples:
+            ```python
             # can the user close any issue?
-            await permit.check(user, 'close', 'issue')
+            await permit.check(user, "close", "issue")
 
             # can the user close any issue who's id is 1234?
-            await permit.check(user, 'close', 'issue:1234')
+            await permit.check(user, "close", "issue:1234")
 
             # can the user close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            await permit.check(user, "close", {"type": "issue", "tenant": "t1"})
+            ```
         """
         return await self._enforcer.check(user, action, resource, context)
 
@@ -370,7 +384,7 @@ class Permit:
                 either; pass ``{}`` to send the base context alone.
 
         Returns:
-            dict: User permissions per tenant
+            User permissions per tenant
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP
@@ -400,7 +414,7 @@ class Permit:
                 Defaults to None.
 
         Returns:
-            list[TenantDetails]: The user's tenants, each with its key and attributes. Empty
+            The user's tenants, each with its key and attributes. Empty
                 when the user has no tenant-level role or the PDP does not know the user.
 
         Raises:
@@ -408,9 +422,11 @@ class Permit:
                 other error status, or cannot be reached.
 
         Examples:
+            ```python
             # the tenants in which alice has a role
             tenants = await permit.get_user_tenants("alice")
             keys = [tenant.key for tenant in tenants]
+            ```
         """
         return await self._enforcer.get_user_tenants(user, context)
 
@@ -427,7 +443,7 @@ class Permit:
                 `type`, `key`, `context`, `attributes` and `tenant`.
 
         Returns:
-            list[dict[str, Any]]: The permitted subset of `resources`, in their original order
+            The permitted subset of `resources`, in their original order
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP
