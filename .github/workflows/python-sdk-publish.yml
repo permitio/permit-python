@@ -175,7 +175,7 @@ jobs:
           exit-code: "0"
           scanners: vuln
           trivy-config: ""
-          # See the same step in security.yml: this only installs Trivy, and
+          # See the same step in .github/actions/dependency-audit: this only installs Trivy, and
           # hide-progress keeps its empty scan from logging a warning.
           hide-progress: true
           # The action's cache is on by default and restores the Trivy binary
