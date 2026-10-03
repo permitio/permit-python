@@ -828,8 +828,6 @@ jobs:
     # this PR's dependency code.
     permissions:
       contents: read
-    outputs:
-      gate_failed: ${{ steps.audit.outputs.failed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -841,7 +839,6 @@ jobs:
       # self-repository syntax ($/...) instead of ./, which actionlint (v1.7.12)
       # rejects.
       - name: Dependency audit
-        id: audit
         uses: ./.github/actions/dependency-audit # zizmor: ignore[self-repository]
         with:
           python-version: ${{ env.PYTHON_VERSION }}

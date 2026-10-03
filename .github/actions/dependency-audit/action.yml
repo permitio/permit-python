@@ -12,13 +12,6 @@ inputs:
     description: The Python that runs the report formatter.
     required: true
 
-outputs:
-  failed:
-    description: >-
-      'true' when the gate found a fixable HIGH or CRITICAL advisory, 'false'
-      when it passed, empty when the gate did not run.
-    value: ${{ steps.gate.outputs.failed }}
-
 runs:
   using: composite
   steps:
@@ -116,7 +109,6 @@ runs:
     # Blocks on fixable HIGH/CRITICAL only, and fails closed if a gating
     # scanner report could not be parsed.
     - name: Gate on HIGH/CRITICAL
-      id: gate
       shell: bash
       run: |
         set -uo pipefail
@@ -134,11 +126,9 @@ runs:
         gate_exit=$?
         set -e
         if [ "${gate_exit}" -ne 0 ]; then
-          echo "failed=true" >> "$GITHUB_OUTPUT"
           echo "::error title=Dependency audit failed::Fixable HIGH/CRITICAL advisories are present. See the job summary for the full report and the required version bumps."
           exit 1
         fi
-        echo "failed=false" >> "$GITHUB_OUTPUT"
 
     # if: always() is load-bearing: the Gate step above exits non-zero on a
     # failing audit, and that is precisely when the jobs that read this
