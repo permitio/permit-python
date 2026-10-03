@@ -930,6 +930,23 @@ jobs:
               ].join('\n');
             }
 
+            // Nothing cancels the run of a commit the PR has moved past, so it
+            // can finish after the run of the new head. Only the run of the PR's
+            // current head posts, so the comment never shows an older report.
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const auditedSha = context.payload.pull_request.head.sha;
+            if (pr.head.sha !== auditedSha) {
+              core.notice(
+                `This run audited ${auditedSha}, but the PR head is now ${pr.head.sha}. ` +
+                'The run of the new head posts its report.'
+              );
+              return;
+            }
+
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
