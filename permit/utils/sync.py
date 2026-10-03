@@ -233,7 +233,7 @@ class _LoopThread:
 
         Returns:
             What the coroutine returns, or the exception it raises, as a `_Raised`. A
-            cancellation, of the task or from the coroutine, is raised.
+                cancellation, of the task or from the coroutine, is raised.
         """
         # Never None: this coroutine only ever runs as a task.
         task = cast("asyncio.Task[Any]", asyncio.current_task())
@@ -261,7 +261,7 @@ class _LoopThread:
 
         Returns:
             The future of the coroutine's result, or of the exception it raised, as a
-            `_Raised`.
+                `_Raised`.
 
         Raises:
             RuntimeError: If the loop is closed. `coroutine` is closed, never started.
