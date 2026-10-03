@@ -392,9 +392,9 @@ class ResourceInstancesApi(BasePermitApi):
         this method raises as a ``PermitApiError`` that says so.
 
         Args:
-            resource_instances: The resource instance identities to delete.
-            Each identity can be either `resource_type:instance_key` (like Repository:react) or the
-            resource instance uuid.
+            resource_instances: The resource instance identities to delete. Each identity can
+                be either `resource_type:instance_key` (like Repository:react) or the resource
+                instance uuid.
 
         Returns:
             the bulk delete report.

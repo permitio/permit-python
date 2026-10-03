@@ -33,10 +33,10 @@ CloseSessions = Callable[[], Coroutine[Any, Any, None]]
 """A coroutine function that closes the HTTP sessions of a sync client."""
 
 SYNC_WRAPPER_MARKER = "__permit_sync_wrapper__"
-"""Attribute set on every wrapper produced by :func:`async_to_sync`.
+"""Attribute set on every wrapper produced by `async_to_sync`.
 
 It marks a callable as "already converted", which makes the conversion done by
-:class:`SyncClass` idempotent and keeps :func:`iscoroutine_func` from walking
+`SyncClass` idempotent and keeps `iscoroutine_func` from walking
 into the coroutine function such a wrapper consumes.
 """
 
@@ -550,11 +550,11 @@ def async_to_sync(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
 
     Returns:
         A callable that runs `func` to completion and returns its result: on the background
-        loop of the sync client that the first argument (`self`, for a method) belongs to,
-        otherwise in an event loop of its own. When it is called from inside a coroutine
-        that a blocking call is already driving, the coroutine is handed back untouched
-        instead, so that internal `await self.public_method(...)` calls keep working on a
-        converted class.
+            loop of the sync client that the first argument (`self`, for a method) belongs to,
+            otherwise in an event loop of its own. When it is called from inside a coroutine
+            that a blocking call is already driving, the coroutine is handed back untouched
+            instead, so that internal `await self.public_method(...)` calls keep working on a
+            converted class.
     """
 
     @wraps(func)

@@ -47,7 +47,7 @@ class PdpsApi(BasePermitApi):
 
         Returns:
             The id of the data update that carries the refresh, and the ids of the PDP
-            configurations it was sent to.
+                configurations it was sent to.
 
         Raises:
             pydantic.v1.ValidationError: If ``reason`` is longer than 512 characters. Nothing

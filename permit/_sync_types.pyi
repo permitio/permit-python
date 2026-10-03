@@ -132,7 +132,7 @@ class SyncConditionSetRulesApi(BasePermitApi):
         Args:
             user_set_key: the key of the userset, if used only rules matching that userset will be
                 fetched.
-            permission_key: the key of the permission, formatted as <resource>:<action>.
+            permission_key: the key of the permission, formatted as `<resource>:<action>`.
                 if used, only rules granting that permission will be fetched.
             resource_set_key: the key of the resourceset, if used only rules matching that
                 resourceset will be fetched.
@@ -546,7 +546,7 @@ class SyncGroupsApi(BasePermitApi):
 
         Returns:
             One page of groups, with the total count. Each group's ``group_instance_key`` is
-            its instance key alone, and ``id`` is its instance id.
+                its instance key alone, and ``id`` is its instance id.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -566,7 +566,7 @@ class SyncGroupsApi(BasePermitApi):
 
         Returns:
             The group. Its ``group_instance_key`` is its instance key alone, and ``id`` is
-            its instance id.
+                its instance id.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code, such as 404 when no
@@ -813,7 +813,7 @@ class SyncPdpsApi(BasePermitApi):
 
         Returns:
             The id of the data update that carries the refresh, and the ids of the PDP
-            configurations it was sent to.
+                configurations it was sent to.
 
         Raises:
             pydantic.v1.ValidationError: If ``reason`` is longer than 512 characters. Nothing
@@ -1689,9 +1689,9 @@ class SyncResourceInstancesApi(BasePermitApi):
         this method raises as a ``PermitApiError`` that says so.
 
         Args:
-            resource_instances: The resource instance identities to delete.
-            Each identity can be either `resource_type:instance_key` (like Repository:react) or the
-            resource instance uuid.
+            resource_instances: The resource instance identities to delete. Each identity can
+                be either `resource_type:instance_key` (like Repository:react) or the resource
+                instance uuid.
 
         Returns:
             the bulk delete report.
@@ -1716,7 +1716,7 @@ class SyncResourceRelationsApi(BasePermitApi):
 
         Returns:
             a PaginatedResultRelationRead holding the relations in ``.data`` and the
-            total number of relations on the resource in ``.total_count``.
+                total number of relations on the resource in ``.total_count``.
 
         Raises:
             PermitApiError: If the API returns an error HTTP status code.
@@ -2416,8 +2416,8 @@ class SyncRolesApi(BasePermitApi):
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be assigned to the
-                role.
+            permissions: An array of permission keys (`<resourceKey:actionKey>`) to be assigned
+                to the role.
 
         Returns:
             A RoleRead object representing the updated role.
@@ -2432,8 +2432,8 @@ class SyncRolesApi(BasePermitApi):
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be removed from
-                the role.
+            permissions: An array of permission keys (`<resourceKey:actionKey>`) to be removed
+                from the role.
 
         Returns:
             A RoleRead object representing the updated role.
@@ -3079,7 +3079,7 @@ class SyncEnforcer:
                 Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+            Contains all the authorized users and the role assignments that
                 granted the permission.
 
         Raises:
@@ -3087,15 +3087,17 @@ class SyncEnforcer:
                 PDP.
 
         Examples:
+            ```python
             # all the users that can close any issue?
-            await permit.authorized_users('close', 'issue')
+            await permit.authorized_users("close", "issue")
 
             # all the users that can close an issue who's id is 1234?
-            await permit.authorized_users('close', 'issue:1234')
+            await permit.authorized_users("close", "issue:1234")
 
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+            await permit.authorized_users("close", {"type": "issue", "tenant": "t1"})
+            ```
         """
     def bulk_check(self, checks: list[CheckQuery], context: Context | None = None) -> list[bool]:
         """Checks if a user is authorized to perform an action on a resource in a context.
@@ -3109,7 +3111,7 @@ class SyncEnforcer:
                 Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each
+            A list of booleans indicating whether the user is authorized for each
                 resource.
 
         Raises:
@@ -3117,24 +3119,28 @@ class SyncEnforcer:
                 PDP.
 
         Examples:
+            ```python
             # Bulk query of multiple check conventions
-            await permit.bulk_check([
-                {
-                    "user": user,
-                    "action": "close",
-                    "resource": {type: "issue", key: "1234"},
-                },
-                {
-                    "user": {key: "user"},
-                    "action": "close",
-                    "resource": "issue:1235",
-                },
-                {
-                    "user": "user_a",
-                    "action": "close",
-                    "resource": "issue",
-                },
-            ])
+            await permit.bulk_check(
+                [
+                    {
+                        "user": user,
+                        "action": "close",
+                        "resource": {"type": "issue", "key": "1234"},
+                    },
+                    {
+                        "user": {"key": "user"},
+                        "action": "close",
+                        "resource": "issue:1235",
+                    },
+                    {
+                        "user": "user_a",
+                        "action": "close",
+                        "resource": "issue",
+                    },
+                ]
+            )
+            ```
         """
     def check(
         self, user: User, action: Action, resource: Resource, context: Context | None = None
@@ -3149,22 +3155,24 @@ class SyncEnforcer:
                 Defaults to None.
 
         Returns:
-            bool: True if the user is authorized, False otherwise.
+            True if the user is authorized, False otherwise.
 
         Raises:
             PermitConnectionError: If an error occurs while sending the authorization request to the
                 PDP.
 
         Examples:
+            ```python
             # can the user close any issue?
-            await permit.check(user, 'close', 'issue')
+            await permit.check(user, "close", "issue")
 
             # can the user close any issue who's id is 1234?
-            await permit.check(user, 'close', 'issue:1234')
+            await permit.check(user, "close", "issue:1234")
 
             # can the user close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            await permit.check(user, "close", {"type": "issue", "tenant": "t1"})
+            ```
         """
     def get_user_permissions(
         self,
@@ -3212,7 +3220,7 @@ class SyncEnforcer:
 
         Returns:
             The user's tenants, each with its key and attributes. Empty when the user has no
-            tenant-level role or the PDP does not know the user.
+                tenant-level role or the PDP does not know the user.
 
         Raises:
             PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any
@@ -3231,7 +3239,7 @@ class SyncEnforcer:
                 key, which is sent as the resource context of that check.
 
         Returns:
-            list[dict]: The subset of ``resources`` the user is authorized for, in input order.
+            The subset of ``resources`` the user is authorized for, in input order.
         """
 
 class SyncPdpRoleAssignmentsApi(BasePdpPermitApi):

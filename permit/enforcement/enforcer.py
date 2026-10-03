@@ -144,7 +144,7 @@ class Enforcer:
                 Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+            Contains all the authorized users and the role assignments that
                 granted the permission.
 
         Raises:
@@ -152,15 +152,17 @@ class Enforcer:
                 PDP.
 
         Examples:
+            ```python
             # all the users that can close any issue?
-            await permit.authorized_users('close', 'issue')
+            await permit.authorized_users("close", "issue")
 
             # all the users that can close an issue who's id is 1234?
-            await permit.authorized_users('close', 'issue:1234')
+            await permit.authorized_users("close", "issue:1234")
 
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+            await permit.authorized_users("close", {"type": "issue", "tenant": "t1"})
+            ```
         """
         context = context or {}
 
@@ -260,7 +262,7 @@ class Enforcer:
                 Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each
+            A list of booleans indicating whether the user is authorized for each
                 resource.
 
         Raises:
@@ -268,24 +270,28 @@ class Enforcer:
                 PDP.
 
         Examples:
+            ```python
             # Bulk query of multiple check conventions
-            await permit.bulk_check([
-                {
-                    "user": user,
-                    "action": "close",
-                    "resource": {type: "issue", key: "1234"},
-                },
-                {
-                    "user": {key: "user"},
-                    "action": "close",
-                    "resource": "issue:1235",
-                },
-                {
-                    "user": "user_a",
-                    "action": "close",
-                    "resource": "issue",
-                },
-            ])
+            await permit.bulk_check(
+                [
+                    {
+                        "user": user,
+                        "action": "close",
+                        "resource": {"type": "issue", "key": "1234"},
+                    },
+                    {
+                        "user": {"key": "user"},
+                        "action": "close",
+                        "resource": "issue:1235",
+                    },
+                    {
+                        "user": "user_a",
+                        "action": "close",
+                        "resource": "issue",
+                    },
+                ]
+            )
+            ```
         """
         context = context or {}
         request_body = []
@@ -384,22 +390,24 @@ class Enforcer:
                 Defaults to None.
 
         Returns:
-            bool: True if the user is authorized, False otherwise.
+            True if the user is authorized, False otherwise.
 
         Raises:
             PermitConnectionError: If an error occurs while sending the authorization request to the
                 PDP.
 
         Examples:
+            ```python
             # can the user close any issue?
-            await permit.check(user, 'close', 'issue')
+            await permit.check(user, "close", "issue")
 
             # can the user close any issue who's id is 1234?
-            await permit.check(user, 'close', 'issue:1234')
+            await permit.check(user, "close", "issue:1234")
 
             # can the user close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            await permit.check(user, "close", {"type": "issue", "tenant": "t1"})
+            ```
         """
         context = context or {}
 
@@ -592,7 +600,7 @@ class Enforcer:
 
         Returns:
             The user's tenants, each with its key and attributes. Empty when the user has no
-            tenant-level role or the PDP does not know the user.
+                tenant-level role or the PDP does not know the user.
 
         Raises:
             PermitConnectionError: If the PDP answers 404 (as the cloud PDP does), answers any
@@ -658,7 +666,7 @@ class Enforcer:
                 key, which is sent as the resource context of that check.
 
         Returns:
-            list[dict]: The subset of ``resources`` the user is authorized for, in input order.
+            The subset of ``resources`` the user is authorized for, in input order.
         """
         requests: list[CheckQuery] = []
         for resource in resources:
