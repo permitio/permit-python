@@ -232,12 +232,12 @@ a test there checks that `.github/api-specs/pdp.source.json` names the pinned im
 
 `.github/workflows/test.yml` holds every check a pull request must pass, and runs on every
 pull request and every push to `main`. Its last job, `CI`, is the one check to require: it
-needs every other job in the workflow and fails unless each of them succeeded. A job that
-failed, was cancelled or was skipped fails it, because GitHub counts a skipped required check
-as passing. The one exception is `Dependency Review`, which runs on pull requests only: on a
-push it is skipped, and `CI` passes. `Post Audit Comment` runs on every event, posts only on
-a pull request from a branch of this repository, and elsewhere succeeds with its steps
-skipped.
+needs every other job in the workflow but the advisory ones (see below), and fails unless
+each of them succeeded. A job that failed, was cancelled or was skipped fails it, because
+GitHub counts a skipped required check as passing. The one exception is `Dependency Review`,
+which runs on pull requests only: on a push it is skipped, and `CI` passes.
+`Post Audit Comment` runs on every event, posts only on a pull request from a branch of this
+repository, and elsewhere succeeds with its steps skipped.
 
 To add a job to `test.yml`, do one of these in the same change:
 
