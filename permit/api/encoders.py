@@ -86,6 +86,7 @@ def decimal_encoder(dec_value: Decimal) -> int | float:
 
         >>> decimal_encoder(Decimal("1"))
         1
+
         ```
     """
     exponent = dec_value.as_tuple().exponent
