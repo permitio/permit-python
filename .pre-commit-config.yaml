@@ -1,25 +1,45 @@
-# `language: unsupported` (the pre-commit 4.4 name for `system`) runs a command
-# from the environment pre-commit was started in.
-minimum_pre_commit_version: "4.4.0"
+# Run by prek (see CONTRIBUTING.md). `language: system` runs a command from the
+# environment prek was started in.
+#
+# An older prek, such as an old global install, stops with an error here rather
+# than running the hooks differently.
+minimum_prek_version: "0.5.3"
 
 repos:
   # Pinned to a commit rather than a tag, which can be moved; the `# frozen:`
   # comment names the release, and Dependabot updates both.
+  #
+  # `language: python` makes prek run that release's hooks. Without it, prek
+  # runs its own Rust versions of them, which differ on some inputs: check-yaml
+  # accepts unknown tags, check-toml accepts TOML 1.1, check-json accepts an
+  # empty file, and others.
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
       - id: trailing-whitespace
+        language: python
       - id: end-of-file-fixer
+        language: python
       - id: check-added-large-files
+        language: python
       - id: check-case-conflict
+        language: python
       - id: check-executables-have-shebangs
+        language: python
       - id: check-shebang-scripts-are-executable
+        language: python
       - id: check-json
+        language: python
       - id: check-toml
+        language: python
       - id: check-yaml
+        language: python
       - id: check-xml
+        language: python
       - id: check-merge-conflict
+        language: python
       - id: mixed-line-ending
+        language: python
         args: [--fix=lf]
 
   # ruff, mypy and typos run from the project environment, so the versions in
@@ -32,14 +52,14 @@ repos:
       - id: ruff-check
         name: ruff check
         entry: uv run --locked ruff check --fix
-        language: unsupported
+        language: system
         # pyproject.toml too: ruff validates its [project] table (RUF200).
         files: (\.pyi?|(^|/)pyproject\.toml)$
         require_serial: true
       - id: ruff-format
         name: ruff format
         entry: uv run --locked ruff format
-        language: unsupported
+        language: system
         types_or: [python, pyi]
         require_serial: true
       - id: mypy
@@ -47,7 +67,7 @@ repos:
         # No file names: mypy checks the `files` set in pyproject.toml as a whole,
         # which is what makes cross-module errors visible.
         entry: uv run --locked mypy
-        language: unsupported
+        language: system
         # pyproject.toml and uv.lock too: they hold mypy's config and the
         # dependency versions it checks against.
         files: (\.pyi?|^pyproject\.toml|^uv\.lock)$
@@ -56,7 +76,7 @@ repos:
       - id: typos
         name: typos
         entry: uv run --locked typos --force-exclude
-        language: unsupported
+        language: system
         types: [text]
         require_serial: true
 
@@ -70,6 +90,6 @@ repos:
       - id: uv-lock
         name: uv lock --check
         entry: uv lock --check
-        language: unsupported
+        language: system
         files: ^(uv\.lock|pyproject\.toml|uv\.toml)$
         pass_filenames: false

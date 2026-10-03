@@ -11,8 +11,13 @@ the 7-day `exclude-newer` cooldown, which produces a different `uv.lock`.
 
 ```sh
 uv sync                      # .venv with the SDK and the dev tools, exactly as locked in uv.lock
-uv run pre-commit install    # lint, format, type-check and uv.lock checks on every commit
+uv run prek install          # lint, format, type-check and uv.lock checks on every commit
 ```
+
+The hooks are defined in `.pre-commit-config.yaml` and run by [prek](https://github.com/j178/prek),
+which comes from the `dev` group. If `.git/hooks/pre-commit` was installed by pre-commit, run
+`uv run prek install --force` instead: without `--force`, prek keeps that hook as
+`pre-commit.legacy` and runs it as well, and it fails because pre-commit is not in `.venv`.
 
 `uv sync` installs the SDK from this checkout in editable mode, so the tests and scripts
 import the working tree's `permit`. `.python-version` selects Python 3.11, the version the
@@ -21,8 +26,14 @@ end-to-end CI job runs on. The SDK itself supports Python 3.10 and later.
 The ruff, mypy and typos hooks run through `uv run --locked`, which syncs `.venv` to `uv.lock`
 before running the tool, so the versions in `uv.lock` are the only ones in play; the hooks fail
 if `uv.lock` is out of date with `pyproject.toml`. That sync uses the default groups, so a commit
-also switches a `.venv` synced with `--group pydantic-v1` back to pydantic 2.x. The same checks
-by hand:
+also switches a `.venv` synced with `--group pydantic-v1` back to pydantic 2.x. To run every
+hook on every file, as CI does:
+
+```sh
+uv run prek run --all-files
+```
+
+The same checks one tool at a time:
 
 ```sh
 uv run ruff check              # lint (the rule set is `select = ["ALL"]` minus justified ignores)
@@ -47,8 +58,8 @@ uv run --group pydantic-v1 mypy
 - Dev tools are exact pins in the `dev` dependency group, which `uv sync` installs by
   default.
 - After changing either, run `uv lock` and commit `uv.lock` with the change. The `uv-lock`
-  pre-commit hook fails while the two disagree, and CI installs with `uv sync --locked`,
-  which refuses a stale lock.
+  hook fails while the two disagree, and CI installs with `uv sync --locked`, which refuses
+  a stale lock.
 - `uv lock` leaves out releases less than 7 days old (`exclude-newer` in `[tool.uv]`), but
   the dependency audit does not, so it can fail on an advisory whose fix `uv lock` still
   filters out. To take that fix now, add `exclude-newer-package = { <package> = false }`
@@ -101,8 +112,8 @@ versions the runtime requirements allow and at the newest.
 
 `tests/test_typing_surface.py` runs mypy on `tests/type_check/consumer.py` the way a user's
 project sees an installed permit, and fails while `permit/_sync_types.pyi` is out of date
-(see [Regenerating the sync stubs](#regenerating-the-sync-stubs)). The `mypy` pre-commit
-hook type-checks the SDK itself, strictly and with the pydantic plugin (see [Setup](#setup)).
+(see [Regenerating the sync stubs](#regenerating-the-sync-stubs)). The `mypy` hook
+type-checks the SDK itself, strictly and with the pydantic plugin (see [Setup](#setup)).
 
 ### The migration skill's tests
 
@@ -220,7 +231,7 @@ has to be restored by hand.
    in `pyproject.toml` and keeps the generator's formatting, so the diff shows only API changes.
 
 5. Run the schema drift check, the offline tests under both pydantic majors (see above) and
-   `uv run pre-commit run --all-files`.
+   `uv run prek run --all-files`.
 
 ### Schema drift check
 

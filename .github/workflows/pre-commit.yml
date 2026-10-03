@@ -11,12 +11,15 @@ permissions:
 jobs:
   # The job id is the required status check "pre-commit" on main; keep it.
   #
-  # These steps do what pre-commit/action v3.0.1 does, written out: its last
-  # release pins actions/cache@v4, which targets the deprecated Node 20
-  # runtime, and it has had no release since. pre-commit itself comes from
-  # uv.lock rather than a pip install.
+  # prek runs the hooks in .pre-commit-config.yaml. It comes from uv.lock rather
+  # than j178/prek-action, so CI runs the version developers run, Dependabot's
+  # uv updates move it, and the dependency audit scans it.
   pre-commit:
     runs-on: ubuntu-24.04
+    env:
+      # Where prek keeps cloned hook repositories and hook environments. Set
+      # here so prek and the cache step below use the same path.
+      PREK_HOME: ~/.cache/prek
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,26 +33,26 @@ jobs:
           python-version: "3.11"
           enable-cache: true
 
-      # Hook environments, keyed on the config that defines them and on the
-      # Python they were built with, since a hook venv does not survive an
-      # interpreter change. This is the cache pre-commit/action used to provide.
-      - name: Cache pre-commit hook environments
+      # Hook environments, keyed on the config that defines them, on uv.lock,
+      # which pins prek and the uv that builds them, and on the Python they were
+      # built with, since a hook venv does not survive an interpreter change.
+      - name: Cache prek hook environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/pre-commit
+          path: ${{ env.PREK_HOME }}
           key: >-
-            pre-commit-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
-            hashFiles('.pre-commit-config.yaml') }}
+            prek-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
+            hashFiles('.pre-commit-config.yaml', 'uv.lock') }}
 
-      # pre-commit itself comes from the locked dev group. The ruff, mypy and
-      # typos hooks are `repo: local` and run through `uv run --locked`, which
-      # syncs .venv to the default groups first: the project, its dependencies
+      # prek itself needs only the locked dev group. The ruff, mypy and typos
+      # hooks are `repo: local` and run through `uv run --locked`, which syncs
+      # .venv to the default groups first: the project, its dependencies
       # (pydantic 2) and the dev tools, so mypy checks against the SDK's real
       # dependencies.
-      - name: Run pre-commit
+      - name: Run prek
         run: >-
-          uv run --locked
-          pre-commit run --all-files --show-diff-on-failure --color=always
+          uv run --locked --only-dev
+          prek run --all-files --show-diff-on-failure --color=always
 
       # The SDK imports pydantic differently per major, so its types are checked
       # against pydantic 1 as well (the hook above ran against pydantic 2).
