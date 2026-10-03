@@ -239,6 +239,12 @@ which runs on pull requests only: on a push it is skipped, and `CI` passes.
 `Post Audit Comment` runs on every event, posts only on a pull request from a branch of this
 repository, and elsewhere succeeds with its steps skipped.
 
+Until the `main` ruleset requires `CI` alone, it requires the check names of six jobs:
+`pytest (Pydantic pydantic<2.0.0)`, `pytest (Pydantic pydantic>=2.0.0)`, `pre-commit`,
+`Dependency Audit`, `Audit Script Tests` and `Workflow Hardening`. Do not rename those jobs
+until then: GitHub leaves a required check that never reports pending, which blocks every
+pull request.
+
 To add a job to `test.yml`, do one of these in the same change:
 
 - add its id to the `needs` of the `ci` job, and set `EXPECTED_JOBS` in that job's step to

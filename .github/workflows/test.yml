@@ -1173,6 +1173,11 @@ jobs:
   # EXPECTED_JOBS jobs arrive. Change EXPECTED_JOBS when you change needs. The
   # Workflow Hardening job fails when a job is in neither needs nor its
   # ADVISORY_JOBS, or when EXPECTED_JOBS is not the number of jobs in needs.
+  # Until the ruleset on main requires CI alone, it requires the check names of
+  # six jobs here, so do not rename those jobs until then (a required check that
+  # never reports leaves every pull request waiting):
+  # "pytest (Pydantic pydantic<2.0.0)", "pytest (Pydantic pydantic>=2.0.0)",
+  # "pre-commit", "Dependency Audit", "Audit Script Tests", "Workflow Hardening".
   ci:
     name: CI
     if: always()
