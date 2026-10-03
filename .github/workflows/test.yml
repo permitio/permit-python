@@ -260,8 +260,8 @@ jobs:
           fi
 
   # The e2e tests against PDPs this repository does not pin. CI does not need
-  # this job, so a new PDP release or a change to the cloud PDP shows up here
-  # without blocking a PR.
+  # this job (it is in ADVISORY_JOBS in the Workflow Hardening job), so a new PDP
+  # release or a change to the cloud PDP shows up here without blocking a PR.
   # - latest PDP image: the suite against permitio/pdp-v2:latest, on pydantic 2.
   #   Red here with `pytest` green means the newest PDP release behaves unlike
   #   PINNED_PDP_IMAGE.
@@ -1039,6 +1039,70 @@ jobs:
           advanced-security: false
           persona: regular
 
+      # CI gates only the jobs in its needs, so every other job in this workflow
+      # must be listed there or in ADVISORY_JOBS, the jobs that run without
+      # gating a PR. Exits 1 when the jobs, CI's needs and ADVISORY_JOBS disagree
+      # or CI's EXPECTED_JOBS is not the number of jobs it needs, and 2 when no
+      # job is read.
+      - name: Check that CI needs every job
+        shell: bash
+        env:
+          WORKFLOW: .github/workflows/test.yml
+          # Job ids, separated by spaces.
+          # - e2e-unpinned-pdp: the e2e tests against the latest PDP image and the
+          #   cloud PDP, which this repository does not pin, so that a new PDP
+          #   release shows up there without blocking a PR.
+          ADVISORY_JOBS: e2e-unpinned-pdp
+        run: |
+          export LC_ALL=C
+          if ! jobs=$(yq '.jobs | keys | .[] | select(. != "ci")' "$WORKFLOW" | sort) ||
+            [[ -z $jobs ]]; then
+            echo "::error title=CI needs::No jobs read from $WORKFLOW."
+            exit 2
+          fi
+          needs=$(yq '.jobs.ci.needs[]' "$WORKFLOW" | sort)
+          expected=$(yq '.jobs.ci.steps[] | select(.name == "Check the needed jobs") |
+            .env.EXPECTED_JOBS' "$WORKFLOW")
+          advisory=$(tr -s ' ' '\n' <<<"$ADVISORY_JOBS" | grep . | sort || true)
+          status=0
+          twice=$(uniq -d <<<"$advisory")
+          if [[ -n $twice ]]; then
+            echo "::error title=CI needs::ADVISORY_JOBS lists ${twice//$'\n'/, } twice."
+            status=1
+          fi
+          advisory=$(uniq <<<"$advisory")
+          stale=$(comm -23 <(echo "$advisory") <(echo "$jobs"))
+          if [[ -n $stale ]]; then
+            echo "::error title=CI needs::ADVISORY_JOBS lists ${stale//$'\n'/, }," \
+              "which is not a job in $WORKFLOW."
+            status=1
+          fi
+          both=$(comm -12 <(echo "$advisory") <(uniq <<<"$needs"))
+          if [[ -n $both ]]; then
+            echo "::error title=CI needs::CI needs ${both//$'\n'/, }, which ADVISORY_JOBS" \
+              "lists as not gating a PR."
+            status=1
+          fi
+          gated=$(comm -23 <(echo "$jobs") <(echo "$advisory"))
+          if [[ $gated != "$needs" ]]; then
+            echo "::error title=CI needs::CI's needs must list every job in $WORKFLOW" \
+              "but CI and ADVISORY_JOBS, once each. Add a new job to CI's needs and" \
+              "change EXPECTED_JOBS, or list it in ADVISORY_JOBS with the reason."
+            diff <(echo "$gated") <(echo "$needs") || true
+            status=1
+          fi
+          count=$(grep -c . <<<"$needs" || true)
+          if [[ $expected != "$count" ]]; then
+            echo "::error title=CI needs::EXPECTED_JOBS in the CI job is ${expected:-not set}," \
+              "but CI needs $count jobs."
+            status=1
+          fi
+          if [[ $status -eq 0 ]]; then
+            echo "CI needs every job but the advisory ones (${advisory//$'\n'/, }):" \
+              "${needs//$'\n'/, }."
+          fi
+          exit "$status"
+
   # The one check to require. It runs whatever happened to the jobs it needs, since
   # GitHub counts a skipped required check as passing, and fails unless each of them
   # succeeded: a failed, cancelled or skipped job fails it. The audit comment job
@@ -1047,7 +1111,9 @@ jobs:
   # skipped and that passes; on a pull request it must succeed. CI does not need
   # e2e-unpinned-pdp, which reports on PDPs this repository does not pin.
   # Exits 1 when a job did not succeed, and 2 when the results of fewer or more than
-  # EXPECTED_JOBS jobs arrive. Change EXPECTED_JOBS when you change needs.
+  # EXPECTED_JOBS jobs arrive. Change EXPECTED_JOBS when you change needs. The
+  # Workflow Hardening job fails when a job is in neither needs nor its
+  # ADVISORY_JOBS, or when EXPECTED_JOBS is not the number of jobs in needs.
   ci:
     name: CI
     if: always()
