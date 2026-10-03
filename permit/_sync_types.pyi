@@ -132,7 +132,7 @@ class SyncConditionSetRulesApi(BasePermitApi):
         Args:
             user_set_key: the key of the userset, if used only rules matching that userset will be
                 fetched.
-            permission_key: the key of the permission, formatted as <resource>:<action>.
+            permission_key: the key of the permission, formatted as `<resource>:<action>`.
                 if used, only rules granting that permission will be fetched.
             resource_set_key: the key of the resourceset, if used only rules matching that
                 resourceset will be fetched.
@@ -2416,8 +2416,8 @@ class SyncRolesApi(BasePermitApi):
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be assigned to the
-                role.
+            permissions: An array of permission keys (`<resourceKey:actionKey>`) to be assigned
+                to the role.
 
         Returns:
             A RoleRead object representing the updated role.
@@ -2432,8 +2432,8 @@ class SyncRolesApi(BasePermitApi):
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be removed from
-                the role.
+            permissions: An array of permission keys (`<resourceKey:actionKey>`) to be removed
+                from the role.
 
         Returns:
             A RoleRead object representing the updated role.

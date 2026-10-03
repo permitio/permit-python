@@ -33,10 +33,10 @@ CloseSessions = Callable[[], Coroutine[Any, Any, None]]
 """A coroutine function that closes the HTTP sessions of a sync client."""
 
 SYNC_WRAPPER_MARKER = "__permit_sync_wrapper__"
-"""Attribute set on every wrapper produced by :func:`async_to_sync`.
+"""Attribute set on every wrapper produced by `async_to_sync`.
 
 It marks a callable as "already converted", which makes the conversion done by
-:class:`SyncClass` idempotent and keeps :func:`iscoroutine_func` from walking
+`SyncClass` idempotent and keeps `iscoroutine_func` from walking
 into the coroutine function such a wrapper consumes.
 """
 

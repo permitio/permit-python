@@ -180,8 +180,8 @@ class RolesApi(BasePermitApi):
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be assigned to the
-                role.
+            permissions: An array of permission keys (`<resourceKey:actionKey>`) to be assigned
+                to the role.
 
         Returns:
             A RoleRead object representing the updated role.
@@ -205,8 +205,8 @@ class RolesApi(BasePermitApi):
 
         Args:
             role_key: The key of the role.
-            permissions: An array of permission keys (<resourceKey:actionKey>) to be removed from
-                the role.
+            permissions: An array of permission keys (`<resourceKey:actionKey>`) to be removed
+                from the role.
 
         Returns:
             A RoleRead object representing the updated role.

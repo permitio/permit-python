@@ -69,6 +69,7 @@ class ApiContext:
     the full object hierarchy in every request.
 
     For example, in order to list roles, the user need to specify the (id or key) of the:
+
     - the org
     - the project
     - then environment
