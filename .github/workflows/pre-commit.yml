@@ -33,16 +33,22 @@ jobs:
           python-version: "3.11"
           enable-cache: true
 
-      # Hook environments, keyed on the config that defines them, on uv.lock,
-      # which pins prek and the uv that builds them, and on the Python they were
-      # built with, since a hook venv does not survive an interpreter change.
+      # Hook environments, keyed on the Python they were built with, since a
+      # hook venv does not survive an interpreter change, on the config that
+      # defines them, and on uv.lock, which pins prek and the uv that builds
+      # them. When only uv.lock changed, the newest cache for the same config
+      # is restored: prek reuses the environments that still match and the
+      # result is saved under the new key.
       - name: Cache prek hook environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.PREK_HOME }}
           key: >-
             prek-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
-            hashFiles('.pre-commit-config.yaml', 'uv.lock') }}
+            hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('uv.lock') }}
+          restore-keys: >-
+            prek-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
+            hashFiles('.pre-commit-config.yaml') }}-
 
       # prek itself needs only the locked dev group. The ruff, mypy and typos
       # hooks are `repo: local` and run through `uv run --locked`, which syncs
