@@ -1,24 +1,32 @@
 name: Test
 on:
   # Every PR, whatever its base: a stacked PR, whose base is another PR's
-  # branch, gets the full suite before it merges.
+  # branch, gets the full suite before it merges. No path filter: GitHub
+  # leaves a required check that never runs pending, which blocks the PR.
   pull_request:
+  # Every merge to main runs everything too, the dependency audit included,
+  # so a regression shows as a failed run on main rather than on the next PR.
+  # No PR comment is posted on push; the job summaries carry the detail.
   push:
     branches:
       - main
       - master
 
-# Least privilege. Nothing in this workflow writes to the repository; the
-# Permit API calls authenticate with their own secret, not GITHUB_TOKEN.
+# Least privilege: read-only by default. Nothing in this workflow writes to the
+# repository; the Permit API calls authenticate with their own secret, not
+# GITHUB_TOKEN. pull-requests: write is granted per job, only to the two jobs
+# that post on the PR: the audit comment and dependency review.
 permissions:
   contents: read
 
 env:
+  # The Python the dependency audit and its scripts' tests run on.
+  PYTHON_VERSION: "3.11"
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
-  # The PDP the required `pytest` jobs run against, pinned by version and by the
-  # digest of that version's multi-arch image index, so a new PDP release cannot
-  # fail a required check. Docker pulls by the digest; the tag only names it.
+  # The PDP the `pytest` jobs run against, pinned by version and by the digest
+  # of that version's multi-arch image index, so a new PDP release cannot fail
+  # CI. Docker pulls by the digest; the tag only names it.
   # Dependabot does not update this. The `e2e (latest PDP image)` job runs the
   # suite against permitio/pdp-v2:latest, so a new release shows up there first.
   # To move the pin, take the version's `digest` from
@@ -49,11 +57,6 @@ jobs:
           - pydantic-version: 'pydantic>=2.0.0'
             dependency-group: pydantic-v2
             pydantic-major: '2'
-    # NOTE: this name and the matrix shape are load-bearing. Branch protection
-    # on main requires the contexts "pytest (Pydantic pydantic<2.0.0)" and
-    # "pytest (Pydantic pydantic>=2.0.0)" by exact string. Renaming the job or
-    # changing the matrix silently makes those contexts unsatisfiable, which
-    # blocks every PR from merging until branch protection is updated to match.
     name: pytest (Pydantic ${{ matrix.pydantic-version }})
     steps:
       - name: Checkout code
@@ -256,9 +259,9 @@ jobs:
             echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
           fi
 
-  # The e2e tests against PDPs this repository does not pin. Neither leg is a
-  # required check, so a new PDP release or a change to the cloud PDP shows up
-  # here without blocking a PR.
+  # The e2e tests against PDPs this repository does not pin. CI does not need
+  # this job (it is in ADVISORY_JOBS in the Workflow Hardening job), so a new PDP
+  # release or a change to the cloud PDP shows up here without blocking a PR.
   # - latest PDP image: the suite against permitio/pdp-v2:latest, on pydantic 2.
   #   Red here with `pytest` green means the newest PDP release behaves unlike
   #   PINNED_PDP_IMAGE.
@@ -504,7 +507,7 @@ jobs:
           --api-coverage-record "${RUNNER_TEMP}/api-coverage/offline.jsonl"
 
       # A missing artifact is not an error here: the report says "not run" for the
-      # e2e column. NODE_OPTIONS: see the same step in security.yml.
+      # e2e column. NODE_OPTIONS: see the comment job's download step.
       - name: Download the e2e request records
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -556,8 +559,7 @@ jobs:
           if-no-files-found: warn
 
   # Offline suite on every supported Python. It needs no secrets and no PDP, so
-  # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
-  # matrix are required status checks.
+  # it also runs on fork PRs.
   compatibility:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -708,7 +710,7 @@ jobs:
 
   # The migration skill's tests (skills/tests): MIGRATION.md, the skill and its
   # scanner, checked against each other and against the SDK. They run apart from
-  # the SDK's suite, with skills/tests/pytest.ini. Not a required check.
+  # the SDK's suite, with skills/tests/pytest.ini.
   migration-skill:
     name: Migration Skill Tests (pydantic ${{ matrix.pydantic }})
     runs-on: ubuntu-24.04
@@ -766,3 +768,456 @@ jobs:
               sys.exit("the scanner found nothing in the 2.x sample app on Python 3.9")
           print(f"Python 3.9: {len(report['findings'])} findings")
           PY
+
+  # These steps do what pre-commit/action v3.0.1 does, written out: its last
+  # release pins actions/cache@v4, which targets the deprecated Node 20
+  # runtime, and it has had no release since. pre-commit itself comes from
+  # uv.lock rather than a pip install.
+  pre-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: "3.11"
+          enable-cache: true
+
+      # Hook environments, keyed on the config that defines them and on the
+      # Python they were built with, since a hook venv does not survive an
+      # interpreter change. This is the cache pre-commit/action used to provide.
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: >-
+            pre-commit-${{ runner.os }}-py${{ steps.setup-uv.outputs.python-version }}-${{
+            hashFiles('.pre-commit-config.yaml') }}
+
+      # pre-commit itself comes from the locked dev group. The ruff, mypy and
+      # typos hooks are `repo: local` and run through `uv run --locked`, which
+      # syncs .venv to the default groups first: the project, its dependencies
+      # (pydantic 2) and the dev tools, so mypy checks against the SDK's real
+      # dependencies.
+      - name: Run pre-commit
+        run: >-
+          uv run --locked
+          pre-commit run --all-files --show-diff-on-failure --color=always
+
+      # The SDK imports pydantic differently per major, so its types are checked
+      # against pydantic 1 as well (the hook above ran against pydantic 2).
+      - name: Type-check against pydantic 1
+        run: uv run --locked --group pydantic-v1 mypy
+
+  # The dependency audit (.github/actions/dependency-audit), on every PR and
+  # every push to main. security.yml runs the same audit weekly.
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-24.04
+    # Read-only ON PURPOSE. `uv pip compile` builds an sdist to read its
+    # metadata for any dependency without a wheel, which runs that package's
+    # setup.py on the runner -- against a dependency list the PR author
+    # controls. Holding a `pull-requests: write` GITHUB_TOKEN across that step
+    # would hand arbitrary PR-authored code a writable token. The comment is
+    # posted by a separate job that has the token but never executes any of
+    # this PR's dependency code.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # .github/actions/dependency-audit holds the audit's steps. It is a
+      # local action, so it runs from the checkout above. zizmor asks for the
+      # self-repository syntax ($/...) instead of ./, which actionlint (v1.7.12)
+      # rejects.
+      - name: Dependency audit
+        uses: ./.github/actions/dependency-audit # zizmor: ignore[self-repository]
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+  # Holds a write token, and does nothing but download an artifact and post it.
+  # It never runs dependency resolution, so PR-authored package code and the
+  # writable token never coexist in the same job.
+  comment:
+    name: Post Audit Comment
+    runs-on: ubuntu-24.04
+    needs: [audit]
+    # always(): the comment matters most when the audit FAILED. The job runs on
+    # every event, so it is never skipped, and its steps post only on a pull
+    # request from a branch of this repository; elsewhere they are skipped and
+    # the job succeeds. Fork PRs get a read-only token, so the post would fail
+    # -- they are served by the ::error:: annotations the audit job emits
+    # instead. A push has no PR to comment on.
+    if: always()
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SAME_REPO_PR: >-
+        ${{ github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
+      # calls the deprecated Buffer() constructor, so every download prints
+      # DEP0005 (actions/download-artifact#484). That is the action's code, not
+      # this workflow's, and no newer release exists. This hides DEP0005 alone;
+      # drop it once a release stops printing the warning.
+      - name: Download audit artifacts
+        id: download
+        if: env.SAME_REPO_PR == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0005
+        with:
+          name: dependency-audit
+          path: /tmp/audit
+
+      # The script checks the report itself. hashFiles() in `if:` cannot:
+      # it ignores every file outside the workspace, so it returns '' for
+      # anything under /tmp/audit.
+      - name: Comment on PR
+        if: env.SAME_REPO_PR == 'true' && steps.download.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          # listComments is paginated: on a busy PR the marker may not be on
+          # page 1, and missing it would post a duplicate comment every run.
+          script: |
+            const fs = require('fs');
+            const REPORT = '/tmp/audit/comment.md';
+            const MARKER = '<!-- permit-python:audit:deps -->';
+            // GitHub rejects a comment body longer than this.
+            const MAX_COMMENT_CHARS = 65536;
+
+            // format_audit.py starts every body it renders with the marker, so
+            // a report without it means the render step did not finish.
+            let body = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';
+            if (!body.startsWith(MARKER)) {
+              core.warning(
+                `No rendered audit report in the artifact (${REPORT}), so no PR comment ` +
+                'was posted. See the Dependency Audit job for what went wrong.'
+              );
+              return;
+            }
+            if (body.length > MAX_COMMENT_CHARS) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+              core.warning(
+                `The audit report is ${body.length} characters, over GitHub's ` +
+                `${MAX_COMMENT_CHARS}-character comment limit. The PR comment links to ` +
+                'the job summary instead.'
+              );
+              body = [
+                MARKER,
+                '',
+                '## Dependency Security Audit',
+                '',
+                `The report is ${body.length} characters, too long for a PR comment ` +
+                  `(GitHub allows ${MAX_COMMENT_CHARS}). Read it in the ` +
+                  `[job summary](${runUrl}).`,
+                '',
+              ].join('\n');
+            }
+
+            // Nothing cancels the run of a commit the PR has moved past, so it
+            // can finish after the run of the new head. Only the run of the PR's
+            // current head posts, so the comment never shows an older report.
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const auditedSha = context.payload.pull_request.head.sha;
+            if (pr.head.sha !== auditedSha) {
+              core.notice(
+                `This run audited ${auditedSha}, but the PR head is now ${pr.head.sha}. ` +
+                'The run of the new head posts its report.'
+              );
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            // Match on author AND marker so a human quoting the report can
+            // never have their comment overwritten by CI.
+            const existing = comments.find(c =>
+              c.user?.login === 'github-actions[bot]' &&
+              c.body?.startsWith(MARKER)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # Free on public repositories. Flags dependencies a PR *introduces*, which
+  # the tree scan above cannot distinguish from ones that were already there,
+  # and additionally checks licences.
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  # The audit scripts decide whether a release ships. Their contract is
+  # load-bearing, so it is tested like any other code.
+  audit-scripts-test:
+    name: Audit Script Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      # pytest comes from uv.lock's dev group, so a new pytest release cannot
+      # fail this job through .github/scripts/pytest.ini, which turns every
+      # warning into an error; -c reads that file rather than the SDK's
+      # [tool.pytest] in pyproject.toml. The scripts under test are stdlib only,
+      # so --only-dev leaves the project uninstalled. The schema drift check's and
+      # the API coverage report's tests run here too: they live next to the audit
+      # scripts and need no more. So do the tests of the bash of the CI job, the
+      # job-list check and the local actions' shellcheck, which also run bash,
+      # jq, yq and shellcheck from the runner image.
+      - name: Run CI script tests
+        run: >-
+          uv run --locked --only-dev
+          pytest -c .github/scripts/pytest.ini -q
+          .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py
+          .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py
+
+      - name: Shellcheck the shell scripts
+        run: shellcheck .github/scripts/audit-deps.sh scripts/generate_models.sh
+
+  # A CVE gate that runs in a workflow an attacker can rewrite is not a gate.
+  workflow-hardening:
+    name: Workflow Hardening
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No inputs: the repository has no action.yml, so the runner builds its
+      # Dockerfile and runs actionlint with no arguments. actionlint exits 1
+      # on any finding, and a non-zero container exit fails the step.
+      - name: actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          # Findings are uploaded to code scanning by default, which needs
+          # Advanced Security. Keep it to the job log and the exit code.
+          advanced-security: false
+          persona: regular
+
+      # actionlint shellchecks the `run:` blocks of workflows, not those of the
+      # local actions under .github/actions. This step shellchecks each of their
+      # `shell: bash` steps as actionlint would: every ${{ }} expression replaced
+      # by a placeholder, and the checks actionlint turns off left off (SC2154,
+      # for one, since `env:` sets variables shellcheck cannot see). Exits 1 on a
+      # finding, and 2 when no step is read.
+      - name: Shellcheck the local actions
+        shell: bash
+        env:
+          ACTIONS_DIR: .github/actions
+        run: |
+          status=0
+          checked=0
+          for action in "$ACTIONS_DIR"/*/action.yml; do
+            if ! count=$(yq '.runs.steps | length' "$action"); then
+              echo "::error file=$action,title=Shellcheck::Could not read $action."
+              exit 2
+            fi
+            for ((i = 0; i < count; i++)); do
+              if [[ $(yq ".runs.steps[$i].shell" "$action") != bash ]]; then
+                continue
+              fi
+              checked=$((checked + 1))
+              name=$(yq ".runs.steps[$i].name // \"step $((i + 1))\"" "$action")
+              if ! yq ".runs.steps[$i].run" "$action" |
+                sed -E 's/\$\{\{[^}]*\}\}/_/g' |
+                shellcheck --norc --shell=bash \
+                  --exclude=SC1091,SC2043,SC2050,SC2153,SC2154,SC2157,SC2194 -; then
+                echo "::error file=$action,title=Shellcheck::Step \"$name\" has the" \
+                  "shellcheck findings above."
+                status=1
+              fi
+            done
+          done
+          if [[ $checked -eq 0 ]]; then
+            echo "::error title=Shellcheck::No bash step read from $ACTIONS_DIR/*/action.yml."
+            exit 2
+          fi
+          if [[ $status -eq 0 ]]; then
+            echo "Shellcheck found nothing in the $checked bash steps of $ACTIONS_DIR."
+          fi
+          exit "$status"
+
+      # CI gates only the jobs in its needs, so every other job in this workflow
+      # must be listed there or in ADVISORY_JOBS, the jobs that run without
+      # gating a PR. Exits 1 when the jobs, CI's needs and ADVISORY_JOBS disagree
+      # or CI's EXPECTED_JOBS is not the number of jobs it needs, and 2 when no
+      # job is read.
+      - name: Check that CI needs every job
+        shell: bash
+        env:
+          WORKFLOW: .github/workflows/test.yml
+          # Job ids, separated by spaces.
+          # - e2e-unpinned-pdp: the e2e tests against the latest PDP image and the
+          #   cloud PDP, which this repository does not pin, so that a new PDP
+          #   release shows up there without blocking a PR.
+          ADVISORY_JOBS: e2e-unpinned-pdp
+        run: |
+          export LC_ALL=C
+          if ! jobs=$(yq '.jobs | keys | .[] | select(. != "ci")' "$WORKFLOW" | sort) ||
+            [[ -z $jobs ]]; then
+            echo "::error title=CI needs::No jobs read from $WORKFLOW."
+            exit 2
+          fi
+          needs=$(yq '.jobs.ci.needs[]' "$WORKFLOW" | sort)
+          expected=$(yq '.jobs.ci.steps[] | select(.name == "Check the needed jobs") |
+            .env.EXPECTED_JOBS' "$WORKFLOW")
+          advisory=$(tr -s ' ' '\n' <<<"$ADVISORY_JOBS" | grep . | sort || true)
+          status=0
+          twice=$(uniq -d <<<"$advisory")
+          if [[ -n $twice ]]; then
+            echo "::error title=CI needs::ADVISORY_JOBS lists ${twice//$'\n'/, } twice."
+            status=1
+          fi
+          advisory=$(uniq <<<"$advisory")
+          stale=$(comm -23 <(echo "$advisory") <(echo "$jobs"))
+          if [[ -n $stale ]]; then
+            echo "::error title=CI needs::ADVISORY_JOBS lists ${stale//$'\n'/, }," \
+              "which is not a job in $WORKFLOW."
+            status=1
+          fi
+          both=$(comm -12 <(echo "$advisory") <(uniq <<<"$needs"))
+          if [[ -n $both ]]; then
+            echo "::error title=CI needs::CI needs ${both//$'\n'/, }, which ADVISORY_JOBS" \
+              "lists as not gating a PR."
+            status=1
+          fi
+          gated=$(comm -23 <(echo "$jobs") <(echo "$advisory"))
+          if [[ $gated != "$needs" ]]; then
+            echo "::error title=CI needs::CI's needs must list every job in $WORKFLOW" \
+              "but CI and ADVISORY_JOBS, once each. Add a new job to CI's needs and" \
+              "change EXPECTED_JOBS, or list it in ADVISORY_JOBS with the reason."
+            diff <(echo "$gated") <(echo "$needs") || true
+            status=1
+          fi
+          count=$(grep -c . <<<"$needs" || true)
+          if [[ $expected != "$count" ]]; then
+            echo "::error title=CI needs::EXPECTED_JOBS in the CI job is ${expected:-not set}," \
+              "but CI needs $count jobs."
+            status=1
+          fi
+          if [[ $status -eq 0 ]]; then
+            echo "CI needs every job but the advisory ones (${advisory//$'\n'/, }):" \
+              "${needs//$'\n'/, }."
+          fi
+          exit "$status"
+
+  # The one check to require. It runs whatever happened to the jobs it needs, since
+  # GitHub counts a skipped required check as passing, and fails unless each of them
+  # succeeded: a failed, cancelled or skipped job fails it. The audit comment job
+  # succeeds with its steps skipped where it cannot post. The one exception is
+  # dependency review, which runs on pull requests only: on a push its job is
+  # skipped and that passes; on a pull request it must succeed. CI does not need
+  # e2e-unpinned-pdp, which reports on PDPs this repository does not pin.
+  # Exits 1 when a job did not succeed, and 2 when the results of fewer or more than
+  # EXPECTED_JOBS jobs arrive. Change EXPECTED_JOBS when you change needs. The
+  # Workflow Hardening job fails when a job is in neither needs nor its
+  # ADVISORY_JOBS, or when EXPECTED_JOBS is not the number of jobs in needs.
+  # Until the ruleset on main requires CI alone, it requires the check names of
+  # six jobs here, so do not rename those jobs until then (a required check that
+  # never reports leaves every pull request waiting):
+  # "pytest (Pydantic pydantic<2.0.0)", "pytest (Pydantic pydantic>=2.0.0)",
+  # "pre-commit", "Dependency Audit", "Audit Script Tests", "Workflow Hardening".
+  ci:
+    name: CI
+    if: always()
+    needs:
+      - api-coverage
+      - audit
+      - audit-scripts-test
+      - comment
+      - compatibility
+      - dependency-review
+      - migration-skill
+      - pre-commit
+      - pytest
+      - workflow-hardening
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check the needed jobs
+        shell: bash
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT: ${{ github.event_name }}
+          EXPECTED_JOBS: 10
+        run: |
+          if ! results=$(jq -r 'to_entries[] | "\(.key) \(.value.result)"' <<<"$NEEDS"); then
+            echo "::error title=CI::Could not read the job results."
+            exit 2
+          fi
+          printf '%s\n' "$results"
+          count=$(grep -c . <<<"$results" || true)
+          if [[ $count -ne $EXPECTED_JOBS ]]; then
+            echo "::error title=CI::${count} job results, expected ${EXPECTED_JOBS}."
+            exit 2
+          fi
+          failed=$(grep -v ' success$' <<<"$results" || true)
+          if [[ $EVENT == push ]]; then
+            failed=$(grep -vx 'dependency-review skipped' <<<"$failed" || true)
+          fi
+          if [[ -n $failed ]]; then
+            echo "::error title=CI::Jobs that did not succeed: ${failed//$'\n'/, }"
+            exit 1
+          fi

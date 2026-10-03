@@ -38,7 +38,7 @@ repository's dependencies:
 
 - GitHub's dependency graph, Dependency Review, Dependabot and Snyk find manifests by file
   name, so they skip these files.
-- The Trivy step in `.github/workflows/security.yml` and `python-sdk-publish.yml` also skips
-  `skills/tests/fixtures`.
+- The Trivy step of the dependency audit (`.github/actions/dependency-audit/action.yml`) and
+  of `python-sdk-publish.yml` also skips `skills/tests/fixtures`.
 - `test_no_fixture_file_has_a_name_github_reads_as_a_dependency_manifest` fails if a
   fixture is stored under a manifest name again.
