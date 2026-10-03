@@ -78,7 +78,8 @@ class ApiContext:
     from that context.
 
     We then get this kind of experience:
-    ```
+
+    ```python
     await permit.api.roles.list()
     ```
 

@@ -3087,15 +3087,17 @@ class SyncEnforcer:
                 PDP.
 
         Examples:
+            ```python
             # all the users that can close any issue?
-            await permit.authorized_users('close', 'issue')
+            await permit.authorized_users("close", "issue")
 
             # all the users that can close an issue who's id is 1234?
-            await permit.authorized_users('close', 'issue:1234')
+            await permit.authorized_users("close", "issue:1234")
 
             # all the users that can close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.authorized_users('close', {'type': 'issue', 'tenant': 't1'})
+            await permit.authorized_users("close", {"type": "issue", "tenant": "t1"})
+            ```
         """
     def bulk_check(self, checks: list[CheckQuery], context: Context | None = None) -> list[bool]:
         """Checks if a user is authorized to perform an action on a resource in a context.
@@ -3117,24 +3119,28 @@ class SyncEnforcer:
                 PDP.
 
         Examples:
+            ```python
             # Bulk query of multiple check conventions
-            await permit.bulk_check([
-                {
-                    "user": user,
-                    "action": "close",
-                    "resource": {type: "issue", key: "1234"},
-                },
-                {
-                    "user": {key: "user"},
-                    "action": "close",
-                    "resource": "issue:1235",
-                },
-                {
-                    "user": "user_a",
-                    "action": "close",
-                    "resource": "issue",
-                },
-            ])
+            await permit.bulk_check(
+                [
+                    {
+                        "user": user,
+                        "action": "close",
+                        "resource": {"type": "issue", "key": "1234"},
+                    },
+                    {
+                        "user": {"key": "user"},
+                        "action": "close",
+                        "resource": "issue:1235",
+                    },
+                    {
+                        "user": "user_a",
+                        "action": "close",
+                        "resource": "issue",
+                    },
+                ]
+            )
+            ```
         """
     def check(
         self, user: User, action: Action, resource: Resource, context: Context | None = None
@@ -3156,15 +3162,17 @@ class SyncEnforcer:
                 PDP.
 
         Examples:
+            ```python
             # can the user close any issue?
-            await permit.check(user, 'close', 'issue')
+            await permit.check(user, "close", "issue")
 
             # can the user close any issue who's id is 1234?
-            await permit.check(user, 'close', 'issue:1234')
+            await permit.check(user, "close", "issue:1234")
 
             # can the user close (any) issues belonging to the 't1' tenant?
             # (in a multi tenant application)
-            await permit.check(user, 'close', {'type': 'issue', 'tenant': 't1'})
+            await permit.check(user, "close", {"type": "issue", "tenant": "t1"})
+            ```
         """
     def get_user_permissions(
         self,
