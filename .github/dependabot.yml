@@ -99,11 +99,14 @@ updates:
     labels:
       - "dependencies"
 
-  # GitHub Actions versions.
+  # GitHub Actions versions: "/" covers .github/workflows, and the local
+  # composite actions under .github/actions need their own entry.
   # Note: cooldown.semver-major-days is not supported for github-actions --
   # Dependabot only honours it on semver-strict ecosystems like uv and npm.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
       day: "monday"

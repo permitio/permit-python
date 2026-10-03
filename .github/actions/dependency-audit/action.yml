@@ -1,0 +1,153 @@
+name: Dependency audit
+description: >-
+  Scans the dependency trees pyproject.toml permits with Trivy and pip-audit
+  (.github/scripts/audit-deps.sh), renders the report into the job summary,
+  annotates each blocking advisory, and fails on a fixable HIGH or CRITICAL one.
+  Uploads the reports as the dependency-audit artifact. The calling job checks
+  out the repository first and keeps its token read-only, since resolving the
+  trees can run a dependency's setup.py.
+
+inputs:
+  python-version:
+    description: The Python that runs the report formatter.
+    required: true
+
+outputs:
+  failed:
+    description: >-
+      'true' when the gate found a fixable HIGH or CRITICAL advisory, 'false'
+      when it passed, empty when the gate did not run.
+    value: ${{ steps.gate.outputs.failed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # Pinned so a new uv release cannot change which trees get scanned:
+    # setup-uv installs the uv pinned in uv.lock.
+    - name: Install uv
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version-file: "uv.lock"
+
+    - name: Install Trivy
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        scan-type: filesystem
+        scan-ref: .
+        # This invocation exists only to install Trivy. The real scan runs
+        # in audit-deps.sh, because the action cannot compile the dependency
+        # trees the scan needs. The action always scans scan-ref, and with the
+        # paths skipped below the repo root has nothing Trivy can scan, so
+        # hide-progress (TRIVY_QUIET) keeps that empty scan from logging a
+        # "Supported files not found" warning. Errors still print.
+        skip-setup-trivy: false
+        format: table
+        exit-code: "0"
+        scanners: vuln
+        trivy-config: ""
+        hide-progress: true
+        # The migration skill's sample apps pin vulnerable versions on
+        # purpose and are never installed (skills/tests/README.md).
+        skip-dirs: skills/tests/fixtures
+        # uv.lock pins this repository's own CI environment, not what a
+        # consumer installs; audit-deps.sh scans the published ranges.
+        skip-files: uv.lock
+
+    - name: Run dependency audit
+      id: audit
+      shell: bash
+      run: |
+        set -uo pipefail
+        bash .github/scripts/audit-deps.sh /tmp/audit
+        echo "ran=true" >> "$GITHUB_OUTPUT"
+
+    - name: Render report
+      id: render
+      shell: bash
+      run: |
+        # `shell: bash` runs this as `bash --noprofile --norc -eo pipefail {0}`;
+        # `set -o` can only turn options ON, so an explicit `set +e` is required
+        # for $? to be observable.
+        set -uo pipefail
+        set +e
+        python .github/scripts/format_audit.py \
+          "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+          "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+          "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+          "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+          --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+          --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+          --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+          --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+          --context "pyproject.toml dependencies + dev group, resolved at Python 3.10 (the current resolution, and the lowest versions the published specs permit under each pydantic major)" \
+          --blocking \
+          > /tmp/audit/comment.md 2>/tmp/audit/format.err
+        render_exit=$?
+        set -e
+        echo "exit=${render_exit}" >> "$GITHUB_OUTPUT"
+
+    - name: Publish to job summary
+      if: always() && steps.render.outputs.exit == '0'
+      shell: bash
+      run: cat /tmp/audit/comment.md >> "$GITHUB_STEP_SUMMARY"
+
+    # Emit one annotation per blocking advisory. This is the only channel
+    # that reaches a fork PR, where no PR comment is posted for want of a
+    # write token.
+    - name: Annotate blocking advisories
+      if: always() && steps.audit.outputs.ran == 'true'
+      shell: bash
+      run: |
+        set -uo pipefail
+        python .github/scripts/format_audit.py \
+          "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+          "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+          "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+          "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+          --annotations
+
+    # The single pass/fail decision, made by the same tested code that
+    # rendered the report -- so the comment and the check can never disagree.
+    # Blocks on fixable HIGH/CRITICAL only, and fails closed if a gating
+    # scanner report could not be parsed.
+    - name: Gate on HIGH/CRITICAL
+      id: gate
+      shell: bash
+      run: |
+        set -uo pipefail
+        set +e
+        python .github/scripts/format_audit.py \
+          "runtime-ceiling=/tmp/audit/trivy-runtime-ceiling.json" \
+          "runtime-floor=/tmp/audit/trivy-runtime-floor.json" \
+          "runtime-floor-pydantic-v2=/tmp/audit/trivy-runtime-floor-pydantic-v2.json" \
+          "dev-ceiling=/tmp/audit/trivy-dev-ceiling.json" \
+          --pip-audit "runtime-ceiling=/tmp/audit/pip-audit-runtime-ceiling.json" \
+          --pip-audit "runtime-floor=/tmp/audit/pip-audit-runtime-floor.json" \
+          --pip-audit "runtime-floor-pydantic-v2=/tmp/audit/pip-audit-runtime-floor-pydantic-v2.json" \
+          --pip-audit "dev-ceiling=/tmp/audit/pip-audit-dev-ceiling.json" \
+          --gate
+        gate_exit=$?
+        set -e
+        if [ "${gate_exit}" -ne 0 ]; then
+          echo "failed=true" >> "$GITHUB_OUTPUT"
+          echo "::error title=Dependency audit failed::Fixable HIGH/CRITICAL advisories are present. See the job summary for the full report and the required version bumps."
+          exit 1
+        fi
+        echo "failed=false" >> "$GITHUB_OUTPUT"
+
+    # if: always() is load-bearing: the Gate step above exits non-zero on a
+    # failing audit, and that is precisely when the jobs that read this
+    # artifact (the PR comment, the weekly Slack message) need it to tell
+    # someone what broke.
+    - name: Upload audit artifacts
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: dependency-audit
+        path: /tmp/audit/
+        retention-days: 30
