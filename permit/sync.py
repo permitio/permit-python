@@ -186,7 +186,7 @@ class Permit(AsyncPermit):
                 Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each
+            A list of booleans indicating whether the user is authorized for each
                 resource.
 
         Raises:
@@ -236,7 +236,7 @@ class Permit(AsyncPermit):
                 Defaults to None.
 
         Returns:
-            bool: True if the user is authorized, False otherwise.
+            True if the user is authorized, False otherwise.
 
         Raises:
             PermitConnectionError: If an error occurs while sending the authorization request to the
@@ -272,7 +272,7 @@ class Permit(AsyncPermit):
                 Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+            Contains all the authorized users and the role assignments that
                 granted the permission.
 
         Raises:
@@ -315,7 +315,7 @@ class Permit(AsyncPermit):
                 either; pass ``{}`` to send the base context alone.
 
         Returns:
-            dict: User permissions per tenant
+            User permissions per tenant
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP
@@ -345,7 +345,7 @@ class Permit(AsyncPermit):
                 Defaults to None.
 
         Returns:
-            list[TenantDetails]: The user's tenants, each with its key and attributes. Empty
+            The user's tenants, each with its key and attributes. Empty
                 when the user has no tenant-level role or the PDP does not know the user.
 
         Raises:
@@ -374,7 +374,7 @@ class Permit(AsyncPermit):
                 `type`, `key`, `context`, `attributes` and `tenant`.
 
         Returns:
-            list[dict[str, Any]]: The permitted subset of `resources`, in their original order
+            The permitted subset of `resources`, in their original order
 
         Raises:
             PermitConnectionError: If an error occurs while sending the request to the PDP

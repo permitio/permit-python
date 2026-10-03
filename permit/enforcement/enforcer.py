@@ -144,7 +144,7 @@ class Enforcer:
                 Defaults to None.
 
         Returns:
-            AuthorizedUsersResult: Contains all the authorized users and the role assignments that
+            Contains all the authorized users and the role assignments that
                 granted the permission.
 
         Raises:
@@ -262,7 +262,7 @@ class Enforcer:
                 Defaults to None.
 
         Returns:
-            list[bool]: A list of booleans indicating whether the user is authorized for each
+            A list of booleans indicating whether the user is authorized for each
                 resource.
 
         Raises:
@@ -390,7 +390,7 @@ class Enforcer:
                 Defaults to None.
 
         Returns:
-            bool: True if the user is authorized, False otherwise.
+            True if the user is authorized, False otherwise.
 
         Raises:
             PermitConnectionError: If an error occurs while sending the authorization request to the
@@ -666,7 +666,7 @@ class Enforcer:
                 key, which is sent as the resource context of that check.
 
         Returns:
-            list[dict]: The subset of ``resources`` the user is authorized for, in input order.
+            The subset of ``resources`` the user is authorized for, in input order.
         """
         requests: list[CheckQuery] = []
         for resource in resources:
