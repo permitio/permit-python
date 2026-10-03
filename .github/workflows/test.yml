@@ -861,16 +861,20 @@ jobs:
     name: Post Audit Comment
     runs-on: ubuntu-24.04
     needs: [audit]
-    # always(): the comment matters most when the audit FAILED.
-    # Fork PRs get a read-only token, so the post would fail -- they are served
-    # by the ::error:: annotations the audit job emits instead.
-    if: |
-      always() &&
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+    # always(): the comment matters most when the audit FAILED. The job runs on
+    # every event, so it is never skipped, and its steps post only on a pull
+    # request from a branch of this repository; elsewhere they are skipped and
+    # the job succeeds. Fork PRs get a read-only token, so the post would fail
+    # -- they are served by the ::error:: annotations the audit job emits
+    # instead. A push has no PR to comment on.
+    if: always()
     permissions:
       contents: read
       pull-requests: write
+    env:
+      SAME_REPO_PR: >-
+        ${{ github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       # NODE_OPTIONS: the unzip library download-artifact v8.0.1 bundles still
       # calls the deprecated Buffer() constructor, so every download prints
@@ -879,6 +883,7 @@ jobs:
       # drop it once a release stops printing the warning.
       - name: Download audit artifacts
         id: download
+        if: env.SAME_REPO_PR == 'true'
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         env:
@@ -891,7 +896,7 @@ jobs:
       # it ignores every file outside the workspace, so it returns '' for
       # anything under /tmp/audit.
       - name: Comment on PR
-        if: steps.download.outcome == 'success'
+        if: env.SAME_REPO_PR == 'true' && steps.download.outcome == 'success'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           # listComments is paginated: on a busy PR the marker may not be on
