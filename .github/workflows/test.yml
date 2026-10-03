@@ -24,9 +24,9 @@ env:
   PYTHON_VERSION: "3.11"
   PROJECT_ID: 7f55831d77c642739bc17733ab0af138 #github actions project id (under 'Permit.io Tests' workspace)
   ENV_NAME: python-sdk-ci
-  # The PDP the required `pytest` jobs run against, pinned by version and by the
-  # digest of that version's multi-arch image index, so a new PDP release cannot
-  # fail a required check. Docker pulls by the digest; the tag only names it.
+  # The PDP the `pytest` jobs run against, pinned by version and by the digest
+  # of that version's multi-arch image index, so a new PDP release cannot fail
+  # CI. Docker pulls by the digest; the tag only names it.
   # Dependabot does not update this. The `e2e (latest PDP image)` job runs the
   # suite against permitio/pdp-v2:latest, so a new release shows up there first.
   # To move the pin, take the version's `digest` from
@@ -57,11 +57,6 @@ jobs:
           - pydantic-version: 'pydantic>=2.0.0'
             dependency-group: pydantic-v2
             pydantic-major: '2'
-    # NOTE: this name and the matrix shape are load-bearing. Branch protection
-    # on main requires the contexts "pytest (Pydantic pydantic<2.0.0)" and
-    # "pytest (Pydantic pydantic>=2.0.0)" by exact string. Renaming the job or
-    # changing the matrix silently makes those contexts unsatisfiable, which
-    # blocks every PR from merging until branch protection is updated to match.
     name: pytest (Pydantic ${{ matrix.pydantic-version }})
     steps:
       - name: Checkout code
@@ -264,9 +259,9 @@ jobs:
             echo "::warning title=Scratch env leaked::Failed to delete environment ${ENV_ID}. Delete it by hand."
           fi
 
-  # The e2e tests against PDPs this repository does not pin. Neither leg is a
-  # required check, so a new PDP release or a change to the cloud PDP shows up
-  # here without blocking a PR.
+  # The e2e tests against PDPs this repository does not pin. CI does not need
+  # this job, so a new PDP release or a change to the cloud PDP shows up here
+  # without blocking a PR.
   # - latest PDP image: the suite against permitio/pdp-v2:latest, on pydantic 2.
   #   Red here with `pytest` green means the newest PDP release behaves unlike
   #   PINNED_PDP_IMAGE.
@@ -564,8 +559,7 @@ jobs:
           if-no-files-found: warn
 
   # Offline suite on every supported Python. It needs no secrets and no PDP, so
-  # it also runs on fork PRs. Kept apart from `pytest` above, whose name and
-  # matrix are required status checks.
+  # it also runs on fork PRs.
   compatibility:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -716,7 +710,7 @@ jobs:
 
   # The migration skill's tests (skills/tests): MIGRATION.md, the skill and its
   # scanner, checked against each other and against the SDK. They run apart from
-  # the SDK's suite, with skills/tests/pytest.ini. Not a required check.
+  # the SDK's suite, with skills/tests/pytest.ini.
   migration-skill:
     name: Migration Skill Tests (pydantic ${{ matrix.pydantic }})
     runs-on: ubuntu-24.04
@@ -775,8 +769,6 @@ jobs:
           print(f"Python 3.9: {len(report['findings'])} findings")
           PY
 
-  # The job id is the required status check "pre-commit" on main; keep it.
-  #
   # These steps do what pre-commit/action v3.0.1 does, written out: its last
   # release pins actions/cache@v4, which targets the deprecated Node 20
   # runtime, and it has had no release since. pre-commit itself comes from
@@ -1046,3 +1038,56 @@ jobs:
           # Advanced Security. Keep it to the job log and the exit code.
           advanced-security: false
           persona: regular
+
+  # The one check to require. It runs whatever happened to the jobs it needs, since
+  # GitHub counts a skipped required check as passing, and fails unless each of them
+  # succeeded: a failed, cancelled or skipped job fails it. The audit comment job
+  # succeeds with its steps skipped where it cannot post. The one exception is
+  # dependency review, which runs on pull requests only: on a push its job is
+  # skipped and that passes; on a pull request it must succeed. CI does not need
+  # e2e-unpinned-pdp, which reports on PDPs this repository does not pin.
+  # Exits 1 when a job did not succeed, and 2 when the results of fewer or more than
+  # EXPECTED_JOBS jobs arrive. Change EXPECTED_JOBS when you change needs.
+  ci:
+    name: CI
+    if: always()
+    needs:
+      - api-coverage
+      - audit
+      - audit-scripts-test
+      - comment
+      - compatibility
+      - dependency-review
+      - migration-skill
+      - pre-commit
+      - pytest
+      - workflow-hardening
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check the needed jobs
+        shell: bash
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT: ${{ github.event_name }}
+          EXPECTED_JOBS: 10
+        run: |
+          if ! results=$(jq -r 'to_entries[] | "\(.key) \(.value.result)"' <<<"$NEEDS"); then
+            echo "::error title=CI::Could not read the job results."
+            exit 2
+          fi
+          printf '%s\n' "$results"
+          count=$(grep -c . <<<"$results" || true)
+          if [[ $count -ne $EXPECTED_JOBS ]]; then
+            echo "::error title=CI::${count} job results, expected ${EXPECTED_JOBS}."
+            exit 2
+          fi
+          failed=$(grep -v ' success$' <<<"$results" || true)
+          if [[ $EVENT == push ]]; then
+            failed=$(grep -vx 'dependency-review skipped' <<<"$failed" || true)
+          fi
+          if [[ -n $failed ]]; then
+            echo "::error title=CI::Jobs that did not succeed: ${failed//$'\n'/, }"
+            exit 1
+          fi
