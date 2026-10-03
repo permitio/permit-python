@@ -78,10 +78,10 @@ Repository = "https://github.com/permitio/permit-python"
 # resolve the same versions. Dependabot raises them. A pin also gives the CVE
 # scan a version to evaluate: a spec with no bound has none, so a package listed
 # that way is absent from every audit. These pins are the only place the ruff,
-# mypy and typos versions are set: their pre-commit hooks are `repo: local` and
-# run the copies `uv run --locked` installs from uv.lock, so CI lints and
-# type-checks with exactly these versions, and a Dependabot bump of a pin moves
-# the hook with it.
+# mypy and typos versions are set: their hooks in .pre-commit-config.yaml are
+# `repo: local` and run the copies `uv run --locked` installs from uv.lock, so
+# CI lints and type-checks with exactly these versions, and a Dependabot bump of
+# a pin moves the hook with it.
 # aioresponses is left out on purpose. No test imports it, and its latest
 # release (0.7.9) is incompatible with the aiohttp 3.14.3 floor: every mocked
 # request raises "ClientResponse.__init__() missing 1 required keyword-only
@@ -94,7 +94,7 @@ dev = [
     # Imported directly by the offline tests, which evaluate the version markers
     # in [project].dependencies the way an installer does.
     "packaging==26.3",
-    "pre-commit==4.6.2",
+    "prek==0.5.3",
     # 9.x rather than 8.x: the old 8.3.0 floor is affected by CVE-2025-71176
     # (insecure temporary directory handling), fixed in 9.0.3. Caught by this
     # repo's own audit gate.
@@ -110,8 +110,8 @@ dev = [
     "typos==1.50.2",
     # The uv version CI runs: every setup-uv step reads it from uv.lock
     # (version-file), except the publish build job, which pins its own version
-    # and checksum. Dependabot bumps it like any other pin. The uv-lock pre-commit
-    # hook runs the uv on PATH, which under `uv run` (as in CI) is this one. Run
+    # and checksum. Dependabot bumps it like any other pin. The uv-lock hook runs
+    # the uv on PATH, which under `uv run` (as in CI) is this one. Run
     # this version locally so uv.lock comes out the same.
     "uv==0.12.17",
     # Imported directly by the offline tests (Request/Response are used to assert
@@ -183,8 +183,8 @@ line-length = 100
 # The migration skill's sample apps are the scanner's test input, written the
 # way a permit 2.x project is; their exact text is what the tests assert on.
 extend-exclude = ["permit/api/models.py", "skills/tests/fixtures"]
-# pre-commit passes file names explicitly, which bypasses exclusions unless
-# this is set -- without it the hook would lint and reformat models.py.
+# prek passes file names explicitly, which bypasses exclusions unless this
+# is set -- without it the hook would lint and reformat models.py.
 force-exclude = true
 
 [tool.ruff.per-file-target-version]
