@@ -35,14 +35,17 @@ Contract (test.yml's docs job and docs-deploy.yml depend on it):
   diagnostic (`Warning: ...` or `Error: ...`), a record printed with its level
   (`WARNING:...`, as the default build prints them, or `WARNING -  ...`, as
   MkDocs does), a Griffe or mkdocstrings record printed without one (`griffe: ...`,
-  `mkdocstrings: ...`), or a Python warning (`path:line: SomeWarning: ...`).
+  `mkdocstrings: ...`), a Python warning (`path:line: SomeWarning: ...`), or a
+  Python traceback.
 * Exit 2: the build did not run to the end, so there is no result: zensical is
   not installed for this interpreter (default build only), the command could
   not be started, a signal stopped it, or it exited 0 without writing
   <site-dir>/index.html (one that is still the file it was before the build does
   not count). Any error in this script is also exit 2, never a pass.
 * The build's stdout and stderr are streamed to stdout as they arrive. The
-  verdict follows on stdout, with one line per warning, a Zensical diagnostic
+  verdict follows on stdout. It lists the exception each traceback ends with
+  first, since a crash also leaves knock-on warnings, such as a page that links
+  to the page that failed. Then one line per warning, a Zensical diagnostic
   prefixed with the place it points at.
 
 Stdlib only.
@@ -89,6 +92,11 @@ LOGGED_WARNINGS = (
     re.compile(r"^\S.*:\d+: [A-Z]\w*Warning: "),
 )
 
+TRACEBACK = "Traceback (most recent call last):"
+# How Zensical ends the build when --strict stops it on its diagnostics, which the
+# verdict lists already.
+STRICT_ABORT = "RuntimeError: Aborted because --strict flag is set"
+
 PREFIX = "Docs build gate:"
 
 
@@ -112,6 +120,34 @@ def find_warnings(log: list[str]) -> list[str]:
         elif any(pattern.match(line) for pattern in LOGGED_WARNINGS):
             warnings.append(line)
     return warnings
+
+
+def find_errors(log: list[str]) -> list[str]:
+    """Return the exception each Python traceback in a build log ends with.
+
+    A traceback runs from its `Traceback (most recent call last):` line through its indented
+    lines to the first line that is not indented: the exception. When a plugin raises, Zensical
+    prints its own traceback, which ends with `RuntimeError: Python error: <the exception>`,
+    then the plugin's, which ends at a blank line with no exception line of its own.
+
+    Args:
+        log: The build's output, one line per item, colour codes included.
+
+    Returns:
+        Each exception line without its colour codes, in log order, except Zensical's own
+        line for a build that --strict stopped.
+    """
+    errors: list[str] = []
+    in_traceback = False
+    for raw in log:
+        line = ANSI_ESCAPE.sub("", raw).rstrip()
+        if line == TRACEBACK:
+            in_traceback = True
+        elif in_traceback and not line[:1].isspace():
+            in_traceback = False
+            if line and line != STRICT_ABORT:
+                errors.append(line)
+    return errors
 
 
 def file_version(path: Path) -> tuple[int, int] | None:
@@ -163,11 +199,16 @@ def gate(command: list[str], site_dir: Path) -> int:
     if returncode < 0:
         print(f"{PREFIX} the build did not run to the end: signal {-returncode} stopped it.")
         return 2
+    errors = find_errors(log)
     warnings = find_warnings(log)
-    if returncode != 0 or warnings:
+    if returncode != 0 or errors or warnings:
         print(f"{PREFIX} failed.")
         if returncode != 0:
             print(f"  The build exited with status {returncode}.")
+        if errors:
+            print(f"  The build raised {len(errors)} Python error(s):")
+            for error in errors:
+                print(f"    {error}")
         if warnings:
             print(f"  The build log has {len(warnings)} warning or error line(s):")
             for warning in warnings:

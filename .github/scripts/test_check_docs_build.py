@@ -63,6 +63,25 @@ STRICT_ABORT = (
     "    sys.exit(cli())\n"
     "RuntimeError: Aborted because --strict flag is set\n"
 )
+# What Zensical 0.0.65 prints when the Griffe extension raises: its own traceback, which ends
+# with the extension's exception, then the extension's, which ends at a blank line.
+PLUGIN_ERROR = "RuntimeError: Python error: ValueError: Cannot read the deprecation message 'M'"
+PLUGIN_CRASH = (
+    "Traceback (most recent call last):\n"
+    '  File "/venv/bin/zensical", line 10, in <module>\n'
+    "    sys.exit(cli())\n"
+    "             ^^^^^\n"
+    '  File "/venv/lib/zensical/main.py", line 81, in execute_build\n'
+    "    build(os.path.abspath(config_file), kwargs)\n"
+    f"{PLUGIN_ERROR}\n"
+    "Traceback (most recent call last):\n"
+    '  File "/venv/lib/zensical/markdown/render.py", line 103, in render\n'
+    "    content = md.convert(content)\n"
+    "              ^^^^^^^^^^^^^^^^^^^\n"
+    '  File "/repo/scripts/docs_griffe_extension.py", line 78, in _evaluate_message\n'
+    "    raise ValueError(msg)\n"
+    "\n"
+)
 
 
 def fake_build(
@@ -192,6 +211,47 @@ def test_a_strict_abort_lists_its_diagnostics_and_the_exit_status(tmp_path: Path
     assert "The build exited with status 1." in report
     assert "    api.md:3:14: Warning: anchor does not exist\n" in report
     assert "    index.md:3:5: Warning: page does not exist\n" in report
+    assert "Aborted because --strict" not in report
+    assert "Python error" not in report
+
+
+def test_the_error_that_stopped_the_build_is_listed_first(tmp_path: Path) -> None:
+    log = (
+        "Build started\n"
+        + zensical_diagnostic("page does not exist", "reference/index.md:7:18")
+        + "1 issue found\n"
+        + PLUGIN_CRASH
+    )
+    completed = run_gate(tmp_path, fake_build(tmp_path, log, exit_code=1, site=None))
+    assert completed.returncode == 1
+    report = verdict(completed)
+    assert f"  The build raised 1 Python error(s):\n    {PLUGIN_ERROR}\n" in report
+    assert report.index(PLUGIN_ERROR) < report.index("reference/index.md:7:18: Warning")
+
+
+def test_a_traceback_fails_a_build_that_exited_0(tmp_path: Path) -> None:
+    log = (
+        "Build started\n"
+        "Traceback (most recent call last):\n"
+        '  File "/venv/lib/plugin.py", line 1, in render\n'
+        "KeyError: 'page'\n"
+        "\n"
+        "During handling of the above exception, another exception occurred:\n"
+        "\n"
+        "Traceback (most recent call last):\n"
+        '  File "/venv/lib/plugin.py", line 3, in render\n'
+        "OSError: [Errno 2] No such file or directory: 'page.md'\n"
+        "Build finished in 0.3s\n"
+    )
+    completed = run_gate(tmp_path, fake_build(tmp_path, log))
+    assert completed.returncode == 1
+    report = verdict(completed)
+    assert "The build raised 2 Python error(s):" in report
+    assert "    KeyError: 'page'\n" in report
+    assert "    OSError: [Errno 2] No such file or directory: 'page.md'\n" in report
+    assert "During handling" not in report
+    assert "Build finished" not in report
+    assert "exited with status" not in report
 
 
 @pytest.mark.parametrize(
