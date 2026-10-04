@@ -97,8 +97,66 @@ def test_names_bound_in_both_branches_show_the_type_checking_one(
     model_input = permit_package["utils.model_input.ModelInput"]
     assert model_input.is_attribute
     assert str(model_input.value) == "_Model | dict[str, Any]"
-    # A runtime import is left alone: the models import pydantic per major.
-    assert permit_package["api.models.EmailStr"].is_alias
+    # A runtime import is left alone: the models import pydantic per major, and bind
+    # `EmailStr = str` under `if _typing.TYPE_CHECKING:`.
+    assert permit_package["api.models.EmailStr"].target_path == "pydantic.v1.EmailStr"
+
+
+@pytest.mark.parametrize(
+    ("branches", "documented"),
+    [
+        (("if TYPE_CHECKING:", "    Value = int", "else:", "    class Value: ..."), "int"),
+        (("if _typing.TYPE_CHECKING:", "    Value = int", "else:", "    class Value: ..."), "int"),
+        (
+            (
+                "if TYPE_CHECKING:",
+                "    Value = int",
+                "elif sys.version_info < (3, 11):",
+                "    class Value: ...",
+                "else:",
+                "    class Value: ...",
+            ),
+            "int",
+        ),
+        # A runtime import stays.
+        (
+            (
+                "if TYPE_CHECKING:",
+                "    Value = int",
+                "else:",
+                "    from json import JSONDecoder as Value",
+            ),
+            "json.JSONDecoder",
+        ),
+        # What the runtime branch imports is not the type checker's binding.
+        (
+            (
+                "if TYPE_CHECKING:",
+                "    from json import JSONDecoder as Value",
+                "else:",
+                "    from json import JSONEncoder as Value",
+                "    class Value: ...",
+            ),
+            "json.JSONDecoder",
+        ),
+        # The `if` branch of `if not TYPE_CHECKING:` is the runtime's.
+        (("if not TYPE_CHECKING:", "    Value = int", "else:", "    class Value: ..."), None),
+    ],
+    ids=["TYPE_CHECKING", "_typing.TYPE_CHECKING", "elif", "runtime import", "else import", "not"],
+)
+def test_the_type_checking_branch_binding_is_documented(
+    branches: tuple[str, ...], documented: str | None
+) -> None:
+    imports = ("import sys", "import typing as _typing", "from typing import TYPE_CHECKING")
+    package = {"__init__.py": "", "api.py": "\n".join((*imports, *branches, ""))}
+    extensions = griffe.load_extensions(str(EXTENSION))
+    with griffe.temporary_visited_package("bindings", package, extensions=extensions) as module:
+        value = module["api"].members["Value"]
+        if documented is None:
+            assert not value.is_alias
+            assert value.is_class
+        else:
+            assert value.target_path == documented
 
 
 @pytest.mark.parametrize("path", ["permit.Permit.wait_for_sync", "sync.Permit.wait_for_sync"])

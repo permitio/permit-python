@@ -37,7 +37,6 @@ from typing import Any
 
 import griffe
 
-_TYPE_CHECKING_TESTS = frozenset({"TYPE_CHECKING", "typing.TYPE_CHECKING"})
 _DEPRECATION_DECORATORS = frozenset(
     {
         "permit.utils.deprecation.deprecated",
@@ -49,14 +48,21 @@ _PYDANTIC_FIELDS = frozenset({"pydantic.Field", "pydantic.v1.Field"})
 _CONTEXT_MANAGER_DECORATORS = frozenset({"contextlib.contextmanager"})
 
 
+def _is_type_checking(test: ast.expr) -> bool:
+    """Whether an ``if`` tests ``TYPE_CHECKING``, by name or as ``<module>.TYPE_CHECKING``.
+
+    The SDK spells it ``TYPE_CHECKING``, and ``_typing.TYPE_CHECKING`` in the modules that
+    import ``typing`` as ``_typing`` to keep the name out of their star exports.
+    """
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+
+
 def _in_type_checking_branch(node: ast.AST) -> bool:
     """Whether ``node`` is a statement of the ``if`` branch of an ``if TYPE_CHECKING:``."""
     parent = getattr(node, "parent", None)
-    return (
-        isinstance(parent, ast.If)
-        and node in parent.body
-        and ast.unparse(parent.test) in _TYPE_CHECKING_TESTS
-    )
+    return isinstance(parent, ast.If) and node in parent.body and _is_type_checking(parent.test)
 
 
 def _evaluate_message(argument: ast.expr, module_path: str) -> str:
