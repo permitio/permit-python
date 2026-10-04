@@ -540,7 +540,9 @@ is published, or a prerelease is changed to a release (a prerelease itself does 
 and when started by hand with Run workflow. The site has one version, the latest release's.
 The `github-pages` environment accepts deploys from `main` and from `v*` tags only, so a
 release tagged `X.Y.Z` without the `v` publishes to PyPI but cannot deploy the site; run
-Deploy Docs from `main` instead.
+Deploy Docs from `main` instead. Deploy Docs does not wait for the PyPI upload
+([Releasing](#releasing)): if the publish workflow fails, the site documents a version PyPI
+does not have until the release is fixed.
 
 ## Building
 
