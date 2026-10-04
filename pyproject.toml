@@ -132,9 +132,10 @@ dev = [
     # CVE-2026-21860, CVE-2026-27199).
     "werkzeug==3.1.8",
 ]
-# The API reference site (mkdocs.yml; CONTRIBUTING.md, "The API reference site"):
-# `uv run --locked --group docs zensical build --strict --clean`. Exact pins, like the dev
-# group, so a local build and CI render the same site with the same warnings.
+# The API reference site (mkdocs.yml; CONTRIBUTING.md, "The API reference site"), built
+# through the docs build gate:
+# `uv run --locked --group docs python .github/scripts/check_docs_build.py`. Exact pins, like
+# the dev group, so a local build and CI render the same site with the same warnings.
 docs = [
     # Also in the dev group, at the same version: see there.
     "griffelib==2.3.0",

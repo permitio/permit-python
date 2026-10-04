@@ -11,7 +11,10 @@ repo_name: permitio/permit-python
 # The pages are generated from docstrings, so an edit link would point at the wrong file.
 edit_uri: ""
 copyright: Copyright &copy; Permit.io
-# Where the build writes the site, which the deploy workflow publishes. Gitignored.
+# Where the build writes the site, which the deploy workflow publishes. Gitignored. The
+# docs build gate (.github/scripts/check_docs_build.py) checks that the build wrote
+# site/index.html, and docs-deploy.yml uploads site/. To change it, pass the new directory
+# to the gate as --site-dir in test.yml and docs-deploy.yml, and change the upload path.
 site_dir: site
 # Rebuild when these change, not only docs/: the reference pages come from the SDK's
 # source, through the Griffe extension, and two pages include the Markdown files.
