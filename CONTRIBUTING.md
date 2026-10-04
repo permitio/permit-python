@@ -482,7 +482,8 @@ uv run --locked --group docs python .github/scripts/check_docs_build.py
 ```
 
 That runs `zensical build --strict --clean` under the docs build gate, which the `docs` job
-in `.github/workflows/test.yml` runs too, and which fails on any warning in the build log:
+in `.github/workflows/test.yml` runs too, and which fails on any warning in the build log and
+on any broken link in the site:
 
 - `--strict` fails the build on a broken link to a page, a missing anchor, a cross-reference
   that resolves to nothing, or a `:::` line that names no object.
@@ -504,8 +505,8 @@ in `.github/workflows/test.yml` runs too, and which fails on any warning in the 
   skips.
 
 The gate exits 0 when the build passed, 1 when it failed, logged a warning or left a broken
-link (it lists each one at the end), and 2 when the build did not run to the end, so there is no result:
-`zensical` is not installed, a signal stopped the build, or the build wrote no
+link (it lists each one at the end), and 2 when the build did not run to the end, so there is
+no result: `zensical` is not installed, a signal stopped the build, or the build wrote no
 `site/index.html`. An error from `uv run` itself, such as an out-of-date `uv.lock`, comes
 before the gate starts, so no verdict follows it; CI installs the docs group in a step of its
 own, which fails instead.
