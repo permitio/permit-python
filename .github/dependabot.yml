@@ -40,6 +40,12 @@ updates:
       # runtime floor bumps grouped below, so they get a PR of their own.
       lint-tools:
         patterns: ["ruff", "mypy", "typos"]
+      # The docs group's site builder and the API reference plugin and parser
+      # (PER-16775). Zensical is alpha, so any release can change what the docs
+      # job's gate sees; a bump that breaks the site build gets a PR of its own
+      # rather than holding up the runtime floor bumps.
+      docs-tools:
+        patterns: ["zensical", "mkdocstrings*", "griffe*"]
       minor-and-patch:
         update-types: ["minor", "patch"]
     ignore:
