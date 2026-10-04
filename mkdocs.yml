@@ -4,8 +4,8 @@
 site_name: permit-python API reference
 site_url: https://permitio.github.io/permit-python/
 site_description: >-
-  The API reference of permit, the Permit.io Python SDK: every public class, method and
-  model, with the types a type checker sees.
+  The API reference of permit, the Permit.io Python SDK: every public class and method,
+  with the types a type checker sees, and the models they take and return.
 repo_url: https://github.com/permitio/permit-python
 repo_name: permitio/permit-python
 # The pages are generated from docstrings, so an edit link would point at the wrong file.

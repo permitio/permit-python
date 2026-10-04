@@ -13,8 +13,8 @@ pip install permit
 
 [Read the documentation at Permit.io website](https://docs.permit.io/sdk/python/quickstart-python)
 
-The [API reference](https://permitio.github.io/permit-python/) documents every public class,
-method and model of the SDK.
+The [API reference](https://permitio.github.io/permit-python/) documents every public class
+and method of the SDK, and the models they take and return.
 
 ## Upgrading from 2.x
 
