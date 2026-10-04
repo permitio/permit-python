@@ -101,6 +101,62 @@ def test_names_bound_in_both_branches_show_the_type_checking_one(
     assert permit_package["api.models.EmailStr"].is_alias
 
 
+@pytest.mark.parametrize("path", ["permit.Permit.wait_for_sync", "sync.Permit.wait_for_sync"])
+def test_a_context_manager_returns_what_type_checkers_see(
+    permit_package: griffe.Module, path: str
+) -> None:
+    # The source annotates the generator, Generator[Self, None, None]; type checkers see
+    # contextlib._GeneratorContextManager[Self, None, None], whose public base this is.
+    method = permit_package[path]
+    assert str(method.returns) == "AbstractContextManager[Self]"
+    assert method.returns.canonical_path == "contextlib.AbstractContextManager"
+    # The Yields section still names what the generator yields.
+    yields = next(
+        section
+        for section in method.docstring.parsed
+        if section.kind is griffe.DocstringSectionKind.yields
+    )
+    assert [str(item.annotation) for item in yields.value] == ["Self"]
+
+
+@pytest.mark.parametrize(
+    ("annotation", "shown"),
+    [
+        ("Iterator[int]", "AbstractContextManager[int]"),
+        ("Generator[str, None, None]", "AbstractContextManager[str]"),
+    ],
+)
+def test_a_context_manager_shows_the_type_it_yields(annotation: str, shown: str) -> None:
+    package = {
+        "__init__.py": "",
+        "api.py": (
+            "from collections.abc import Generator, Iterator\n"
+            "from contextlib import contextmanager\n"
+            "@contextmanager\n"
+            f"def session() -> {annotation}:\n"
+            "    yield 1\n"
+        ),
+    }
+    extensions = griffe.load_extensions(str(EXTENSION))
+    with griffe.temporary_visited_package("contexts", package, extensions=extensions) as module:
+        assert str(module["api.session"].returns) == shown
+
+
+def test_a_context_manager_it_cannot_read_fails_the_load() -> None:
+    package = {
+        "__init__.py": "",
+        "api.py": (
+            "from contextlib import contextmanager\n@contextmanager\ndef session():\n    yield\n"
+        ),
+    }
+    extensions = griffe.load_extensions(str(EXTENSION))
+    with (
+        pytest.raises(ValueError, match=r"Cannot read what contexts\.api\.session yields"),
+        griffe.temporary_visited_package("contexts", package, extensions=extensions),
+    ):
+        pass
+
+
 @pytest.mark.parametrize(
     ("path", "replacement"),
     [

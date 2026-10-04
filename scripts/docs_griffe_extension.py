@@ -17,6 +17,11 @@ This extension makes the site show what a type checker sees:
   decorator's message, which names the replacement and the release that removes it. The
   stub has no decorators, so each stub method takes the deprecation of the async method it
   is generated from.
+- Context managers. A generator function decorated with ``contextlib.contextmanager``, such
+  as ``Permit.wait_for_sync()``, is annotated with the generator it is written as, but calling
+  it returns a context manager: a type checker sees ``contextlib._GeneratorContextManager``.
+  Its return type shows as ``contextlib.AbstractContextManager``, that class's public base,
+  of the type the generator yields.
 - pydantic v1 models. The ``description`` of a field's ``Field(...)`` becomes the field's
   docstring, and its default the field's value.
 
@@ -41,6 +46,7 @@ _DEPRECATION_DECORATORS = frozenset(
     }
 )
 _PYDANTIC_FIELDS = frozenset({"pydantic.Field", "pydantic.v1.Field"})
+_CONTEXT_MANAGER_DECORATORS = frozenset({"contextlib.contextmanager"})
 
 
 def _in_type_checking_branch(node: ast.AST) -> bool:
@@ -105,6 +111,36 @@ def _mark_deprecated(
         obj.docstring = griffe.Docstring(notice, parent=obj, parser=parser)
     else:
         obj.docstring.value = f"{obj.docstring.value}\n\n{notice}"
+
+
+def _show_as_context_manager(func: griffe.Function) -> None:
+    """Show a ``@contextmanager`` generator function's return type as a context manager.
+
+    Args:
+        func: The function, annotated ``-> Generator[Y, ...]`` or ``-> Iterator[Y]``. Its
+            return type becomes ``AbstractContextManager[Y]``.
+
+    Raises:
+        ValueError: If the return annotation does not name what the generator yields.
+    """
+    returns = func.returns
+    if not isinstance(returns, griffe.ExprSubscript):
+        msg = (
+            f"Cannot read what {func.path} yields from its return annotation {returns!s}: "
+            "annotate it as Generator[...] or Iterator[...]."
+        )
+        raise ValueError(msg)  # noqa: TRY004 - a wrong annotation in the source, not a wrong type
+    if func.docstring is not None:
+        # Parse the docstring now, while the annotation still names the generator: an item of
+        # its Yields section that has no type takes the yielded type from it. The rendered page
+        # reads these parsed sections.
+        func.docstring.parsed  # noqa: B018 - cached on first access
+    yielded = returns.slice
+    if isinstance(yielded, griffe.ExprTuple):
+        yielded = yielded.elements[0]
+    func.returns = griffe.ExprSubscript(
+        griffe.ExprName("AbstractContextManager", parent="contextlib"), yielded
+    )
 
 
 def _document_pydantic_field(
@@ -195,8 +231,12 @@ class PermitDocs(griffe.Extension):
         agent: griffe.Visitor | griffe.Inspector,
         **kwargs: Any,
     ) -> None:
-        """Label a function its decorator marks as deprecated."""
+        """Label a function its decorator marks as deprecated; show a context manager's type."""
         self._read_deprecation(node, func, agent)
+        if any(
+            decorator.callable_path in _CONTEXT_MANAGER_DECORATORS for decorator in func.decorators
+        ):
+            _show_as_context_manager(func)
 
     def on_class_instance(
         self,

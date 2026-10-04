@@ -517,7 +517,8 @@ every change to `docs/`, the SDK, the Griffe extension, `README.md` or `MIGRATIO
 Docstrings are Google style, and their examples are fenced code blocks (```` ```python ````),
 which render as code. `scripts/docs_griffe_extension.py` makes the pages show what a type
 checker sees: the blocking classes come from `permit/_sync_types.pyi`, a method decorated as
-deprecated gets a `deprecated` label and its decorator's message, and a pydantic field's
+deprecated gets a `deprecated` label and its decorator's message, a `@contextmanager` method
+returns an `AbstractContextManager` of what it yields, and a pydantic field's
 `Field(description=...)` becomes its docstring. `tests/test_docs_griffe_extension.py`, part
 of the offline suite, checks it.
 
