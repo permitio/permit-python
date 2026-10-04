@@ -486,6 +486,12 @@ in `.github/workflows/test.yml` runs too, and which fails on any warning in the 
 
 - `--strict` fails the build on a broken link to a page, a missing anchor, a cross-reference
   that resolves to nothing, or a `:::` line that names no object.
+- `--strict` checks only the links of the pages under `docs/`, before they are rendered. The
+  links in docstrings, and in `README.md` and `MIGRATION.md`, which the home page and
+  "Upgrading to 3.0" include, come later, so the gate reads the built site: each relative
+  link must reach a page or file of the site, and its `#anchor` an id on that page. It lists
+  each broken one with the built page that has it, such as
+  `reference/api/roles/index.html: ../../nope/: reference/nope/index.html does not exist`.
 - What the build logs while it renders the pages does not fail it: Griffe's docstring
   warnings, such as an `Args:` entry for a parameter the function does not have, and any
   warning from mkdocstrings, a Markdown extension or the Griffe extension. The build still
@@ -497,8 +503,8 @@ in `.github/workflows/test.yml` runs too, and which fails on any warning in the 
   only the pages whose sources changed, and does not print the warnings of the pages it
   skips.
 
-The gate exits 0 when the build passed, 1 when it failed or logged a warning (it lists each
-one at the end), and 2 when the build did not run to the end, so there is no result:
+The gate exits 0 when the build passed, 1 when it failed, logged a warning or left a broken
+link (it lists each one at the end), and 2 when the build did not run to the end, so there is no result:
 `zensical` is not installed, a signal stopped the build, or the build wrote no
 `site/index.html`. An error from `uv run` itself, such as an out-of-date `uv.lock`, comes
 before the gate starts, so no verdict follows it; CI installs the docs group in a step of its

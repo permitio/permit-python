@@ -91,16 +91,21 @@ def fake_build(
     exit_code: int = 0,
     site: str | None = "site",
     out: str = "",
+    pages: dict[str, str] | None = None,
 ) -> list[str]:
     """Return a build command that prints a planted log and exits with `exit_code`.
 
     It prints `out` to stdout and `log` to stderr, as Zensical splits its output,
-    and writes `site`/index.html unless `site` is None.
+    and writes `pages` (path in the site -> content; by default an index.html with
+    no links) under `site`, unless `site` is None.
     """
     script = tmp_path / "fake_build.py"
     writes_site = (
-        f"Path({site!r}).mkdir(parents=True, exist_ok=True)\n"
-        f"Path({site!r}, 'index.html').write_text('<html></html>', encoding='utf-8')\n"
+        "".join(
+            f"Path({site!r}, {name!r}).parent.mkdir(parents=True, exist_ok=True)\n"
+            f"Path({site!r}, {name!r}).write_text({content!r}, encoding='utf-8')\n"
+            for name, content in (pages or {"index.html": "<html></html>"}).items()
+        )
         if site is not None
         else ""
     )
@@ -307,6 +312,78 @@ def test_output_that_is_not_utf8_is_still_read(tmp_path: Path) -> None:
     completed = run_gate(tmp_path, [sys.executable, str(script)])
     assert completed.returncode == 1
     assert "    griffe: permit/x.py:1: Bad\n" in verdict(completed)
+
+
+# --- exit 1: a broken link in the site ------------------------------------------
+
+# A site in which every relative link reaches its page or file and its id.
+LINKED_SITE = {
+    "index.html": (
+        '<html><head><link rel="stylesheet" href="assets/site.css">'
+        '<link rel="canonical" href="https://permitio.github.io/permit-python/"></head>'
+        '<body id="top"><a href="guide/">Guide</a> <a href="guide/#setup">Setup</a>'
+        ' <a href="guide/index.html#setup">Setup</a> <a href="guide/#caf%C3%A9">Café</a>'
+        ' <a href="#top">Top</a> <a href="#">Top</a> <a href="./">Home</a>'
+        ' <a href="?q=check">Search</a> <a href="https://docs.permit.io/#elsewhere">Guides</a>'
+        ' <a href="/permit-python/absolute/">Absolute</a> <a href="mailto:a@example.com">Mail</a>'
+        ' <img src="assets/logo.png" alt=""></body></html>'
+    ),
+    "guide/index.html": (
+        '<html><body><h2 id="setup">Setup</h2><h2 id="café">Café</h2><a name="legacy"></a>'
+        ' <a href="..">Home</a> <a href="../#top">Top</a> <a href="#legacy">Legacy</a>'
+        ' <script src="../assets/site.js"></script></body></html>'
+    ),
+    "assets/site.css": "",
+    "assets/site.js": "",
+    "assets/logo.png": "",
+    # Not checked: the theme's skip link has no target here, and relative links would
+    # resolve against whatever URL the page is returned for.
+    "404.html": '<html><body><a href="#__skip">Skip</a> <a href="nope/">Nope</a></body></html>',
+}
+
+
+def test_a_site_whose_links_all_reach_their_target_passes(tmp_path: Path) -> None:
+    completed = run_gate(tmp_path, fake_build(tmp_path, pages=LINKED_SITE))
+    assert completed.returncode == 0, completed.stdout
+    assert "every relative link in it reaches its page and anchor" in verdict(completed)
+
+
+@pytest.mark.parametrize(
+    ("element", "problem"),
+    [
+        ('<a href="nope/">x</a>', "nope/: nope/index.html does not exist"),
+        ('<a href="CONTRIBUTING.md">x</a>', "CONTRIBUTING.md: CONTRIBUTING.md does not exist"),
+        ('<a href="guide/#nope">x</a>', "guide/#nope: guide/index.html has no id 'nope'"),
+        ('<a href="#nope">x</a>', "#nope: index.html has no id 'nope'"),
+        ('<a href="../outside/">x</a>', "../outside/: it points outside the site"),
+        ('<img src="assets/gone.png" alt="">', "assets/gone.png: assets/gone.png does not exist"),
+    ],
+    ids=["page", "file", "anchor on another page", "anchor on the page", "outside", "source"],
+)
+def test_a_broken_link_fails_a_build_that_passed(
+    tmp_path: Path, element: str, problem: str
+) -> None:
+    pages = {**LINKED_SITE, "index.html": f'<html><body id="top">{element}</body></html>'}
+    completed = run_gate(tmp_path, fake_build(tmp_path, pages=pages))
+    assert completed.returncode == 1
+    report = verdict(completed)
+    assert f"  The site has 1 broken link(s):\n    index.html: {problem}\n" in report
+
+
+def test_a_broken_link_is_listed_once_per_page(tmp_path: Path) -> None:
+    broken = '<a href="#nope">x</a>'
+    pages = {
+        **LINKED_SITE,
+        "index.html": f"<html><body>{broken}{broken}</body></html>",
+        "guide/index.html": f'<html><body><a href="../#nope">x</a>{broken}</body></html>',
+    }
+    completed = run_gate(tmp_path, fake_build(tmp_path, pages=pages))
+    assert completed.returncode == 1
+    report = verdict(completed)
+    assert "  The site has 3 broken link(s):\n" in report
+    assert report.count("    index.html: #nope: index.html has no id 'nope'\n") == 1
+    assert "    guide/index.html: ../#nope: index.html has no id 'nope'\n" in report
+    assert "    guide/index.html: #nope: guide/index.html has no id 'nope'\n" in report
 
 
 # --- exit 2: the build did not run to the end -----------------------------------

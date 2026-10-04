@@ -771,11 +771,13 @@ jobs:
 
   # The API reference site (PER-16775), built from mkdocs.yml with Zensical. The
   # build runs under .github/scripts/check_docs_build.py, which fails the job when
-  # the build fails or logs any warning: a broken link or anchor, and the Griffe
-  # and mkdocstrings warnings about docstrings, which Zensical's --strict does not
-  # count. docs-deploy.yml builds the site with the same two steps on release and
-  # publishes it to GitHub Pages (test_check_docs_build.py keeps the steps the
-  # same); this job only builds it.
+  # the build fails or logs any warning, including the Griffe and mkdocstrings
+  # warnings about docstrings, which Zensical's --strict does not count, or when a
+  # link or anchor is broken: Zensical checks those of docs/, and the gate those of
+  # the built site, which has the docstrings' and the included README.md's and
+  # MIGRATION.md's too. docs-deploy.yml builds the site with the same two steps on
+  # release and publishes it to GitHub Pages (test_check_docs_build.py keeps the
+  # steps the same); this job only builds it.
   docs:
     name: Docs
     runs-on: ubuntu-24.04
