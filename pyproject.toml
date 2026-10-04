@@ -99,6 +99,10 @@ dev = [
     # Imported directly by the offline tests, which evaluate the version markers
     # in [project].dependencies the way an installer does.
     "packaging==26.3",
+    # The API reference site's Griffe extension, scripts/docs_griffe_extension.py, imports
+    # it, and so do its tests in tests/test_docs_griffe_extension.py, which run with the
+    # offline suite; mypy checks both.
+    "griffelib==2.3.0",
     "pre-commit==4.6.2",
     # 9.x rather than 8.x: the old 8.3.0 floor is affected by CVE-2025-71176
     # (insecure temporary directory handling), fixed in 9.0.3. Caught by this
@@ -296,6 +300,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
     "INP001", # standalone scripts run by path, not an importable package
 ]
 ".github/scripts/test_*.py" = ["S101", "PLR2004", "D1"]
+# Griffe calls each extension hook with keyword arguments the hook does not use, which
+# the hook takes as **kwargs.
+"scripts/docs_griffe_extension.py" = ["ARG002"]
 # The migration skill's tests are run by path with their own pytest.ini, like
 # the CI scripts' tests, not imported as a package.
 "skills/tests/*.py" = ["INP001"]
