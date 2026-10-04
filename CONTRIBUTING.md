@@ -130,18 +130,20 @@ See [skills/tests/README.md](skills/tests/README.md).
 
 ### The CI scripts' tests
 
-`.github/scripts` holds the dependency audit's report formatter, the schema drift check and
-the API coverage report, with their tests, and the tests of the `CI` job, the job-list check
-and the local actions' shellcheck (see [CI](#ci)). They need only pytest and the standard
-library, and run with their own pytest config, which turns every warning into an error.
-`test_ci_checks.py` also runs the bash of those three steps, read from `test.yml`, so it
-needs bash, jq, [yq](https://github.com/mikefarah/yq) v4 and shellcheck on `PATH`, as
-GitHub's runners have them. The command is the one the `Audit Script Tests` job runs:
+`.github/scripts` holds the dependency audit's report formatter, the schema drift check, the
+API coverage report and the docs build gate, with their tests, and the tests of the `CI` job,
+the job-list check and the local actions' shellcheck (see [CI](#ci)). They need only pytest
+and the standard library, and run with their own pytest config, which turns every warning
+into an error. `test_ci_checks.py` also runs the bash of those three steps, read from
+`test.yml`, so it needs bash, jq, [yq](https://github.com/mikefarah/yq) v4 and shellcheck on
+`PATH`, as GitHub's runners have them; `test_check_docs_build.py` reads both workflows with
+yq. The command is the one the `Audit Script Tests` job runs:
 
 ```sh
 uv run --only-dev pytest -c .github/scripts/pytest.ini \
   .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py \
-  .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py
+  .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py \
+  .github/scripts/test_check_docs_build.py
 ```
 
 ### End-to-end tests
@@ -465,6 +467,83 @@ uv run python .github/scripts/api_coverage.py snapshot pdp /tmp/pdp-openapi.json
 ```
 
 Commit the snapshot together with the allowlist entries for whatever it adds.
+
+## The API reference site
+
+<https://permitio.github.io/permit-python/> is the SDK's API reference, generated from its
+docstrings and type annotations by [Zensical](https://zensical.org/) and mkdocstrings.
+`mkdocs.yml` configures it, the pages are under `docs/`, and the tools are exact pins in the
+`docs` dependency group. Guides stay on docs.permit.io, which every page links to.
+
+Build it the way CI does, into `site/` (gitignored):
+
+```sh
+uv run --locked --group docs python .github/scripts/check_docs_build.py
+```
+
+That runs `zensical build --strict --clean` under the docs build gate, which the `docs` job
+in `.github/workflows/test.yml` runs too, and which fails on any warning in the build log and
+on any broken link in the site:
+
+- `--strict` fails the build on a broken link to a page, a missing anchor, a cross-reference
+  that resolves to nothing, or a `:::` line that names no object.
+- `--strict` checks only the links of the pages under `docs/`, before they are rendered. The
+  links in docstrings, and in `README.md` and `MIGRATION.md`, which the home page and
+  "Upgrading to 3.0" include, come later, so the gate reads the built site: each relative
+  link must reach a page or file of the site, and its `#anchor` an id on that page. It lists
+  each broken one with the built page that has it, such as
+  `reference/api/roles/index.html: ../../nope/: reference/nope/index.html does not exist`.
+- What the build logs while it renders the pages does not fail it: Griffe's docstring
+  warnings, such as an `Args:` entry for a parameter the function does not have, and any
+  warning from mkdocstrings, a Markdown extension or the Griffe extension. The build still
+  ends with "No issues found". The gate runs Zensical under a logging handler that prints each
+  of those records with its level, as
+  `WARNING:mkdocs.plugins.griffe:griffe: <file>:<line>: <message>`, and fails on those lines,
+  so fix every one.
+- `--clean` empties Zensical's page cache (`.cache/`, gitignored). Without it, a build renders
+  only the pages whose sources changed, and does not print the warnings of the pages it
+  skips.
+
+The gate exits 0 when the build passed, 1 when it failed, logged a warning or left a broken
+link (it lists each one at the end), and 2 when the build did not run to the end, so there is
+no result: `zensical` is not installed, a signal stopped the build, or the build wrote no
+`site/index.html`. An error from `uv run` itself, such as an out-of-date `uv.lock`, comes
+before the gate starts, so no verdict follows it; CI installs the docs group in a step of its
+own, which fails instead.
+
+To preview the site while editing, run
+`uv run --locked --group docs zensical serve` and open <http://localhost:8000>. It rebuilds on
+every change to `docs/`, the SDK, the Griffe extension, `README.md` or `MIGRATION.md`.
+
+Docstrings are Google style, and their examples are fenced code blocks (```` ```python ````),
+which render as code. `scripts/docs_griffe_extension.py` makes the pages show what a type
+checker sees: the blocking classes come from `permit/_sync_types.pyi`, a method decorated as
+deprecated gets a `deprecated` label and its decorator's message, a `@contextmanager` method
+returns an `AbstractContextManager` of what it yields, and a pydantic field's
+`Field(description=...)` becomes its docstring. `tests/test_docs_griffe_extension.py`, part
+of the offline suite, checks it.
+
+- **A page.** Write it under `docs/` and add it to `nav` in `mkdocs.yml`. A line
+  `::: permit.module.Name` renders that object. The home page and "Upgrading to 3.0" include
+  `README.md` and `MIGRATION.md`: edit those files, and link from them with absolute URLs,
+  which work on GitHub, PyPI and the site alike.
+- **An API class.** Copy a page under `docs/reference/api/`: it documents the async class,
+  then its blocking twin from `permit.api.sync_api_client`. Add the page to `nav` and to the
+  table in `docs/reference/api/index.md`.
+- **A model.** `docs/reference/models.md` lists the models of `permit.api.models` that a
+  public method takes or returns. When a method starts or stops using one,
+  `tests/test_docs_griffe_extension.py` fails and names it; add it to, or remove it from,
+  the alphabetical `members` list on that page.
+
+Pull requests build the site but never deploy it. `.github/workflows/docs-deploy.yml`
+(Deploy Docs) builds it through the same gate and deploys it to GitHub Pages when a release
+is published, or a prerelease is changed to a release (a prerelease itself does not deploy),
+and when started by hand with Run workflow. The site has one version, the latest release's.
+The `github-pages` environment accepts deploys from `main` and from `v*` tags only, so a
+release tagged `X.Y.Z` without the `v` publishes to PyPI but cannot deploy the site; run
+Deploy Docs from `main` instead. Deploy Docs does not wait for the PyPI upload
+([Releasing](#releasing)): if the publish workflow fails, the site documents a version PyPI
+does not have until the release is fixed.
 
 ## Building
 

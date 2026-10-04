@@ -1,0 +1,105 @@
+name: Deploy Docs
+
+# Builds the API reference site (PER-16775) and publishes it to GitHub Pages, at
+# https://permitio.github.io/permit-python/. It runs when a release is published
+# and when started by hand from the Actions tab, never on a push: the site
+# documents the released SDK, not main. A prerelease does not deploy, since a
+# plain `pip install permit` does not install one. The `released` activity is
+# what does that: it fires when a release that is not a prerelease is published,
+# and when a prerelease is changed to a release, which `published` does not fire
+# for. A manual run deploys whatever ref it is started on.
+#
+# The build is the docs job's in test.yml, with the same install step and the same
+# gate (.github/scripts/check_docs_build.py; test_check_docs_build.py keeps the
+# two in step), so a release whose site has a broken link or a docstring warning
+# does not deploy. The github-pages environment accepts deploys from main and
+# from v* tags only.
+on:
+  release:
+    types: [released]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# One run at a time. A run that is deploying is never cancelled, so Pages is
+# never left with a half-finished deployment; a run started meanwhile waits, and
+# only the newest waiting run goes ahead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    # A build takes about a minute; the limit stops a hung one.
+    timeout-minutes: 15
+    permissions:
+      contents: read # the checkout
+      pages: read # configure-pages reads the repository's Pages settings
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: "uv.lock"
+          python-version: "3.11.8"
+          # No cache on a job whose output is published: a poisoned cache entry
+          # would flow straight into the site.
+          enable-cache: false
+
+      - name: Install the docs dependencies
+        run: uv sync --locked --group docs
+
+      # Exit 1 is a failed build or a warning, each warning listed at the end of
+      # the log; exit 2 means the build did not run to the end. Both fail the job.
+      - name: Build the site
+        run: |
+          set -uo pipefail
+          set +e
+          uv run --no-sync python .github/scripts/check_docs_build.py
+          gate_exit=$?
+          set -e
+          if [ "${gate_exit}" -eq 1 ]; then
+            echo "::error title=Docs build::The site build failed or logged a warning." \
+              "The end of the log lists them."
+          elif [ "${gate_exit}" -ne 0 ]; then
+            echo "::error title=Docs build did not run::The site build did not run to" \
+              "the end, so there is no result. See the log."
+          fi
+          exit "${gate_exit}"
+
+      # Fails before the upload when Pages is not enabled for this repository.
+      - name: Check the Pages settings
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      # site_dir in mkdocs.yml. The artifact is named github-pages, which
+      # deploy-pages downloads.
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    # deploy-pages gives up on a deployment after 10 minutes.
+    timeout-minutes: 15
+    # The only job that can write to Pages. It checks out nothing and runs no
+    # code from the repository.
+    permissions:
+      pages: write # deploy-pages creates the deployment
+      id-token: write # deploy-pages proves with an OIDC token that this workflow made it
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
