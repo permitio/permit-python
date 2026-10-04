@@ -13,6 +13,9 @@ pip install permit
 
 [Read the documentation at Permit.io website](https://docs.permit.io/sdk/python/quickstart-python)
 
+The [API reference](https://permitio.github.io/permit-python/) documents every public class,
+method and model of the SDK.
+
 ## Upgrading from 2.x
 
 permit 3.0.0 requires Python 3.10 or later and raises the minimum versions of its dependencies.
