@@ -4,12 +4,14 @@
 Runs the site build, streams its log, and reads every line of it. Zensical's
 --strict fails the build on Zensical's own diagnostics: a link to a page or an
 anchor that does not exist, an unresolved cross-reference or link reference. It
-does not count what Griffe and mkdocstrings log while they read the SDK's
-docstrings: Zensical sets up no logging handler, so Python prints those records
-(level WARNING and up) as bare lines, each starting with the logger's package
-name, and the build still exits 0. This script fails on those lines too.
+does not count what Griffe, mkdocstrings, Markdown extensions or the Griffe
+extension log while the build renders the pages, and the build still exits 0.
+Zensical sets up no logging handler, so Python would print such a record as its
+bare message. The default build therefore runs Zensical's command line under a
+root handler that prints each record of level WARNING and up with its level and
+logger (`WARNING:<logger>:<message>`), and this script fails on those lines.
 
-Run it in the docs environment, where zensical is on PATH:
+Run it in the docs environment, where zensical is installed:
 
     uv run --locked --group docs python .github/scripts/check_docs_build.py
 
@@ -18,22 +20,25 @@ that does not exist (exit 2), comes before the gate starts, and no verdict
 follows it. CI installs the docs group in a step of its own (uv sync --locked
 --group docs), so there such an error fails that step, not the build step.
 
-The default command passes --clean: Zensical caches rendered pages in .cache/
-and does not render an unchanged page again, so without it a second build would
-not repeat the Griffe warnings of the first. Zensical has no option for the
-output directory; it writes to site_dir in mkdocs.yml, which --site-dir must name.
+The default build is `zensical build --strict --clean`, run with this script's
+interpreter. --clean matters: Zensical caches rendered pages in .cache/ and does
+not render an unchanged page again, so without it a second build would not
+repeat the Griffe warnings of the first. Zensical has no option for the output
+directory; it writes to site_dir in mkdocs.yml, which --site-dir must name. A
+command given after -- runs as given, without the logging handler.
 
 Contract (test.yml's docs job and docs-deploy.yml depend on it):
 
 * Exit 0: the build exited 0, its log holds no warning, and it wrote
   <site-dir>/index.html.
 * Exit 1: the build exited non-zero, or its log holds a warning: a Zensical
-  diagnostic (`Warning: ...` or `Error: ...`), a Griffe or mkdocstrings record
-  (`griffe: ...`, `mkdocstrings: ...`), a record printed with its level
-  (`WARNING ...`, as MkDocs prints them), or a Python warning
-  (`path:line: SomeWarning: ...`).
-* Exit 2: the build did not run to the end, so there is no result: the command
-  could not be started, a signal stopped it, or it exited 0 without writing
+  diagnostic (`Warning: ...` or `Error: ...`), a record printed with its level
+  (`WARNING:...`, as the default build prints them, or `WARNING -  ...`, as
+  MkDocs does), a Griffe or mkdocstrings record printed without one (`griffe: ...`,
+  `mkdocstrings: ...`), or a Python warning (`path:line: SomeWarning: ...`).
+* Exit 2: the build did not run to the end, so there is no result: zensical is
+  not installed for this interpreter (default build only), the command could
+  not be started, a signal stopped it, or it exited 0 without writing
   <site-dir>/index.html (one that is still the file it was before the build does
   not count). Any error in this script is also exit 2, never a pass.
 * The build's stdout and stderr are streamed to stdout as they arrive. The
@@ -46,6 +51,7 @@ Stdlib only.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import shlex
 import subprocess
@@ -53,7 +59,15 @@ import sys
 import traceback
 from pathlib import Path
 
-DEFAULT_COMMAND = "zensical build --strict --clean"
+ZENSICAL_ARGUMENTS = ("build", "--strict", "--clean")
+# Zensical's command line, as its `zensical` script runs it, under a root logging handler that
+# prints each record with its level and logger, so that LOGGED_WARNINGS can find every one.
+ZENSICAL_UNDER_A_LOGGING_HANDLER = (
+    "import logging, sys\n"
+    "logging.basicConfig(level=logging.WARNING, format='%(levelname)s:%(name)s:%(message)s')\n"
+    "from zensical.main import cli\n"
+    "sys.exit(cli(prog_name='zensical'))\n"
+)
 DEFAULT_SITE_DIR = Path("site")
 RUN_IN_DOCS_ENVIRONMENT = "uv run --locked --group docs python .github/scripts/check_docs_build.py"
 
@@ -64,12 +78,13 @@ ZENSICAL_DIAGNOSTIC = re.compile(r"^(?:Warning|Error): ")
 # The first line of the box Zensical draws under a diagnostic: `╭─[ index.md:3:5 ]`.
 ZENSICAL_LOCATION = re.compile(r"^╭─\[\s*(?P<where>[^\]]+?)\s*\]$")
 LOGGED_WARNINGS = (
-    # mkdocstrings' logger adapters, which Griffe's loggers go through too, start
-    # every message with the package name of the logger.
-    re.compile(r"^(?:griffe|mkdocstrings|mkdocstrings_handlers|mkdocs_autorefs): "),
-    # A record printed with its level, as MkDocs (`WARNING -  ...`) and
-    # logging.basicConfig (`WARNING:griffe:...`) print them.
+    # A record printed with its level, as the default build's handler
+    # (`WARNING:mkdocs.plugins.griffe:griffe: ...`) and MkDocs (`WARNING -  ...`) print them.
     re.compile(r"^(?:WARNING|ERROR|CRITICAL)\b"),
+    # The same records of Griffe and mkdocstrings from a build with no logging handler, such
+    # as a command given after --: their logger adapters start each message with the package
+    # name of the logger.
+    re.compile(r"^(?:griffe|mkdocstrings|mkdocstrings_handlers|mkdocs_autorefs): "),
     # A warning from the warnings module: `path:line: SomeWarning: message`.
     re.compile(r"^\S.*:\d+: [A-Z]\w*Warning: "),
 )
@@ -181,12 +196,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "command",
         nargs=argparse.REMAINDER,
-        help=f"the build command, after -- (default: {DEFAULT_COMMAND})",
+        help=f"the build command, after -- (default: zensical {shlex.join(ZENSICAL_ARGUMENTS)})",
     )
     args = parser.parse_args(argv)
     command: list[str] = args.command[1:] if args.command[:1] == ["--"] else args.command
     try:
-        return gate(command or shlex.split(DEFAULT_COMMAND), args.site_dir)
+        if not command:
+            if importlib.util.find_spec("zensical") is None:
+                print(
+                    f"{PREFIX} the build did not run: zensical is not installed for "
+                    f"{sys.executable}."
+                )
+                print(f"  Run the gate in the docs environment: {RUN_IN_DOCS_ENVIRONMENT}")
+                return 2
+            command = [sys.executable, "-c", ZENSICAL_UNDER_A_LOGGING_HANDLER, *ZENSICAL_ARGUMENTS]
+        return gate(command, args.site_dir)
     # A gate that broke has no verdict: exit 1 would read as a docs problem with
     # none listed, and exit 0 as a clean build.
     except Exception:  # noqa: BLE001 - mapped to exit 2 with its traceback

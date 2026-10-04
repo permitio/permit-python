@@ -5,8 +5,9 @@ on a failed build and on every kind of warning line, Griffe's included, even whe
 the build exits 0; it exits 2, never 0 or 1, when the build did not run to the
 end; and it streams the build's log as it arrives. No Zensical: each test runs a
 fake build command that prints a planted log in the format Zensical 0.0.65
-prints, and writes the site or not. The last tests read both workflows with yq
-(mikefarah v4) and check that they build the site the same way, through the gate.
+prints, and writes the site or not; the default build's tests put a fake zensical
+package on PYTHONPATH. The last tests read both workflows with yq (mikefarah v4)
+and check that they build the site the same way, through the gate.
 
 Run with:
 uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_check_docs_build.py
@@ -291,11 +292,14 @@ def test_exit_2_when_the_command_cannot_start(tmp_path: Path) -> None:
     assert "the build did not run: could not start" in verdict(completed)
 
 
-def test_exit_2_when_the_default_command_cannot_start(tmp_path: Path) -> None:
+def test_exit_2_when_zensical_is_not_installed(tmp_path: Path) -> None:
+    # -S leaves out site-packages, where the docs group installs zensical. The gate is stdlib
+    # only, so it runs without them.
+    environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
     completed = subprocess.run(  # noqa: S603 - runs the script under test with this interpreter
-        [sys.executable, str(SCRIPT)],
+        [sys.executable, "-S", str(SCRIPT)],
         cwd=tmp_path,
-        env={"PATH": str(tmp_path)},
+        env=environment,
         capture_output=True,
         text=True,
         check=False,
@@ -303,7 +307,7 @@ def test_exit_2_when_the_default_command_cannot_start(tmp_path: Path) -> None:
     )
     assert completed.returncode == 2
     report = verdict(completed)
-    assert "could not start 'zensical'" in report
+    assert "the build did not run: zensical is not installed for" in report
     assert "Run the gate in the docs environment: uv run --locked --group docs python" in report
 
 
@@ -331,6 +335,63 @@ def test_exit_2_when_the_gate_itself_breaks(
     captured = capsys.readouterr()
     assert "the gate itself failed" in captured.out
     assert "ValueError" in captured.err
+
+
+# --- the default build ------------------------------------------------------------
+
+
+def fake_zensical(tmp_path: Path, logged: str) -> Path:
+    """A zensical package whose command line logs `logged` and writes the site.
+
+    `logged` is the body of a function of a logger, run as the build renders the pages. The
+    package goes on PYTHONPATH, ahead of a real zensical in site-packages.
+    """
+    package = tmp_path / "fake_packages" / "zensical"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "main.py").write_text(
+        "import logging\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "\n"
+        "def cli(prog_name):\n"
+        "    assert prog_name == 'zensical', prog_name\n"
+        "    assert sys.argv[1:] == ['build', '--strict', '--clean'], sys.argv\n"
+        "    print('Build started', flush=True)\n"
+        "    logger = logging.getLogger('some_extension')\n"
+        f"    {logged}\n"
+        "    Path('site').mkdir()\n"
+        "    Path('site', 'index.html').write_text('<html></html>', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    return package.parent
+
+
+def run_default_build(tmp_path: Path, logged: str) -> subprocess.CompletedProcess[str]:
+    packages = fake_zensical(tmp_path, logged)
+    return subprocess.run(  # noqa: S603 - runs the script under test with this interpreter
+        [sys.executable, str(SCRIPT)],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(packages)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+
+def test_the_default_build_runs_zensical_build_strict_clean(tmp_path: Path) -> None:
+    completed = run_default_build(tmp_path, "logger.info('rendered a page')")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "rendered a page" not in completed.stdout
+
+
+@pytest.mark.parametrize("level", ["warning", "error"])
+def test_the_default_build_fails_on_a_record_of_any_logger(tmp_path: Path, level: str) -> None:
+    # Without a handler, Python would print the bare message, which no pattern can match.
+    completed = run_default_build(tmp_path, f"logger.{level}('planted record')")
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert f"    {level.upper()}:some_extension:planted record\n" in verdict(completed)
 
 
 # --- streaming ------------------------------------------------------------------

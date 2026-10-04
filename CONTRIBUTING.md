@@ -486,16 +486,20 @@ in `.github/workflows/test.yml` runs too, and which fails on any warning in the 
 
 - `--strict` fails the build on a broken link to a page, a missing anchor, a cross-reference
   that resolves to nothing, or a `:::` line that names no object.
-- Griffe's docstring warnings, such as an `Args:` entry for a parameter the function does not
-  have, do not fail the build: it prints them as `griffe: <file>:<line>: <message>` and still
-  ends with "No issues found". The gate fails on those lines, so fix every one.
+- What the build logs while it renders the pages does not fail it: Griffe's docstring
+  warnings, such as an `Args:` entry for a parameter the function does not have, and any
+  warning from mkdocstrings, a Markdown extension or the Griffe extension. The build still
+  ends with "No issues found". The gate runs Zensical under a logging handler that prints each
+  of those records with its level, as
+  `WARNING:mkdocs.plugins.griffe:griffe: <file>:<line>: <message>`, and fails on those lines,
+  so fix every one.
 - `--clean` empties Zensical's page cache (`.cache/`, gitignored). Without it, a build renders
   only the pages whose sources changed, and does not print the warnings of the pages it
   skips.
 
 The gate exits 0 when the build passed, 1 when it failed or logged a warning (it lists each
 one at the end), and 2 when the build did not run to the end, so there is no result:
-`zensical` could not be started, a signal stopped the build, or the build wrote no
+`zensical` is not installed, a signal stopped the build, or the build wrote no
 `site/index.html`. An error from `uv run` itself, such as an out-of-date `uv.lock`, comes
 before the gate starts, so no verdict follows it; CI installs the docs group in a step of its
 own, which fails instead.
