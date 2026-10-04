@@ -74,8 +74,7 @@ jobs:
           fi
           exit "${gate_exit}"
 
-      # Fails before the upload when Pages is not enabled for this repository or
-      # does not publish from GitHub Actions.
+      # Fails before the upload when Pages is not enabled for this repository.
       - name: Check the Pages settings
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
