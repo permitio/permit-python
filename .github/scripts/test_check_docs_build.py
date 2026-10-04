@@ -7,7 +7,8 @@ end; and it streams the build's log as it arrives. No Zensical: each test runs a
 fake build command that prints a planted log in the format Zensical 0.0.65
 prints, and writes the site or not; the default build's tests put a fake zensical
 package on PYTHONPATH. The last tests read both workflows with yq (mikefarah v4)
-and check that they build the site the same way, through the gate.
+and check that they build the site the same way, with the same uv and Python,
+through the gate.
 
 Run with:
 uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_check_docs_build.py
@@ -589,6 +590,20 @@ def test_ci_and_the_deploy_build_the_site_the_same_way(name: str) -> None:
     ci = workflow_step("test.yml", "docs", name)
     deploy = workflow_step("docs-deploy.yml", "build", name)
     assert ci == deploy
+
+
+def test_ci_and_the_deploy_build_the_site_with_the_same_uv_and_python() -> None:
+    ci = workflow_step("test.yml", "docs", "Install uv")
+    deploy = workflow_step("docs-deploy.yml", "build", "Install uv")
+    assert ci["uses"] == deploy["uses"]
+    ci_inputs = ci["with"]
+    deploy_inputs = deploy["with"]
+    assert isinstance(ci_inputs, dict)
+    assert isinstance(deploy_inputs, dict)
+    for name in ("version-file", "python-version"):
+        assert ci_inputs[name] == deploy_inputs[name], name
+    # The deploy publishes what it builds, so it restores no cache.
+    assert deploy_inputs["enable-cache"] is False
 
 
 def test_the_workflows_build_the_site_through_the_gate() -> None:
