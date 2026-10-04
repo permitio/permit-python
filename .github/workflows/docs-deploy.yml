@@ -4,8 +4,10 @@ name: Deploy Docs
 # https://permitio.github.io/permit-python/. It runs when a release is published
 # and when started by hand from the Actions tab, never on a push: the site
 # documents the released SDK, not main. A prerelease does not deploy, since a
-# plain `pip install permit` does not install one; a manual run deploys whatever
-# ref it is started on.
+# plain `pip install permit` does not install one. The `released` activity is
+# what does that: it fires when a release that is not a prerelease is published,
+# and when a prerelease is changed to a release, which `published` does not fire
+# for. A manual run deploys whatever ref it is started on.
 #
 # The build is the docs job's in test.yml, with the same install step and the same
 # gate (.github/scripts/check_docs_build.py; test_check_docs_build.py keeps the
@@ -14,7 +16,7 @@ name: Deploy Docs
 # from v* tags only.
 on:
   release:
-    types: [published]
+    types: [released]
   workflow_dispatch: {}
 
 permissions:
@@ -30,7 +32,6 @@ concurrency:
 jobs:
   build:
     name: Build
-    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-24.04
     # A build takes about a minute; the limit stops a hung one.
     timeout-minutes: 15

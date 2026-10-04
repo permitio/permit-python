@@ -536,10 +536,11 @@ of the offline suite, checks it.
 
 Pull requests build the site but never deploy it. `.github/workflows/docs-deploy.yml`
 (Deploy Docs) builds it through the same gate and deploys it to GitHub Pages when a release
-is published, except a prerelease, and when started by hand with Run workflow. The site has
-one version, the latest release's. The `github-pages` environment accepts deploys from `main`
-and from `v*` tags only, so a release tagged `X.Y.Z` without the `v` publishes to PyPI but
-cannot deploy the site; run Deploy Docs from `main` instead.
+is published, or a prerelease is changed to a release (a prerelease itself does not deploy),
+and when started by hand with Run workflow. The site has one version, the latest release's.
+The `github-pages` environment accepts deploys from `main` and from `v*` tags only, so a
+release tagged `X.Y.Z` without the `v` publishes to PyPI but cannot deploy the site; run
+Deploy Docs from `main` instead.
 
 ## Building
 
