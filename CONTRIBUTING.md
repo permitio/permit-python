@@ -130,18 +130,20 @@ See [skills/tests/README.md](skills/tests/README.md).
 
 ### The CI scripts' tests
 
-`.github/scripts` holds the dependency audit's report formatter, the schema drift check and
-the API coverage report, with their tests, and the tests of the `CI` job, the job-list check
-and the local actions' shellcheck (see [CI](#ci)). They need only pytest and the standard
-library, and run with their own pytest config, which turns every warning into an error.
-`test_ci_checks.py` also runs the bash of those three steps, read from `test.yml`, so it
-needs bash, jq, [yq](https://github.com/mikefarah/yq) v4 and shellcheck on `PATH`, as
-GitHub's runners have them. The command is the one the `Audit Script Tests` job runs:
+`.github/scripts` holds the dependency audit's report formatter, the schema drift check, the
+API coverage report and the docs build gate, with their tests, and the tests of the `CI` job,
+the job-list check and the local actions' shellcheck (see [CI](#ci)). They need only pytest
+and the standard library, and run with their own pytest config, which turns every warning
+into an error. `test_ci_checks.py` also runs the bash of those three steps, read from
+`test.yml`, so it needs bash, jq, [yq](https://github.com/mikefarah/yq) v4 and shellcheck on
+`PATH`, as GitHub's runners have them; `test_check_docs_build.py` reads both workflows with
+yq. The command is the one the `Audit Script Tests` job runs:
 
 ```sh
 uv run --only-dev pytest -c .github/scripts/pytest.ini \
   .github/scripts/test_format_audit.py .github/scripts/test_check_schema_drift.py \
-  .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py
+  .github/scripts/test_api_coverage.py .github/scripts/test_ci_checks.py \
+  .github/scripts/test_check_docs_build.py
 ```
 
 ### End-to-end tests
@@ -476,18 +478,27 @@ docstrings and type annotations by [Zensical](https://zensical.org/) and mkdocst
 Build it the way CI does, into `site/` (gitignored):
 
 ```sh
-uv run --locked --group docs zensical build --strict --clean
+uv run --locked --group docs python .github/scripts/check_docs_build.py
 ```
+
+That runs `zensical build --strict --clean` under the docs build gate, which the `docs` job
+in `.github/workflows/test.yml` runs too, and which fails on any warning in the build log:
 
 - `--strict` fails the build on a broken link to a page, a missing anchor, a cross-reference
   that resolves to nothing, or a `:::` line that names no object.
 - Griffe's docstring warnings, such as an `Args:` entry for a parameter the function does not
-  have, do not fail it: the build prints them as `griffe: <file>:<line>: <message>` and still
-  ends with "No issues found". The `docs` job in `.github/workflows/test.yml` fails on them
-  too, so fix every one.
+  have, do not fail the build: it prints them as `griffe: <file>:<line>: <message>` and still
+  ends with "No issues found". The gate fails on those lines, so fix every one.
 - `--clean` empties Zensical's page cache (`.cache/`, gitignored). Without it, a build renders
   only the pages whose sources changed, and does not print the warnings of the pages it
   skips.
+
+The gate exits 0 when the build passed, 1 when it failed or logged a warning (it lists each
+one at the end), and 2 when the build did not run to the end, so there is no result:
+`zensical` could not be started, a signal stopped the build, or the build wrote no
+`site/index.html`. An error from `uv run` itself, such as an out-of-date `uv.lock`, comes
+before the gate starts, so no verdict follows it; CI installs the docs group in a step of its
+own, which fails instead.
 
 To preview the site while editing, run
 `uv run --locked --group docs zensical serve` and open <http://localhost:8000>. It rebuilds on
@@ -512,9 +523,12 @@ of the offline suite, checks it.
   `tests/test_docs_griffe_extension.py` fails and names it; add it to, or remove it from,
   the alphabetical `members` list on that page.
 
-Pull requests build the site but never deploy it. Publishing a GitHub release deploys it to
-GitHub Pages, and so does starting the deploy workflow by hand (Run workflow). The site has
-one version, the latest release's.
+Pull requests build the site but never deploy it. `.github/workflows/docs-deploy.yml`
+(Deploy Docs) builds it through the same gate and deploys it to GitHub Pages when a release
+is published, except a prerelease, and when started by hand with Run workflow. The site has
+one version, the latest release's. The `github-pages` environment accepts deploys from `main`
+and from `v*` tags only, so a release tagged `X.Y.Z` without the `v` publishes to PyPI but
+cannot deploy the site; run Deploy Docs from `main` instead.
 
 ## Building
 
