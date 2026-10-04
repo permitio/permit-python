@@ -101,7 +101,8 @@ dev = [
     "packaging==26.3",
     # The API reference site's Griffe extension, scripts/docs_griffe_extension.py, imports
     # it, and so do its tests in tests/test_docs_griffe_extension.py, which run with the
-    # offline suite; mypy checks both.
+    # offline suite; mypy checks both. Pinned in the docs group too, at the same version,
+    # which uv lock enforces: two different exact pins of one package do not resolve.
     "griffelib==2.3.0",
     "pre-commit==4.6.2",
     # 9.x rather than 8.x: the old 8.3.0 floor is affected by CVE-2025-71176
@@ -130,6 +131,18 @@ dev = [
     # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
     # CVE-2026-21860, CVE-2026-27199).
     "werkzeug==3.1.8",
+]
+# The API reference site (mkdocs.yml; CONTRIBUTING.md, "The API reference site"):
+# `uv run --locked --group docs zensical build --strict --clean`. Exact pins, like the dev
+# group, so a local build and CI render the same site with the same warnings.
+docs = [
+    # Also in the dev group, at the same version: see there.
+    "griffelib==2.3.0",
+    "mkdocstrings==1.0.6",
+    "mkdocstrings-python==2.0.9",
+    # The Markdown extensions mkdocs.yml enables come from this package.
+    "pymdown-extensions==12.1",
+    "zensical==0.0.65",
 ]
 # The SDK supports both pydantic majors (permit/utils/pydantic_version.py), and
 # CI runs the suite once per major. Each lane is a group so both resolutions

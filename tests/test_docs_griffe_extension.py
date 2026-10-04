@@ -2,7 +2,8 @@
 
 Griffe reads the SDK the way the site's build does, statically and with the extension, and
 these tests check what the site would show: blocking signatures for the blocking classes,
-taken from the stub by full path, deprecation labels and pydantic field descriptions.
+taken from the stub by full path, deprecation labels, pydantic field descriptions, and a
+models page that lists exactly the models the SDK's methods take and return.
 """
 
 from collections.abc import Iterator
@@ -13,6 +14,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXTENSION = REPO_ROOT / "scripts" / "docs_griffe_extension.py"
+MODELS_PAGE = REPO_ROOT / "docs" / "reference" / "models.md"
 
 
 @pytest.fixture(scope="module")
@@ -149,6 +151,60 @@ def test_pydantic_fields_are_documented_from_their_field_call(
     attributes = permit_package["enforcement.interfaces.TenantDetails.attributes"]
     assert str(attributes.value) == "dict()"
     assert role.members["v1compat_settings"].docstring is None
+
+
+def public_signature_models(package: griffe.Module) -> set[str]:
+    """The permit.api.models names in the signatures of the SDK's public methods."""
+    found = set()
+    for module in walk_modules(package):
+        if module.path == "permit.api.models":
+            continue
+        for cls in module.classes.values():
+            if cls.is_alias:
+                continue
+            for name, member in cls.members.items():
+                if name.startswith("_"):
+                    continue
+                if isinstance(member, griffe.Function):
+                    annotations = [p.annotation for p in member.parameters] + [member.returns]
+                elif isinstance(member, griffe.Attribute) and "property" in member.labels:
+                    annotations = [member.annotation]
+                else:
+                    continue
+                for annotation in annotations:
+                    if not isinstance(annotation, griffe.Expr):
+                        continue
+                    for part in annotation.iterate(flat=True):
+                        if isinstance(part, griffe.ExprName):
+                            module_path, _, model = part.canonical_path.rpartition(".")
+                            if module_path == "permit.api.models":
+                                found.add(model)
+    return found
+
+
+def models_on_page() -> list[str]:
+    options = MODELS_PAGE.read_text().split("      members:\n", 1)[1]
+    return [
+        line.removeprefix("        - ")
+        for line in options.splitlines()
+        if line.startswith("        - ")
+    ]
+
+
+def test_the_models_page_lists_the_models_of_public_signatures(
+    permit_package: griffe.Module,
+) -> None:
+    listed = models_on_page()
+    expected = public_signature_models(permit_package)
+
+    assert "RoleRead" in expected
+    assert "UserCreate" in expected
+    missing = sorted(expected - set(listed))
+    extra = sorted(set(listed) - expected)
+    page = MODELS_PAGE.relative_to(REPO_ROOT)
+    assert not missing, f"Add these models to the members list in {page}: {missing}"
+    assert not extra, f"No public method takes or returns these; remove them: {extra}"
+    assert listed == sorted(listed, key=str.lower), "Keep the members list alphabetical."
 
 
 def test_a_deprecation_message_it_cannot_read_fails_the_load() -> None:
