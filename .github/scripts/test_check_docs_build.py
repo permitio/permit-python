@@ -5,7 +5,8 @@ on a failed build and on every kind of warning line, Griffe's included, even whe
 the build exits 0; it exits 2, never 0 or 1, when the build did not run to the
 end; and it streams the build's log as it arrives. No Zensical: each test runs a
 fake build command that prints a planted log in the format Zensical 0.0.65
-prints, and writes the site or not.
+prints, and writes the site or not. The last tests read both workflows with yq
+(mikefarah v4) and check that they build the site the same way, through the gate.
 
 Run with:
 uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_check_docs_build.py
@@ -13,7 +14,9 @@ uv run --only-dev pytest -c .github/scripts/pytest.ini .github/scripts/test_chec
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -23,6 +26,7 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).parent / "check_docs_build.py"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -360,3 +364,35 @@ def test_the_log_is_streamed_as_it_arrives(tmp_path: Path) -> None:
         seen.touch()
         rest = gate.stdout.read()
     assert gate.returncode == 0, rest
+
+
+# --- the workflows ---------------------------------------------------------------
+
+
+def workflow_step(workflow: str, job: str, name: str) -> dict[str, object]:
+    yq = shutil.which("yq")
+    if yq is None:
+        pytest.fail("yq is not on PATH; this test reads the workflows with it")
+    completed = subprocess.run(  # noqa: S603 - yq reads a workflow of this repository
+        [yq, "-o=json", ".", str(REPO_ROOT / ".github" / "workflows" / workflow)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    steps = json.loads(completed.stdout)["jobs"][job]["steps"]
+    found = [step for step in steps if step.get("name") == name]
+    assert len(found) == 1, f"expected one {name!r} step in job {job!r} of {workflow}"
+    step: dict[str, object] = found[0]
+    return step
+
+
+@pytest.mark.parametrize("name", ["Install the docs dependencies", "Build the site"])
+def test_ci_and_the_deploy_build_the_site_the_same_way(name: str) -> None:
+    ci = workflow_step("test.yml", "docs", name)
+    deploy = workflow_step("docs-deploy.yml", "build", name)
+    assert ci == deploy
+
+
+def test_the_workflows_build_the_site_through_the_gate() -> None:
+    step = workflow_step("test.yml", "docs", "Build the site")
+    assert "uv run --no-sync python .github/scripts/check_docs_build.py\n" in str(step["run"])

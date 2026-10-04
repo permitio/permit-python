@@ -773,7 +773,9 @@ jobs:
   # build runs under .github/scripts/check_docs_build.py, which fails the job when
   # the build fails or logs any warning: a broken link or anchor, and the Griffe
   # and mkdocstrings warnings about docstrings, which Zensical's --strict does not
-  # count.
+  # count. docs-deploy.yml builds the site with the same two steps on release and
+  # publishes it to GitHub Pages (test_check_docs_build.py keeps the steps the
+  # same); this job only builds it.
   docs:
     name: Docs
     runs-on: ubuntu-24.04
@@ -1068,9 +1070,10 @@ jobs:
       # [tool.pytest] in pyproject.toml. The scripts under test are stdlib only,
       # so --only-dev leaves the project uninstalled. The schema drift check's,
       # the API coverage report's and the docs build gate's tests run here too:
-      # they live next to the audit scripts and need no more. So do the tests of
-      # the bash of the CI job, the job-list check and the local actions'
-      # shellcheck, which also run bash, jq, yq and shellcheck from the runner image.
+      # they live next to the audit scripts and need no more (the gate's tests
+      # read the workflows with yq). So do the tests of the bash of the CI job,
+      # the job-list check and the local actions' shellcheck, which also run
+      # bash, jq, yq and shellcheck from the runner image.
       - name: Run CI script tests
         run: >-
           uv run --locked --only-dev
