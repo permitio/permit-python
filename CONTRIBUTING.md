@@ -466,6 +466,56 @@ uv run python .github/scripts/api_coverage.py snapshot pdp /tmp/pdp-openapi.json
 
 Commit the snapshot together with the allowlist entries for whatever it adds.
 
+## The API reference site
+
+<https://permitio.github.io/permit-python/> is the SDK's API reference, generated from its
+docstrings and type annotations by [Zensical](https://zensical.org/) and mkdocstrings.
+`mkdocs.yml` configures it, the pages are under `docs/`, and the tools are exact pins in the
+`docs` dependency group. Guides stay on docs.permit.io, which every page links to.
+
+Build it the way CI does, into `site/` (gitignored):
+
+```sh
+uv run --locked --group docs zensical build --strict --clean
+```
+
+- `--strict` fails the build on a broken link to a page, a missing anchor, a cross-reference
+  that resolves to nothing, or a `:::` line that names no object.
+- Griffe's docstring warnings, such as an `Args:` entry for a parameter the function does not
+  have, do not fail it: the build prints them as `griffe: <file>:<line>: <message>` and still
+  ends with "No issues found". The `docs` job in `.github/workflows/test.yml` fails on them
+  too, so fix every one.
+- `--clean` empties Zensical's page cache (`.cache/`, gitignored). Without it, a build renders
+  only the pages whose sources changed, and does not print the warnings of the pages it
+  skips.
+
+To preview the site while editing, run
+`uv run --locked --group docs zensical serve` and open <http://localhost:8000>. It rebuilds on
+every change to `docs/`, the SDK, the Griffe extension, `README.md` or `MIGRATION.md`.
+
+Docstrings are Google style, and their examples are fenced code blocks (```` ```python ````),
+which render as code. `scripts/docs_griffe_extension.py` makes the pages show what a type
+checker sees: the blocking classes come from `permit/_sync_types.pyi`, a method decorated as
+deprecated gets a `deprecated` label and its decorator's message, and a pydantic field's
+`Field(description=...)` becomes its docstring. `tests/test_docs_griffe_extension.py`, part
+of the offline suite, checks it.
+
+- **A page.** Write it under `docs/` and add it to `nav` in `mkdocs.yml`. A line
+  `::: permit.module.Name` renders that object. The home page and "Upgrading to 3.0" include
+  `README.md` and `MIGRATION.md`: edit those files, and link from them with absolute URLs,
+  which work on GitHub, PyPI and the site alike.
+- **An API class.** Copy a page under `docs/reference/api/`: it documents the async class,
+  then its blocking twin from `permit.api.sync_api_client`. Add the page to `nav` and to the
+  table in `docs/reference/api/index.md`.
+- **A model.** `docs/reference/models.md` lists the models of `permit.api.models` that a
+  public method takes or returns. When a method starts or stops using one,
+  `tests/test_docs_griffe_extension.py` fails and names it; add it to, or remove it from,
+  the alphabetical `members` list on that page.
+
+Pull requests build the site but never deploy it. Publishing a GitHub release deploys it to
+GitHub Pages, and so does starting the deploy workflow by hand (Run workflow). The site has
+one version, the latest release's.
+
 ## Building
 
 ```sh

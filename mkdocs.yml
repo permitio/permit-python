@@ -1,0 +1,120 @@
+# The API reference site, https://permitio.github.io/permit-python/, built with
+# Zensical, which reads this MkDocs-format file. CONTRIBUTING.md ("The API reference
+# site") says how to build and preview it and how to add a page.
+site_name: permit-python API reference
+site_url: https://permitio.github.io/permit-python/
+site_description: >-
+  The API reference of permit, the Permit.io Python SDK: every public class, method and
+  model, with the types a type checker sees.
+repo_url: https://github.com/permitio/permit-python
+repo_name: permitio/permit-python
+# The pages are generated from docstrings, so an edit link would point at the wrong file.
+edit_uri: ""
+copyright: Copyright &copy; Permit.io
+# Where the build writes the site, which the deploy workflow publishes. Gitignored.
+site_dir: site
+# Rebuild when these change, not only docs/: the reference pages come from the SDK's
+# source, through the Griffe extension, and two pages include the Markdown files.
+watch:
+  - permit
+  - scripts/docs_griffe_extension.py
+  - README.md
+  - MIGRATION.md
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Async or blocking client: clients.md
+  - Upgrading to 3.0: migration.md
+  - Reference:
+      - reference/index.md
+      - Async client: reference/permit.md
+      - Blocking client: reference/sync.md
+      - Configuration: reference/config.md
+      - Exceptions: reference/exceptions.md
+      - Enforcement types: reference/enforcement.md
+      - REST API (permit.api):
+          - reference/api/index.md
+          - Condition set rules: reference/api/condition-set-rules.md
+          - Condition sets: reference/api/condition-sets.md
+          - Environments: reference/api/environments.md
+          - Groups: reference/api/groups.md
+          - PDPs: reference/api/pdps.md
+          - Projects: reference/api/projects.md
+          - Relationship tuples: reference/api/relationship-tuples.md
+          - Resource action groups: reference/api/resource-action-groups.md
+          - Resource actions: reference/api/resource-actions.md
+          - Resource attributes: reference/api/resource-attributes.md
+          - Resource instances: reference/api/resource-instances.md
+          - Resource relations: reference/api/resource-relations.md
+          - Resource roles: reference/api/resource-roles.md
+          - Resources: reference/api/resources.md
+          - Role assignments: reference/api/role-assignments.md
+          - Roles: reference/api/roles.md
+          - Tenants: reference/api/tenants.md
+          - User invites: reference/api/user-invites.md
+          - Users: reference/api/users.md
+          - Deprecated methods: reference/api/deprecated.md
+      - PDP API (permit.pdp_api): reference/pdp-api.md
+      - Elements (permit.elements): reference/elements.md
+      - Models: reference/models.md
+  # Guides stay on docs.permit.io; every page links there from the navigation.
+  - Guides (docs.permit.io): https://docs.permit.io/sdk/python/quickstart-python/
+
+markdown_extensions:
+  - pymdownx.highlight
+  # Docstrings carry bare URLs, such as the one in Permit.wait_for_sync()'s See Also
+  # section; this makes them links.
+  - pymdownx.magiclink
+  # The home page and the migration guide include README.md and MIGRATION.md, so the
+  # prose lives in one place. check_paths fails the build when an included file is gone.
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  # Docstring examples are fenced code blocks, which superfences also renders inside
+  # lists and admonitions.
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            docstring_style: google
+            extensions:
+              - scripts/docs_griffe_extension.py
+            # Private names, and the `class Config:` block of each pydantic model.
+            filters: ["!^_", "!^Config$"]
+            heading_level: 2
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            # A model field or an exception attribute is worth listing without one.
+            show_if_no_docstring: true
+            show_root_full_path: true
+            show_root_heading: true
+            show_signature_annotations: true
+            show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+
+# Zensical checks links and anchors by default; spelled out because the CI build
+# depends on it.
+validation:
+  links:
+    not_found: warn
+    anchors: warn

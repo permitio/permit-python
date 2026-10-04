@@ -6,8 +6,9 @@ methods that could never have worked. Most projects need only the dependency cha
 lists every breaking change, who it affects, and what to do.
 
 Each change has an ID (C1, A2, ...). The same IDs are used by the
-[migration skill](skills/permit-python-3-migration/), which can do the upgrade for you with an AI
-agent: see [Migrate with an AI agent](#migrate-with-an-ai-agent).
+[migration skill](https://github.com/permitio/permit-python/tree/main/skills/permit-python-3-migration),
+which can do the upgrade for you with an AI agent: see
+[Migrate with an AI agent](#migrate-with-an-ai-agent).
 
 ## Contents
 
@@ -546,11 +547,12 @@ needs Python 3.9, because its aiohttp floor does; on 3.8, pip installs an older 
 
 ## Migrate with an AI agent
 
-The [`permit-python-3-migration`](skills/permit-python-3-migration/) skill walks an AI agent, such
-as Claude Code, through this guide: it checks your Python version and stops before editing
-anything if the project still allows or runs on 3.8 or 3.9, scans the project, updates the
-dependencies, applies the mechanical edits, brings every judgement call to you, and runs your
-tests, type checker and linter.
+The
+[`permit-python-3-migration`](https://github.com/permitio/permit-python/tree/main/skills/permit-python-3-migration)
+skill walks an AI agent, such as Claude Code, through this guide: it checks your Python version
+and stops before editing anything if the project still allows or runs on 3.8 or 3.9, scans the
+project, updates the dependencies, applies the mechanical edits, brings every judgement call to
+you, and runs your tests, type checker and linter.
 
 To install it:
 
