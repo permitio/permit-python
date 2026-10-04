@@ -13,8 +13,10 @@ Run it in the docs environment, where zensical is on PATH:
 
     uv run --locked --group docs python .github/scripts/check_docs_build.py
 
-When uv.lock is out of date or the docs group cannot be installed, uv stops
-before the gate starts, with exit status 2: a build that did not run, as below.
+An error from uv itself, such as an out-of-date uv.lock (exit 1) or a group
+that does not exist (exit 2), comes before the gate starts, and no verdict
+follows it. CI installs the docs group in a step of its own (uv sync --locked
+--group docs), so there such an error fails that step, not the build step.
 
 The default command passes --clean: Zensical caches rendered pages in .cache/
 and does not render an unchanged page again, so without it a second build would
