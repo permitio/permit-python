@@ -90,7 +90,7 @@ Repository = "https://github.com/permitio/permit-python"
 dev = [
     # Also what tests/test_typing_surface.py runs on tests/type_check/consumer.py;
     # 2.3.1 passes it on Python 3.10-3.14 with either pydantic major.
-    "mypy==2.3.1",
+    "mypy==2.4.0",
     # Imported directly by the offline tests, which evaluate the version markers
     # in [project].dependencies the way an installer does.
     "packaging==26.3",
@@ -101,26 +101,26 @@ dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-httpserver==1.1.5",
-    "ruff==0.16.8",
+    "ruff==0.16.10",
     # The offline tests and the migration skill's tests read [project].dependencies
     # from this file, and tomllib is in the standard library only from Python 3.11.
     # The marker says == "3.10" rather than < "3.11", which is the same under
     # requires-python, because Dependabot skips a requirement whose marker has `<`.
     'tomli==2.4.1; python_version == "3.10"',
-    "typos==1.50.2",
+    "typos==1.50.3",
     # The uv version CI runs: every setup-uv step reads it from uv.lock
     # (version-file), except the publish build job, which pins its own version
     # and checksum. Dependabot bumps it like any other pin. The uv-lock pre-commit
     # hook runs the uv on PATH, which under `uv run` (as in CI) is this one. Run
     # this version locally so uv.lock comes out the same.
-    "uv==0.12.17",
+    "uv==0.12.23",
     # Imported directly by the offline tests (Request/Response are used to assert
     # on what the SDK actually put on the wire), as well as backing
     # pytest-httpserver. Keep it at 3.1.6 or later, the highest fixed version
     # across the six advisories that affected the old >=2.3.8 floor
     # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
     # CVE-2026-21860, CVE-2026-27199).
-    "werkzeug==3.1.8",
+    "werkzeug==3.1.9",
 ]
 # The SDK supports both pydantic majors (permit/utils/pydantic_version.py), and
 # CI runs the suite once per major. Each lane is a group so both resolutions
