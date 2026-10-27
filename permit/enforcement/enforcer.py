@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Union
 
 import aiohttp
 from aiohttp import ClientTimeout
-from loguru import logger
 from typing_extensions import NotRequired, TypedDict
 
 from permit.config import PermitConfig
@@ -14,6 +13,7 @@ from permit.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 from permit.utils.dicts import deep_merge
 from permit.utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.sdk_logger import sdk_logger
 from permit.utils.sync import SyncClass
 
 if TYPE_CHECKING:
@@ -53,7 +53,15 @@ async def read_error_body(response: aiohttp.ClientResponse) -> str:
     surrounding handler and re-reported as "cannot connect to the PDP
     container". A 403 for a wrong API key was indistinguishable from the PDP
     being down, which is a genuinely misleading error to hand a user.
+
+    Every API key the SDK knows is replaced with ``[REDACTED]``: the body goes into
+    the SDK's log record and into the PermitConnectionError raised to the caller,
+    and a PDP may echo back the key it rejected.
     """
+    return sdk_logger.scrub(await _read_body_text(response))
+
+
+async def _read_body_text(response: aiohttp.ClientResponse) -> str:
     try:
         return repr(await response.json())
     except (aiohttp.ClientError, ValueError):
@@ -179,7 +187,7 @@ class Enforcer:
                             raise PermitConnectionError(msg)
 
                         error_body = await read_error_body(response)
-                        logger.error(
+                        sdk_logger.error(
                             "error in permit.authorized_users({}, {}):\n{}\n{}".format(
                                 action,
                                 self._resource_repr(normalized_resource),
@@ -198,7 +206,7 @@ class Enforcer:
                         raise PermitConnectionError(msg)
 
                     content: dict[str, Any] = await response.json()
-                    logger.debug(
+                    sdk_logger.debug(
                         f"permit.authorized_users() response:"
                         f"\ninput: {pformat(request_body, indent=2)}"
                         f"\nresponse status: {response.status}"
@@ -207,7 +215,7 @@ class Enforcer:
                     result: AuthorizedUsersResult = parse_obj_as(AuthorizedUsersResult, content)
                     return result
             except aiohttp.ClientError as err:
-                logger.error(
+                sdk_logger.error(
                     f"error in permit.authorized_users({action}, "
                     f"{self._resource_repr(normalized_resource)}):\n{err}"
                 )
@@ -314,10 +322,10 @@ class Enforcer:
                             f"status code: {response.status}",
                             error_body,
                         )
-                        logger.error(msg)
+                        sdk_logger.error(msg)
                         raise PermitConnectionError(msg)
                     content: dict[str, Any] = await response.json()
-                    logger.debug(
+                    sdk_logger.debug(
                         f"permit.check() response:\n"
                         f"input: {pformat(request_body, indent=2)}\n"
                         f"response status: {response.status}\n"
@@ -339,7 +347,7 @@ class Enforcer:
                     ),
                     err,
                 )
-                logger.error(msg)
+                sdk_logger.error(msg)
                 raise PermitConnectionError(msg, error=err) from err
             return decisions
 
@@ -416,7 +424,7 @@ class Enforcer:
                             raise PermitConnectionError(msg)
 
                         error_body = await read_error_body(response)
-                        logger.error(
+                        sdk_logger.error(
                             "error in permit.check({}, {}, {}):\n{}\n{}".format(
                                 normalized_user,
                                 action,
@@ -436,7 +444,7 @@ class Enforcer:
                         raise PermitConnectionError(msg)
 
                     content: dict[str, Any] = await response.json()
-                    logger.debug(
+                    sdk_logger.debug(
                         f"permit.check() response:\n"
                         f"body: {pformat(body, indent=2)}\n"
                         f"response status: {response.status}\n"
@@ -445,7 +453,7 @@ class Enforcer:
                     decision: bool = bool(content.get("allow", False))
                     return decision
             except aiohttp.ClientError as err:
-                logger.error(
+                sdk_logger.error(
                     f"error in permit.check({normalized_user}, {action}, "
                     f"{self._resource_repr(normalized_resource)}):"
                     f"\n{err}"
@@ -514,7 +522,7 @@ class Enforcer:
                         else content
                     )
 
-                    logger.debug(
+                    sdk_logger.debug(
                         f"permit.get_user_permissions() response:\n"
                         f"input: {pformat(input_data, indent=2)}\n"
                         f"response data: {pformat(permissions, indent=2)}"
@@ -522,7 +530,7 @@ class Enforcer:
                     return permissions
 
             except aiohttp.ClientError as err:
-                logger.error(f"Error in permit.get_user_permissions(): {err}")
+                sdk_logger.error(f"Error in permit.get_user_permissions(): {err}")
                 msg = (
                     f"Permit SDK got error: {err}, \n"
                     f"and cannot connect to the PDP container, please check your configuration "

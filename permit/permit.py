@@ -1,9 +1,8 @@
-import json
+import copy
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
 
-from loguru import logger
 from typing_extensions import Self
 
 from permit.api.api_client import PermitApiClient
@@ -20,6 +19,7 @@ from permit.enforcement.interfaces import AuthorizedUsersResult
 from permit.logger import configure_logger
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
 from permit.utils.context import Context
+from permit.utils.sdk_logger import sdk_logger
 
 
 class Permit:
@@ -35,14 +35,17 @@ class Permit:
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
 
         configure_logger(self._config)
+        self._connect()
+        sdk_logger.debug(
+            f"Permit SDK initialized: api_url={self._config.api_url}, pdp={self._config.pdp}"
+        )
+
+    def _connect(self) -> None:
+        """Create the clients that send this client's requests, from its config."""
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
         self._pdp_api = PermitPdpApiClient(self._config)
-        logger.debug(
-            "Permit SDK initialized with config:\n${}",
-            json.dumps(self._config.dict(exclude={"api_context"})),
-        )
 
     @property
     def config(self) -> PermitConfig:
@@ -81,7 +84,7 @@ class Permit:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
         """
         if not self._config.proxy_facts_via_pdp:
-            logger.warning(
+            sdk_logger.warning(
                 "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
             )
             yield self
@@ -90,7 +93,12 @@ class Permit:
         contextualized_config.facts_sync_timeout = timeout
         if policy is not None:
             contextualized_config.facts_sync_timeout_policy = policy
-        yield self.__class__(contextualized_config)
+        # A copy of this client that sends its requests with the new config. Creating a new
+        # client instead would apply its log settings to the whole process again.
+        waiting: Self = copy.copy(self)
+        waiting._config = contextualized_config
+        waiting._connect()
+        yield waiting
 
     @property
     def api(self) -> PermitApiClient:

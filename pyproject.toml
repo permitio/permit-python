@@ -242,6 +242,11 @@ convention = "google"
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# A record logged straight to loguru would skip the SDK's log level and label, and the
+# replacement of the API key with [REDACTED] (PER-16680).
+"loguru.logger".msg = "Log through permit.utils.sdk_logger, which redacts the API key."
+
 [tool.ruff.lint.flake8-type-checking]
 # pydantic evaluates field annotations at runtime, so the imports they use
 # must never be moved under `if TYPE_CHECKING:`.
@@ -271,7 +276,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.v1.BaseModel"]
     "T201",    # progress output for long e2e runs; pytest captures it
     "BLE001",  # e2e tests turn any unexpected exception into a readable pytest.fail
     "S603",    # subprocesses run the interpreter under test with the test's own arguments
+    "TID251",  # tests add loguru sinks and log the way an application does
 ]
+# The SDK's loguru wrapper, and the module that reads loguru's levels for log.level.
+"permit/{logger,utils/sdk_logger}.py" = ["TID251"]
 # These are standalone CLI programs, not library code: writing the rendered
 # report to stdout IS their interface, so the "no print" rule does not apply.
 "{.github/scripts,scripts,skills/permit-python-3-migration/scripts}/*.py" = [

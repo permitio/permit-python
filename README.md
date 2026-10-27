@@ -40,6 +40,38 @@ calls into the SDK against its type annotations. No pydantic mypy plugin is need
 - The blocking client, `permit.sync.Permit`, is typed as blocking:
   `permit.api.users.get("user")` returns a `UserRead`, not a coroutine.
 
+## Logging
+
+The SDK logs with [loguru](https://github.com/Delgan/loguru) and logs nothing unless you
+enable it in the `log` option:
+
+```py
+permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
+```
+
+- The SDK adds no loguru sink of its own. Its records go to the sinks your application has
+  added, or to loguru's default stderr sink, in the format of those sinks.
+- `"enable": False` (the default) calls loguru's `logger.disable("permit")`. `"enable": True`
+  undoes that call, with `logger.enable("permit")`, only if an earlier client made it, so a
+  `logger.disable()` your application made for `permit` or one of its modules still
+  applies. When it does undo it, loguru also drops any `permit.*` module disable made since.
+- `level` (default `"info"`) is the lowest severity the SDK logs. Its records below it never
+  reach a sink. Your application's own records are not affected. The SDK logs its HTTP
+  requests and the PDP's responses at `"debug"`. With `"enable": True`, for a level name
+  loguru does not know, the SDK logs a warning that names it and uses `"info"`.
+- `label` (default `"Permit"`) is put in square brackets before every message the SDK logs.
+- `json` is not applied. For JSON output, give your application a serialized sink in place
+  of loguru's default one: `logger.remove()`, then `logger.add(sys.stderr, serialize=True)`.
+  Added next to the default sink, it prints every record a second time.
+- loguru's logger is process-wide, so these settings are too: the client created last
+  decides whether the SDK logs, and the last one created with `"enable": True` decides the
+  level and the label, for every client in the process. `wait_for_sync()` creates no
+  client: it yields a copy of the client it is called on.
+- The SDK replaces the API key of every client in the process with `[REDACTED]` in the
+  messages it logs and in the PDP error bodies it puts in a `PermitConnectionError`, so a
+  PDP that echoes the key back does not expose it. A user name and password written into
+  the `api_url` or `pdp` URL are not replaced: the SDK logs its request URLs at `"debug"`.
+
 ## Deprecations
 
 A future major release, permit 4.0, will remove the following. They still work in 3.x, and
