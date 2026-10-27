@@ -1,7 +1,7 @@
-import copy
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from typing_extensions import Self
 
@@ -16,10 +16,20 @@ from permit.enforcement.enforcer import (
     User,
 )
 from permit.enforcement.interfaces import AuthorizedUsersResult
-from permit.logger import configure_logger
+from permit.logger import configure_logger, keep_log_settings
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
 from permit.utils.context import Context
 from permit.utils.sdk_logger import sdk_logger
+
+
+def _without_userinfo(url: str) -> str:
+    """`url` without a user name or password, which a proxy URL may carry."""
+    parts = urlsplit(url)
+    if parts.username is None and parts.password is None:
+        return url
+    host = parts.hostname or ""
+    netloc = f"{host}:{parts.port}" if parts.port is not None else host
+    return urlunsplit(parts._replace(netloc=netloc))
 
 
 class Permit:
@@ -37,7 +47,8 @@ class Permit:
         configure_logger(self._config)
         self._connect()
         sdk_logger.debug(
-            f"Permit SDK initialized: api_url={self._config.api_url}, pdp={self._config.pdp}"
+            f"Permit SDK initialized: api_url={_without_userinfo(self._config.api_url)}, "
+            f"pdp={_without_userinfo(self._config.pdp)}"
         )
 
     def _connect(self) -> None:
@@ -93,11 +104,13 @@ class Permit:
         contextualized_config.facts_sync_timeout = timeout
         if policy is not None:
             contextualized_config.facts_sync_timeout_policy = policy
-        # A copy of this client that sends its requests with the new config. Creating a new
-        # client instead would apply its log settings to the whole process again.
-        waiting: Self = copy.copy(self)
-        waiting._config = contextualized_config
-        waiting._connect()
+        # A client of this class, so a subclass's own setup runs, that keeps the process's
+        # log settings: applying this client's again would undo a client created since.
+        token = keep_log_settings.set(True)
+        try:
+            waiting = self.__class__(contextualized_config)
+        finally:
+            keep_log_settings.reset(token)
         yield waiting
 
     @property

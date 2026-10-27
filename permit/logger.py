@@ -1,4 +1,6 @@
 import contextlib
+import contextvars
+import threading
 
 from loguru import logger
 
@@ -9,6 +11,17 @@ PERMIT_MODULE = PACKAGE
 
 # The names Python's logging module also accepts, and the ones the Node SDK's logger uses.
 _LEVEL_ALIASES = {"WARN": "WARNING", "FATAL": "CRITICAL"}
+
+# Set while a client derives another from itself (`Permit.wait_for_sync`): the derived
+# client keeps the process's log settings instead of applying its own again.
+keep_log_settings: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "permit_keep_log_settings", default=False
+)
+
+# The unknown level names already warned about, so a process that creates a client per
+# request warns once per name.
+_warned_levels: set[str] = set()
+_warned_levels_lock = threading.Lock()
 
 
 def configure_logger(config: PermitConfig) -> None:
@@ -31,22 +44,31 @@ def configure_logger(config: PermitConfig) -> None:
       then `logger.add(sys.stderr, serialize=True)`.
 
     Whatever the settings, the API key in `config.token` is replaced with `[REDACTED]` in
-    every message the SDK logs and in the PDP error bodies it puts in a
-    `PermitConnectionError`.
+    every message the SDK logs and in the error bodies it puts in the exceptions it raises.
 
-    An unknown `log.level` does not fail client creation: the SDK logs a warning that names
-    the value and uses INFO.
+    `log.level` is a level name, in any case, or a loguru severity number. An unknown one
+    does not fail client creation: the SDK logs a warning that names the value, once per
+    process, and uses INFO.
+
+    While `keep_log_settings` is set (`Permit.wait_for_sync` deriving a client), only the
+    key is registered for redaction: the process's log settings stay as they are.
 
     Args:
         config: The SDK configuration.
     """
     sdk_logger.redact(config.token)
+    if keep_log_settings.get():
+        return
     if not config.log.enable:
         sdk_logger.disable()
         return
     level_no = _level_no(config.log.level)
     if level_no is None:
         sdk_logger.enable(min_level_no=logger.level("INFO").no, label=config.log.label)
+        with _warned_levels_lock:
+            if config.log.level in _warned_levels:
+                return
+            _warned_levels.add(config.log.level)
         sdk_logger.warning(
             f"Unknown log level {config.log.level!r} in the Permit SDK config (log.level), "
             "so the SDK logs at INFO. Use trace, debug, info, success, warning, error or "
@@ -57,6 +79,10 @@ def configure_logger(config: PermitConfig) -> None:
 
 
 def _level_no(level: str) -> int | None:
+    level = level.strip()
+    # A severity number, as loguru accepts it (pydantic turns `10` into "10").
+    if level.isdigit():
+        return int(level)
     upper = level.upper()
     # loguru's level names are case-sensitive: try the name as given first, so a level the
     # application added in lower case is found, then the upper-case name of a built-in one.

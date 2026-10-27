@@ -2,7 +2,6 @@ from typing import Any
 
 from permit.api.elements import SyncElementsApi
 from permit.api.sync_api_client import SyncPermitApiClient
-from permit.config import PermitConfig
 from permit.enforcement.enforcer import (
     Action,
     CheckQuery,
@@ -28,9 +27,6 @@ class Permit(AsyncPermit):
         **options: `PermitConfig` fields, used to build the configuration when `config`
             is not given.
     """
-
-    def __init__(self, config: PermitConfig | None = None, **options: Any) -> None:
-        super().__init__(config, **options)
 
     def _connect(self) -> None:
         self._enforcer = SyncEnforcer(self._config)  # type: ignore[assignment]
