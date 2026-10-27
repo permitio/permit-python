@@ -3,6 +3,9 @@ import threading
 from loguru import logger
 
 REDACTED = "[REDACTED]"
+# A secret shorter than this is not redacted: replacing a short value such as "token" in
+# every message would mangle the SDK's own text. Permit API keys are far longer.
+MIN_SECRET_LENGTH = 12
 # The package whose records loguru's logger.enable() and logger.disable() switch on and off.
 PACKAGE = "permit"
 
@@ -25,6 +28,9 @@ class SdkLogger:
         self._label = ""
         # Whether `disable` called logger.disable("permit") after the last `enable`.
         self._disabled_package = False
+        # Held while the loguru switch and `_disabled_package` change together, so two
+        # clients created at once in different threads leave them consistent.
+        self._switch_lock = threading.Lock()
         self._secrets_lock = threading.Lock()
         # Longest first: where one secret contains another, such as a key and a prefix of
         # it, the whole of the longer one is replaced, not just the shorter part. Replaced,
@@ -34,8 +40,9 @@ class SdkLogger:
 
     def disable(self) -> None:
         """Stop loguru from passing on any record of the package: `logger.disable("permit")`."""
-        logger.disable(PACKAGE)
-        self._disabled_package = True
+        with self._switch_lock:
+            logger.disable(PACKAGE)
+            self._disabled_package = True
 
     def enable(self, *, min_level_no: int, label: str) -> None:
         """Keep the records from `min_level_no` up, with `label` before each message.
@@ -49,11 +56,12 @@ class SdkLogger:
             min_level_no: The loguru severity number below which records are dropped.
             label: The text put in brackets before each message; an empty string adds none.
         """
-        self._min_level_no = min_level_no
-        self._label = label
-        if self._disabled_package:
-            logger.enable(PACKAGE)
-            self._disabled_package = False
+        with self._switch_lock:
+            self._min_level_no = min_level_no
+            self._label = label
+            if self._disabled_package:
+                logger.enable(PACKAGE)
+                self._disabled_package = False
 
     def redact(self, secret: str) -> None:
         """Replace `secret` with `[REDACTED]` in every record logged from now on.
@@ -63,11 +71,11 @@ class SdkLogger:
         that echoes the key back has stripped.
 
         Args:
-            secret: A credential, such as an API key. A secret that is empty or only
-                whitespace is ignored.
+            secret: A credential, such as an API key. A secret shorter than
+                `MIN_SECRET_LENGTH` without its surrounding whitespace is ignored.
         """
         trimmed = secret.strip()
-        if not trimmed:
+        if len(trimmed) < MIN_SECRET_LENGTH:
             return
         with self._secrets_lock:
             new = {secret, trimmed}.difference(self._secrets)

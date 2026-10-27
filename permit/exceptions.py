@@ -2,7 +2,7 @@ import functools
 import warnings
 from collections.abc import Awaitable, Callable, Coroutine
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import aiohttp
 from typing_extensions import ParamSpec, deprecated
@@ -229,6 +229,20 @@ class PermitNotFoundError(PermitApiDetailedError):
     """Object not found response from the Permit API."""
 
 
+_JsonT = TypeVar("_JsonT")
+
+
+def _scrubbed(value: _JsonT) -> _JsonT:
+    """`value`, a decoded JSON body, with every registered API key replaced in its strings."""
+    if isinstance(value, str):
+        return cast("_JsonT", sdk_logger.scrub(value))
+    if isinstance(value, list):
+        return cast("_JsonT", [_scrubbed(item) for item in value])
+    if isinstance(value, dict):
+        return cast("_JsonT", {key: _scrubbed(item) for key, item in value.items()})
+    return value
+
+
 async def handle_api_error(response: aiohttp.ClientResponse) -> None:
     """Raise the matching SDK exception if `response` has a non-2xx status.
 
@@ -246,9 +260,9 @@ async def handle_api_error(response: aiohttp.ClientResponse) -> None:
         return
 
     try:
-        json = await response.json()
+        json = _scrubbed(await response.json())
     except aiohttp.ContentTypeError as e:
-        text = await response.text()
+        text = sdk_logger.scrub(await response.text())
         raise PermitApiError(response, {"details": text}) from e
 
     if response.status == HTTPStatus.UNPROCESSABLE_ENTITY:

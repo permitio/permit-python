@@ -11,7 +11,7 @@ import re
 import subprocess
 import sys
 import types
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,7 +23,7 @@ from werkzeug import Request, Response
 
 from permit import Permit, PermitConfig
 from permit.enforcement.enforcer import CheckQuery
-from permit.exceptions import PermitConnectionError
+from permit.exceptions import PermitApiError, PermitConnectionError
 from permit.sync import Permit as SyncPermit
 from permit.utils.sdk_logger import REDACTED, SdkLogger, sdk_logger
 
@@ -693,3 +693,89 @@ def test_creating_many_clients_adds_no_sinks(httpserver: HTTPServer, app_sinks: 
         pass
     assert len(app_sinks.wait_for_sync_warnings()) == 1
     assert app_sinks.stderr().count(WAIT_FOR_SYNC_WARNING) == 1
+
+
+def echo_the_key_as_json(request: Request) -> Response:
+    """An API that rejects the request and echoes the key it was sent, in a JSON body."""
+    body = {"detail": f"rejected key: {request.headers['Authorization']}", "error_code": "x"}
+    return Response(json.dumps(body), status=403, content_type="application/json")
+
+
+@pytest.mark.parametrize("handler", [echo_the_key, echo_the_key_as_json], ids=["text", "json"])
+async def test_api_and_pdp_api_errors_do_not_hold_an_echoed_key(
+    httpserver: HTTPServer, handler: Callable[[Request], Response]
+) -> None:
+    """The REST API and the PDP's local API raise through `handle_api_error`."""
+    serve(httpserver)
+    httpserver.expect_request(f"{USERS}/user-2", method="GET").respond_with_handler(handler)
+    httpserver.expect_request("/local/role_assignments", method="GET").respond_with_handler(handler)
+    permit = Permit(make_config(httpserver))
+
+    raised: list[BaseException] = []
+    for call in (permit.api.users.get("user-2"), permit.pdp_api.role_assignments.list()):
+        with pytest.raises((PermitApiError, PermitConnectionError)) as caught:
+            await call
+        raised.append(caught.value)
+
+    for error in raised:
+        assert SENTINEL not in str(error)
+        assert SENTINEL not in repr(error)
+        assert REDACTED in str(error)
+
+
+def test_the_init_line_leaves_out_the_url_user_and_password(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    url = httpserver.url_for("").rstrip("/").replace("://", "://proxy-user:proxy-password@")
+    config = PermitConfig(
+        token=SENTINEL, api_url=url, pdp=url, log={"enable": True, "level": "debug"}
+    )
+
+    SyncPermit(config)
+
+    [record] = [r for r in app_sinks.sdk_records() if "SDK initialized" in r["message"]]
+    assert "proxy-password" not in record["message"]
+    assert "proxy-user" not in record["message"]
+    assert httpserver.url_for("").rstrip("/") in record["message"]
+
+
+def test_wait_for_sync_runs_a_subclass_s_own_setup(httpserver: HTTPServer) -> None:
+    class CustomPermit(SyncPermit):
+        def __init__(self, config: PermitConfig) -> None:
+            super().__init__(config)
+            self.custom = True
+
+    permit = CustomPermit(proxied_config(httpserver))
+    with permit.wait_for_sync() as waiting:
+        assert type(waiting) is CustomPermit
+        assert waiting.custom is True
+
+
+def test_a_short_token_is_not_redacted_from_the_sdk_s_text() -> None:
+    redactor = SdkLogger()
+    redactor.redact("token")
+    redactor.redact(" permit ")
+
+    assert redactor.scrub("bad token for permit.check()") == "bad token for permit.check()"
+
+
+@pytest.mark.parametrize("level", ["10", " debug ", "DEBUG"])
+def test_a_numeric_or_padded_level_is_read(
+    httpserver: HTTPServer, app_sinks: AppSinks, level: str
+) -> None:
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    permit = SyncPermit(make_config(httpserver, enable=True, level=level))
+
+    assert permit.check("user-1", "read", "document")
+
+    levels = {record["level"]["name"] for record in app_sinks.sdk_records()}
+    assert "DEBUG" in levels
+    assert "WARNING" not in levels
+
+
+def test_an_unknown_level_is_warned_about_once(httpserver: HTTPServer, app_sinks: AppSinks) -> None:
+    for _ in range(3):
+        SyncPermit(make_config(httpserver, enable=True, level="verbose-once"))
+
+    warnings = [r for r in app_sinks.sdk_records() if "Unknown log level" in r["message"]]
+    assert len(warnings) == 1

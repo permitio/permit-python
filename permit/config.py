@@ -22,9 +22,9 @@ class LoggerConfig(BaseModel):
     the level and the label, for every client in the process.
 
     Whatever these settings, the SDK replaces the API key of every client in the process
-    with `[REDACTED]` in the messages it logs and in the PDP error bodies it puts in a
-    `PermitConnectionError`. A user name and password written into the `api_url` or `pdp`
-    URL are not replaced.
+    with `[REDACTED]` in the messages it logs and in the error bodies it puts in the
+    exceptions it raises. The client's start-up line logs `api_url` and `pdp` without a user
+    name or password.
     """
 
     enable: bool = Field(

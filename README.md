@@ -52,9 +52,10 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
 - The SDK adds no loguru sink of its own. Its records go to the sinks your application has
   added, or to loguru's default stderr sink, in the format of those sinks.
 - `"enable": False` (the default) calls loguru's `logger.disable("permit")`. `"enable": True`
-  undoes that call, with `logger.enable("permit")`, only if an earlier client made it, so a
-  `logger.disable()` your application made for `permit` or one of its modules still
-  applies. When it does undo it, loguru also drops any `permit.*` module disable made since.
+  undoes that call, with `logger.enable("permit")`, only if an earlier client made it.
+  Otherwise a `logger.disable()` your application made for `permit` or one of its modules
+  still applies. When it does undo it, it also undoes your application's own
+  `logger.disable("permit")`, and loguru drops any `permit.*` module disable made since.
 - `level` (default `"info"`) is the lowest severity the SDK logs. Its records below it never
   reach a sink. Your application's own records are not affected. The SDK logs its HTTP
   requests and the PDP's responses at `"debug"`. With `"enable": True`, for a level name
@@ -68,9 +69,12 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   level and the label, for every client in the process. `wait_for_sync()` creates no
   client: it yields a copy of the client it is called on.
 - The SDK replaces the API key of every client in the process with `[REDACTED]` in the
-  messages it logs and in the PDP error bodies it puts in a `PermitConnectionError`, so a
-  PDP that echoes the key back does not expose it. A user name and password written into
-  the `api_url` or `pdp` URL are not replaced: the SDK logs its request URLs at `"debug"`.
+  messages it logs and in the error bodies it puts in the exceptions it raises, so an API
+  or PDP that echoes the key back does not expose it. A key shorter than 12 characters is
+  not replaced. The client's start-up line logs `api_url` and `pdp` without any user name
+  or password in them.
+- `level` also takes a loguru severity number, such as `10` for DEBUG. An unknown name is
+  warned about once per process.
 
 ## Deprecations
 
