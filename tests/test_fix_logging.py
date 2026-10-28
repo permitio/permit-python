@@ -737,6 +737,7 @@ def assert_holds_no_key(error: BaseException) -> None:
     ]
     for value in carried:
         assert SENTINEL not in repr(value)
+        assert SENTINEL not in repr(getattr(value, "args", ()))
         info = getattr(value, "request_info", None)
         if info is not None:
             assert SENTINEL not in repr(info)

@@ -257,14 +257,18 @@ def scrub_request_info(holder: object) -> None:
     """Replace every client's API key in the request headers `holder` keeps.
 
     aiohttp keeps the request's headers, `Authorization` included, on a
-    `ClientResponse` and a `ClientResponseError` (`request_info`), and its `repr` prints
-    them. The SDK puts such objects in the exceptions it raises (`original_error`,
+    `ClientResponse` and a `ClientResponseError` (`request_info`, which the error also
+    keeps as `args[0]`), and on the redirect responses in their `history`; their `repr`
+    prints them. The SDK puts such objects in the exceptions it raises (`original_error`,
     `response`, the exception's cause), so it scrubs them first. Anything else is left
     as it is.
 
     Args:
         holder: An aiohttp response or client error.
     """
+    for redirect in getattr(holder, "history", None) or ():
+        if redirect is not holder:
+            scrub_request_info(redirect)
     info = getattr(holder, "request_info", None)
     if not isinstance(info, aiohttp.RequestInfo):
         return
@@ -281,6 +285,8 @@ def scrub_request_info(holder: object) -> None:
             cache["request_info"] = scrubbed
     else:
         holder.request_info = scrubbed  # type: ignore[attr-defined]
+        if isinstance(holder, BaseException):
+            holder.args = tuple(scrubbed if arg is info else arg for arg in holder.args)
 
 
 async def handle_api_error(response: aiohttp.ClientResponse) -> None:
