@@ -5,6 +5,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import aiohttp
+from multidict import CIMultiDict, CIMultiDictProxy
 from typing_extensions import ParamSpec, deprecated
 
 from permit.utils.pydantic_version import PYDANTIC_VERSION
@@ -54,6 +55,8 @@ with warnings.catch_warnings():
 
         def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
             super().__init__(message)
+            if error is not None:
+                scrub_request_info(error)
             self.original_error = error
 
 
@@ -85,6 +88,7 @@ class PermitApiError(PermitError):
         body: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
+        scrub_request_info(response)
         self._response = response
         self._body = body
 
@@ -243,6 +247,36 @@ def _scrubbed(value: _JsonT) -> _JsonT:
     return value
 
 
+def scrub_request_info(holder: object) -> None:
+    """Replace every client's API key in the request headers `holder` keeps.
+
+    aiohttp keeps the request's headers, `Authorization` included, on a
+    `ClientResponse` and a `ClientResponseError` (`request_info`), and its `repr` prints
+    them. The SDK puts such objects in the exceptions it raises (`original_error`,
+    `response`, the exception's cause), so it scrubs them first. Anything else is left
+    as it is.
+
+    Args:
+        holder: An aiohttp response or client error.
+    """
+    info = getattr(holder, "request_info", None)
+    if not isinstance(info, aiohttp.RequestInfo):
+        return
+    headers = CIMultiDict((name, sdk_logger.scrub(value)) for name, value in info.headers.items())
+    if headers == info.headers:
+        return
+    scrubbed = aiohttp.RequestInfo(info.url, info.method, CIMultiDictProxy(headers), info.real_url)
+    if isinstance(holder, aiohttp.ClientResponse):
+        # `request_info` is a read-only property over `_request_info`, cached once read
+        # (aiohttp's `reify`): replace both. tests/test_fix_logging.py checks the result.
+        holder._request_info = scrubbed  # noqa: SLF001
+        cache = getattr(holder, "_cache", None)
+        if isinstance(cache, dict) and "request_info" in cache:
+            cache["request_info"] = scrubbed
+    else:
+        holder.request_info = scrubbed  # type: ignore[attr-defined]
+
+
 async def handle_api_error(response: aiohttp.ClientResponse) -> None:
     """Raise the matching SDK exception if `response` has a non-2xx status.
 
@@ -262,6 +296,7 @@ async def handle_api_error(response: aiohttp.ClientResponse) -> None:
     try:
         json = _scrubbed(await response.json())
     except aiohttp.ContentTypeError as e:
+        scrub_request_info(e)
         text = sdk_logger.scrub(await response.text())
         raise PermitApiError(response, {"details": text}) from e
 

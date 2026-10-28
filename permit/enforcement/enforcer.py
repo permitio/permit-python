@@ -13,7 +13,7 @@ from permit.exceptions import PermitConnectionError
 from permit.utils.context import Context, ContextStore
 from permit.utils.dicts import deep_merge
 from permit.utils.pydantic_version import PYDANTIC_VERSION
-from permit.utils.sdk_logger import sdk_logger
+from permit.utils.sdk_logger import sdk_logger, without_userinfo
 from permit.utils.sync import SyncClass
 
 if TYPE_CHECKING:
@@ -100,6 +100,8 @@ class Enforcer:
             "Authorization": f"Bearer {self._config.token}",
         }
         self._base_url = self._config.pdp
+        # The PDP URL as error messages show it: a proxy URL's user and password left out.
+        self._shown_pdp_url = without_userinfo(self._config.pdp)
 
     @property
     def context_store(self) -> ContextStore:
@@ -180,7 +182,7 @@ class Enforcer:
                                 f"as the cloud PDP is not compatible with these kinds "
                                 f"of policies.\n"
                                 f"Also, please check your configuration and "
-                                f"make sure it's running at {self._base_url} "
+                                f"make sure it's running at {self._shown_pdp_url} "
                                 f"and accepting requests.\n"
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
@@ -197,7 +199,7 @@ class Enforcer:
                         )
                         msg = (
                             f"Permit SDK got unexpected status code: {response.status} "
-                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                            f"from the PDP at {self._shown_pdp_url}.\nResponse body: {error_body}\n"
                             f"The PDP is reachable, so this is a rejected request rather than a "
                             f"connectivity problem -- a 401/403 usually means the PDP was started "
                             f"with a different API key than the SDK is using.\n"
@@ -222,7 +224,7 @@ class Enforcer:
                 msg = (
                     f"Permit SDK got error: {err}, and cannot connect to the PDP container.\n"
                     f"Please check your configuration and make sure it's running at "
-                    f"{self._base_url} and accepting requests.\n "
+                    f"{self._shown_pdp_url} and accepting requests.\n "
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
                 raise PermitConnectionError(
@@ -418,7 +420,7 @@ class Enforcer:
                                 f"as the cloud PDP is not compatible with these kinds "
                                 f"of policies.\n"
                                 f"Also, please check your configuration and make sure it's running "
-                                f"at {self._base_url} and accepting requests.\n"
+                                f"at {self._shown_pdp_url} and accepting requests.\n"
                                 f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                             )
                             raise PermitConnectionError(msg)
@@ -435,7 +437,7 @@ class Enforcer:
                         )
                         msg = (
                             f"Permit SDK got unexpected status code: {response.status} "
-                            f"from the PDP at {self._base_url}.\nResponse body: {error_body}\n"
+                            f"from the PDP at {self._shown_pdp_url}.\nResponse body: {error_body}\n"
                             f"The PDP is reachable, so this is a rejected request rather than a "
                             f"connectivity problem -- a 401/403 usually means the PDP was started "
                             f"with a different API key than the SDK is using.\n"
@@ -462,7 +464,7 @@ class Enforcer:
                     f"Permit SDK got error: {err}, \n"
                     f"and cannot connect to the PDP container, please check your configuration "
                     f"and make sure it's "
-                    f"running at {self._base_url} and accepting requests. \n"
+                    f"running at {self._shown_pdp_url} and accepting requests. \n"
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
                 raise PermitConnectionError(
@@ -535,7 +537,7 @@ class Enforcer:
                     f"Permit SDK got error: {err}, \n"
                     f"and cannot connect to the PDP container, please check your configuration "
                     f"and make sure it's "
-                    f"running at {self._base_url} and accepting requests. \n"
+                    f"running at {self._shown_pdp_url} and accepting requests. \n"
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
                 raise PermitConnectionError(
