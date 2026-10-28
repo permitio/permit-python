@@ -111,9 +111,10 @@ class SdkLogger:
     def _log(self, level: str, message: str) -> None:
         if logger.level(level).no < self._min_level_no:
             return
-        message = self.scrub(message)
         if self._label:
             message = f"[{self._label}] {message}"
+        # After the label goes on, so a key in the label is replaced too.
+        message = self.scrub(message)
         # depth=2 skips this method and the one that called it, so loguru attributes the
         # record to the SDK module that logged it. The message goes without arguments, so
         # loguru does not call str.format on it and braces in it are kept as they are.
