@@ -845,3 +845,34 @@ def test_an_unknown_level_is_warned_about_once(httpserver: HTTPServer, app_sinks
 
     warnings = [r for r in app_sinks.sdk_records() if "Unknown log level" in r["message"]]
     assert len(warnings) == 1
+
+
+def echo_the_key_as_a_json_object_key(request: Request) -> Response:
+    """An API that rejects the request and puts the key it was sent in an object key."""
+    body = {"detail": {request.headers["Authorization"]: "rejected"}, "error_code": "x"}
+    return Response(json.dumps(body), status=403, content_type="application/json")
+
+
+async def test_an_echoed_key_in_a_json_object_key_is_redacted(httpserver: HTTPServer) -> None:
+    serve(httpserver)
+    httpserver.expect_request(f"{USERS}/user-4", method="GET").respond_with_handler(
+        echo_the_key_as_a_json_object_key
+    )
+    permit = Permit(make_config(httpserver))
+
+    with pytest.raises(PermitApiError) as caught:
+        await permit.api.users.get("user-4")
+
+    assert SENTINEL not in str(caught.value)
+    assert SENTINEL not in repr(caught.value.details)
+
+
+def test_a_key_in_the_label_is_redacted(httpserver: HTTPServer, app_sinks: AppSinks) -> None:
+    config = make_config(httpserver, enable=True, level="debug", label=f"app {SENTINEL}")
+
+    SyncPermit(config)
+
+    records = app_sinks.sdk_records()
+    assert records
+    for record in records:
+        assert SENTINEL not in record["message"]

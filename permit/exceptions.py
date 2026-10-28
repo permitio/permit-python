@@ -237,13 +237,19 @@ _JsonT = TypeVar("_JsonT")
 
 
 def _scrubbed(value: _JsonT) -> _JsonT:
-    """`value`, a decoded JSON body, with every registered API key replaced in its strings."""
+    """Return `value`, a decoded JSON body, with every registered API key replaced.
+
+    Strings are scrubbed wherever they are, object keys included.
+    """
     if isinstance(value, str):
         return cast("_JsonT", sdk_logger.scrub(value))
     if isinstance(value, list):
         return cast("_JsonT", [_scrubbed(item) for item in value])
     if isinstance(value, dict):
-        return cast("_JsonT", {key: _scrubbed(item) for key, item in value.items()})
+        return cast(
+            "_JsonT",
+            {_scrubbed(key): _scrubbed(item) for key, item in value.items()},
+        )
     return value
 
 
