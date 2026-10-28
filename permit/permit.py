@@ -1,7 +1,6 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
-from urllib.parse import urlsplit, urlunsplit
 
 from typing_extensions import Self
 
@@ -19,17 +18,7 @@ from permit.enforcement.interfaces import AuthorizedUsersResult
 from permit.logger import configure_logger, keep_log_settings
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
 from permit.utils.context import Context
-from permit.utils.sdk_logger import sdk_logger
-
-
-def _without_userinfo(url: str) -> str:
-    """`url` without a user name or password, which a proxy URL may carry."""
-    parts = urlsplit(url)
-    if parts.username is None and parts.password is None:
-        return url
-    host = parts.hostname or ""
-    netloc = f"{host}:{parts.port}" if parts.port is not None else host
-    return urlunsplit(parts._replace(netloc=netloc))
+from permit.utils.sdk_logger import sdk_logger, without_userinfo
 
 
 class Permit:
@@ -47,8 +36,8 @@ class Permit:
         configure_logger(self._config)
         self._connect()
         sdk_logger.debug(
-            f"Permit SDK initialized: api_url={_without_userinfo(self._config.api_url)}, "
-            f"pdp={_without_userinfo(self._config.pdp)}"
+            f"Permit SDK initialized: api_url={without_userinfo(self._config.api_url)}, "
+            f"pdp={without_userinfo(self._config.pdp)}"
         )
 
     def _connect(self) -> None:

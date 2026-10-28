@@ -1,4 +1,5 @@
 import threading
+from urllib.parse import urlsplit, urlunsplit
 
 from loguru import logger
 
@@ -117,6 +118,21 @@ class SdkLogger:
         # record to the SDK module that logged it. The message goes without arguments, so
         # loguru does not call str.format on it and braces in it are kept as they are.
         logger.opt(depth=2).log(level, message)
+
+
+def without_userinfo(url: str) -> str:
+    """`url` without a user name or password, which a proxy URL may carry.
+
+    For a log line or an exception message: it never raises, and a URL it can't parse
+    comes back as `<invalid URL>`.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<invalid URL>"
+    if "@" not in parts.netloc:
+        return url
+    return urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
 
 
 sdk_logger = SdkLogger()

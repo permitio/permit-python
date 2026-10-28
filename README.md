@@ -66,13 +66,15 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   Added next to the default sink, it prints every record a second time.
 - loguru's logger is process-wide, so these settings are too: the client created last
   decides whether the SDK logs, and the last one created with `"enable": True` decides the
-  level and the label, for every client in the process. `wait_for_sync()` creates no
-  client: it yields a copy of the client it is called on.
+  level and the label, for every client in the process. `wait_for_sync()` builds a new
+  client of the same class, but keeps the process's log settings as they are.
 - The SDK replaces the API key of every client in the process with `[REDACTED]` in the
-  messages it logs and in the error bodies it puts in the exceptions it raises, so an API
-  or PDP that echoes the key back does not expose it. A key shorter than 12 characters is
-  not replaced. The client's start-up line logs `api_url` and `pdp` without any user name
-  or password in them.
+  messages it logs, in the error bodies it puts in the exceptions it raises, and in the
+  request headers of the aiohttp response or error those exceptions carry
+  (`original_error`, `response`, the cause), so neither an API or PDP that echoes the key
+  back nor an error tracker that records exceptions exposes it. A key shorter than 12
+  characters is not replaced. The client's start-up line and the PDP error messages show
+  `api_url` and `pdp` without any user name or password in them.
 - `level` also takes a loguru severity number, such as `10` for DEBUG. An unknown name is
   warned about once per process.
 

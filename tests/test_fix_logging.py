@@ -25,7 +25,7 @@ from permit import Permit, PermitConfig
 from permit.enforcement.enforcer import CheckQuery
 from permit.exceptions import PermitApiError, PermitConnectionError
 from permit.sync import Permit as SyncPermit
-from permit.utils.sdk_logger import REDACTED, SdkLogger, sdk_logger
+from permit.utils.sdk_logger import REDACTED, SdkLogger, sdk_logger, without_userinfo
 
 SENTINEL = "permit_key_SENTINEL_9f8e7d6c5b4a39281706f5e4d3c2b1a0"
 ORG_ID = "00000000-0000-4000-8000-00000000000a"
@@ -721,6 +721,72 @@ async def test_api_and_pdp_api_errors_do_not_hold_an_echoed_key(
         assert SENTINEL not in str(error)
         assert SENTINEL not in repr(error)
         assert REDACTED in str(error)
+        assert_holds_no_key(error)
+
+
+def assert_holds_no_key(error: BaseException) -> None:
+    """Assert neither `error` nor the aiohttp objects it carries print the key.
+
+    Those are its cause and context, `original_error`, and a `PermitApiError`'s response.
+    """
+    carried = [
+        error.__cause__,
+        error.__context__,
+        getattr(error, "original_error", None),
+        getattr(error, "_response", None),
+    ]
+    for value in carried:
+        assert SENTINEL not in repr(value)
+        info = getattr(value, "request_info", None)
+        if info is not None:
+            assert SENTINEL not in repr(info)
+            assert SENTINEL not in str(dict(info.headers))
+
+
+@pytest.mark.parametrize("status", [200, 502])
+async def test_a_non_json_answer_raises_without_the_key_in_its_request_headers(
+    httpserver: HTTPServer, status: int
+) -> None:
+    """An answer that isn't JSON raises without the key in its request headers.
+
+    aiohttp keeps the request's headers on the error it raises for it. The SDK's
+    exception, its cause and `original_error` don't print the key.
+    """
+    # Not `serve`, which already answers /allowed with JSON.
+    httpserver.expect_request("/v2/api-key/scope", method="GET").respond_with_json(
+        {"organization_id": ORG_ID, "project_id": PROJECT_ID, "environment_id": ENV_ID}
+    )
+    httpserver.expect_request(f"{USERS}/user-3", method="GET").respond_with_data(
+        "<html>bad gateway</html>", status=status, content_type="text/html"
+    )
+    httpserver.expect_request("/allowed", method="POST").respond_with_data(
+        "<html>proxy</html>", status=200, content_type="text/html"
+    )
+    permit = Permit(make_config(httpserver))
+
+    raised: list[BaseException] = []
+    for call in (permit.api.users.get("user-3"), permit.check("user-1", "read", "document")):
+        with pytest.raises((PermitApiError, PermitConnectionError)) as caught:
+            await call
+        raised.append(caught.value)
+
+    assert any(error.__cause__ is not None for error in raised)
+    for error in raised:
+        assert_holds_no_key(error)
+
+
+@pytest.mark.parametrize(
+    ("url", "shown"),
+    [
+        ("http://user:secret@pdp.example.com:7766/x", "http://pdp.example.com:7766/x"),
+        ("http://user:secret@[::1]:7766", "http://[::1]:7766"),
+        ("http://user:secret@pdp.example.com:99999", "http://pdp.example.com:99999"),
+        ("http://pdp.example.com:7766", "http://pdp.example.com:7766"),
+        ("http://[::1", "<invalid URL>"),
+    ],
+)
+def test_without_userinfo_never_raises(url: str, shown: str) -> None:
+    assert without_userinfo(url) == shown
 
 
 def test_the_init_line_leaves_out_the_url_user_and_password(
