@@ -104,6 +104,19 @@ class SdkLogger:
             text = text.replace(secret, REDACTED)
         return text
 
+    def scrub_bytes(self, data: bytes) -> bytes:
+        """Return `data` with every registered secret, UTF-8 encoded, replaced.
+
+        Args:
+            data: Bytes a server sent, such as an HTTP line an aiohttp error keeps.
+
+        Returns:
+            The bytes without any registered secret.
+        """
+        for secret in self._secrets:
+            data = data.replace(secret.encode(), REDACTED.encode())
+        return data
+
     def debug(self, message: Message) -> None:
         """Log `message` with severity DEBUG."""
         self._log("DEBUG", message)

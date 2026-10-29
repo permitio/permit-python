@@ -231,10 +231,8 @@ class Enforcer:
                     f"{self._shown_pdp_url} and accepting requests.\n "
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
-                raise PermitConnectionError(
-                    msg,
-                    error=err,
-                ) from err
+                error = PermitConnectionError(msg, error=err)
+                raise error from error.original_error
 
     async def bulk_check(
         self,
@@ -356,7 +354,8 @@ class Enforcer:
                     err,
                 )
                 sdk_logger.error(msg)
-                raise PermitConnectionError(msg, error=err) from err
+                error = PermitConnectionError(msg, error=err)
+                raise error from error.original_error
             return decisions
 
     async def check(
@@ -475,10 +474,8 @@ class Enforcer:
                     f"running at {self._shown_pdp_url} and accepting requests. \n"
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
-                raise PermitConnectionError(
-                    msg,
-                    error=err,
-                ) from err
+                error = PermitConnectionError(msg, error=err)
+                raise error from error.original_error
 
     async def get_user_permissions(
         self,
@@ -550,10 +547,8 @@ class Enforcer:
                     f"running at {self._shown_pdp_url} and accepting requests. \n"
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
-                raise PermitConnectionError(
-                    msg,
-                    error=err,
-                ) from err
+                error = PermitConnectionError(msg, error=err)
+                raise error from error.original_error
 
     async def filter_objects(
         self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]
