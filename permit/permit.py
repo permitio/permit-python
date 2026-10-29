@@ -34,18 +34,14 @@ class Permit:
         self._config: PermitConfig = config if config is not None else PermitConfig(**options)
 
         configure_logger(self._config)
-        self._connect()
-        sdk_logger.debug(
-            f"Permit SDK initialized: api_url={without_userinfo(self._config.api_url)}, "
-            f"pdp={without_userinfo(self._config.pdp)}"
-        )
-
-    def _connect(self) -> None:
-        """Create the clients that send this client's requests, from its config."""
         self._enforcer = Enforcer(self._config)
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
         self._pdp_api = PermitPdpApiClient(self._config)
+        sdk_logger.debug(
+            f"Permit SDK initialized: api_url={without_userinfo(self._config.api_url)}, "
+            f"pdp={without_userinfo(self._config.pdp)}"
+        )
 
     @property
     def config(self) -> PermitConfig:
