@@ -76,7 +76,8 @@ class SdkLogger:
 
         The secret without its leading and trailing whitespace is replaced too: a key read
         from a file or an environment variable may end with a space, which an HTTP server
-        that echoes the key back has stripped.
+        that echoes the key back has stripped. So is each in lower case: aiohttp lower-cases
+        some of the server text it puts in its error messages, such as a Content-Type.
 
         Args:
             secret: A credential, such as an API key. A secret shorter than
@@ -86,7 +87,7 @@ class SdkLogger:
         if len(trimmed) < MIN_SECRET_LENGTH:
             return
         with self._secrets_lock:
-            new = {secret, trimmed}.difference(self._secrets)
+            new = {secret, trimmed, secret.lower(), trimmed.lower()}.difference(self._secrets)
             if new:
                 self._secrets = tuple(sorted((*self._secrets, *new), key=len, reverse=True))
 

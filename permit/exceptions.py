@@ -54,10 +54,11 @@ with warnings.catch_warnings():
         with a changelog entry, not in a dependency-security patch.
         """
 
-        def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
+        def __init__(self, message: object, *, error: aiohttp.ClientError | None = None) -> None:
             # Every raise site builds its message from response bodies and aiohttp error
-            # text, so the key is replaced here, once, rather than at each of them.
-            super().__init__(sdk_logger.scrub(message))
+            # text, so the key is replaced here, once, rather than at each of them. The
+            # class is public, and a message that isn't a string is kept as it is.
+            super().__init__(sdk_logger.scrub(message) if isinstance(message, str) else message)
             if error is not None:
                 scrub_request_info(error)
             self.original_error = error
@@ -262,11 +263,38 @@ def _scrubbed_headers(headers: Mapping[str, str]) -> CIMultiDictProxy[str]:
     )
 
 
+# The attributes, besides `args`, in which aiohttp's errors and the HTTP parser errors
+# chained under them keep text a server sent: `message` (ClientResponseError,
+# HttpProcessingError), `line` (BadStatusLine), and `_url` and `_description` (InvalidURL
+# and its redirect subclasses, whose str() and repr() read `_url`, not `args`).
+_TEXT_ATTRIBUTES = ("message", "line", "_url", "_description")
+
+
+def _chain(error: BaseException) -> list[BaseException]:
+    """`error` and every exception chained under it, as a traceback prints them."""
+    chain: list[BaseException] = []
+    pending: list[BaseException | None] = [error]
+    while pending:
+        current = pending.pop()
+        if current is None or any(current is seen for seen in chain):
+            continue
+        chain.append(current)
+        pending += [current.__cause__, current.__context__]
+    return chain
+
+
 def _scrub_error_text(error: BaseException) -> None:
-    if isinstance(error, aiohttp.ClientResponseError):
-        error.message = sdk_logger.scrub(error.message)
-        if error.headers is not None:
-            error.headers = _scrubbed_headers(error.headers)
+    attributes = getattr(error, "__dict__", {})
+    for name in _TEXT_ATTRIBUTES:
+        value = attributes.get(name)
+        # `_url` may be a yarl URL: replaced with its scrubbed text only if it holds a key.
+        if value is None or not (isinstance(value, str) or name == "_url"):
+            continue
+        text = str(value)
+        if sdk_logger.scrub(text) != text:
+            setattr(error, name, sdk_logger.scrub(text))
+    if isinstance(attributes.get("headers"), Mapping):
+        error.headers = _scrubbed_headers(error.headers)  # type: ignore[attr-defined]
     error.args = tuple(sdk_logger.scrub(arg) if isinstance(arg, str) else arg for arg in error.args)
 
 
@@ -278,13 +306,23 @@ def scrub_request_info(holder: object) -> None:
     keeps as `args[0]`), and on the redirect responses in their `history`; their `repr`
     prints them. An aiohttp error's text may also hold text a server sent: a
     `ClientResponseError`'s `message` and the response `headers` it keeps, another
-    error's string arguments. The SDK puts such objects in the exceptions it raises
-    (`original_error`, `response`, the exception's cause), so it scrubs them first. A
-    `ClientResponse`'s own headers and body, and anything else, are left as they are.
+    error's string arguments or URL, and the HTTP parser errors chained under it. The SDK
+    puts such objects in the exceptions it raises (`original_error`, `response`, the
+    exception's cause), so it scrubs them, and every exception chained under an error,
+    first. A `ClientResponse`'s own URL, headers and body, and anything else, are left as
+    they are.
 
     Args:
         holder: An aiohttp response or client error.
     """
+    if isinstance(holder, BaseException):
+        for error in _chain(holder):
+            _scrub_holder(error)
+    else:
+        _scrub_holder(holder)
+
+
+def _scrub_holder(holder: object) -> None:
     for redirect in getattr(holder, "history", None) or ():
         if redirect is not holder:
             scrub_request_info(redirect)

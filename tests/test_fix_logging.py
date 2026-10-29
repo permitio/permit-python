@@ -10,13 +10,16 @@ import inspect
 import json
 import pprint
 import re
+import socketserver
 import subprocess
 import sys
+import threading
+import traceback
 import types
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from loguru import logger
@@ -31,6 +34,8 @@ from permit.sync import Permit as SyncPermit
 from permit.utils.sdk_logger import REDACTED, SdkLogger, sdk_logger, without_userinfo
 
 SENTINEL = "permit_key_SENTINEL_9f8e7d6c5b4a39281706f5e4d3c2b1a0"
+# The key as given and as aiohttp lower-cases it in some of its error messages.
+SENTINEL_SPELLINGS = (SENTINEL, SENTINEL.lower())
 ORG_ID = "00000000-0000-4000-8000-00000000000a"
 PROJECT_ID = "00000000-0000-4000-8000-00000000000b"
 ENV_ID = "00000000-0000-4000-8000-00000000000c"
@@ -818,11 +823,16 @@ def assert_holds_no_key(error: BaseException) -> None:
     """Assert neither `error` nor the aiohttp objects it carries print the key.
 
     Those are its cause and context, `original_error`, a `PermitApiError`'s response and
-    details, and the redirect responses in the `history` of any of them.
+    details, the redirect responses in the `history` of any of them, and the traceback of
+    `error` with every exception chained under it. The key is looked for as given and in
+    lower case.
     """
-    assert SENTINEL not in str(error)
-    assert SENTINEL not in repr(error.args)
-    assert SENTINEL not in repr(getattr(error, "details", None))
+    shown = [
+        str(error),
+        repr(error.args),
+        repr(getattr(error, "details", None)),
+        "".join(traceback.format_exception(error)),
+    ]
     carried = [
         error.__cause__,
         error.__context__,
@@ -831,12 +841,12 @@ def assert_holds_no_key(error: BaseException) -> None:
     ]
     carried += [redirect for value in carried for redirect in getattr(value, "history", None) or ()]
     for value in carried:
-        assert SENTINEL not in repr(value)
-        assert SENTINEL not in repr(getattr(value, "args", ()))
+        shown += [repr(value), repr(getattr(value, "args", ()))]
         info = getattr(value, "request_info", None)
         if info is not None:
-            assert SENTINEL not in repr(info)
-            assert SENTINEL not in str(dict(info.headers))
+            shown += [repr(info), str(dict(info.headers))]
+    for key in SENTINEL_SPELLINGS:
+        assert [text for text in shown if key in text] == []
 
 
 @pytest.mark.parametrize("status", [200, 502])
@@ -1017,11 +1027,6 @@ async def test_an_error_body_labelled_json_that_is_not_json_raises_a_permit_api_
     assert_holds_no_key(caught.value)
 
 
-# aiohttp lower-cases the Content-Type it puts in the message of the error it raises for
-# an answer that isn't JSON, so this key is lower case: the SDK replaces a key as given.
-LOWER_CASE_KEY = SENTINEL.lower()
-
-
 def answer_with_the_key_in_the_content_type(request: Request) -> Response:
     """A 200 answer that isn't JSON, its Content-Type echoing the key the request carried."""
     key = request.headers["Authorization"].removeprefix("Bearer ")
@@ -1031,7 +1036,11 @@ def answer_with_the_key_in_the_content_type(request: Request) -> Response:
 async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
     httpserver: HTTPServer,
 ) -> None:
-    """The text of an aiohttp error goes into the message of the PermitConnectionError."""
+    """The text of an aiohttp error goes into the message of the PermitConnectionError.
+
+    aiohttp lower-cases the Content-Type it puts in the message of the error it raises for
+    an answer that isn't JSON, so the key, which has capital letters, is there in lower case.
+    """
     for path in ("/allowed", "/allowed/bulk", "/authorized_users", "/user-permissions"):
         httpserver.expect_request(path, method="POST").respond_with_handler(
             answer_with_the_key_in_the_content_type
@@ -1041,8 +1050,8 @@ async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
     )
     # After the handlers above: the first one registered for a request answers it.
     serve(httpserver)
-    permit = Permit(make_config(httpserver, token=LOWER_CASE_KEY))
-    sync_permit = SyncPermit(make_config(httpserver, token=LOWER_CASE_KEY))
+    permit = Permit(make_config(httpserver))
+    sync_permit = SyncPermit(make_config(httpserver))
 
     calls: list[Callable[[], Any]] = [
         lambda: permit.check("user-1", "read", "document"),
@@ -1063,9 +1072,7 @@ async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
     for error in raised:
         # The aiohttp error's text is in the message, the key replaced.
         assert f"echo={REDACTED}" in str(error)
-        for value in (error, error.__cause__, error.original_error):
-            assert LOWER_CASE_KEY not in str(value)
-            assert LOWER_CASE_KEY not in repr(value)
+        assert_holds_no_key(error)
 
 
 @pytest.mark.parametrize(
@@ -1163,3 +1170,112 @@ def test_a_record_loguru_drops_is_not_built_or_scrubbed(
     else:
         assert app_sinks.sdk_records() == []
         assert calls == []
+
+
+@pytest.mark.parametrize("message", [None, 42, b"bytes", ValueError("x")], ids=repr)
+def test_a_connection_error_keeps_a_message_that_is_not_a_string(
+    httpserver: HTTPServer, message: object
+) -> None:
+    Permit(make_config(httpserver))
+
+    error = PermitConnectionError(message)
+
+    assert error.args == (message,)
+
+
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
+async def test_a_pdp_error_body_that_is_not_utf_8_raises_a_permit_connection_error(
+    httpserver: HTTPServer, client_class: type[Permit]
+) -> None:
+    def handler(request: Request) -> Response:
+        body = b"\xff rejected key: " + request.headers["Authorization"].encode()
+        return Response(body, status=403, content_type="text/plain; charset=utf-8")
+
+    for path in ("/allowed", "/allowed/bulk", "/authorized_users"):
+        httpserver.expect_request(path, method="POST").respond_with_handler(handler)
+    permit = client_class(make_config(httpserver))
+
+    for call in (
+        lambda: permit.check("user-1", "read", "document"),
+        lambda: permit.bulk_check(BULK),
+        lambda: permit.authorized_users("read", "document"),
+    ):
+        with pytest.raises(PermitConnectionError) as caught:
+            await resolved(call())
+        assert f"rejected key: Bearer {REDACTED}" in str(caught.value)
+        assert_holds_no_key(caught.value)
+
+
+class _RawHandler(socketserver.StreamRequestHandler):
+    """Answers a request with the server's raw bytes, then closes the connection."""
+
+    def handle(self) -> None:
+        # The request line and headers; any body is left unread.
+        line = self.rfile.readline()
+        while line not in (b"\r\n", b"\n", b""):
+            line = self.rfile.readline()
+        self.wfile.write(cast("_RawHttpServer", self.server).reply)
+
+
+class _RawHttpServer(socketserver.ThreadingTCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(self, reply: bytes) -> None:
+        super().__init__(("127.0.0.1", 0), _RawHandler)
+        self.reply = reply
+
+
+EMPTY = "Content-Length: 0\r\n\r\n"
+
+
+def redirect_to(location: str) -> str:
+    return f"HTTP/1.1 307 TR\r\nLocation: {location}\r\n{EMPTY}"
+
+
+# Answers aiohttp can't use, each holding the key. aiohttp keeps the key in the text of
+# the error it raises (its message, its args or its URL), or in the parser error it chains
+# under it.
+RAW_ANSWERS = [
+    pytest.param(
+        "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nBad Header {key}: x\r\n\r\nok", id="bad-header"
+    ),
+    pytest.param("HTTP/1.1 abc {key}\r\n" + EMPTY, id="bad-status-line"),
+    pytest.param(redirect_to("http://[{key}"), id="invalid-redirect-url"),
+    pytest.param(redirect_to("ftp://host/{key}"), id="non-http-redirect"),
+]
+
+
+@pytest.fixture
+def raw_http_server(request: pytest.FixtureRequest) -> Iterator[str]:
+    """A server that answers with `request.param`, the key put in it; yields its URL."""
+    server = _RawHttpServer(request.param.format(key=SENTINEL).encode())
+    # A short poll interval: shutdown() waits for the next poll.
+    thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+    server.server_close()
+
+
+@pytest.mark.parametrize("raw_http_server", RAW_ANSWERS, indirect=True)
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda permit: permit.check("user-1", "read", "document"), id="pdp"),
+        pytest.param(lambda permit: permit.api.users.get("user-1"), id="api"),
+    ],
+)
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
+async def test_an_aiohttp_error_and_the_errors_chained_under_it_hold_no_key(
+    raw_http_server: str, client_class: type[Permit], call: Callable[[Permit], object]
+) -> None:
+    permit = client_class(
+        PermitConfig(token=SENTINEL, api_url=raw_http_server, pdp=raw_http_server)
+    )
+
+    with pytest.raises(PermitConnectionError) as caught:
+        await resolved(call(permit))
+
+    assert caught.value.original_error is not None
+    assert_holds_no_key(caught.value)
