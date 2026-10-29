@@ -59,8 +59,14 @@ with warnings.catch_warnings():
             # text, so the key is replaced here, once, rather than at each of them. The
             # class is public, and a message that isn't a string is kept as it is.
             super().__init__(sdk_logger.scrub(message) if isinstance(message, str) else message)
-            if error is not None:
-                scrub_request_info(error)
+            if error is not None and not scrub_request_info(error):
+                # Fail closed: an error the key could not be removed from is not attached.
+                # The SDK raises this exception `from original_error`, so it is not the
+                # cause either.
+                error = aiohttp.ClientError(
+                    f"{type(error).__name__}, not attached: the API key could not be "
+                    "removed from it"
+                )
             self.original_error = error
 
 
@@ -263,89 +269,181 @@ def _scrubbed_headers(headers: Mapping[str, str]) -> CIMultiDictProxy[str]:
     )
 
 
-# The attributes, besides `args`, in which aiohttp's errors and the HTTP parser errors
-# chained under them keep text a server sent: `message` (ClientResponseError,
-# HttpProcessingError), `line` (BadStatusLine), and `_url` and `_description` (InvalidURL
-# and its redirect subclasses, whose str() and repr() read `_url`, not `args`).
-_TEXT_ATTRIBUTES = ("message", "line", "_url", "_description")
+# The packages whose code an SDK request runs through: aiohttp, the libraries it raises
+# errors from, asyncio, and the SDK itself.
+_REQUEST_PACKAGES = frozenset(
+    {
+        "aiohappyeyeballs",
+        "aiohttp",
+        "asyncio",
+        "concurrent",
+        "multidict",
+        "permit",
+        "propcache",
+        "selectors",
+        "socket",
+        "ssl",
+        "yarl",
+    }
+)
+
+
+def _raised_in_the_request(error: BaseException) -> bool:
+    """Whether `error` was raised and caught within the SDK's request.
+
+    That is, whether every frame of its traceback is in one of `_REQUEST_PACKAGES`. An
+    exception the application raised or caught has a frame of the application's: one it
+    was handling when it called the SDK, which aiohttp's errors keep as their
+    `__context__`, or one it built and passed in. The SDK never changes such an exception.
+    """
+    frame = error.__traceback__
+    if frame is None:
+        return False
+    while frame is not None:
+        module = frame.tb_frame.f_globals.get("__name__")
+        if not isinstance(module, str) or module.partition(".")[0] not in _REQUEST_PACKAGES:
+            return False
+        frame = frame.tb_next
+    return True
 
 
 def _chain(error: BaseException) -> list[BaseException]:
-    """`error` and every exception chained under it, as a traceback prints them."""
+    """`error` and the exceptions reachable from it through `__cause__` and `__context__`.
+
+    Only exceptions raised in the request are kept, and the walk does not go past any
+    other: below the application's exception is the application's own history.
+    """
     chain: list[BaseException] = []
+    seen: set[int] = set()
     pending: list[BaseException | None] = [error]
     while pending:
         current = pending.pop()
-        if current is None or any(current is seen for seen in chain):
+        if current is None or id(current) in seen:
             continue
-        chain.append(current)
-        pending += [current.__cause__, current.__context__]
+        seen.add(id(current))
+        if _raised_in_the_request(current):
+            chain.append(current)
+            pending += [current.__cause__, current.__context__]
     return chain
 
 
-def _scrub_error_text(error: BaseException) -> None:
-    attributes = getattr(error, "__dict__", {})
-    for name in _TEXT_ATTRIBUTES:
-        value = attributes.get(name)
-        # `_url` may be a yarl URL: replaced with its scrubbed text only if it holds a key.
-        if value is None or not (isinstance(value, str) or name == "_url"):
-            continue
+def _scrubbed_value(value: object) -> object:
+    """`value` with every registered key replaced, if it is text that can hold one.
+
+    That is a string, bytes, or a yarl URL, which comes back as a string when it holds a
+    key. Any other value, such as a parsed HTTP message, comes back as it is, and so does
+    a value without a key: the very same object.
+    """
+    scrubbed: object = value
+    if isinstance(value, str):
+        scrubbed = sdk_logger.scrub(value)
+    elif isinstance(value, bytes):
+        scrubbed = sdk_logger.scrub_bytes(value)
+    elif isinstance(value, bytearray):
+        scrubbed = bytearray(sdk_logger.scrub_bytes(bytes(value)))
+    elif type(value).__module__.partition(".")[0] == "yarl":
         text = str(value)
-        if sdk_logger.scrub(text) != text:
-            setattr(error, name, sdk_logger.scrub(text))
-    if isinstance(attributes.get("headers"), Mapping):
-        error.headers = _scrubbed_headers(error.headers)  # type: ignore[attr-defined]
-    error.args = tuple(sdk_logger.scrub(arg) if isinstance(arg, str) else arg for arg in error.args)
+        scrubbed = sdk_logger.scrub(text)
+        if scrubbed == text:
+            return value
+    return value if scrubbed == value else scrubbed
 
 
-def scrub_request_info(holder: object) -> None:
+def _replace(holder: object, name: str, value: object) -> bool:
+    """Set `holder.name` to `value`; False, never an exception, if it can't be set."""
+    try:
+        setattr(holder, name, value)
+    except Exception:  # noqa: BLE001 - any failure is reported, never raised
+        return False
+    return True
+
+
+def _scrub_error_text(error: BaseException) -> bool:
+    """Replace the key in the text `error` keeps; False if some of it can't be replaced.
+
+    The text is its arguments and its attributes: a `message`, a `line`, an
+    `InvalidURL`'s `_url`, and the like. Only values that hold a key are written.
+    """
+    scrubbed = True
+    for name, value in list(getattr(error, "__dict__", {}).items()):
+        if name == "headers" and isinstance(value, Mapping):
+            items = [(key, item, _scrubbed_value(item)) for key, item in value.items()]
+            if any(new is not item for _, item, new in items):
+                headers = CIMultiDictProxy(CIMultiDict((key, new) for key, _, new in items))
+                scrubbed &= _replace(error, name, headers)
+            continue
+        new_value = _scrubbed_value(value)
+        if new_value is not value:
+            scrubbed &= _replace(error, name, new_value)
+    args = tuple(_scrubbed_value(arg) for arg in error.args)
+    if any(new is not arg for new, arg in zip(args, error.args, strict=True)):
+        scrubbed &= _replace(error, "args", args)
+    return scrubbed
+
+
+def scrub_request_info(holder: object) -> bool:
     """Replace every client's API key in the request headers and error text `holder` keeps.
 
     aiohttp keeps the request's headers, `Authorization` included, on a
     `ClientResponse` and a `ClientResponseError` (`request_info`, which the error also
     keeps as `args[0]`), and on the redirect responses in their `history`; their `repr`
-    prints them. An aiohttp error's text may also hold text a server sent: a
-    `ClientResponseError`'s `message` and the response `headers` it keeps, another
-    error's string arguments or URL, and the HTTP parser errors chained under it. The SDK
-    puts such objects in the exceptions it raises (`original_error`, `response`, the
-    exception's cause), so it scrubs them, and every exception chained under an error,
-    first. A `ClientResponse`'s own URL, headers and body, and anything else, are left as
-    they are.
+    prints them. An aiohttp error's text may also hold text a server sent: its string and
+    bytes arguments and attributes (a `ClientResponseError`'s `message`, an `InvalidURL`'s
+    URL), the response `headers` it keeps, and the same in the HTTP parser and URL errors
+    chained under it. The SDK puts such objects in the exceptions it raises
+    (`original_error`, `response`, the exception's cause), so it scrubs them first.
+
+    Only what was raised within the request is changed (see `_raised_in_the_request`),
+    and only values that hold a key. A `ClientResponse`'s own URL, headers and body, and
+    values that aren't text, such as a parsed HTTP message, are left as they are.
 
     Args:
         holder: An aiohttp response or client error.
+
+    Returns:
+        False if a value that holds a key could not be replaced; it never raises.
     """
-    if isinstance(holder, BaseException):
-        for error in _chain(holder):
-            _scrub_holder(error)
-    else:
-        _scrub_holder(holder)
+    try:
+        return _scrub_chain(holder) if isinstance(holder, BaseException) else _scrub_holder(holder)
+    except Exception:  # noqa: BLE001 - a scrub that fails is reported, never raised
+        return False
 
 
-def _scrub_holder(holder: object) -> None:
+def _scrub_chain(error: BaseException) -> bool:
+    scrubbed = True
+    # Every one is scrubbed, even after one that could not be.
+    for chained in _chain(error):
+        scrubbed &= _scrub_holder(chained)
+    return scrubbed
+
+
+def _scrub_holder(holder: object) -> bool:
+    scrubbed = True
     for redirect in getattr(holder, "history", None) or ():
         if redirect is not holder:
-            scrub_request_info(redirect)
+            scrubbed &= scrub_request_info(redirect)
     if isinstance(holder, BaseException):
-        _scrub_error_text(holder)
+        scrubbed &= _scrub_error_text(holder)
     info = getattr(holder, "request_info", None)
     if not isinstance(info, aiohttp.RequestInfo):
-        return
+        return scrubbed
     headers = _scrubbed_headers(info.headers)
     if headers == info.headers:
-        return
-    scrubbed = aiohttp.RequestInfo(info.url, info.method, headers, info.real_url)
+        return scrubbed
+    replacement = aiohttp.RequestInfo(info.url, info.method, headers, info.real_url)
     if isinstance(holder, aiohttp.ClientResponse):
         # `request_info` is a read-only property over `_request_info`, cached once read
         # (aiohttp's `reify`): replace both. tests/test_fix_logging.py checks the result.
-        holder._request_info = scrubbed  # noqa: SLF001
+        scrubbed &= _replace(holder, "_request_info", replacement)
         cache = getattr(holder, "_cache", None)
         if isinstance(cache, dict) and "request_info" in cache:
-            cache["request_info"] = scrubbed
-    else:
-        holder.request_info = scrubbed  # type: ignore[attr-defined]
-        if isinstance(holder, BaseException):
-            holder.args = tuple(scrubbed if arg is info else arg for arg in holder.args)
+            cache["request_info"] = replacement
+        return scrubbed
+    scrubbed &= _replace(holder, "request_info", replacement)
+    if isinstance(holder, BaseException):
+        args = tuple(replacement if arg is info else arg for arg in holder.args)
+        scrubbed &= _replace(holder, "args", args)
+    return scrubbed
 
 
 def _scrubbed_loads(text: str) -> Any:  # noqa: ANN401 - any JSON value
@@ -368,8 +466,9 @@ async def _error_json(response: aiohttp.ClientResponse) -> Any:  # noqa: ANN401 
         # holds the key.
         return _scrubbed(await response.json(loads=_scrubbed_loads))
     except aiohttp.ContentTypeError as e:
-        scrub_request_info(e)
-        raise PermitApiError(response, {"details": await _scrubbed_text(response)}) from e
+        # Not chained to an error the key could not be removed from.
+        cause = e if scrub_request_info(e) else None
+        raise PermitApiError(response, {"details": await _scrubbed_text(response)}) from cause
     except ValueError:
         # Labelled JSON but not JSON, such as a proxy's error page or a truncated body.
         # A UnicodeDecodeError keeps the raw bytes, so the decode error isn't chained:
@@ -435,6 +534,7 @@ def handle_client_error(
         except aiohttp.ClientError as err:
             sdk_logger.error(f"got client error while sending an http request:\n{err}")
             msg = f"{err}"
-            raise PermitConnectionError(msg, error=err) from err
+            error = PermitConnectionError(msg, error=err)
+            raise error from error.original_error
 
     return wrapped

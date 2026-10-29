@@ -6,6 +6,7 @@ loguru's default format, read through capsys, and a serialized (JSON) sink. Ever
 served by a local pytest_httpserver.
 """
 
+import dataclasses
 import inspect
 import json
 import pprint
@@ -19,8 +20,9 @@ import types
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
+import aiohttp
 import pytest
 from loguru import logger
 from pytest_httpserver import HTTPServer
@@ -29,7 +31,7 @@ from werkzeug import Request, Response
 import permit.logger as permit_logger
 from permit import Permit, PermitConfig
 from permit.enforcement.enforcer import CheckQuery
-from permit.exceptions import PermitApiError, PermitConnectionError
+from permit.exceptions import PermitApiError, PermitConnectionError, scrub_request_info
 from permit.sync import Permit as SyncPermit
 from permit.utils.sdk_logger import REDACTED, SdkLogger, sdk_logger, without_userinfo
 
@@ -843,8 +845,22 @@ def assert_holds_no_key(error: BaseException) -> None:
         info = getattr(value, "request_info", None)
         if info is not None:
             shown += [repr(info), str(dict(info.headers))]
+    # Every attribute of every chained exception, printed or not.
+    shown += [repr(vars(chained)) + repr(chained.args) for chained in chained_exceptions(error)]
     for key in SENTINEL_SPELLINGS:
         assert [text for text in shown if key in text] == []
+
+
+def chained_exceptions(error: BaseException) -> list[BaseException]:
+    """Every exception reachable from `error` through `__cause__` and `__context__`."""
+    found: list[BaseException] = []
+    pending: list[BaseException | None] = [error]
+    while pending:
+        current = pending.pop()
+        if current is not None and not any(current is seen for seen in found):
+            found.append(current)
+            pending += [current.__cause__, current.__context__]
+    return found
 
 
 @pytest.mark.parametrize("status", [200, 502])
@@ -1026,13 +1042,18 @@ async def test_an_error_body_labelled_json_that_is_not_json_raises_a_permit_api_
 
 
 def answer_with_the_key_in_the_content_type(request: Request) -> Response:
-    """A 200 answer that isn't JSON, its Content-Type echoing the key the request carried."""
-    key = request.headers["Authorization"].removeprefix("Bearer ")
+    """A 200 answer that isn't JSON, its Content-Type echoing the key the request carried.
+
+    The key is echoed without surrounding whitespace.
+    """
+    key = request.headers["Authorization"].removeprefix("Bearer ").strip()
     return Response("not json", status=200, content_type=f"text/html; echo={key}")
 
 
+# A key read from a file may end with a space, which the echo drops.
+@pytest.mark.parametrize("token", [SENTINEL, f"{SENTINEL} "], ids=["key", "padded-key"])
 async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
-    httpserver: HTTPServer,
+    httpserver: HTTPServer, token: str
 ) -> None:
     """The text of an aiohttp error goes into the message of the PermitConnectionError.
 
@@ -1048,8 +1069,8 @@ async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
     )
     # After the handlers above: the first one registered for a request answers it.
     serve(httpserver)
-    permit = Permit(make_config(httpserver))
-    sync_permit = SyncPermit(make_config(httpserver))
+    permit = Permit(make_config(httpserver, token=token))
+    sync_permit = SyncPermit(make_config(httpserver, token=token))
 
     calls: list[Callable[[], Any]] = [
         lambda: permit.check("user-1", "read", "document"),
@@ -1247,15 +1268,23 @@ def redirect_to(location: str) -> str:
     return f"HTTP/1.1 307 TR\r\nLocation: {location}\r\n{EMPTY}"
 
 
+LONG = "a" * 9000
+
 # Answers aiohttp can't use, each holding the key. aiohttp keeps the key in the text of
 # the error it raises (its message, its args or its URL), or in the parser error it chains
-# under it.
+# under it, as a string, as bytes or as a yarl URL.
 RAW_ANSWERS = [
     pytest.param(
         "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nBad Header {key}: x\r\n\r\nok", id="bad-header"
     ),
     pytest.param("HTTP/1.1 abc {key}\r\n" + EMPTY, id="bad-status-line"),
+    # LineTooLong, which keeps the line as bytes in its args.
+    pytest.param("HTTP/1.1 200 OK\r\nX-Long: {key}" + LONG + "\r\n" + EMPTY, id="header-too-long"),
+    # InvalidHeader, which keeps the header as bytes in its args.
+    pytest.param("HTTP/1.1 200 OK\r\nX-Nul: {key}\x00\r\n" + EMPTY, id="nul-in-header"),
     pytest.param(redirect_to("http://[{key}"), id="invalid-redirect-url"),
+    # InvalidUrlRedirectClientError with the URL parsed: a yarl URL in `_url` and `args`.
+    pytest.param(redirect_to("http:///{key}"), id="redirect-url-without-host"),
     pytest.param(redirect_to("ftp://host/{key}"), id="non-http-redirect"),
 ]
 
@@ -1293,3 +1322,202 @@ async def test_an_aiohttp_error_and_the_errors_chained_under_it_hold_no_key(
 
     assert caught.value.original_error is not None
     assert_holds_no_key(caught.value)
+    # The case still reaches a key to replace.
+    shown = [
+        repr(vars(chained)) + repr(chained.args) for chained in chained_exceptions(caught.value)
+    ]
+    assert REDACTED in "".join(shown)
+
+
+# Functions that raise and catch in a module of aiohttp's, as aiohttp's own code does: the
+# SDK changes only exceptions raised and caught within its request.
+AIOHTTP_DOUBLE_SOURCE = """
+import aiohttp
+
+
+def context_only(key):
+    try:
+        try:
+            raise ValueError(f"inner {key}")
+        except ValueError:
+            raise aiohttp.ClientError("outer")
+    except aiohttp.ClientError as error:
+        return error
+
+
+def raised(error):
+    try:
+        raise error
+    except BaseException as caught:
+        return caught
+"""
+aiohttp_double = types.ModuleType("aiohttp._test_double")
+exec(AIOHTTP_DOUBLE_SOURCE, aiohttp_double.__dict__)  # noqa: S102 - a fixed test double
+
+
+def test_an_error_chained_only_as_the_context_is_scrubbed(httpserver: HTTPServer) -> None:
+    Permit(make_config(httpserver))
+    error = aiohttp_double.context_only(SENTINEL)
+    inner = error.__context__
+    assert error.__cause__ is None
+    assert isinstance(inner, ValueError)
+
+    assert scrub_request_info(error)
+
+    assert inner.args == (f"inner {REDACTED}",)
+
+
+# A walk that never ends can't be stopped in a thread, so this runs in its own process.
+CAUSE_CYCLE_APP = f"""
+import sys
+import types
+
+import aiohttp
+
+from permit import Permit
+from permit.exceptions import scrub_request_info
+
+double = types.ModuleType("aiohttp._test_double")
+exec({AIOHTTP_DOUBLE_SOURCE!r}, double.__dict__)
+Permit(token="{SENTINEL}")
+first = double.raised(aiohttp.ClientError("first {SENTINEL}"))
+second = double.raised(aiohttp.ClientError("second {SENTINEL}"))
+first.__cause__ = second
+second.__cause__ = first
+assert scrub_request_info(first)
+print(first.args[0], second.args[0])
+"""
+
+
+def test_a_cause_cycle_is_walked_once(tmp_path: Path) -> None:
+    app = tmp_path / "app.py"
+    app.write_text(CAUSE_CYCLE_APP)
+
+    result = subprocess.run(
+        [sys.executable, str(app)], capture_output=True, text=True, timeout=15, check=False
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == ["first", REDACTED, "second", REDACTED]
+
+
+def test_an_error_whose_text_cannot_be_replaced_is_not_attached(httpserver: HTTPServer) -> None:
+    class FixedArgsError(aiohttp.ClientError):
+        @property
+        def args(self) -> tuple[object, ...]:  # type: ignore[override]
+            return (f"fixed {SENTINEL}",)
+
+    Permit(make_config(httpserver))
+    original = aiohttp_double.raised(FixedArgsError())
+
+    error = PermitConnectionError("the request failed", error=original)
+
+    assert error.original_error is not original
+    assert SENTINEL not in repr(error.original_error)
+    assert "could not be removed" in str(error.original_error)
+
+
+def raise_(error: BaseException) -> NoReturn:
+    raise error
+
+
+@dataclasses.dataclass(frozen=True)
+class FrozenAppError(Exception):
+    """An application's exception that can't be changed."""
+
+    detail: str
+
+
+class AppHeadersError(Exception):
+    """An application's exception with a headers dict whose values aren't all strings."""
+
+    def __init__(self) -> None:
+        super().__init__(f"the application's own text, with the key {SENTINEL}")
+        self.headers = {"Retry-After": 120, "X-Echo": SENTINEL}
+
+
+class AppFixedArgsError(Exception):
+    """An application's exception whose args can't be set."""
+
+    @property
+    def args(self) -> tuple[object, ...]:  # type: ignore[override]
+        return (f"fixed {SENTINEL}",)
+
+
+@pytest.mark.parametrize(
+    "app_error",
+    [
+        pytest.param(lambda: FrozenAppError(f"frozen {SENTINEL}"), id="frozen-dataclass"),
+        pytest.param(AppHeadersError, id="headers-with-an-int"),
+        pytest.param(AppFixedArgsError, id="read-only-args"),
+    ],
+)
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda permit: permit.check("user-1", "read", "document"), id="pdp"),
+        pytest.param(lambda permit: permit.api.users.get("user-1"), id="api"),
+    ],
+)
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
+@pytest.mark.parametrize(
+    "raw_http_server", [pytest.param(redirect_to("ftp://host/{key}"), id="redirect")], indirect=True
+)
+async def test_an_exception_the_application_is_handling_is_left_alone(
+    raw_http_server: str,
+    client_class: type[Permit],
+    call: Callable[[Permit], object],
+    app_error: Callable[[], Exception],
+) -> None:
+    """An application may call the SDK while it handles an exception of its own.
+
+    aiohttp's error then keeps that exception as its context: here, the error for a
+    redirect to a URL that isn't HTTP, which aiohttp raises in the caller's task. The SDK
+    still raises PermitConnectionError, and doesn't change the application's exception,
+    even where it holds the key.
+    """
+    url = raw_http_server
+    permit = client_class(PermitConfig(token=SENTINEL, api_url=url, pdp=url))
+    handled = app_error()
+    before = (repr(vars(handled)), repr(handled.args))
+
+    try:
+        raise_(handled)
+    except Exception:
+        with pytest.raises(PermitConnectionError) as caught:
+            await resolved(call(permit))
+
+    # The application's exception is in the chain, unchanged.
+    assert any(chained is handled for chained in chained_exceptions(caught.value))
+    assert (repr(vars(handled)), repr(handled.args)) == before
+    if isinstance(handled, AppHeadersError):
+        assert type(handled.headers) is dict
+    assert caught.value.original_error is not None
+    assert SENTINEL not in repr(vars(caught.value.original_error))
+
+
+@pytest.mark.parametrize(
+    "raw_http_server", [pytest.param(redirect_to("ftp://host/{key}"), id="redirect")], indirect=True
+)
+@pytest.mark.parametrize(
+    "call",
+    [*LAZY_DEBUG_CALLS, pytest.param(lambda permit: permit.api.users.get("user-1"), id="api")],
+)
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
+async def test_an_error_that_cannot_be_scrubbed_is_neither_attached_nor_the_cause(
+    raw_http_server: str,
+    client_class: type[Permit],
+    call: Callable[[Permit], object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("permit.exceptions.scrub_request_info", lambda _: False)
+    url = raw_http_server
+    permit = client_class(PermitConfig(token=SENTINEL, api_url=url, pdp=url))
+
+    with pytest.raises(PermitConnectionError) as caught:
+        await resolved(call(permit))
+
+    replacement = caught.value.original_error
+    assert "could not be removed" in str(replacement)
+    assert caught.value.__cause__ is replacement
+    assert SENTINEL not in "".join(traceback.format_exception(caught.value))
