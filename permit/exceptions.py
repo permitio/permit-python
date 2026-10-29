@@ -1,6 +1,7 @@
 import functools
+import json as json_module
 import warnings
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -54,7 +55,9 @@ with warnings.catch_warnings():
         """
 
         def __init__(self, message: str, *, error: aiohttp.ClientError | None = None) -> None:
-            super().__init__(message)
+            # Every raise site builds its message from response bodies and aiohttp error
+            # text, so the key is replaced here, once, rather than at each of them.
+            super().__init__(sdk_logger.scrub(message))
             if error is not None:
                 scrub_request_info(error)
             self.original_error = error
@@ -253,15 +256,31 @@ def _scrubbed(value: _JsonT) -> _JsonT:
     return value
 
 
+def _scrubbed_headers(headers: Mapping[str, str]) -> CIMultiDictProxy[str]:
+    return CIMultiDictProxy(
+        CIMultiDict((name, sdk_logger.scrub(value)) for name, value in headers.items())
+    )
+
+
+def _scrub_error_text(error: BaseException) -> None:
+    if isinstance(error, aiohttp.ClientResponseError):
+        error.message = sdk_logger.scrub(error.message)
+        if error.headers is not None:
+            error.headers = _scrubbed_headers(error.headers)
+    error.args = tuple(sdk_logger.scrub(arg) if isinstance(arg, str) else arg for arg in error.args)
+
+
 def scrub_request_info(holder: object) -> None:
-    """Replace every client's API key in the request headers `holder` keeps.
+    """Replace every client's API key in the request headers and error text `holder` keeps.
 
     aiohttp keeps the request's headers, `Authorization` included, on a
     `ClientResponse` and a `ClientResponseError` (`request_info`, which the error also
     keeps as `args[0]`), and on the redirect responses in their `history`; their `repr`
-    prints them. The SDK puts such objects in the exceptions it raises (`original_error`,
-    `response`, the exception's cause), so it scrubs them first. Anything else is left
-    as it is.
+    prints them. An aiohttp error's text may also hold text a server sent: a
+    `ClientResponseError`'s `message` and the response `headers` it keeps, another
+    error's string arguments. The SDK puts such objects in the exceptions it raises
+    (`original_error`, `response`, the exception's cause), so it scrubs them first. A
+    `ClientResponse`'s own headers and body, and anything else, are left as they are.
 
     Args:
         holder: An aiohttp response or client error.
@@ -269,13 +288,15 @@ def scrub_request_info(holder: object) -> None:
     for redirect in getattr(holder, "history", None) or ():
         if redirect is not holder:
             scrub_request_info(redirect)
+    if isinstance(holder, BaseException):
+        _scrub_error_text(holder)
     info = getattr(holder, "request_info", None)
     if not isinstance(info, aiohttp.RequestInfo):
         return
-    headers = CIMultiDict((name, sdk_logger.scrub(value)) for name, value in info.headers.items())
+    headers = _scrubbed_headers(info.headers)
     if headers == info.headers:
         return
-    scrubbed = aiohttp.RequestInfo(info.url, info.method, CIMultiDictProxy(headers), info.real_url)
+    scrubbed = aiohttp.RequestInfo(info.url, info.method, headers, info.real_url)
     if isinstance(holder, aiohttp.ClientResponse):
         # `request_info` is a read-only property over `_request_info`, cached once read
         # (aiohttp's `reify`): replace both. tests/test_fix_logging.py checks the result.
@@ -287,6 +308,36 @@ def scrub_request_info(holder: object) -> None:
         holder.request_info = scrubbed  # type: ignore[attr-defined]
         if isinstance(holder, BaseException):
             holder.args = tuple(scrubbed if arg is info else arg for arg in holder.args)
+
+
+def _scrubbed_loads(text: str) -> Any:  # noqa: ANN401 - any JSON value
+    return json_module.loads(sdk_logger.scrub(text))
+
+
+async def _scrubbed_text(response: aiohttp.ClientResponse) -> str:
+    """The body of `response` as text, every registered API key replaced."""
+    return sdk_logger.scrub(await response.text(errors="replace"))
+
+
+async def _error_json(response: aiohttp.ClientResponse) -> Any:  # noqa: ANN401 - any JSON value
+    """The decoded JSON body of an error response, every registered API key replaced.
+
+    Raises:
+        PermitApiError: When the body is not JSON, whatever its Content-Type says.
+    """
+    try:
+        # The body is scrubbed before it is parsed too, so a decode error's `doc` never
+        # holds the key.
+        return _scrubbed(await response.json(loads=_scrubbed_loads))
+    except aiohttp.ContentTypeError as e:
+        scrub_request_info(e)
+        raise PermitApiError(response, {"details": await _scrubbed_text(response)}) from e
+    except ValueError:
+        # Labelled JSON but not JSON, such as a proxy's error page or a truncated body.
+        # A UnicodeDecodeError keeps the raw bytes, so the decode error isn't chained:
+        # raised after this block, it isn't the new exception's context either.
+        error = PermitApiError(response, {"details": await _scrubbed_text(response)})
+    raise error
 
 
 async def handle_api_error(response: aiohttp.ClientResponse) -> None:
@@ -305,12 +356,7 @@ async def handle_api_error(response: aiohttp.ClientResponse) -> None:
     if HTTPStatus.OK <= response.status < HTTPStatus.MULTIPLE_CHOICES:
         return
 
-    try:
-        json = _scrubbed(await response.json())
-    except aiohttp.ContentTypeError as e:
-        scrub_request_info(e)
-        text = sdk_logger.scrub(await response.text())
-        raise PermitApiError(response, {"details": text}) from e
+    json = await _error_json(response)
 
     if response.status == HTTPStatus.UNPROCESSABLE_ENTITY:
         try:
