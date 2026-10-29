@@ -30,6 +30,8 @@ classifiers = [
 # .github/scripts/audit-deps.sh scans them with --resolution lowest-direct.
 dependencies = [
     "aiohttp>=3.14.3,<4",
+    # Imported directly (permit/exceptions.py). aiohttp requires it too, in this range.
+    "multidict>=4.5,<7",
     # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
     # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
     "loguru>=0.7.3,<1",
@@ -243,9 +245,12 @@ convention = "google"
 ban-relative-imports = "all"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-# A record logged straight to loguru would skip the SDK's log level and label, and the
-# replacement of the API key with [REDACTED] (PER-16680).
+# A record logged straight to loguru, or through the standard logging module, would skip
+# the SDK's log level and label, and the replacement of the API key with [REDACTED]
+# (PER-16680). The whole logging module is banned: logging.info() and the like log to
+# the root logger without a getLogger() call.
 "loguru.logger".msg = "Log through permit.utils.sdk_logger, which redacts the API key."
+"logging".msg = "Log through permit.utils.sdk_logger, which redacts the API key."
 
 [tool.ruff.lint.flake8-type-checking]
 # pydantic evaluates field annotations at runtime, so the imports they use

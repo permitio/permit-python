@@ -56,9 +56,9 @@ class SdkLogger:
         """Keep the records from `min_level_no` up, with `label` before each message.
 
         If `disable` was called since the last `enable`, this undoes it with
-        `logger.enable("permit")`. Otherwise it leaves loguru's switches alone: loguru's
-        enable would also drop every `logger.disable` the application set for a module of
-        the package, and override an application-wide `logger.disable("")`.
+        `logger.enable("permit")`, which also drops every `logger.disable` set for a module
+        of the package and overrides an application-wide `logger.disable("")` for its
+        records. Otherwise it leaves loguru's switches alone, so those still apply.
 
         Args:
             min_level_no: The loguru severity number below which records are dropped.

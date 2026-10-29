@@ -22,9 +22,10 @@ class LoggerConfig(BaseModel):
     the level and the label, for every client in the process.
 
     Whatever these settings, the SDK replaces the API key of every client in the process
-    with `[REDACTED]` in the messages it logs and in the error bodies it puts in the
-    exceptions it raises. The client's start-up line logs `api_url` and `pdp` without a user
-    name or password.
+    with `[REDACTED]` in the messages it logs, in the messages and error bodies of the
+    exceptions it raises, and in the aiohttp objects those exceptions carry; the README
+    lists what it does not cover. The client's start-up line logs `api_url` and `pdp`
+    without a user name or password.
     """
 
     enable: bool = Field(
@@ -32,7 +33,9 @@ class LoggerConfig(BaseModel):
         description="Whether the SDK logs. False calls loguru's logger.disable('permit'), so "
         "nothing is logged. True undoes that call with logger.enable('permit') if an earlier "
         "client made it, and otherwise leaves loguru's switches alone, so a logger.disable() "
-        "the application made for 'permit' or one of its modules still applies.",
+        "the application made for 'permit' or one of its modules still applies. When it does "
+        "undo it, loguru also drops every logger.disable() set for 'permit' or one of its "
+        "modules, and overrides an application-wide logger.disable('') for the SDK's records.",
     )
     level: str = Field(
         default="info",
@@ -78,8 +81,9 @@ class PermitConfig(BaseModel):
 
     # A positional `...`, not `default=...`: type checkers take any `default=`
     # keyword as a default, so `PermitConfig()` without a token would pass them.
-    # repr=False keeps the key out of repr() and str() of the config, and so out of
-    # tracebacks that print frame values, such as loguru's with diagnose=True.
+    # repr=False keeps the key out of repr() and str() of the config. Tracebacks that print
+    # frame values, such as loguru's with diagnose=True, still show it in other values: the
+    # options a client is created with, and the headers of its HTTP clients.
     token: str = Field(
         ...,
         repr=False,

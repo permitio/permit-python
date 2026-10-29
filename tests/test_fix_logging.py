@@ -1101,20 +1101,24 @@ def test_an_enabled_client_undoes_only_the_sdk_s_own_disable_once(
     assert app_sinks.sdk_records() == []
 
 
-def test_undoing_the_sdk_s_disable_undoes_an_sdk_module_disable_made_before_it(
-    httpserver: HTTPServer, app_sinks: AppSinks
+@pytest.mark.parametrize("disabled", ["permit.enforcement", ""], ids=["sdk-module", "all"])
+def test_undoing_the_sdk_s_disable_undoes_a_disable_the_application_made_before_it(
+    httpserver: HTTPServer, app_sinks: AppSinks, disabled: str
 ) -> None:
     """Loguru's `logger.disable("permit")` drops every switch set for a module of it.
 
-    So does `logger.enable("permit")`, which the enabled client calls to undo it. The
-    README says so.
+    So does `logger.enable("permit")`, which the enabled client calls to undo it, and it
+    overrides an application-wide `logger.disable("")` for the SDK's records. The README
+    says so.
     """
     httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
-    logger.disable("permit.enforcement")
-    SyncPermit(make_config(httpserver))
-
-    permit = SyncPermit(make_config(httpserver, enable=True, level="debug"))
-    assert permit.check("user-1", "read", "document")
+    logger.disable(disabled)
+    try:
+        SyncPermit(make_config(httpserver))
+        permit = SyncPermit(make_config(httpserver, enable=True, level="debug"))
+        assert permit.check("user-1", "read", "document")
+    finally:
+        logger.enable(disabled)
 
     modules = {record["name"] for record in app_sinks.sdk_records()}
     assert "permit.enforcement.enforcer" in modules
