@@ -67,7 +67,9 @@ async def _read_body_text(response: aiohttp.ClientResponse) -> str:
     except (aiohttp.ClientError, ValueError):
         pass
     try:
-        text = (await response.text()).strip()
+        # errors="replace": a body that isn't valid in its charset must not escape as a
+        # UnicodeDecodeError, which isn't a PermitError and keeps the raw, unscrubbed bytes.
+        text = (await response.text(errors="replace")).strip()
     except aiohttp.ClientError:
         return "<error body could not be read>"
     return text or "<empty error body>"

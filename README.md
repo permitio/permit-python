@@ -71,20 +71,25 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   decides whether the SDK logs, and the last one created with `"enable": True` decides the
   level and the label, for every client in the process. `wait_for_sync()` builds a new
   client of the same class, but keeps the process's log settings as they are.
-- The SDK replaces the API key of every client in the process with `[REDACTED]` in:
+- The SDK replaces the API key of every client in the process, as given and in lower case,
+  with `[REDACTED]` in:
   - the messages it logs;
   - the messages of the exceptions it raises, and the error bodies in them
     (`PermitApiError.details`);
   - the aiohttp response or error those exceptions carry (`original_error`, `response`,
-    the cause): the request headers they keep, the redirect responses in their
-    `history`, and an aiohttp error's message, arguments and response headers.
+    the cause), and every exception chained under that error: the request headers they
+    keep, the request headers of the redirect responses in their `history`, and an
+    error's message, arguments, URL and the response headers it keeps.
 
-  It does not replace the key elsewhere: not in the headers or raw body of the response
-  itself (`PermitApiError.response.headers`, `await PermitApiError.response.text()`), and
-  not in the values a traceback shows for each frame (loguru's `diagnose=True`, error
-  trackers that record local variables), where the key is in the client's options and its
-  request headers. A key shorter than 12 characters is not replaced. The client's start-up
-  line shows `api_url` and `pdp` without any user name or password in them.
+  It does not replace the key elsewhere: not in URLs (`PermitApiError.request_url`, the
+  `url` and `real_url` of a response or its `request_info`, the `url=` part of an aiohttp
+  error's text), not in the headers or raw body of a response itself
+  (`PermitApiError.response.headers`, a redirect response's `Location`,
+  `await PermitApiError.response.text()`), and not in the values a traceback shows for
+  each frame (loguru's `diagnose=True`, error trackers that record local variables), where
+  the key is in the client's options and its request headers. A key shorter than 12
+  characters is not replaced. The client's start-up line shows `api_url` and `pdp` without
+  any user name or password in them.
 - `level` also takes a loguru severity number, such as `10` for DEBUG. An unknown name is
   warned about once per process.
 
