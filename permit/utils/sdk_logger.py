@@ -1,4 +1,6 @@
 import threading
+from collections.abc import Callable
+from typing import TypeAlias
 from urllib.parse import urlsplit, urlunsplit
 
 from loguru import logger
@@ -10,6 +12,10 @@ MIN_SECRET_LENGTH = 12
 # The package whose records loguru's logger.enable() and logger.disable() switch on and off.
 PACKAGE = "permit"
 
+# A message, or a function that builds it, for a message costly to build: it is called
+# only for a record that some sink will receive.
+Message: TypeAlias = str | Callable[[], str]
+
 
 class SdkLogger:
     """Logs the SDK's own records to loguru's logger, applying the SDK's `log` settings.
@@ -17,8 +23,9 @@ class SdkLogger:
     Each record reaches loguru from the SDK module that logged it, so
     `logger.disable("permit")`, `logger.enable("permit")` and the application's sinks treat
     it as a record of that module. On the way, this drops records below the minimum
-    severity, replaces every registered API key with `[REDACTED]` and prefixes the message
-    with the label.
+    severity. For a record loguru passes on, the message is then built, prefixed with the
+    label and has every registered API key replaced with `[REDACTED]`; for one it drops,
+    while the package is disabled or below every sink's level, none of that is done.
 
     Its settings are process-wide, like loguru's logger. Until `enable` is called, it
     keeps every record and adds no label.
@@ -96,29 +103,34 @@ class SdkLogger:
             text = text.replace(secret, REDACTED)
         return text
 
-    def debug(self, message: str) -> None:
+    def debug(self, message: Message) -> None:
         """Log `message` with severity DEBUG."""
         self._log("DEBUG", message)
 
-    def warning(self, message: str) -> None:
+    def warning(self, message: Message) -> None:
         """Log `message` with severity WARNING."""
         self._log("WARNING", message)
 
-    def error(self, message: str) -> None:
+    def error(self, message: Message) -> None:
         """Log `message` with severity ERROR."""
         self._log("ERROR", message)
 
-    def _log(self, level: str, message: str) -> None:
+    def _log(self, level: str, message: Message) -> None:
         if logger.level(level).no < self._min_level_no:
             return
-        if self._label:
-            message = f"[{self._label}] {message}"
-        # After the label goes on, so a key in the label is replaced too.
-        message = self.scrub(message)
+        label = self._label
         # depth=2 skips this method and the one that called it, so loguru attributes the
-        # record to the SDK module that logged it. The message goes without arguments, so
-        # loguru does not call str.format on it and braces in it are kept as they are.
-        logger.opt(depth=2).log(level, message)
+        # record to the SDK module that logged it. lazy=True: loguru calls the function
+        # only once its enabled and level checks pass, so a record it drops is never built
+        # or scrubbed. The message is the argument of "{}", so braces in it are kept.
+        logger.opt(depth=2, lazy=True).log(level, "{}", lambda: self._render(message, label))
+
+    def _render(self, message: Message, label: str) -> str:
+        text = message() if callable(message) else message
+        if label:
+            text = f"[{label}] {text}"
+        # After the label goes on, so a key in the label is replaced too.
+        return self.scrub(text)
 
 
 def without_userinfo(url: str) -> str:
