@@ -701,22 +701,59 @@ def echo_the_key_as_json(request: Request) -> Response:
     return Response(json.dumps(body), status=403, content_type="application/json")
 
 
-@pytest.mark.parametrize("handler", [echo_the_key, echo_the_key_as_json], ids=["text", "json"])
+def json_escaped(text: str) -> str:
+    r"""`text` as JSON may spell it in a string: every character a `\u` escape.
+
+    The key then appears only once the body is decoded, not in its raw text.
+    """
+    return "".join(f"\\u{ord(char):04x}" for char in text)
+
+
+def echo_the_key_in_a_list(request: Request) -> Response:
+    """An API that rejects the request and echoes the key it was sent, in a list of errors."""
+    key = json_escaped(request.headers["Authorization"])
+    body = f'{{"detail": [{{"msg": "bad key {key}"}}]}}'
+    return Response(body, status=422, content_type="application/json")
+
+
+def redirect_to_user_2(_: Request) -> Response:
+    """A redirect the client follows, with its headers, to the user-2 URL."""
+    return Response(status=307, headers={"Location": f"{USERS}/user-2"})
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [echo_the_key, echo_the_key_as_json, echo_the_key_in_a_list],
+    ids=["text", "json", "json-list"],
+)
 async def test_api_and_pdp_api_errors_do_not_hold_an_echoed_key(
     httpserver: HTTPServer, handler: Callable[[Request], Response]
 ) -> None:
     """The REST API and the PDP's local API raise through `handle_api_error`."""
     serve(httpserver)
     httpserver.expect_request(f"{USERS}/user-2", method="GET").respond_with_handler(handler)
+    httpserver.expect_request(f"{USERS}/moved", method="GET").respond_with_handler(
+        redirect_to_user_2
+    )
     httpserver.expect_request("/local/role_assignments", method="GET").respond_with_handler(handler)
     permit = Permit(make_config(httpserver))
 
     raised: list[BaseException] = []
-    for call in (permit.api.users.get("user-2"), permit.pdp_api.role_assignments.list()):
+    for call in (
+        permit.api.users.get("user-2"),
+        permit.api.users.get("moved"),
+        permit.pdp_api.role_assignments.list(),
+    ):
         with pytest.raises((PermitApiError, PermitConnectionError)) as caught:
             await call
         raised.append(caught.value)
 
+    # The redirect was followed, with the key: the redirect response keeps the request
+    # headers it was sent with.
+    [redirected] = [
+        error for error in raised if isinstance(error, PermitApiError) and error.response.history
+    ]
+    assert redirected.response.history[0].status == 307
     for error in raised:
         assert SENTINEL not in str(error)
         assert SENTINEL not in repr(error)
@@ -727,14 +764,19 @@ async def test_api_and_pdp_api_errors_do_not_hold_an_echoed_key(
 def assert_holds_no_key(error: BaseException) -> None:
     """Assert neither `error` nor the aiohttp objects it carries print the key.
 
-    Those are its cause and context, `original_error`, and a `PermitApiError`'s response.
+    Those are its cause and context, `original_error`, a `PermitApiError`'s response and
+    details, and the redirect responses in the `history` of any of them.
     """
+    assert SENTINEL not in str(error)
+    assert SENTINEL not in repr(error.args)
+    assert SENTINEL not in repr(getattr(error, "details", None))
     carried = [
         error.__cause__,
         error.__context__,
         getattr(error, "original_error", None),
         getattr(error, "_response", None),
     ]
+    carried += [redirect for value in carried for redirect in getattr(value, "history", None) or ()]
     for value in carried:
         assert SENTINEL not in repr(value)
         assert SENTINEL not in repr(getattr(value, "args", ()))
@@ -850,8 +892,9 @@ def test_an_unknown_level_is_warned_about_once(httpserver: HTTPServer, app_sinks
 
 def echo_the_key_as_a_json_object_key(request: Request) -> Response:
     """An API that rejects the request and puts the key it was sent in an object key."""
-    body = {"detail": {request.headers["Authorization"]: "rejected"}, "error_code": "x"}
-    return Response(json.dumps(body), status=403, content_type="application/json")
+    key = json_escaped(request.headers["Authorization"])
+    body = f'{{"detail": {{"{key}": "rejected"}}, "error_code": "x"}}'
+    return Response(body, status=403, content_type="application/json")
 
 
 async def test_an_echoed_key_in_a_json_object_key_is_redacted(httpserver: HTTPServer) -> None:
@@ -877,3 +920,86 @@ def test_a_key_in_the_label_is_redacted(httpserver: HTTPServer, app_sinks: AppSi
     assert records
     for record in records:
         assert SENTINEL not in record["message"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(lambda auth: f"<html>rejected key {auth}</html>".encode(), id="html"),
+        pytest.param(lambda auth: f'{{"detail": "rejected key {auth}"'.encode(), id="truncated"),
+        pytest.param(lambda auth: b"\xff rejected key " + auth.encode(), id="not-utf-8"),
+    ],
+)
+async def test_an_error_body_labelled_json_that_is_not_json_raises_a_permit_api_error(
+    httpserver: HTTPServer, body: Callable[[str], bytes]
+) -> None:
+    serve(httpserver)
+
+    def handler(request: Request) -> Response:
+        return Response(
+            body(request.headers["Authorization"]),
+            status=502,
+            content_type="application/json; charset=utf-8",
+        )
+
+    httpserver.expect_request(f"{USERS}/user-6", method="GET").respond_with_handler(handler)
+    permit = Permit(make_config(httpserver))
+
+    with pytest.raises(PermitApiError) as caught:
+        await permit.api.users.get("user-6")
+
+    assert caught.value.status_code == 502
+    assert caught.value.details is not None
+    assert f"rejected key Bearer {REDACTED}" in caught.value.details["details"]
+    assert_holds_no_key(caught.value)
+
+
+# aiohttp lower-cases the Content-Type it puts in the message of the error it raises for
+# an answer that isn't JSON, so this key is lower case: the SDK replaces a key as given.
+LOWER_CASE_KEY = SENTINEL.lower()
+
+
+def answer_with_the_key_in_the_content_type(request: Request) -> Response:
+    """A 200 answer that isn't JSON, its Content-Type echoing the key the request carried."""
+    key = request.headers["Authorization"].removeprefix("Bearer ")
+    return Response("not json", status=200, content_type=f"text/html; echo={key}")
+
+
+async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
+    httpserver: HTTPServer,
+) -> None:
+    """The text of an aiohttp error goes into the message of the PermitConnectionError."""
+    for path in ("/allowed", "/allowed/bulk", "/authorized_users", "/user-permissions"):
+        httpserver.expect_request(path, method="POST").respond_with_handler(
+            answer_with_the_key_in_the_content_type
+        )
+    httpserver.expect_request(f"{USERS}/user-7", method="GET").respond_with_handler(
+        answer_with_the_key_in_the_content_type
+    )
+    # After the handlers above: the first one registered for a request answers it.
+    serve(httpserver)
+    permit = Permit(make_config(httpserver, token=LOWER_CASE_KEY))
+    sync_permit = SyncPermit(make_config(httpserver, token=LOWER_CASE_KEY))
+
+    calls: list[Callable[[], Any]] = [
+        lambda: permit.check("user-1", "read", "document"),
+        lambda: permit.bulk_check(BULK),
+        lambda: permit.authorized_users("read", "document"),
+        lambda: permit.get_user_permissions("user-1"),
+        lambda: permit.api.users.get("user-7"),
+    ]
+    raised: list[PermitConnectionError] = []
+    for call in calls:
+        with pytest.raises(PermitConnectionError) as caught:
+            await call()
+        raised.append(caught.value)
+    with pytest.raises(PermitConnectionError) as caught:
+        sync_permit.check("user-1", "read", "document")
+    raised.append(caught.value)
+
+    for error in raised:
+        # The aiohttp error's text is in the message, the key replaced.
+        assert f"echo={REDACTED}" in str(error)
+        for value in (error, error.__cause__, error.original_error):
+            assert LOWER_CASE_KEY not in str(value)
+            assert LOWER_CASE_KEY not in repr(value)
