@@ -36,7 +36,9 @@ def configure_logger(config: PermitConfig) -> None:
     - `log.enable` False calls `logger.disable("permit")`, so nothing is logged. True
       undoes that call with `logger.enable("permit")` if an earlier client made it, and
       otherwise leaves loguru's switches alone, so a `logger.disable` the application made
-      for the package or one of its modules still applies.
+      for the package or one of its modules still applies. Undoing it also drops every
+      `logger.disable` set for the package or one of its modules, before or since, and
+      overrides an application-wide `logger.disable("")` for the SDK's records.
     - `log.level` drops the SDK's records below that severity before they reach any sink.
     - `log.label` is put in brackets before each message.
     - `log.log_as_json` is not applied: loguru serializes per sink. For JSON output, the
@@ -44,7 +46,8 @@ def configure_logger(config: PermitConfig) -> None:
       then `logger.add(sys.stderr, serialize=True)`.
 
     Whatever the settings, the API key in `config.token` is replaced with `[REDACTED]` in
-    every message the SDK logs and in the error bodies it puts in the exceptions it raises.
+    every message the SDK logs, in the messages and error bodies of the exceptions it
+    raises, and in the aiohttp objects those exceptions carry.
 
     `log.level` is a level name, in any case, or a loguru severity number. An unknown one
     does not fail client creation: the SDK logs a warning that names the value, once per
