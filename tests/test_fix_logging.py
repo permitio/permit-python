@@ -1003,3 +1003,21 @@ async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
         for value in (error, error.__cause__, error.original_error):
             assert LOWER_CASE_KEY not in str(value)
             assert LOWER_CASE_KEY not in repr(value)
+
+
+@pytest.mark.parametrize(
+    "client_class", [pytest.param(Permit, id="async"), pytest.param(SyncPermit, id="sync")]
+)
+def test_a_subclass_s_own_connect_method_is_not_called_by_the_sdk(
+    httpserver: HTTPServer, client_class: type[Permit]
+) -> None:
+    """The SDK's constructor calls no method an application's subclass may define."""
+
+    class AppPermit(client_class):  # type: ignore[valid-type,misc]
+        def _connect(self, url: str) -> str:
+            return url
+
+    permit = AppPermit(make_config(httpserver))
+
+    assert permit.api is not None
+    assert permit._connect("x") == "x"
