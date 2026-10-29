@@ -681,9 +681,7 @@ def test_wait_for_sync_keeps_the_level_and_label_of_the_client_created_last(
     assert record["message"].startswith(f"[last] {WAIT_FOR_SYNC_WARNING}")
 
 
-@pytest.mark.parametrize(
-    "client_class", [pytest.param(Permit, id="async"), pytest.param(SyncPermit, id="sync")]
-)
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
 async def test_wait_for_sync_yields_a_client_that_waits_for_the_facts(
     httpserver: HTTPServer, client_class: type[Permit]
 ) -> None:
@@ -1075,9 +1073,7 @@ async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
         assert_holds_no_key(error)
 
 
-@pytest.mark.parametrize(
-    "client_class", [pytest.param(Permit, id="async"), pytest.param(SyncPermit, id="sync")]
-)
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
 def test_a_subclass_s_own_connect_method_is_not_called_by_the_sdk(
     httpserver: HTTPServer, client_class: type[Permit]
 ) -> None:
@@ -1131,11 +1127,21 @@ def test_undoing_the_sdk_s_disable_undoes_a_disable_the_application_made_before_
     assert "permit.enforcement.enforcer" in modules
 
 
+LAZY_DEBUG_CALLS: list[Any] = [
+    pytest.param(lambda permit: permit.check("user-1", "read", "document"), id="check"),
+    pytest.param(lambda permit: permit.bulk_check(BULK), id="bulk_check"),
+    pytest.param(lambda permit: permit.authorized_users("read", "document"), id="authorized_users"),
+    pytest.param(lambda permit: permit.get_user_permissions("user-1"), id="get_user_permissions"),
+]
+
+
+@pytest.mark.parametrize("call", LAZY_DEBUG_CALLS)
 @pytest.mark.parametrize("application_enables", [False, True])
 def test_a_record_loguru_drops_is_not_built_or_scrubbed(
     httpserver: HTTPServer,
     app_sinks: AppSinks,
     monkeypatch: pytest.MonkeyPatch,
+    call: Callable[[SyncPermit], object],
     *,
     application_enables: bool,
 ) -> None:
@@ -1144,6 +1150,13 @@ def test_a_record_loguru_drops_is_not_built_or_scrubbed(
     The application may still turn them on itself, and then gets them in full.
     """
     httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    httpserver.expect_request("/allowed/bulk", method="POST").respond_with_json(
+        {"allow": [{"allow": True}]}
+    )
+    httpserver.expect_request("/authorized_users", method="POST").respond_with_json(
+        {"resource": "document:*", "tenant": "default", "users": {}}
+    )
+    httpserver.expect_request("/user-permissions", method="POST").respond_with_json({})
     calls: list[str] = []
     real_scrub = sdk_logger.scrub
 
@@ -1161,12 +1174,13 @@ def test_a_record_loguru_drops_is_not_built_or_scrubbed(
     if application_enables:
         logger.enable("permit")
 
-    assert client.check("user-1", "read", "document")
+    call(client)
 
     if application_enables:
         [record] = app_sinks.sdk_records()
-        assert record["message"].startswith("permit.check() response:")
-        assert calls == ["pformat", "pformat", "scrub"]
+        assert record["level"]["name"] == "DEBUG"
+        assert "pformat" in calls
+        assert "scrub" in calls
     else:
         assert app_sinks.sdk_records() == []
         assert calls == []
