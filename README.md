@@ -77,15 +77,25 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   - the messages of the exceptions it raises, and the error bodies in them
     (`PermitApiError.details`);
   - the aiohttp response or error those exceptions carry (`original_error`, `response`,
-    the cause), and every exception chained under that error: the request headers they
-    keep, the request headers of the redirect responses in their `history`, and an
-    error's message, arguments, URL and the response headers it keeps.
+    the cause), and the exceptions chained under that error that aiohttp and the
+    libraries it uses raised during the request: the request headers they keep, the
+    request headers of the redirect responses in their `history`, and each error's
+    arguments and attributes that are strings or bytes (such as its message), the
+    response headers it keeps, and the URL of an invalid-URL error (`InvalidURL.url`,
+    which then becomes a string).
 
-  It does not replace the key elsewhere: not in URLs (`PermitApiError.request_url`, the
+  The SDK never changes an exception it did not raise during the request, such as one
+  your application was handling when it called the SDK, which aiohttp keeps in its
+  error's chain. If the key cannot be removed from the aiohttp error, the SDK attaches a
+  plain `aiohttp.ClientError` that says so in its place, as `original_error` and as the
+  cause.
+
+  It does not replace the key elsewhere: not in values that are neither text nor a URL,
+  such as a parsed HTTP message; not in request URLs (`PermitApiError.request_url`, the
   `url` and `real_url` of a response or its `request_info`, the `url=` part of an aiohttp
-  error's text), not in the headers or raw body of a response itself
+  error's text); not in the headers or raw body of a response itself
   (`PermitApiError.response.headers`, a redirect response's `Location`,
-  `await PermitApiError.response.text()`), and not in the values a traceback shows for
+  `await PermitApiError.response.text()`); and not in the values a traceback shows for
   each frame (loguru's `diagnose=True`, error trackers that record local variables), where
   the key is in the client's options and its request headers. A key shorter than 12
   characters is not replaced. The client's start-up line shows `api_url` and `pdp` without
