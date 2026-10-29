@@ -30,7 +30,11 @@ classifiers = [
 # .github/scripts/audit-deps.sh scans them with --resolution lowest-direct.
 dependencies = [
     "aiohttp>=3.14.3,<4",
-    # Imported directly (permit/exceptions.py). aiohttp requires it too, in this range.
+    # Imported directly (permit/exceptions.py). aiohttp requires it too, in this range,
+    # so this adds no constraint. The floor is aiohttp's: permit uses only CIMultiDict and
+    # CIMultiDictProxy, and its tests pass on 4.5.0. So the floor lanes
+    # (--resolution lowest-direct) run multidict 4.5.0, which has no C extension build for
+    # Python 3.10+ and runs as pure Python there; the other lanes run the compiled 6.x.
     "multidict>=4.5,<7",
     # 0.7.3 is the first loguru release that imports without a DeprecationWarning on
     # Python 3.14: earlier ones call asyncio.iscoroutinefunction, which 3.16 removes.
