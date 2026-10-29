@@ -6,7 +6,9 @@ loguru's default format, read through capsys, and a serialized (JSON) sink. Ever
 served by a local pytest_httpserver.
 """
 
+import inspect
 import json
+import pprint
 import re
 import subprocess
 import sys
@@ -21,6 +23,7 @@ from loguru import logger
 from pytest_httpserver import HTTPServer
 from werkzeug import Request, Response
 
+import permit.logger as permit_logger
 from permit import Permit, PermitConfig
 from permit.enforcement.enforcer import CheckQuery
 from permit.exceptions import PermitApiError, PermitConnectionError
@@ -58,12 +61,13 @@ def _permit_records_enabled() -> bool:
 
 
 @pytest.fixture(autouse=True)
-def isolated_logging() -> Iterator[None]:
+def isolated_logging(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Start as a fresh process does, and put the SdkLogger and loguru's switches back after.
 
     Restoring loguru's switch for "permit" also drops any switch a test set for a module of
     the package.
     """
+    monkeypatch.setattr(permit_logger, "_warned_levels", set())
     was_enabled = _permit_records_enabled()
     saved = vars(sdk_logger).copy()
     vars(sdk_logger).update(vars(SdkLogger()))
@@ -181,6 +185,22 @@ def use_sync_client(permit: SyncPermit) -> None:
         permit.bulk_check(BULK)
 
 
+async def use_client(permit: Permit) -> None:
+    """`use_async_client` or `use_sync_client`, whichever fits the client."""
+    if isinstance(permit, SyncPermit):
+        use_sync_client(permit)
+    else:
+        await use_async_client(permit)
+
+
+async def resolved(result: object) -> object:
+    """The value of an SDK call: awaited for the async client, as is for the blocking one."""
+    return await result if inspect.isawaitable(result) else result
+
+
+CLIENT_CLASSES = [pytest.param(Permit, id="async"), pytest.param(SyncPermit, id="sync")]
+
+
 def assert_api_key_not_logged(
     httpserver: HTTPServer, app_sinks: AppSinks, expected_levels: set[str]
 ) -> None:
@@ -243,23 +263,43 @@ def echo_the_key(request: Request) -> Response:
     return Response(f"rejected key: {request.headers['Authorization']}", status=403)
 
 
-@pytest.mark.parametrize("enabled_by", ["config", "application"])
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
+@pytest.mark.parametrize(
+    ("log", "application_enables", "logs_the_error"),
+    [
+        pytest.param({"enable": True, "level": "trace"}, False, True, id="trace"),
+        pytest.param({"enable": True, "level": "debug"}, False, True, id="debug"),
+        pytest.param({"enable": True, "level": "info"}, False, True, id="info"),
+        pytest.param({"enable": True, "level": "error"}, False, True, id="error"),
+        pytest.param({"enable": True, "level": "critical"}, False, False, id="critical"),
+        pytest.param({"enable": False}, False, False, id="disabled"),
+        # A client created with logging disabled, whose records the application turns on.
+        pytest.param({"enable": False}, True, True, id="disabled-application-enables"),
+    ],
+)
 async def test_an_api_key_the_pdp_echoes_back_is_redacted(
-    httpserver: HTTPServer, app_sinks: AppSinks, enabled_by: str
+    httpserver: HTTPServer,
+    app_sinks: AppSinks,
+    client_class: type[Permit],
+    log: dict[str, Any],
+    *,
+    application_enables: bool,
+    logs_the_error: bool,
 ) -> None:
     httpserver.expect_request("/allowed", method="POST").respond_with_handler(echo_the_key)
-    if enabled_by == "config":
-        permit = Permit(make_config(httpserver, enable=True))
-    else:
-        # A client created with logging disabled, whose records the application turns on.
-        permit = Permit(make_config(httpserver))
+    permit = client_class(make_config(httpserver, **log))
+    if application_enables:
         logger.enable("permit")
 
     with pytest.raises(PermitConnectionError) as raised:
-        await permit.check("user-1", "read", "document")
+        await resolved(permit.check("user-1", "read", "document"))
 
-    [record] = [record for record in app_sinks.sdk_records() if record["level"]["name"] == "ERROR"]
-    assert f"rejected key: Bearer {REDACTED}" in record["message"]
+    errors = [record for record in app_sinks.sdk_records() if record["level"]["name"] == "ERROR"]
+    if logs_the_error:
+        [record] = errors
+        assert f"rejected key: Bearer {REDACTED}" in record["message"]
+    else:
+        assert app_sinks.sdk_records() == []
     assert SENTINEL not in app_sinks.everything()
     # The application gets the body too, in the exception it may log or report.
     assert f"rejected key: Bearer {REDACTED}" in str(raised.value)
@@ -334,38 +374,51 @@ async def test_a_key_with_a_trailing_space_is_redacted_when_echoed_without_it(
         pytest.param({"level": "warn"}, {"WARNING", "ERROR"}, id="warn"),
         pytest.param({"level": "error"}, {"ERROR"}, id="error"),
         pytest.param({"level": "critical"}, set(), id="critical"),
+        pytest.param({"level": "fatal"}, set(), id="fatal"),
     ],
 )
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
 async def test_level_drops_the_sdk_records_below_it(
-    httpserver: HTTPServer, app_sinks: AppSinks, log: dict[str, str], expected_levels: set[str]
+    httpserver: HTTPServer,
+    app_sinks: AppSinks,
+    client_class: type[Permit],
+    log: dict[str, str],
+    expected_levels: set[str],
 ) -> None:
     serve(httpserver)
 
-    await use_async_client(Permit(make_config(httpserver, enable=True, **log)))
+    await use_client(client_class(make_config(httpserver, enable=True, **log)))
     logger.debug("an application record")
 
     assert app_sinks.sdk_levels() == expected_levels
+    # Each name is one loguru knows, or reads as one: none falls back to INFO.
+    assert [r for r in app_sinks.sdk_records() if "Unknown log level" in r["message"]] == []
+    assert SENTINEL not in app_sinks.everything()
     # The application's own records are not the SDK's to filter.
     assert "an application record" in [record["message"] for record in app_sinks.records()]
 
 
+# "²" is a digit to str.isdigit, but not a number int() reads.
+@pytest.mark.parametrize("level", ["verbose", "²"])
 async def test_an_unknown_level_warns_and_logs_at_info(
-    httpserver: HTTPServer, app_sinks: AppSinks
+    httpserver: HTTPServer, app_sinks: AppSinks, level: str
 ) -> None:
     serve(httpserver)
 
-    await use_async_client(Permit(make_config(httpserver, enable=True, level="verbose")))
+    await use_async_client(Permit(make_config(httpserver, enable=True, level=level)))
 
     warnings = [
         record
         for record in app_sinks.sdk_records()
         if record["level"]["name"] == "WARNING"
-        and "Unknown log level 'verbose'" in record["message"]
+        and f"Unknown log level {level!r}" in record["message"]
     ]
     assert len(warnings) == 1
     assert "logs at INFO" in warnings[0]["message"]
     # The same records as with level "info": no DEBUG ones.
     assert app_sinks.sdk_levels() == {"WARNING", "ERROR"}
+    # The label applies on this path too.
+    assert [r for r in app_sinks.sdk_records() if not r["message"].startswith("[Permit] ")] == []
 
 
 def test_the_traceback_of_a_failed_client_creation_hides_the_api_key(
@@ -868,6 +921,14 @@ def test_a_short_token_is_not_redacted_from_the_sdk_s_text() -> None:
     assert redactor.scrub("bad token for permit.check()") == "bad token for permit.check()"
 
 
+def test_a_key_of_12_characters_is_redacted_and_one_of_11_is_not() -> None:
+    redactor = SdkLogger()
+    redactor.redact("a" * 11)
+    redactor.redact("b" * 12)
+
+    assert redactor.scrub(f"{'a' * 11} {'b' * 12}") == f"{'a' * 11} {REDACTED}"
+
+
 @pytest.mark.parametrize("level", ["10", " debug ", "DEBUG"])
 def test_a_numeric_or_padded_level_is_read(
     httpserver: HTTPServer, app_sinks: AppSinks, level: str
@@ -884,7 +945,9 @@ def test_a_numeric_or_padded_level_is_read(
 
 def test_an_unknown_level_is_warned_about_once(httpserver: HTTPServer, app_sinks: AppSinks) -> None:
     for _ in range(3):
-        SyncPermit(make_config(httpserver, enable=True, level="verbose-once"))
+        # The name test_an_unknown_level_warns_and_logs_at_info uses too: each test starts
+        # with no name warned about.
+        SyncPermit(make_config(httpserver, enable=True, level="verbose"))
 
     warnings = [r for r in app_sinks.sdk_records() if "Unknown log level" in r["message"]]
     assert len(warnings) == 1
@@ -1021,3 +1084,78 @@ def test_a_subclass_s_own_connect_method_is_not_called_by_the_sdk(
 
     assert permit.api is not None
     assert permit._connect("x") == "x"
+
+
+def test_an_enabled_client_undoes_only_the_sdk_s_own_disable_once(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    SyncPermit(make_config(httpserver))
+    # Undoes the disable the client above made.
+    SyncPermit(make_config(httpserver, enable=True))
+    logger.disable("permit")
+
+    # The SDK's own disable was undone already: this one keeps the application's.
+    with SyncPermit(make_config(httpserver, enable=True)).wait_for_sync():
+        pass
+
+    assert app_sinks.sdk_records() == []
+
+
+def test_undoing_the_sdk_s_disable_undoes_an_sdk_module_disable_made_before_it(
+    httpserver: HTTPServer, app_sinks: AppSinks
+) -> None:
+    """Loguru's `logger.disable("permit")` drops every switch set for a module of it.
+
+    So does `logger.enable("permit")`, which the enabled client calls to undo it. The
+    README says so.
+    """
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    logger.disable("permit.enforcement")
+    SyncPermit(make_config(httpserver))
+
+    permit = SyncPermit(make_config(httpserver, enable=True, level="debug"))
+    assert permit.check("user-1", "read", "document")
+
+    modules = {record["name"] for record in app_sinks.sdk_records()}
+    assert "permit.enforcement.enforcer" in modules
+
+
+@pytest.mark.parametrize("application_enables", [False, True])
+def test_a_record_loguru_drops_is_not_built_or_scrubbed(
+    httpserver: HTTPServer,
+    app_sinks: AppSinks,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    application_enables: bool,
+) -> None:
+    """With the SDK's logging off, its debug records cost nothing to drop.
+
+    The application may still turn them on itself, and then gets them in full.
+    """
+    httpserver.expect_request("/allowed", method="POST").respond_with_json({"allow": True})
+    calls: list[str] = []
+    real_scrub = sdk_logger.scrub
+
+    def pformat(value: object, **kwargs: Any) -> str:
+        calls.append("pformat")
+        return pprint.pformat(value, **kwargs)
+
+    def scrub(text: str) -> str:
+        calls.append("scrub")
+        return real_scrub(text)
+
+    monkeypatch.setattr("permit.enforcement.enforcer.pformat", pformat)
+    monkeypatch.setattr(sdk_logger, "scrub", scrub)
+    client = SyncPermit(make_config(httpserver))
+    if application_enables:
+        logger.enable("permit")
+
+    assert client.check("user-1", "read", "document")
+
+    if application_enables:
+        [record] = app_sinks.sdk_records()
+        assert record["message"].startswith("permit.check() response:")
+        assert calls == ["pformat", "pformat", "scrub"]
+    else:
+        assert app_sinks.sdk_records() == []
+        assert calls == []

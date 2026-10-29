@@ -209,10 +209,12 @@ class Enforcer:
 
                     content: dict[str, Any] = await response.json()
                     sdk_logger.debug(
-                        f"permit.authorized_users() response:"
-                        f"\ninput: {pformat(request_body, indent=2)}"
-                        f"\nresponse status: {response.status}"
-                        f"\nresponse data: {pformat(content, indent=2)}"
+                        lambda: (
+                            f"permit.authorized_users() response:"
+                            f"\ninput: {pformat(request_body, indent=2)}"
+                            f"\nresponse status: {response.status}"
+                            f"\nresponse data: {pformat(content, indent=2)}"
+                        )
                     )
                     result: AuthorizedUsersResult = parse_obj_as(AuthorizedUsersResult, content)
                     return result
@@ -328,10 +330,12 @@ class Enforcer:
                         raise PermitConnectionError(msg)
                     content: dict[str, Any] = await response.json()
                     sdk_logger.debug(
-                        f"permit.check() response:\n"
-                        f"input: {pformat(request_body, indent=2)}\n"
-                        f"response status: {response.status}\n"
-                        f"response data: {pformat(content, indent=2)}"
+                        lambda: (
+                            f"permit.check() response:\n"
+                            f"input: {pformat(request_body, indent=2)}\n"
+                            f"response status: {response.status}\n"
+                            f"response data: {pformat(content, indent=2)}"
+                        )
                     )
                     data = content.get("allow", content.get("result", {}).get("allow", []))
                     decisions: list[bool] = [bool(item.get("allow", False)) for item in data]
@@ -447,10 +451,12 @@ class Enforcer:
 
                     content: dict[str, Any] = await response.json()
                     sdk_logger.debug(
-                        f"permit.check() response:\n"
-                        f"body: {pformat(body, indent=2)}\n"
-                        f"response status: {response.status}\n"
-                        f"response data: {pformat(content, indent=2)}"
+                        lambda: (
+                            f"permit.check() response:\n"
+                            f"body: {pformat(body, indent=2)}\n"
+                            f"response status: {response.status}\n"
+                            f"response data: {pformat(content, indent=2)}"
+                        )
                     )
                     decision: bool = bool(content.get("allow", False))
                     return decision
@@ -525,9 +531,11 @@ class Enforcer:
                     )
 
                     sdk_logger.debug(
-                        f"permit.get_user_permissions() response:\n"
-                        f"input: {pformat(input_data, indent=2)}\n"
-                        f"response data: {pformat(permissions, indent=2)}"
+                        lambda: (
+                            f"permit.get_user_permissions() response:\n"
+                            f"input: {pformat(input_data, indent=2)}\n"
+                            f"response data: {pformat(permissions, indent=2)}"
+                        )
                     )
                     return permissions
 

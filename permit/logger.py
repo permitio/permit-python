@@ -80,8 +80,9 @@ def configure_logger(config: PermitConfig) -> None:
 
 def _level_no(level: str) -> int | None:
     level = level.strip()
-    # A severity number, as loguru accepts it (pydantic turns `10` into "10").
-    if level.isdigit():
+    # A severity number, as loguru accepts it (pydantic turns `10` into "10"). isdecimal,
+    # not isdigit: it is true for exactly the digits int() reads, and "²" is not one.
+    if level.isdecimal():
         return int(level)
     upper = level.upper()
     # loguru's level names are case-sensitive: try the name as given first, so a level the
