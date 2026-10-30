@@ -30,8 +30,10 @@ import aiohttp
 import pytest
 from aiohttp import http_parser
 from loguru import logger
+from multidict import CIMultiDict, CIMultiDictProxy
 from pytest_httpserver import HTTPServer
 from werkzeug import Request, Response
+from yarl import URL
 
 import permit.logger as permit_logger
 from permit import Permit, PermitConfig
@@ -1097,6 +1099,8 @@ async def test_a_connection_error_holds_no_key_from_the_aiohttp_error_text(
         # The aiohttp error's text is in the message, the key replaced.
         assert f"echo={REDACTED}" in str(error)
         assert_holds_no_key(error)
+        # The key is replaced in the response headers the error keeps, so it is attached.
+        assert isinstance(error.original_error, aiohttp.ContentTypeError)
 
 
 @pytest.mark.parametrize("client_class", CLIENT_CLASSES)
@@ -1401,6 +1405,13 @@ first.__cause__ = second
 second.__cause__ = first
 assert scrub_request_info(first)
 print(first.args[0], second.args[0])
+# A cycle of exceptions the SDK leaves as it is, which it only checks for the key.
+left = ValueError("left")
+left.__cause__ = ValueError("under it")
+left.__cause__.__cause__ = left
+outer = double.raised(aiohttp.ClientError("outer"))
+outer.__cause__ = left
+print(scrub_request_info(outer))
 """
 
 
@@ -1413,7 +1424,7 @@ def test_a_cause_cycle_is_walked_once(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.split() == ["first", REDACTED, "second", REDACTED]
+    assert result.stdout.split() == ["first", REDACTED, "second", REDACTED, "True"]
 
 
 def test_an_error_whose_text_cannot_be_replaced_is_not_attached(httpserver: HTTPServer) -> None:
@@ -1430,6 +1441,46 @@ def test_an_error_whose_text_cannot_be_replaced_is_not_attached(httpserver: HTTP
     assert error.original_error is not original
     assert SENTINEL not in repr(error.original_error)
     assert "could not be removed" in str(error.original_error)
+
+
+class _FixedRequestInfoError(aiohttp.ClientError):
+    """An aiohttp error whose `request_info` can't be replaced, and which its text doesn't show."""
+
+    @property
+    def request_info(self) -> aiohttp.RequestInfo:
+        url = URL("http://127.0.0.1/")
+        headers = CIMultiDictProxy(CIMultiDict({"Authorization": f"Bearer {SENTINEL}"}))
+        return aiohttp.RequestInfo(url, "GET", headers, url)
+
+
+def test_an_error_whose_request_headers_cannot_be_replaced_is_not_attached(
+    httpserver: HTTPServer,
+) -> None:
+    Permit(make_config(httpserver))
+    original = aiohttp_double.raised(_FixedRequestInfoError())
+
+    error = PermitConnectionError("the request failed", error=original)
+
+    assert "could not be removed" in str(error.original_error)
+
+
+@dataclasses.dataclass(frozen=True)
+class _FrozenRequestError(Exception):
+    """An exception that can't be changed, with text and headers that hold no key."""
+
+    detail: str
+    headers: dict[str, str]
+
+
+def test_an_error_without_the_key_is_not_written_to(httpserver: HTTPServer) -> None:
+    Permit(make_config(httpserver))
+    original = aiohttp_double.raised(aiohttp.ClientError("outer"))
+    original.__cause__ = aiohttp_double.raised(_FrozenRequestError("no key", {"X-Id": "1"}))
+
+    error = PermitConnectionError("the request failed", error=original)
+
+    # Nothing is written to it: a write would fail, and the error wouldn't be attached.
+    assert error.original_error is original
 
 
 def raise_(error: BaseException) -> NoReturn:
@@ -1748,6 +1799,29 @@ class _EchoClientError(aiohttp.ClientError):
         self.echo = echo
 
 
+class _ShowsTheKeyError(Exception):
+    """An exception whose text holds the key, which neither its args nor its attributes do."""
+
+    def __str__(self) -> str:
+        return f"shown {SENTINEL}"
+
+
+def key_only_in_the_text_of_an_application_error() -> BaseException:
+    return cast("BaseException", aiohttp_double.calling(lambda: raise_(_ShowsTheKeyError())))
+
+
+class _HidesItsArgsError(Exception):
+    """An exception whose text doesn't show its args."""
+
+    def __str__(self) -> str:
+        return "hidden"
+
+
+def key_only_in_the_args_of_an_application_error() -> BaseException:
+    error = _HidesItsArgsError(f"Bearer {SENTINEL}")
+    return cast("BaseException", aiohttp_double.calling(lambda: raise_(error)))
+
+
 def key_held_under_a_member_of_a_group() -> BaseException:
     # The group is raised within the request, its member by the application.
     member = key_held_under_an_application_error()
@@ -1766,6 +1840,8 @@ def key_held_in_a_member_of_an_application_group() -> BaseException:
         pytest.param(application_error_raised_from_aiohttp, id="a-frame-of-the-applications"),
         pytest.param(application_error_never_raised, id="no-traceback"),
         pytest.param(key_held_under_an_application_error, id="the-key-under-it"),
+        pytest.param(key_only_in_the_text_of_an_application_error, id="the-key-in-its-text"),
+        pytest.param(key_only_in_the_args_of_an_application_error, id="the-key-in-its-args"),
         pytest.param(key_held_under_a_member_of_a_group, id="the-key-under-a-group-member"),
         pytest.param(key_held_in_a_member_of_an_application_group, id="the-key-in-a-group-member"),
     ],
@@ -1821,6 +1897,35 @@ def test_the_exception_the_application_was_handling_does_not_fail_the_scrub(
     assert (repr(vars(handled)), repr(handled.args)) == before
 
 
+def test_the_exception_the_application_was_handling_under_one_left_as_it_is_is_not_checked(
+    httpserver: HTTPServer,
+) -> None:
+    Permit(make_config(httpserver))
+    handled = AppStringHeadersError()
+    try:
+        raise_(handled)
+    except AppStringHeadersError:
+        # Raised outside the request's packages, as an event loop of another package does.
+        left = aiohttp_double.calling(lambda: raise_(ConnectionRefusedError("refused")))
+    assert left.__context__ is handled
+    outer = aiohttp_double.raised(aiohttp.ClientError("outer"))
+    outer.__cause__ = left
+
+    assert scrub_request_info(outer, handled=handled)
+
+
+def test_the_exception_the_application_was_handling_is_left_alone_whatever_its_frames(
+    httpserver: HTTPServer,
+) -> None:
+    Permit(make_config(httpserver))
+    error = aiohttp_double.context_only(SENTINEL)
+    handled = error.__context__
+
+    assert scrub_request_info(error, handled=handled)
+
+    assert handled.args == (f"inner {SENTINEL}",)
+
+
 @pytest.mark.parametrize("client_class", CLIENT_CLASSES)
 async def test_a_content_type_error_that_cannot_be_scrubbed_is_not_chained(
     httpserver: HTTPServer, client_class: type[Permit], monkeypatch: pytest.MonkeyPatch
@@ -1845,6 +1950,29 @@ async def test_a_content_type_error_that_cannot_be_scrubbed_is_not_chained(
         isinstance(chained, aiohttp.ContentTypeError)
         for chained in chained_exceptions(caught.value)
     )
+
+
+@pytest.mark.parametrize("client_class", CLIENT_CLASSES)
+async def test_an_exception_the_application_is_handling_leaves_a_content_type_error_chained(
+    httpserver: HTTPServer, client_class: type[Permit]
+) -> None:
+    httpserver.expect_request("/v2/api-key/scope", method="GET").respond_with_json(
+        {"organization_id": ORG_ID, "project_id": PROJECT_ID, "environment_id": ENV_ID}
+    )
+    httpserver.expect_request(f"{USERS}/user-1", method="GET").respond_with_data(
+        "<html>bad gateway</html>", status=502, content_type="text/html"
+    )
+    permit = client_class(make_config(httpserver))
+    handled = AppStringHeadersError()
+
+    try:
+        raise_(handled)
+    except AppStringHeadersError:
+        with pytest.raises(PermitApiError) as caught:
+            await resolved(permit.api.users.get("user-1"))
+
+    # The application's exception holds the key, but it is the application's.
+    assert isinstance(caught.value.__cause__, aiohttp.ContentTypeError)
 
 
 def test_the_error_the_sdk_caught_is_scrubbed_whatever_its_frames(httpserver: HTTPServer) -> None:
