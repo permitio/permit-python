@@ -2,10 +2,10 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
 import aiohttp
 from aiohttp import ClientTimeout
-from loguru import logger
 
 from permit.api.encoders import jsonable_encoder
 from permit.utils.pydantic_version import PYDANTIC_VERSION
+from permit.utils.sdk_logger import sdk_logger
 
 if TYPE_CHECKING:
     # The v1 API is what runs under either pydantic major, so type-check against it.
@@ -68,10 +68,10 @@ class SimpleHttpClient:
             self._client_config["timeout"] = ClientTimeout(total=timeout)
 
     def _log_request(self, url: str, method: str) -> None:
-        logger.debug(f"Sending HTTP request: {method} {url}")
+        sdk_logger.debug(f"Sending HTTP request: {method} {url}")
 
     def _log_response(self, url: str, method: str, status: int) -> None:
-        logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
+        sdk_logger.debug(f"Received HTTP response: {method} {url}, status: {status}")
 
     def _prepare_json(
         self, json: BaseModel | dict[str, Any] | list[Any] | None = None
@@ -241,7 +241,7 @@ class BasePermitApi:
 
     async def _set_context_from_api_key(self) -> None:
         """Set the API context and permitted access level based on the API key scope."""
-        logger.debug("Fetching api key scope")
+        sdk_logger.debug("Fetching api key scope")
         scope = await self.__api_keys.get("/scope", model=APIKeyScopeRead)
 
         if scope.organization_id is not None:

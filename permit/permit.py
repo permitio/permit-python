@@ -1,9 +1,7 @@
-import json
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Literal
 
-from loguru import logger
 from typing_extensions import Self
 
 from permit.api.api_client import PermitApiClient
@@ -17,9 +15,10 @@ from permit.enforcement.enforcer import (
     User,
 )
 from permit.enforcement.interfaces import AuthorizedUsersResult
-from permit.logger import configure_logger
+from permit.logger import configure_logger, keep_log_settings
 from permit.pdp_api.pdp_api_client import PermitPdpApiClient
 from permit.utils.context import Context
+from permit.utils.sdk_logger import sdk_logger, without_userinfo
 
 
 class Permit:
@@ -39,9 +38,9 @@ class Permit:
         self._api = PermitApiClient(self._config)
         self._elements = ElementsApi(self._config)
         self._pdp_api = PermitPdpApiClient(self._config)
-        logger.debug(
-            "Permit SDK initialized with config:\n${}",
-            json.dumps(self._config.dict(exclude={"api_context"})),
+        sdk_logger.debug(
+            f"Permit SDK initialized: api_url={without_userinfo(self._config.api_url)}, "
+            f"pdp={without_userinfo(self._config.pdp)}"
         )
 
     @property
@@ -81,7 +80,7 @@ class Permit:
             https://docs.permit.io/how-to/manage-data/local-facts-uploader
         """
         if not self._config.proxy_facts_via_pdp:
-            logger.warning(
+            sdk_logger.warning(
                 "Tried to wait for synced facts but proxy_facts_via_pdp is disabled, ignoring..."
             )
             yield self
@@ -90,7 +89,14 @@ class Permit:
         contextualized_config.facts_sync_timeout = timeout
         if policy is not None:
             contextualized_config.facts_sync_timeout_policy = policy
-        yield self.__class__(contextualized_config)
+        # A client of this class, so a subclass's own setup runs, that keeps the process's
+        # log settings: applying this client's again would undo a client created since.
+        token = keep_log_settings.set(True)
+        try:
+            waiting = self.__class__(contextualized_config)
+        finally:
+            keep_log_settings.reset(token)
+        yield waiting
 
     @property
     def api(self) -> PermitApiClient:
