@@ -186,7 +186,16 @@ jobs:
       # permit` -- letting a dev-tool advisory block a security release would
       # be exactly backwards. The dev tree is still rendered in the summary
       # above, and the PR gate does block on it.
+      #
+      # A maintainer can release past this gate by setting the repository variable
+      # RELEASE_SKIP_AUDIT_GATE to "true", and deleting it after that release. The
+      # audit above still runs and its report still goes to the job summary.
+      - name: Note that the gate is skipped
+        if: vars.RELEASE_SKIP_AUDIT_GATE == 'true'
+        run: echo "::warning title=Audit gate skipped::RELEASE_SKIP_AUDIT_GATE is set, so this release did not gate on the audit. Delete the variable after this release."
+
       - name: Gate on HIGH/CRITICAL (runtime dependencies)
+        if: vars.RELEASE_SKIP_AUDIT_GATE != 'true'
         run: |
           set -uo pipefail
           python .github/scripts/format_audit.py \
