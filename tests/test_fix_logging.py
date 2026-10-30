@@ -6,7 +6,9 @@ loguru's default format, read through capsys, and a serialized (JSON) sink. Ever
 served by a local pytest_httpserver.
 """
 
+import builtins
 import dataclasses
+import importlib
 import inspect
 import json
 import os
@@ -1731,12 +1733,41 @@ def key_held_under_an_application_error() -> BaseException:
     return cast("BaseException", middle)
 
 
+# A builtin from Python 3.11; on Python 3.10, the backport that pytest depends on there.
+EXCEPTION_GROUP: Any = (
+    getattr(builtins, "ExceptionGroup", None)
+    or importlib.import_module("exceptiongroup").ExceptionGroup
+)
+
+
+class _EchoClientError(aiohttp.ClientError):
+    """An aiohttp error with text in an attribute of its own, which its repr doesn't show."""
+
+    def __init__(self, echo: str) -> None:
+        super().__init__("echo")
+        self.echo = echo
+
+
+def key_held_under_a_member_of_a_group() -> BaseException:
+    # The group is raised within the request, its member by the application.
+    member = key_held_under_an_application_error()
+    return cast("BaseException", aiohttp_double.raised(EXCEPTION_GROUP("group", [member])))
+
+
+def key_held_in_a_member_of_an_application_group() -> BaseException:
+    member = aiohttp_double.raised(_EchoClientError(f"Bearer {SENTINEL}"))
+    group = EXCEPTION_GROUP("the application's", [member])
+    return cast("BaseException", aiohttp_double.calling(lambda: raise_(group)))
+
+
 @pytest.mark.parametrize(
     "under",
     [
         pytest.param(application_error_raised_from_aiohttp, id="a-frame-of-the-applications"),
         pytest.param(application_error_never_raised, id="no-traceback"),
         pytest.param(key_held_under_an_application_error, id="the-key-under-it"),
+        pytest.param(key_held_under_a_member_of_a_group, id="the-key-under-a-group-member"),
+        pytest.param(key_held_in_a_member_of_an_application_group, id="the-key-in-a-group-member"),
     ],
 )
 def test_an_error_that_is_not_the_requests_is_left_as_it_is_and_fails_the_scrub(
@@ -1751,6 +1782,25 @@ def test_an_error_that_is_not_the_requests_is_left_as_it_is_and_fails_the_scrub(
 
     after = [(repr(vars(chained)), repr(chained.args)) for chained in chained_exceptions(outer)]
     assert after == before
+
+
+def test_the_members_of_an_exception_group_under_an_aiohttp_error_are_scrubbed(
+    httpserver: HTTPServer,
+) -> None:
+    Permit(make_config(httpserver))
+    member = aiohttp_double.raised(_EchoClientError(f"Bearer {SENTINEL}"))
+    member.__cause__ = aiohttp_double.raised(ValueError(f"under the member {SENTINEL}"))
+    outer = aiohttp_double.raised(aiohttp.ClientError("outer"))
+    outer.__cause__ = aiohttp_double.raised(EXCEPTION_GROUP("group", [member]))
+
+    error = PermitConnectionError("the request failed", error=outer)
+
+    assert error.original_error is outer
+    assert member.echo == f"Bearer {REDACTED}"
+    assert member.__cause__.args == (f"under the member {REDACTED}",)
+    # A traceback shows every member of a group, and what is chained under each.
+    shown = "".join(traceback.format_exception(outer))
+    assert [key for key in SENTINEL_SPELLINGS if key in shown] == []
 
 
 def test_the_exception_the_application_was_handling_does_not_fail_the_scrub(
