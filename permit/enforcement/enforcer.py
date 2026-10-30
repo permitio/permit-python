@@ -1,4 +1,5 @@
 import json
+import sys
 from http import HTTPStatus
 from pprint import pformat
 from typing import TYPE_CHECKING, Any, Union
@@ -168,6 +169,7 @@ class Enforcer:
             "context": query_context,
         }
 
+        handled = sys.exc_info()[1]  # the application's, if any: left as it is
         async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             check_url = f"{self._base_url}/authorized_users"
             try:
@@ -231,8 +233,10 @@ class Enforcer:
                     f"{self._shown_pdp_url} and accepting requests.\n "
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
-                error = PermitConnectionError(msg, error=err)
-                raise error from error.original_error
+                error = PermitConnectionError(msg, error=err, handled=handled)
+            # Raised after the `except` block, so `err` isn't its context when it isn't
+            # attached.
+            raise error from error.original_error
 
     async def bulk_check(
         self,
@@ -303,6 +307,7 @@ class Enforcer:
                 }
             )
 
+        handled = sys.exc_info()[1]  # the application's, if any: left as it is
         async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             check_url = f"{self._base_url}/allowed/bulk"
             try:
@@ -354,9 +359,12 @@ class Enforcer:
                     err,
                 )
                 sdk_logger.error(msg)
-                error = PermitConnectionError(msg, error=err)
-                raise error from error.original_error
-            return decisions
+                error = PermitConnectionError(msg, error=err, handled=handled)
+            else:
+                return decisions
+            # Raised after the `except` block, so `err` isn't its context when it isn't
+            # attached.
+            raise error from error.original_error
 
     async def check(
         self,
@@ -409,6 +417,7 @@ class Enforcer:
             "resource": normalized_resource.dict(exclude_unset=True),
             "context": query_context,
         }
+        handled = sys.exc_info()[1]  # the application's, if any: left as it is
         async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             check_url = f"{self._base_url}/allowed"
             try:
@@ -474,8 +483,10 @@ class Enforcer:
                     f"running at {self._shown_pdp_url} and accepting requests. \n"
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
-                error = PermitConnectionError(msg, error=err)
-                raise error from error.original_error
+                error = PermitConnectionError(msg, error=err, handled=handled)
+            # Raised after the `except` block, so `err` isn't its context when it isn't
+            # attached.
+            raise error from error.original_error
 
     async def get_user_permissions(
         self,
@@ -505,6 +516,7 @@ class Enforcer:
             "resource_types": resource_types,
         }
 
+        handled = sys.exc_info()[1]  # the application's, if any: left as it is
         async with aiohttp.ClientSession(headers=self._headers, **self._timeout_config) as session:
             url = f"{self._base_url}/user-permissions"
             try:
@@ -547,8 +559,10 @@ class Enforcer:
                     f"running at {self._shown_pdp_url} and accepting requests. \n"
                     f"Read more about setting up the PDP at {SETUP_PDP_DOCS_LINK}"
                 )
-                error = PermitConnectionError(msg, error=err)
-                raise error from error.original_error
+                error = PermitConnectionError(msg, error=err, handled=handled)
+            # Raised after the `except` block, so `err` isn't its context when it isn't
+            # attached.
+            raise error from error.original_error
 
     async def filter_objects(
         self, user: User, action: Action, context: Context, resources: list[dict[str, Any]]

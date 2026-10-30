@@ -1,5 +1,6 @@
 import functools
 import json as json_module
+import sys
 import warnings
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from http import HTTPStatus
@@ -54,12 +55,20 @@ with warnings.catch_warnings():
         with a changelog entry, not in a dependency-security patch.
         """
 
-        def __init__(self, message: object, *, error: aiohttp.ClientError | None = None) -> None:
+        def __init__(
+            self,
+            message: object,
+            *,
+            error: aiohttp.ClientError | None = None,
+            handled: BaseException | None = None,
+        ) -> None:
             # Every raise site builds its message from response bodies and aiohttp error
             # text, so the key is replaced here, once, rather than at each of them. The
             # class is public, and a message that isn't a string is kept as it is.
+            # `handled` is the exception the application was handling when it called the
+            # SDK (see `scrub_request_info`).
             super().__init__(sdk_logger.scrub(message) if isinstance(message, str) else message)
-            if error is not None and not scrub_request_info(error):
+            if error is not None and not scrub_request_info(error, handled=handled):
                 # Fail closed: an error the key could not be removed from is not attached.
                 # The SDK raises this exception `from original_error`, so it is not the
                 # cause either.
@@ -98,6 +107,8 @@ class PermitApiError(PermitError):
         body: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
+        # The result isn't needed: on a `ClientResponse` the scrub writes only
+        # `_request_info` and its cache, a plain attribute and a dict, so it can't fail.
         scrub_request_info(response)
         self._response = response
         self._body = body
@@ -292,9 +303,9 @@ def _raised_in_the_request(error: BaseException) -> bool:
     """Whether `error` was raised and caught within the SDK's request.
 
     That is, whether every frame of its traceback is in one of `_REQUEST_PACKAGES`. An
-    exception the application raised or caught has a frame of the application's: one it
-    was handling when it called the SDK, which aiohttp's errors keep as their
-    `__context__`, or one it built and passed in. The SDK never changes such an exception.
+    exception the application raised or caught has a frame of the application's, so the
+    SDK doesn't change it. So does an error raised in a library missing from the list,
+    which `_scrub_chain` then checks for a key instead.
     """
     frame = error.__traceback__
     if frame is None:
@@ -307,24 +318,65 @@ def _raised_in_the_request(error: BaseException) -> bool:
     return True
 
 
-def _chain(error: BaseException) -> list[BaseException]:
-    """`error` and the exceptions reachable from it through `__cause__` and `__context__`.
+def _chained(error: BaseException) -> list[BaseException | None]:
+    return [error.__cause__, error.__context__]
 
-    Only exceptions raised in the request are kept, and the walk does not go past any
-    other: below the application's exception is the application's own history.
+
+def _chain(
+    error: BaseException, handled: BaseException | None
+) -> tuple[list[BaseException], list[BaseException]]:
+    """The exceptions reachable from `error` through `__cause__` and `__context__`.
+
+    Returns them in two lists: those to scrub, which are `error`, the one the SDK caught,
+    and those under it raised in the request; and the others under it, which are left as
+    they are and which the walk doesn't go past. `handled` and what is chained under it
+    are in neither: they are the application's.
     """
-    chain: list[BaseException] = []
-    seen: set[int] = set()
-    pending: list[BaseException | None] = [error]
+    scrub: list[BaseException] = [error]
+    left: list[BaseException] = []
+    seen: set[int] = {id(error)}
+    if handled is not None:
+        seen.add(id(handled))
+    pending = _chained(error)
     while pending:
         current = pending.pop()
         if current is None or id(current) in seen:
             continue
         seen.add(id(current))
         if _raised_in_the_request(current):
-            chain.append(current)
-            pending += [current.__cause__, current.__context__]
-    return chain
+            scrub.append(current)
+            pending += _chained(current)
+        else:
+            left.append(current)
+    return scrub, left
+
+
+# Text a builtin exception keeps in fields of its own, outside `__dict__` and `args`: a
+# `UnicodeError`'s `object`, an `OSError`'s file names and `strerror`, a `SyntaxError`'s
+# `text`.
+_BUILTIN_TEXT_FIELDS = ("object", "filename", "filename2", "strerror", "text")
+
+
+def _holds_key(error: BaseException) -> bool:
+    """Whether the text `error` keeps or shows holds a registered key."""
+    shown = [str(error), repr(error.args), repr(getattr(error, "__dict__", {}))]
+    shown += [repr(getattr(error, name)) for name in _BUILTIN_TEXT_FIELDS if hasattr(error, name)]
+    return any(sdk_logger.scrub(text) != text for text in shown)
+
+
+def _below(errors: list[BaseException], handled: BaseException | None) -> list[BaseException]:
+    """`errors` and everything chained under them, `handled` and what is under it apart."""
+    found: list[BaseException] = []
+    seen: set[int] = set() if handled is None else {id(handled)}
+    pending: list[BaseException | None] = list(errors)
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        found.append(current)
+        pending += _chained(current)
+    return found
 
 
 def _scrubbed_value(value: object) -> object:
@@ -381,7 +433,7 @@ def _scrub_error_text(error: BaseException) -> bool:
     return scrubbed
 
 
-def scrub_request_info(holder: object) -> bool:
+def scrub_request_info(holder: object, *, handled: BaseException | None = None) -> bool:
     """Replace every client's API key in the request headers and error text `holder` keeps.
 
     aiohttp keeps the request's headers, `Authorization` included, on a
@@ -393,28 +445,38 @@ def scrub_request_info(holder: object) -> bool:
     chained under it. The SDK puts such objects in the exceptions it raises
     (`original_error`, `response`, the exception's cause), so it scrubs them first.
 
-    Only what was raised within the request is changed (see `_raised_in_the_request`),
-    and only values that hold a key. A `ClientResponse`'s own URL, headers and body, and
-    values that aren't text, such as a parsed HTTP message, are left as they are.
+    Only values that hold a key are changed, in the error itself and in what was raised
+    within the request under it (see `_raised_in_the_request`). `handled`, the exception
+    the application was handling when it called the SDK, which aiohttp's errors keep as
+    their `__context__`, is left as it is, and so is everything chained under it. So are
+    a `ClientResponse`'s own URL, headers and body, and values that aren't text, such as a
+    parsed HTTP message.
 
     Args:
         holder: An aiohttp response or client error.
+        handled: The exception the application was handling when it called the SDK.
 
     Returns:
-        False if a value that holds a key could not be replaced; it never raises.
+        False if the key may still be in what `holder` keeps: a value that holds it could
+        not be replaced, or an exception left as it is holds it. It never raises.
     """
     try:
-        return _scrub_chain(holder) if isinstance(holder, BaseException) else _scrub_holder(holder)
+        if isinstance(holder, BaseException):
+            return _scrub_chain(holder, handled)
+        return _scrub_holder(holder)
     except Exception:  # noqa: BLE001 - a scrub that fails is reported, never raised
         return False
 
 
-def _scrub_chain(error: BaseException) -> bool:
+def _scrub_chain(error: BaseException, handled: BaseException | None) -> bool:
     scrubbed = True
+    to_scrub, left = _chain(error, handled)
     # Every one is scrubbed, even after one that could not be.
-    for chained in _chain(error):
+    for chained in to_scrub:
         scrubbed &= _scrub_holder(chained)
-    return scrubbed
+    # The key can still be where no write reaches: in text kept outside `__dict__` (a
+    # `UnicodeError`'s `object`), or in an exception left as it is, or under one.
+    return scrubbed and not any(_holds_key(shown) for shown in [*to_scrub, *_below(left, handled)])
 
 
 def _scrub_holder(holder: object) -> bool:
@@ -461,20 +523,26 @@ async def _error_json(response: aiohttp.ClientResponse) -> Any:  # noqa: ANN401 
     Raises:
         PermitApiError: When the body is not JSON, whatever its Content-Type says.
     """
+    handled = sys.exc_info()[1]
+    cause: aiohttp.ContentTypeError | None = None
     try:
         # The body is scrubbed before it is parsed too, so a decode error's `doc` never
         # holds the key.
         return _scrubbed(await response.json(loads=_scrubbed_loads))
     except aiohttp.ContentTypeError as e:
         # Not chained to an error the key could not be removed from.
-        cause = e if scrub_request_info(e) else None
-        raise PermitApiError(response, {"details": await _scrubbed_text(response)}) from cause
+        if scrub_request_info(e, handled=handled):
+            cause = e
     except ValueError:
         # Labelled JSON but not JSON, such as a proxy's error page or a truncated body.
-        # A UnicodeDecodeError keeps the raw bytes, so the decode error isn't chained:
-        # raised after this block, it isn't the new exception's context either.
-        error = PermitApiError(response, {"details": await _scrubbed_text(response)})
-    raise error
+        # A UnicodeDecodeError keeps the raw bytes, so the decode error isn't chained.
+        pass
+    # Raised after the `except` blocks, so the error caught there isn't the new
+    # exception's context.
+    error = PermitApiError(response, {"details": await _scrubbed_text(response)})
+    if cause is None:
+        raise error
+    raise error from cause
 
 
 async def handle_api_error(response: aiohttp.ClientResponse) -> None:
@@ -529,12 +597,15 @@ def handle_client_error(
 
     @functools.wraps(func)
     async def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
+        handled = sys.exc_info()[1]
         try:
             return await func(*args, **kwargs)
         except aiohttp.ClientError as err:
             sdk_logger.error(f"got client error while sending an http request:\n{err}")
             msg = f"{err}"
-            error = PermitConnectionError(msg, error=err)
-            raise error from error.original_error
+            error = PermitConnectionError(msg, error=err, handled=handled)
+        # Raised after the `except` block, so `err` isn't its context when it isn't
+        # attached.
+        raise error from error.original_error
 
     return wrapped
