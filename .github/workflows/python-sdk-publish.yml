@@ -191,7 +191,7 @@ jobs:
       # RELEASE_SKIP_AUDIT_GATE to that release's exact tag (for example v3.0.1), so a
       # value left behind can't affect a later release. Unset, it never equals a tag and
       # the gate runs. Delete it after the release. This skips every check --gate makes,
-      # including the one that refuses an empty or unparseable scanner report. The audit
+      # including the one that refuses an empty or unparsable scanner report. The audit
       # above still runs and its report still goes to the job summary.
       - name: Note that the gate is skipped
         if: vars.RELEASE_SKIP_AUDIT_GATE == github.event.release.tag_name
