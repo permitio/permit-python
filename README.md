@@ -21,6 +21,37 @@ every breaking change, who it affects and what to change. To have an AI agent su
 do the upgrade, use the
 [permit-python-3-migration skill](https://github.com/permitio/permit-python/tree/main/skills/permit-python-3-migration).
 
+## Groups
+
+`permit.api.groups` manages groups. A group is a resource instance, of the `group` resource
+type unless you name another, whose members inherit the roles granted to the group:
+
+```py
+groups = permit.api.groups
+await groups.create({"group_instance_key": "engineering", "group_tenant": "default"})
+await groups.assign_user("engineering", "alice", tenant="default")
+await groups.assign_role(
+    "engineering",
+    {"role": "editor", "resource": "document", "resource_instance": "readme", "tenant": "default"},
+)
+# Allowed once the PDP has the change, if the editor role grants "edit" on documents:
+await permit.check("alice", "edit", {"type": "document", "key": "readme", "tenant": "default"})
+```
+
+- A role granted to a group is a resource role on one resource instance. Members get it
+  through ReBAC role derivation over the group instance, so `permit.check()` allows it on
+  that instance. It is not a tenant-wide (RBAC) role.
+- A method's first argument, `group_instance_key`, takes the group's instance id,
+  `"<type>:<key>"` such as `"group:engineering"` or `"team:engineering"`, or the key alone
+  (`"engineering"`), which finds only groups of the `group` resource type.
+- `assign_group("group:leads", {"group_instance_key": "engineering"})` makes the members of
+  `leads` members of `engineering`, so they get the roles granted to `engineering`. The
+  members of `engineering` get nothing from `leads`. `remove_group()` undoes it. Both groups
+  must be of the same resource type, and the second argument names its group by instance id
+  or by key alone, never `"<type>:<key>"`.
+- The other methods are `list()`, `get()`, `delete()`, `remove_user()` and `remove_role()`.
+  The blocking client, `permit.sync.Permit`, has the same methods.
+
 ## Type checking
 
 The package ships a `py.typed` marker (PEP 561), so mypy, pyright and IDEs check your

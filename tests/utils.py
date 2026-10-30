@@ -1,6 +1,9 @@
+import asyncio
 import json
+import time
 import uuid
-from typing import Any, NamedTuple
+from collections.abc import Awaitable, Callable
+from typing import Any, NamedTuple, TypeVar
 
 import pytest
 from loguru import logger
@@ -97,6 +100,33 @@ def handle_cleanup_error(error: PermitApiError, message: str) -> None:
         )
         return
     handle_api_error(error, message)
+
+
+async def delete_quietly(delete: Callable[[], Awaitable[None]], description: str) -> None:
+    """Delete one object at teardown. A 404 means it is already gone, which is the goal."""
+    try:
+        await delete()
+    except PermitApiError as error:
+        handle_cleanup_error(error, f"could not delete {description}")
+
+
+T = TypeVar("T")
+
+
+async def poll_for(
+    fetch: Callable[[], Awaitable[T]], expected: T, *, timeout: float, interval: float
+) -> T:
+    """Poll ``fetch`` every ``interval`` seconds until it returns ``expected``.
+
+    It stops after ``timeout`` seconds. The last answer is returned either way, so the
+    caller's assertion reports the value it got.
+    """
+    deadline = time.monotonic() + timeout
+    answer = await fetch()
+    while answer != expected and time.monotonic() < deadline:
+        await asyncio.sleep(interval)
+        answer = await fetch()
+    return answer
 
 
 def unique_key(prefix: str) -> str:
