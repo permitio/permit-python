@@ -319,13 +319,23 @@ def _raised_in_the_request(error: BaseException) -> bool:
 
 
 def _chained(error: BaseException) -> list[BaseException | None]:
-    return [error.__cause__, error.__context__]
+    """The exceptions right under `error`: its cause and context, and a group's members.
+
+    A traceback shows every member of an exception group, and what is chained under each.
+    The members are read from `exceptions`, which the exception groups of the backport for
+    Python 3.10 have too.
+    """
+    chained: list[BaseException | None] = [error.__cause__, error.__context__]
+    members = getattr(error, "exceptions", None)
+    if isinstance(members, tuple):
+        chained += [member for member in members if isinstance(member, BaseException)]
+    return chained
 
 
 def _chain(
     error: BaseException, handled: BaseException | None
 ) -> tuple[list[BaseException], list[BaseException]]:
-    """The exceptions reachable from `error` through `__cause__` and `__context__`.
+    """The exceptions reachable from `error`, one `_chained` step at a time.
 
     Returns them in two lists: those to scrub, which are `error`, the one the SDK caught,
     and those under it raised in the request; and the others under it, which are left as

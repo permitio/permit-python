@@ -77,12 +77,12 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
   - the messages of the exceptions it raises, and the error bodies in them
     (`PermitApiError.details`);
   - the aiohttp response or error those exceptions carry (`original_error`, `response`,
-    the cause), and the exceptions chained under that error that aiohttp and the
-    libraries it uses raised during the request: the request headers they keep, the
-    request headers of the redirect responses in their `history`, and each error's
-    arguments and attributes that are strings or bytes (such as its message), the
-    response headers it keeps, and the URL of an invalid-URL error (`InvalidURL.url`,
-    which then becomes a string).
+    the cause), and the exceptions chained under that error (as a cause or a context, or
+    as a member of an exception group) that aiohttp and the libraries it uses raised
+    during the request: the request headers they keep, the request headers of the
+    redirect responses in their `history`, and each error's arguments and attributes
+    that are strings or bytes (such as its message), the response headers it keeps, and
+    the URL of an invalid-URL error (`InvalidURL.url`, which then becomes a string).
 
   The SDK never changes an exception it did not raise during the request, such as one
   your application was handling when it called the SDK, which aiohttp keeps in its
