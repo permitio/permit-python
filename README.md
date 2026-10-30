@@ -86,9 +86,11 @@ permit = Permit(token="<YOUR_API_KEY>", log={"enable": True, "level": "debug"})
 
   The SDK never changes an exception it did not raise during the request, such as one
   your application was handling when it called the SDK, which aiohttp keeps in its
-  error's chain. If the key cannot be removed from the aiohttp error, the SDK attaches a
-  plain `aiohttp.ClientError` that says so in its place, as `original_error` and as the
-  cause.
+  error's chain. If the key cannot be removed from the aiohttp error or an exception
+  under it, or is still in one under it that the SDK leaves as it is (other than the one
+  your application was handling), a `PermitConnectionError` carries a plain
+  `aiohttp.ClientError` that says so in its place, as `original_error` and as the cause,
+  and a `PermitApiError` for an error body that isn't JSON has no cause.
 
   It does not replace the key elsewhere: not in values that are neither text nor a URL,
   such as a parsed HTTP message; not in request URLs (`PermitApiError.request_url`, the
