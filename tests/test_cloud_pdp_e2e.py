@@ -10,20 +10,17 @@ RBAC decides on the resource type and tenant alone, so the resources these tests
 about need not exist as resource instances.
 """
 
-import asyncio
 import functools
 import os
-import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from typing import Any, Final, TypeVar
+from typing import Any, Final
 
 import pytest
 
 from permit import Permit
-from permit.exceptions import PermitApiError
-from tests.utils import handle_cleanup_error, unique_key
+from tests.utils import delete_quietly, poll_for, unique_key
 
 CLOUD_PDP_URL: Final[str] = "https://cloudpdp.api.permit.io"
 
@@ -58,32 +55,11 @@ DENIED_ACTION: Final[str] = "write"
 PROPAGATION_TIMEOUT: Final[float] = 120.0
 POLL_INTERVAL: Final[float] = 1.0
 
-T = TypeVar("T")
-
-
-async def settled(fetch: Callable[[], Awaitable[T]], expected: T) -> T:
-    """Poll ``fetch`` until it returns ``expected``, for up to PROPAGATION_TIMEOUT seconds.
-
-    An answer that includes an allow is polled for rather than asserted once: the cloud
-    PDP applies writes asynchronously, and one answer that reflects a write does not
-    guarantee the next one will. A deny is asserted once, since no stage of propagation
-    turns it into an allow. The last answer is returned either way, so the caller's
-    assertion reports the value the PDP gave.
-    """
-    deadline = time.monotonic() + PROPAGATION_TIMEOUT
-    answer = await fetch()
-    while answer != expected and time.monotonic() < deadline:
-        await asyncio.sleep(POLL_INTERVAL)
-        answer = await fetch()
-    return answer
-
-
-async def delete_quietly(delete: Callable[[], Awaitable[None]], description: str) -> None:
-    """Delete one object at teardown. A 404 means it is already gone, which is the goal."""
-    try:
-        await delete()
-    except PermitApiError as error:
-        handle_cleanup_error(error, f"could not delete {description}")
+# An answer that includes an allow is polled for rather than asserted once: the cloud PDP
+# applies writes asynchronously, and one answer that reflects a write does not guarantee
+# the next one will. A deny is asserted once, since no stage of propagation turns it into
+# an allow.
+settled = functools.partial(poll_for, timeout=PROPAGATION_TIMEOUT, interval=POLL_INTERVAL)
 
 
 @dataclass(frozen=True)

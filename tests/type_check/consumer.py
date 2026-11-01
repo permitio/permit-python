@@ -15,6 +15,11 @@ from permit import Permit, PermitApiError, PermitConfig, UserCreate, UserInput, 
 from permit.api.elements import UserLoginAsResponse
 from permit.api.models import (
     BulkRoleAssignmentReport,
+    GroupAddRole,
+    GroupCreate,
+    GroupRead,
+    GroupReadSchema,
+    PaginatedResultGroupReadSchema,
     PaginatedResultUserRead,
     RoleAssignmentCreate,
     RoleAssignmentRead,
@@ -101,6 +106,14 @@ async def async_client() -> None:
         BulkRoleAssignmentReport,
     )
     await permit.api.users.sync({"key": "u", "email": "u@example.com"})
+    assert_type(
+        await permit.api.groups.create({"group_instance_key": "eng", "group_tenant": "t1"}),
+        GroupRead,
+    )
+    assert_type(await permit.api.groups.get("group:eng"), GroupReadSchema)
+    group_role = GroupAddRole(role="editor", resource="doc", resource_instance="d1", tenant="t1")
+    assert_type(await permit.api.groups.assign_role("eng", group_role), GroupRead)
+    await permit.api.groups.remove_role("eng", group_role)
 
     # A list built before a bulk call is accepted too, whether of models or of dicts.
     users = [UserCreate(key=key) for key in ("u4", "u5")]
@@ -137,6 +150,7 @@ def dict_parameters(query: CheckQuery) -> None:
     assert_type(parameter_type(permit.api.users.sync), UserCreate | dict[str, Any])
     assert_type(parameter_type(sync_permit.api.users.sync), UserCreate | dict[str, Any])
     assert_type(parameter_type(sync_permit.api.create_tenant), TenantCreate | dict[str, Any])
+    assert_type(parameter_type(sync_permit.api.groups.create), GroupCreate | dict[str, Any])
 
 
 def sync_client() -> None:
@@ -154,6 +168,11 @@ def sync_client() -> None:
     users: list[UserCreate] = [UserCreate(key="u5")]
     permit.api.users.bulk_replace(users)
     assert_type(permit.api.get_user("u"), UserRead)
+    assert_type(permit.api.groups.list(), PaginatedResultGroupReadSchema)
+    assert_type(permit.api.groups.assign_user("eng", "u", "t1"), GroupRead)
+    assert_type(
+        permit.api.groups.assign_group("group:leads", {"group_instance_key": "eng"}), GroupRead
+    )
     assert_type(permit.elements.login_as("u", "t1"), UserLoginAsResponse)
     pdp_role_assignments: SyncRoleAssignmentsApi = permit.pdp_api.role_assignments
     assert_type(pdp_role_assignments.list(), list[RoleAssignment])
