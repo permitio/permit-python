@@ -437,6 +437,15 @@ async def test_permission_check_e2e(
         print_break()
 
         logger.info("testing list role assignments")
+
+        # The PDP's list of role assignments can trail its decisions, so poll for it too.
+        async def assignment_listed() -> bool:
+            listed = await permit.pdp_api.role_assignments.list(
+                user_key=user.key, tenant_key=tenant.key
+            )
+            return len(listed) == 1
+
+        await wait_until(assignment_listed, f"the PDP to list the role assignment of '{user.key}'")
         # scoped to this test's user and tenant: the environment is shared, so
         # the unfiltered list contains every other test's assignments too.
         assignments_returned: list[RoleAssignment] = await permit.pdp_api.role_assignments.list(
@@ -490,6 +499,15 @@ async def test_permission_check_e2e(
 
         print_break()
         logger.info("testing get authorized users")
+
+        # The PDP's authorized-users answer can trail its decisions, so poll for it too.
+        async def user_authorized() -> bool:
+            answer = await permit.authorized_users(
+                RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
+            )
+            return user.key in answer.users
+
+        await wait_until(user_authorized, f"the PDP to list '{user.key}' as authorized")
         authorized_users = await permit.authorized_users(
             RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
         )
@@ -699,6 +717,15 @@ async def test_local_facts_uploader_permission_check_e2e(
 
             print_break()
             logger.info("testing get authorized users")
+
+            # The PDP's authorized-users answer can trail its decisions, so poll for it too.
+            async def user_authorized() -> bool:
+                answer = await permit.authorized_users(
+                    RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
+                )
+                return user.key in answer.users
+
+            await wait_until(user_authorized, f"the PDP to list '{user.key}' as authorized")
             authorized_users = await permit.authorized_users(
                 RESOURCE_CREATE_ACTION, {"type": document.key, "tenant": tenant.key}
             )

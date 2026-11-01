@@ -6,9 +6,9 @@ on:
   # a required check that never runs as perpetually pending rather than
   # passing, so a path filter here would block every PR that happens not to
   # touch a dependency file. The audit takes under two minutes, which is
-  # cheaper than that failure mode.
+  # cheaper than that failure mode. Not base-filtered either: a stacked PR,
+  # whose base is another PR's branch, gets the same checks before it merges.
   pull_request:
-    branches: [main, master]
   # Run on every merge to main too, so a regression is surfaced immediately
   # (failed run on main) rather than waiting for the next PR to trip over it.
   # No PR comment is posted on push; the job summary carries the detail.
