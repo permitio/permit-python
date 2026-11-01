@@ -36,10 +36,12 @@ updates:
       semver-major-days: 14
     groups:
       # Listed first, since a dependency joins the first group it matches. A new
-      # lint rule or type-check error in one of these must not hold up the
-      # runtime floor bumps grouped below, so they get a PR of their own.
+      # lint rule or type-check error in one of these, or a prek release that
+      # changes how the hooks run (prek is 0.x, where a minor release may break),
+      # must not hold up the runtime floor bumps grouped below, so they get a PR
+      # of their own.
       lint-tools:
-        patterns: ["ruff", "mypy", "typos"]
+        patterns: ["ruff", "mypy", "typos", "prek"]
       minor-and-patch:
         update-types: ["minor", "patch"]
     ignore:
@@ -77,12 +79,13 @@ updates:
     labels:
       - "dependencies"
 
-  # pre-commit hook revisions in .pre-commit-config.yaml. Dependabot follows the
-  # `# frozen: vX` comment on SHA-pinned revs and rewrites the SHA and the
-  # comment together. `repo: local` hooks (ruff, mypy, typos, uv-lock) are
-  # skipped: ruff, mypy and typos come from uv.lock, which the "uv" entry above
-  # maintains, and uv-lock runs the uv on PATH. Only `default-days` cooldown is
-  # supported for this ecosystem.
+  # Hook revisions in .pre-commit-config.yaml. The ecosystem is named after
+  # pre-commit, but Dependabot only reads and rewrites that file, so it works
+  # the same with prek. Dependabot follows the `# frozen: vX` comment on
+  # SHA-pinned revs and rewrites the SHA and the comment together. `repo: local`
+  # hooks (ruff, mypy, typos, uv-lock) are skipped: ruff, mypy and typos come
+  # from uv.lock, which the "uv" entry above maintains, and uv-lock runs the uv
+  # on PATH. Only `default-days` cooldown is supported for this ecosystem.
   - package-ecosystem: "pre-commit"
     directory: "/"
     schedule:
