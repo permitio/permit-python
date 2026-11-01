@@ -126,7 +126,7 @@ dev = [
     # across the six advisories that affected the old >=2.3.8 floor
     # (CVE-2024-34069, CVE-2024-49766, CVE-2024-49767, CVE-2025-66221,
     # CVE-2026-21860, CVE-2026-27199).
-    "werkzeug==3.1.8",
+    "werkzeug==3.1.9",
 ]
 # The SDK supports both pydantic majors (permit/utils/pydantic_version.py), and
 # CI runs the suite once per major. Each lane is a group so both resolutions
